@@ -1,6 +1,6 @@
 //===--- HIRFramework.h - public interface of HIR framework ---*-- C++ --*-===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -123,6 +123,8 @@ private:
   // Latest requested symbase.
   unsigned MaxSymbase;
 
+  std::optional<bool> FunctionHasIrreducibleCFG;
+
   struct MaxTripCountEstimator;
 
   void estimateMaxTripCounts();
@@ -150,6 +152,8 @@ public:
   void verify() const;
 
   DominatorTree &getDomTree() { return DT; }
+
+  LoopInfo &getLoopInfo() { return LI; }
 
   ScopedScalarEvolution &getScopedSE() { return RI.getScopedSE(); }
 
@@ -217,6 +221,8 @@ public:
   OptReportBuilder &getORBuilder() { return ORBuilder; }
 
   HIRAnalysisProvider &getHIRAnalysisProvider() { return AnalysisProvider; }
+
+  bool functionHasIrreducibleCFG();
 };
 
 class HIRFrameworkAnalysis : public AnalysisInfoMixin<HIRFrameworkAnalysis> {

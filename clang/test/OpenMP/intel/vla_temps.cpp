@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
 // RUN: -fopenmp-stable-file-id -triple x86_64-unknown-linux-gnu \
 // RUN: -emit-llvm %s -o - | FileCheck %s
 //

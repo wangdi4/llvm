@@ -1,6 +1,6 @@
 //===- AddFunctionAttrs.cpp - Add function attributes -----------*- C++ -*-===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -107,6 +107,43 @@ static bool handleSyncBuiltinAttributes(Module &M) {
   return true;
 }
 
+// In IR translated from spirv, tid builtins have memory(none) attribute, but
+// don't have convergent attribute. If a not-inlined function only calls these
+// builtins, it also has memory(none) attribute.
+// LICM pass hoists a call of the function to SIMD loop preheader, thus breaking
+// vectorized code. Therefore, we add convergent attribute to forbid the hoist.
+// The attribute is propagated recursively to user functions and calls.
+//
+// This aligns with behavior of OpenCL input that conservatively tid builtin has
+// convergent attribute.
+static bool handleTidFuncAttributes(Module &M) {
+  SmallVector<Function *> WorkList;
+  DenseSet<Function *> Visited;
+  std::string Names[] = {mangledGetGID(), mangledGetLID(),
+                         mangledGetSubGroupLocalId()};
+  for (const auto &Name : Names) {
+    if (auto *F = M.getFunction(Name); F && !F->isConvergent()) {
+      WorkList.push_back(F);
+      Visited.insert(F);
+    }
+  }
+
+  while (!WorkList.empty()) {
+    Function *F = WorkList.pop_back_val();
+    F->setConvergent();
+    for (User *U : F->users()) {
+      if (auto *CI = dyn_cast<CallInst>(U)) {
+        CI->setConvergent();
+        Function *Caller = CI->getFunction();
+        if (Visited.insert(Caller).second)
+          WorkList.push_back(Caller);
+      }
+    }
+  }
+
+  return !Visited.empty();
+}
+
 bool AddFunctionAttrsPass::runImpl(Module &M) {
   bool Changed = false;
 
@@ -119,6 +156,8 @@ bool AddFunctionAttrsPass::runImpl(Module &M) {
   Changed |= handlePrintfBuiltinAttributes(M);
 
   Changed |= handleSyncBuiltinAttributes(M);
+
+  Changed |= handleTidFuncAttributes(M);
 
   return Changed;
 }

@@ -14,7 +14,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define float @foo(float **%a, i1 %c, i1 %c2) {
+define float @foo(ptr %a, i1 %c, i1 %c2) {
 ;               *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; CHECK-LABEL:  Function: foo
 ; CHECK-EMPTY:
@@ -28,9 +28,9 @@ define float @foo(float **%a, i1 %c, i1 %c2) {
 ; CHECK-NEXT:        + Loop metadata: No
 ; CHECK-NEXT:        + DO i64 i1 = 0, 11, 1   <DO_LOOP>
 ; CHECK-NEXT:        |   [[P0:%.*]] = ([[A0:%.*]])[i1]
-; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR float* [[P0]] {sb:10}
-; CHECK-NEXT:        |   <RVAL-REG> {al:8}(LINEAR float** [[A0]])[LINEAR i64 i1] {sb:23}
-; CHECK-NEXT:        |      <BLOB> LINEAR float** [[A0]] {sb:9}
+; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR ptr [[P0]] {sb:10}
+; CHECK-NEXT:        |   <RVAL-REG> {al:8}(LINEAR ptr [[A0]])[LINEAR i64 i1] {sb:23}
+; CHECK-NEXT:        |      <BLOB> LINEAR ptr [[A0]] {sb:9}
 ; CHECK-NEXT:        |
 ; CHECK-NEXT:        |   [[PHI_TEMP0:%.*]] = [[FLT_LAST0:%.*]];
 ; CHECK-NEXT:        |   <LVAL-REG> NON-LINEAR <16 x float> [[PHI_TEMP0]] {sb:25}
@@ -57,8 +57,8 @@ define float @foo(float **%a, i1 %c, i1 %c2) {
 ; CHECK-NEXT:        |   + DO i64 i2 = 0, 127, 16   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:        |   |   [[DOTVEC0:%.*]] = (<16 x float>*)([[P0]])[i2]
 ; CHECK-NEXT:        |   |   <LVAL-REG> NON-LINEAR <16 x float> [[DOTVEC0]] {sb:31}
-; CHECK-NEXT:        |   |   <RVAL-REG> {al:4}(<16 x float>*)(LINEAR float* %p{def@1})[LINEAR i64 i2] {sb:23}
-; CHECK-NEXT:        |   |      <BLOB> LINEAR float* %p{def@1} {sb:10}
+; CHECK-NEXT:        |   |   <RVAL-REG> {al:4}(<16 x float>*)(LINEAR ptr %p{def@1})[LINEAR i64 i2] {sb:23}
+; CHECK-NEXT:        |   |      <BLOB> LINEAR ptr %p{def@1} {sb:10}
 ; CHECK-NEXT:        |   |
 ; CHECK-NEXT:        |   |   [[DOTVEC80:%.*]] = [[DOTVEC0]]  /  2.000000e+00
 ; CHECK-NEXT:        |   |   <LVAL-REG> NON-LINEAR <16 x float> [[DOTVEC80]] {sb:32}
@@ -255,16 +255,16 @@ outer.header:
   %outer.iv = phi i64 [ 0, %entry ], [ %outer.iv.next, %outer.latch ]
   %i32.last = phi i32 [ 0, %entry ], [ %i32.lcssa.inner, %outer.latch ]
   %flt.last = phi float [ 0.000000e+00, %entry ], [ %flt.lcssa.inner, %outer.latch ]
-  %a.gep = getelementptr float *, float **%a, i64 %outer.iv
-  %p = load float *, float **%a.gep
+  %a.gep = getelementptr ptr, ptr %a, i64 %outer.iv
+  %p = load ptr, ptr %a.gep
   br label %inner.header
 
 inner.header:
   %inner.iv = phi i64 [ 0, %outer.header ], [ %inner.iv.next, %inner.latch ]
   %i32.last.inner = phi i32 [ %i32.last, %outer.header ], [ %i32.last.inner.next, %inner.latch ]
   %flt.last.inner = phi float [ %flt.last, %outer.header ], [ %flt.last.inner.next, %inner.latch ]
-  %p.gep = getelementptr float, float* %p, i64 %inner.iv
-  %ld = load float, float* %p.gep, align 4
+  %p.gep = getelementptr float, ptr %p, i64 %inner.iv
+  %ld = load float, ptr %p.gep, align 4
   %fdiv = fdiv fast float %ld, 2.000000e+00
   %cond = fcmp oge float %ld, 42.000000e+00
   %tmp46 = select i1 %cond, i1 %c2, i1 %c

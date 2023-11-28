@@ -1,6 +1,6 @@
 //===-------- Intel_InlineReportSetup.h - Inline Report Setup ------------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -26,6 +26,7 @@ class InlineReportSetupPass : public PassInfoMixin<InlineReportSetupPass> {
   InlineReportBuilder *MDIR;
 
 public:
+  static bool isRequired() { return true; }
   InlineReportSetupPass();
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   InlineReportBuilder *getMDReport() { return MDIR; }

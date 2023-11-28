@@ -1,9 +1,9 @@
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-cost-model-throttling=0 -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-cost-model-throttling=0 -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that the gep operator argument of printf is parsed correctly.
 ; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n))
 ; CHECK-NEXT: %0 = (@A)[0][i1]
-; CHECK-NEXT: %call = @printf(&((@.str)[0][0]),  %0)
+; CHECK-NEXT: %call = @printf(&((@.str)[0]),  %0)
 ; CHECK-NEXT: END LOOP
 
 
@@ -24,9 +24,9 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
-  %call = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), i32 %0)
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
+  %call = tail call i32 (ptr, ...) @printf(ptr getelementptr inbounds ([3 x i8], ptr @.str, i64 0, i64 0), i32 %0)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n
@@ -39,4 +39,4 @@ for.end:                                          ; preds = %for.end.loopexit, %
   ret void
 }
 
-declare i32 @printf(i8* nocapture readonly, ...)
+declare i32 @printf(ptr nocapture readonly, ...)

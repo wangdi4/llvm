@@ -22,19 +22,20 @@
 #define UTILITY_H
 
 #ifdef __APPLE__
-#include <OpenCL/opencl.h>
+#include "OpenCL/opencl.h"
 #else
 #include "CL/cl.h"
-#endif
-#include <stdio.h>
-#if !defined(_MSC_VER)
-#include <stdint.h>
 #endif
 
 #include "test_common/compat.h"
 #include "test_common/rounding_mode.h"
 #include <float.h>
 #include <math.h>
+#include <stdio.h>
+
+#if !defined(_MSC_VER)
+#include <stdint.h>
+#endif
 
 #if defined(_WIN32) && defined(_MSC_VER)
 // #include "../../test_common/harness/testHarness.h"

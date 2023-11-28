@@ -124,6 +124,10 @@ def NonBitField : SubsetSubject<Field,
                                 [{!S->isBitField()}],
                                 "non-bit-field non-static data members">;
 
+def BitField : SubsetSubject<Field,
+                             [{S->isBitField()}],
+                             "bit-field data members">;
+
 def NonStaticCXXMethod : SubsetSubject<CXXMethod,
                                        [{!S->isStatic()}],
                                        "non-static member functions">;
@@ -294,23 +298,28 @@ class DefaultUnsignedArgument<string name, int default> : UnsignedArgument<name,
   int Default = default;
 }
 
-// This argument is more complex, it includes the enumerator type name,
-// a list of strings to accept, and a list of enumerators to map them to.
+// This argument is more complex, it includes the enumerator type
+// name, whether the enum type is externally defined, a list of
+// strings to accept, and a list of enumerators to map them to.
 class EnumArgument<string name, string type, list<string> values,
-                   list<string> enums, bit opt = 0, bit fake = 0>
+                   list<string> enums, bit opt = 0, bit fake = 0,
+                   bit isExternalType = 0>
     : Argument<name, opt, fake> {
   string Type = type;
   list<string> Values = values;
   list<string> Enums = enums;
+  bit IsExternalType = isExternalType;
 }
 
 // FIXME: There should be a VariadicArgument type that takes any other type
 //        of argument and generates the appropriate type.
 class VariadicEnumArgument<string name, string type, list<string> values,
-                           list<string> enums> : Argument<name, 1>  {
+                           list<string> enums, bit isExternalType = 0>
+    : Argument<name, 1>  {
   string Type = type;
   list<string> Values = values;
   list<string> Enums = enums;
+  bit IsExternalType = isExternalType;
 }
 
 // This handles one spelling of an attribute.
@@ -321,14 +330,17 @@ class Spelling<string name, string variety, int version = 1> {
 }
 
 class GNU<string name> : Spelling<name, "GNU">;
-class Declspec<string name> : Spelling<name, "Declspec">;
+class Declspec<string name> : Spelling<name, "Declspec"> {
+  bit PrintOnLeft = 1;
+}
 class Microsoft<string name> : Spelling<name, "Microsoft">;
 class CXX11<string namespace, string name, int version = 1>
     : Spelling<name, "CXX11", version> {
+  bit CanPrintOnLeft = 0;
   string Namespace = namespace;
 }
-class C2x<string namespace, string name, int version = 1>
-    : Spelling<name, "C2x", version> {
+class C23<string namespace, string name, int version = 1>
+    : Spelling<name, "C23", version> {
   string Namespace = namespace;
 }
 
@@ -351,14 +363,14 @@ class Pragma<string namespace, string name> : Spelling<name, "Pragma"> {
 }
 
 // The GCC spelling implies GNU<name>, CXX11<"gnu", name>, and optionally,
-// C2x<"gnu", name>. This spelling should be used for any GCC-compatible
+// C23<"gnu", name>. This spelling should be used for any GCC-compatible
 // attributes.
 class GCC<string name, bit allowInC = 1> : Spelling<name, "GCC"> {
   bit AllowInC = allowInC;
 }
 
 // The Clang spelling implies GNU<name>, CXX11<"clang", name>, and optionally,
-// C2x<"clang", name>. This spelling should be used for any Clang-specific
+// C23<"clang", name>. This spelling should be used for any Clang-specific
 // attributes.
 class Clang<string name, bit allowInC = 1, int version = 1>
     : Spelling<name, "Clang", version> {
@@ -379,10 +391,10 @@ class SubjectDiag<bit warn, bit intel_warn = 0> { // INTEL
 }
 def WarnDiag : SubjectDiag<1>;
 def ErrorDiag : SubjectDiag<0>;
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Intel specific, allows converting a clang error to a warning in Intel mode.
 def IntelWarnDiag : SubjectDiag<0, 1>;
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 class SubjectList<list<AttrSubject> subjects, SubjectDiag diag = WarnDiag,
                   string customDiag = ""> {
@@ -403,7 +415,6 @@ class LangOpt<string name, code customCode = [{}], bit silentlyIgnore = 0> {
   // "LangOpts" bound.
   code CustomCode = customCode;
 }
-
 def MicrosoftExt : LangOpt<"MicrosoftExt">;
 def Borland : LangOpt<"Borland">;
 def CUDA : LangOpt<"CUDA">;
@@ -452,7 +463,7 @@ class TargetArch<list<string> arches> : TargetSpec {
   let Arches = arches;
 }
 def TargetARM : TargetArch<["arm", "thumb", "armeb", "thumbeb"]>;
-def TargetAArch64 : TargetArch<["aarch64"]>;
+def TargetAArch64 : TargetArch<["aarch64", "aarch64_be", "aarch64_32"]>;
 def TargetAnyArm : TargetArch<!listconcat(TargetARM.Arches, TargetAArch64.Arches)>;
 def TargetAVR : TargetArch<["avr"]>;
 def TargetBPF : TargetArch<["bpfel", "bpfeb"]>;
@@ -484,6 +495,12 @@ def TargetELF : TargetSpec {
 def TargetSupportsInitPriority : TargetSpec {
   let CustomCode = [{ !Target.getTriple().isOSzOS() }];
 }
+
+class TargetSpecificSpelling<TargetSpec target, list<Spelling> spellings> {
+  TargetSpec Target = target;
+  list<Spelling> Spellings = spellings;
+}
+
 // Attribute subject match rules that are used for #pragma clang attribute.
 //
 // A instance of AttrSubjectMatcherRule represents an individual match rule.
@@ -596,6 +613,12 @@ class AttrSubjectMatcherAggregateRule<AttrSubject subject> {
 def SubjectMatcherForNamed : AttrSubjectMatcherAggregateRule<Named>;
 
 class Attr {
+  // Specifies that when printed, this attribute is meaningful on the
+  // 'left side' of the declaration.
+  bit CanPrintOnLeft = 1;
+  // Specifies that when printed, this attribute is required to be printed on
+  // the 'left side' of the declaration.
+  bit PrintOnLeft = 0;
   // The various ways in which an attribute can be spelled in source
   list<Spelling> Spellings;
   // The things to which an attribute can appertain
@@ -604,6 +627,8 @@ class Attr {
   list<Argument> Args = [];
   // Accessors which should be generated for the attribute.
   list<Accessor> Accessors = [];
+  // Specify targets for spellings.
+  list<TargetSpecificSpelling> TargetSpecificSpellings = [];
   // Set to true for attributes with arguments which require delayed parsing.
   bit LateParsed = 0;
   // Set to false to prevent an attribute from being propagated from a template
@@ -767,13 +792,13 @@ def AddressSpace : TypeAttr {
 def Alias : Attr {
   let Spellings = [GCC<"alias">];
   let Args = [StringArgument<"Aliasee">];
-  let Subjects = SubjectList<[Function, GlobalVar], WarnDiag>;//***INTEL
+  let Subjects = SubjectList<[Function, GlobalVar], WarnDiag>; // INTEL
   let Documentation = [Undocumented];
 }
 
 def BuiltinAlias : Attr {
   let Spellings = [CXX11<"clang", "builtin_alias">,
-                   C2x<"clang", "builtin_alias">,
+                   C23<"clang", "builtin_alias">,
                    GNU<"clang_builtin_alias">];
   let Args = [IdentifierArgument<"BuiltinName">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
@@ -835,9 +860,9 @@ def AlignNatural : InheritableAttr {
 
 def AlwaysInline : DeclOrStmtAttr {
   let Spellings = [GCC<"always_inline">, CXX11<"clang", "always_inline">,
-                   C2x<"clang", "always_inline">, CustomKeyword<"__forceinline">];
+                   C23<"clang", "always_inline">, CustomKeyword<"__forceinline">];
   let Accessors = [Accessor<"isClangAlwaysInline", [CXX11<"clang", "always_inline">,
-                                                    C2x<"clang", "always_inline">]>];
+                                                    C23<"clang", "always_inline">]>];
   let Subjects = SubjectList<[Function, Stmt], WarnDiag,
                              "functions and statements">;
   let Documentation = [AlwaysInlineDocs];
@@ -923,7 +948,7 @@ def Annotate : InheritableParamAttr {
 }
 
 def AnnotateType : TypeAttr {
-  let Spellings = [CXX11<"clang", "annotate_type">, C2x<"clang", "annotate_type">];
+  let Spellings = [CXX11<"clang", "annotate_type">, C23<"clang", "annotate_type">];
   let Args = [StringArgument<"Annotation">, VariadicExprArgument<"Args">];
   let HasCustomParsing = 1;
   let AcceptsExprPack = 1;
@@ -958,6 +983,7 @@ def AVRSignal : InheritableAttr, TargetSpecificAttr<TargetAVR> {
 }
 
 def AsmLabel : InheritableAttr {
+  let CanPrintOnLeft = 0;
   let Spellings = [CustomKeyword<"asm">, CustomKeyword<"__asm__">];
   let Args = [
     // Label specifies the mangled name for the decl.
@@ -1121,6 +1147,18 @@ def CFConsumed : InheritableParamAttr {
   let Documentation = [RetainBehaviorDocs];
 }
 
+
+// coro_only_destroy_when_complete indicates the coroutines whose return type
+// is marked by coro_only_destroy_when_complete can only be destroyed when the
+// coroutine completes. Then the space for the destroy functions can be saved.
+def CoroOnlyDestroyWhenComplete : InheritableAttr {
+  let Spellings = [Clang<"coro_only_destroy_when_complete">];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let LangOpts = [CPlusPlus];
+  let Documentation = [CoroOnlyDestroyWhenCompleteDocs];
+  let SimpleHandler = 1;
+}
+
 // OSObject-based attributes.
 def OSConsumed : InheritableParamAttr {
   let Spellings = [Clang<"os_consumed">];
@@ -1214,7 +1252,7 @@ def Constructor : InheritableAttr {
   let Spellings = [GCC<"constructor">];
   let Args = [DefaultIntArgument<"Priority", 65535>];
   let Subjects = SubjectList<[Function]>;
-  let Documentation = [Undocumented];
+  let Documentation = [CtorDtorDocs];
 }
 
 def CPUSpecific : InheritableAttr {
@@ -1323,7 +1361,8 @@ def CUDAInvalidTarget : InheritableAttr {
 
 def CUDALaunchBounds : InheritableAttr {
   let Spellings = [GNU<"launch_bounds">, Declspec<"__launch_bounds__">];
-  let Args = [ExprArgument<"MaxThreads">, ExprArgument<"MinBlocks", 1>];
+  let Args = [ExprArgument<"MaxThreads">, ExprArgument<"MinBlocks", 1>,
+              ExprArgument<"MaxBlocks", 1>];
   let LangOpts = [CUDA];
   let Subjects = SubjectList<[ObjCMethod, FunctionLike]>;
   // An AST node is created for this attribute, but is not used by other parts
@@ -1340,7 +1379,7 @@ def CUDAShared : InheritableAttr {
 }
 def : MutualExclusions<[CUDAConstant, CUDAShared, HIPManaged]>;
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def HLSDevice : InheritableAttr {
   let Spellings = [Clang<"hls_device">];
   let Subjects = SubjectList<[Function]>;
@@ -1348,7 +1387,7 @@ def HLSDevice : InheritableAttr {
   let Documentation = [HLSDeviceDocs];
   let SimpleHandler = 1;
 }
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 def GlobalStorageNonLocalVar : SubsetSubject<Var,
                                              [{S->hasGlobalStorage() &&
@@ -1512,14 +1551,14 @@ def SYCLDeviceIndirectlyCallable : InheritableAttr {
   let Documentation = [SYCLDeviceIndirectlyCallableDocs];
 }
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def SYCLUnmasked: InheritableAttr {
   let Spellings = [ CXX11<"intel", "unmasked"> ];
   let Subjects = SubjectList<[Function, CXXMethod]>;
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Documentation = [SYCLUnmaskedDocs];
 }
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 def SYCLIntelBufferLocation : InheritableAttr {
   // No spelling, as this attribute can't be created in the source code.
@@ -1555,42 +1594,49 @@ def SYCLIntelKernelArgsRestrict : InheritableAttr {
 }
 
 def SYCLIntelNumSimdWorkItems : InheritableAttr {
-  let Spellings = [GNU<"num_simd_work_items">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"num_simd_work_items">,
                    CXX11<"intel","num_simd_work_items">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; // INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelNumSimdWorkItemsAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelUseStallEnableClusters : InheritableAttr {
-  let Spellings = [CXX11<"intel","use_stall_enable_clusters">, //INTEL
-                   Clang<"stall_enable">, //INTEL
-                   Clang<"use_stall_enable_clusters">]; //INTEL
-  let LangOpts = [SilentlyIgnoreSYCLIsHost, SYCLIsDevice, HLS, OpenCL]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [CXX11<"intel","use_stall_enable_clusters">,
+                   Clang<"stall_enable">, Clang<"use_stall_enable_clusters">];
+  let LangOpts = [SilentlyIgnoreSYCLIsHost, SYCLIsDevice, HLS, OpenCL];
+#endif // INTEL_CUSTOMIZATION
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelUseStallEnableClustersAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelSchedulerTargetFmaxMhz : InheritableAttr {
-  let Spellings = [GNU<"scheduler_target_fmax_mhz">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"scheduler_target_fmax_mhz">,
                    CXX11<"intel","scheduler_target_fmax_mhz">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; // INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelSchedulerTargetFmaxMhzAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelMaxWorkGroupSize : InheritableAttr {
-  let Spellings = [GNU<"max_work_group_size">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"max_work_group_size">,
                    CXX11<"intel","max_work_group_size">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"XDim">,
               ExprArgument<"YDim">,
               ExprArgument<"ZDim">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; // INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let AdditionalMembers = [{
     std::optional<llvm::APSInt> getXDimVal() const {
@@ -1613,11 +1659,29 @@ def SYCLIntelMaxWorkGroupSize : InheritableAttr {
   let SupportsNonconformingLambdaSyntax = 1;
 }
 
-def SYCLIntelMaxGlobalWorkDim : InheritableAttr {
-  let Spellings = [GNU<"max_global_work_dim">, //INTEL
-                   CXX11<"intel","max_global_work_dim">];
+def SYCLIntelMinWorkGroupsPerComputeUnit : InheritableAttr {
+  let Spellings = [CXX11<"intel", "min_work_groups_per_cu">];
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; //INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [SYCLIntelMinWorkGroupsPerComputeUnitAttrDocs];
+}
+
+def SYCLIntelMaxWorkGroupsPerMultiprocessor : InheritableAttr {
+  let Spellings = [CXX11<"intel", "max_work_groups_per_mp">];
+  let Args = [ExprArgument<"Value">];
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [SYCLIntelMaxWorkGroupsPerMultiprocessorDocs];
+}
+
+def SYCLIntelMaxGlobalWorkDim : InheritableAttr {
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"max_global_work_dim">,
+                   CXX11<"intel","max_global_work_dim">];
+#endif // INTEL_CUSTOMIZATION
+  let Args = [ExprArgument<"Value">];
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL]; // INTEL
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [SYCLIntelMaxGlobalWorkDimAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
@@ -1929,7 +1993,7 @@ def C11NoReturn : InheritableAttr {
 
 def CXX11NoReturn : InheritableAttr {
   let Spellings = [CXX11<"", "noreturn", 200809>,
-                   C2x<"", "noreturn", 202202>, C2x<"", "_Noreturn", 202202>];
+                   C23<"", "noreturn", 202202>, C23<"", "_Noreturn", 202202>];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [CXX11NoReturnDocs];
 }
@@ -2074,7 +2138,7 @@ def RenderScriptKernel : Attr {
 def Deprecated : InheritableAttr {
   let Spellings = [GCC<"deprecated">, Declspec<"deprecated">,
                    CXX11<"","deprecated", 201309>,
-                   C2x<"", "deprecated", 201904>];
+                   C23<"", "deprecated", 201904>];
   let Args = [StringArgument<"Message", 1>,
               // An optional string argument that enables us to provide a
               // Fix-It.
@@ -2087,7 +2151,7 @@ def Destructor : InheritableAttr {
   let Spellings = [GCC<"destructor">];
   let Args = [DefaultIntArgument<"Priority", 65535>];
   let Subjects = SubjectList<[Function]>;
-  let Documentation = [Undocumented];
+  let Documentation = [CtorDtorDocs];
 }
 
 def EmptyBases : InheritableAttr, TargetSpecificAttr<TargetMicrosoftCXXABI> {
@@ -2107,6 +2171,7 @@ def AllocSize : InheritableAttr {
 }
 
 def EnableIf : InheritableAttr {
+  let CanPrintOnLeft = 0;
   // Does not have a [[]] spelling because this attribute requires the ability
   // to parse function arguments but the attribute is not written in the type
   // position.
@@ -2132,7 +2197,7 @@ def ExtVectorType : Attr {
 
 def FallThrough : StmtAttr {
   let Spellings = [CXX11<"", "fallthrough", 201603>,
-                   C2x<"", "fallthrough", 201910>,
+                   C23<"", "fallthrough", 201910>,
                    CXX11<"clang", "fallthrough">, GCC<"fallthrough">];
   // The attribute only applies to a NullStmt, but we have special fix-it
   // behavior if applied to a case label.
@@ -2142,12 +2207,12 @@ def FallThrough : StmtAttr {
 }
 
 def Likely : StmtAttr {
-  let Spellings = [CXX11<"", "likely", 201803>, C2x<"clang", "likely">];
+  let Spellings = [CXX11<"", "likely", 201803>, C23<"clang", "likely">];
   let Documentation = [LikelihoodDocs];
 }
 
 def Unlikely : StmtAttr {
-  let Spellings = [CXX11<"", "unlikely", 201803>, C2x<"clang", "unlikely">];
+  let Spellings = [CXX11<"", "unlikely", 201803>, C23<"clang", "unlikely">];
   let Documentation = [LikelihoodDocs];
 }
 def : MutualExclusions<[Likely, Unlikely]>;
@@ -2173,8 +2238,10 @@ def FastCall : DeclOrTypeAttr {
 }
 
 def RegCall : DeclOrTypeAttr {
-  // INTEL_CUSTOMIZATION - "_regcall" alternate spelling
+#if INTEL_CUSTOMIZATION
+  // "_regcall" alternate spelling added
   let Spellings = [GCC<"regcall">, CustomKeyword<"__regcall">, CustomKeyword<"_regcall">];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [RegCallDocs];
 }
 
@@ -2469,81 +2536,87 @@ def SYCLIntelIVDep : StmtAttr {
 }
 
 def SYCLIntelInitiationInterval : DeclOrStmtAttr {
-  let Spellings = [Pragma<"", "ii">, //INTEL
-                   CXX11<"intel", "ii">,
+#if INTEL_CUSTOMIZATION
+  let Spellings = [Pragma<"", "ii">, CXX11<"intel", "ii">,
                    CXX11<"intel", "initiation_interval">];
+#endif // INTEL_CUSTOMIZATION
   let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt, Function],
                               ErrorDiag,
                               "'for', 'while', 'do' statements, and functions">;
   let Args = [ExprArgument<"IntervalExpr">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL];
   let AdditionalMembers = [{
-    // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << getDiagnosticName(Policy);
     }
     std::string getDiagnosticName(const PrintingPolicy &Policy) const {
       return "#pragma ii";
     }
-    // end INTEL_CUSTOMIZATION
   }];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelInitiationIntervalAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelMaxConcurrency : DeclOrStmtAttr {
-  let Spellings = [Pragma<"", "max_concurrency">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [Pragma<"", "max_concurrency">,
                    CXX11<"intel","max_concurrency">];
-  let Subjects =
-      SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt, Function],
-                   ErrorDiag, "'for', 'while', 'do' statements, and functions">;
+#endif // INTEL_CUSTOMIZATION
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt, Function],
+                             ErrorDiag,
+                             "'for', 'while', 'do' statements, and functions">;
   let Args = [ExprArgument<"NThreadsExpr">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL];
   let AdditionalMembers = [{
-    // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma max_concurrency" << getNThreadsExpr();
     }
-    // end INTEL_CUSTOMIZATION
   }];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelMaxConcurrencyAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelLoopCoalesce : StmtAttr {
-  let Spellings = [Pragma<"", "loop_coalesce">, //INTEL
-                   CXX11<"intel","loop_coalesce">];
+#if INTEL_CUSTOMIZATION
+  let Spellings = [Pragma<"", "loop_coalesce">, CXX11<"intel","loop_coalesce">];
+#endif // INTEL_CUSTOMIZATION
   let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
                              ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NExpr", /*opt*/1>];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL];
   let AdditionalMembers = [{
-    // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma loop_coalesce" << getNExpr();
     }
-    // end INTEL_CUSTOMIZATION
   }];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelLoopCoalesceAttrDocs];
 }
 
 def SYCLIntelDisableLoopPipelining : DeclOrStmtAttr {
-  let Spellings = [Pragma<"", "disable_loop_pipelining">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [Pragma<"", "disable_loop_pipelining">,
                    CXX11<"intel","disable_loop_pipelining">];
+#endif // INTEL_CUSTOMIZATION
   let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt, Function],
                               ErrorDiag,
                               "'for', 'while', 'do' statements, and functions">;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL];
   let AdditionalMembers = [{
-    // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << getDiagnosticName(Policy);
     }
     std::string getDiagnosticName(const PrintingPolicy &Policy) const {
       return "#pragma disable_loop_pipelining";
     }
-    // end INTEL_CUSTOMIZATION
   }];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelDisableLoopPipeliningAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
   let SimpleHandler = 1;
@@ -2575,38 +2648,40 @@ def : MutualExclusions<[SYCLIntelMaxConcurrency,
                         SYCLIntelDisableLoopPipelining]>;
 
 def SYCLIntelMaxInterleaving : StmtAttr {
-  let Spellings = [Pragma<"", "max_interleaving">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [Pragma<"", "max_interleaving">,
                    CXX11<"intel","max_interleaving">];
+#endif // INTEL_CUSTOMIZATION
   let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
                              ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NExpr">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL];
   let AdditionalMembers = [{
-    // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma max_interleaving" << getNExpr();
     }
-    // end INTEL_CUSTOMIZATION
   }];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelMaxInterleavingAttrDocs];
 }
-def : MutualExclusions<[SYCLIntelDisableLoopPipelining,
-                        SYCLIntelMaxInterleaving]>;
 
 def SYCLIntelSpeculatedIterations : StmtAttr {
-  let Spellings = [Pragma<"", "speculated_iterations">, //INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [Pragma<"", "speculated_iterations">,
                    CXX11<"intel","speculated_iterations">];
+#endif // INTEL_CUSTOMIZATION
   let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
                              ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NExpr">];
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; //INTEL
+#if INTEL_CUSTOMIZATION
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];
   let AdditionalMembers = [{
-    // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
       OS << "#pragma speculated_iterations" << getNExpr();
     }
-    // end INTEL_CUSTOMIZATION
   }];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelSpeculatedIterationsAttrDocs];
 }
 def : MutualExclusions<[SYCLIntelDisableLoopPipelining,
@@ -2675,28 +2750,29 @@ def SYCLIntelLocalOrStaticVar : SubsetSubject<Var,
                               "local variables, static variables">;
 
 def SYCLIntelDoublePump : Attr {
-  let Spellings = [GNU<"doublepump">,                          // INTEL
-                   CXX11<"intel", "doublepump">];
-  let Subjects = SubjectList<[SYCLIntelConstVar,               // INTEL
-                              SYCLIntelLocalStaticAgentMemVar, // INTEL
-                              Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];      // INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"doublepump">, CXX11<"intel", "doublepump">];
+  let Subjects = SubjectList<[SYCLIntelConstVar,
+                              SYCLIntelLocalStaticAgentMemVar, Field],
+                             ErrorDiag>;
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelDoublePumpAttrDocs];
 }
 
 def SYCLIntelSinglePump : Attr {
-  let Spellings = [GNU<"singlepump">,                          // INTEL
-                   CXX11<"intel", "singlepump">];
-  let Subjects = SubjectList<[SYCLIntelConstVar,               // INTEL
-                              SYCLIntelLocalStaticAgentMemVar, // INTEL
-                              Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];      // INTEL
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"singlepump">, CXX11<"intel", "singlepump">];
+  let Subjects = SubjectList<[SYCLIntelConstVar,
+                              SYCLIntelLocalStaticAgentMemVar, Field],
+                             ErrorDiag>;
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SYCLIntelSinglePumpAttrDocs];
 }
 
 def SYCLIntelMemory : Attr {
-  let Spellings = [GNU<"memory">, // INTEL
-                   CXX11<"intel", "fpga_memory">];
+  let Spellings = [GNU<"memory">, CXX11<"intel", "fpga_memory">]; // INTEL
   let Args = [EnumArgument<"Kind", "MemoryKind",
                            ["MLAB", "BLOCK_RAM", ""],
                            ["MLAB", "BlockRAM", "Default"], 1>];
@@ -2712,16 +2788,15 @@ def SYCLIntelMemory : Attr {
   let Subjects = SubjectList<[SYCLIntelConstVar,
                               SYCLIntelLocalStaticAgentMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];  // INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [SYCLIntelMemoryAttrDocs];
 }
 
 def SYCLIntelRegister : Attr {
-  let Spellings = [GNU<"register">, // INTEL
-                   CXX11<"intel", "fpga_register">];
+  let Spellings = [GNU<"register">, CXX11<"intel", "fpga_register">]; // INTEL
   let Subjects = SubjectList<[SYCLIntelConstVar, SYCLIntelLocalOrStaticVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];  // INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [SYCLIntelRegisterAttrDocs];
 }
 def : MutualExclusions<[SYCLIntelDoublePump, SYCLIntelSinglePump,
@@ -2729,8 +2804,7 @@ def : MutualExclusions<[SYCLIntelDoublePump, SYCLIntelSinglePump,
 
 // One integral argument.
 def SYCLIntelBankWidth : InheritableAttr {
-  let Spellings = [GNU<"bankwidth">, // INTEL
-                   CXX11<"intel", "bankwidth">];
+  let Spellings = [GNU<"bankwidth">, CXX11<"intel", "bankwidth">]; // INTEL
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[SYCLIntelConstVar,
                               SYCLIntelLocalStaticAgentMemVar,
@@ -2741,19 +2815,19 @@ def SYCLIntelBankWidth : InheritableAttr {
 def : MutualExclusions<[SYCLIntelRegister, SYCLIntelBankWidth]>;
 
 def SYCLIntelNumBanks : InheritableAttr {
-  let Spellings = [GNU<"numbanks">, // INTEL
-                   CXX11<"intel", "numbanks">];
+  let Spellings = [GNU<"numbanks">, CXX11<"intel", "numbanks">]; // INTEL
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[SYCLIntelConstVar,
                               SYCLIntelLocalStaticAgentMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];  // INTEL
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [SYCLIntelNumBanksAttrDocs];
 }
 
 def SYCLIntelPrivateCopies : InheritableAttr {
-  let Spellings = [GNU<"private_copies">, // INTEL
-                   CXX11<"intel","private_copies">];
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"private_copies">, CXX11<"intel","private_copies">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"Value">];
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Subjects = SubjectList<[SYCLIntelLocalNonConstVar, Field], ErrorDiag>;
@@ -2763,8 +2837,7 @@ def : MutualExclusions<[SYCLIntelRegister, SYCLIntelPrivateCopies]>;
 
 // Two string arguments.
 def SYCLIntelMerge : Attr {
-  let Spellings = [GNU<"merge">, // INTEL
-                   CXX11<"intel", "merge">];
+  let Spellings = [GNU<"merge">, CXX11<"intel", "merge">]; // INTEL
   let Args = [StringArgument<"Name">, StringArgument<"Direction">];
   let Subjects = SubjectList<[SYCLIntelConstVar, SYCLIntelLocalOrStaticVar,
                               Field], ErrorDiag>;
@@ -2774,8 +2847,9 @@ def SYCLIntelMerge : Attr {
 def : MutualExclusions<[SYCLIntelRegister, SYCLIntelMerge]>;
 
 def SYCLIntelMaxReplicates : InheritableAttr {
-  let Spellings = [GNU<"max_replicates">, // INTEL
-                   CXX11<"intel","max_replicates">];
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"max_replicates">, CXX11<"intel","max_replicates">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[SYCLIntelConstVar,
                               SYCLIntelLocalStaticAgentMemVar,
@@ -2786,9 +2860,11 @@ def SYCLIntelMaxReplicates : InheritableAttr {
 def : MutualExclusions<[SYCLIntelRegister, SYCLIntelMaxReplicates]>;
 
 def SYCLIntelSimpleDualPort : Attr {
-  let Spellings = [GNU<"simple_dual_port">, // INTEL
-                   CXX11<"intel","simple_dual_port">];
-  let Subjects = SubjectList<[SYCLIntelConstVar, SYCLIntelLocalStaticAgentMemVar,
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"simple_dual_port">, CXX11<"intel","simple_dual_port">];
+#endif // INTEL_CUSTOMIZATION
+  let Subjects = SubjectList<[SYCLIntelConstVar,
+                              SYCLIntelLocalStaticAgentMemVar,
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [SYCLIntelSimpleDualPortAttrDocs];
@@ -2812,8 +2888,7 @@ def SYCLIntelPipeIO : InheritableAttr {
 
 // Variadic integral arguments.
 def SYCLIntelBankBits : Attr {
-  let Spellings = [GNU<"bank_bits">, // INTEL
-                   CXX11<"intel", "bank_bits">];
+  let Spellings = [GNU<"bank_bits">, CXX11<"intel", "bank_bits">]; // INTEL
   let Args = [VariadicExprArgument<"Args">];
   let Subjects = SubjectList<[SYCLIntelConstVar,
                               SYCLIntelLocalStaticAgentMemVar,
@@ -2825,8 +2900,9 @@ def : MutualExclusions<[SYCLIntelRegister, SYCLIntelBankBits]>;
 def : MutualExclusions<[SYCLIntelRegister, SYCLIntelNumBanks]>;
 
 def SYCLIntelForcePow2Depth : InheritableAttr {
-  let Spellings = [GNU<"force_pow2_depth">, // INTEL
-                   CXX11<"intel","force_pow2_depth">];
+#if INTEL_CUSTOMIZATION
+  let Spellings = [GNU<"force_pow2_depth">, CXX11<"intel","force_pow2_depth">];
+#endif // INTEL_CUSTOMIZATION
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[SYCLIntelConstVar,
                               SYCLIntelLocalStaticAgentMemVar,
@@ -2873,11 +2949,14 @@ def ArmMveStrictPolymorphism : TypeAttr, TargetSpecificAttr<TargetARM> {
   let Documentation = [ArmMveStrictPolymorphismDocs];
 }
 
-def NoUniqueAddress : InheritableAttr, TargetSpecificAttr<TargetItaniumCXXABI> {
-  let Spellings = [CXX11<"", "no_unique_address", 201803>];
+def NoUniqueAddress : InheritableAttr {
   let Subjects = SubjectList<[NonBitField], ErrorDiag>;
+  let Spellings = [CXX11<"", "no_unique_address", 201803>, CXX11<"msvc", "no_unique_address", 201803>];
+  let TargetSpecificSpellings = [
+    TargetSpecificSpelling<TargetItaniumCXXABI, [CXX11<"", "no_unique_address", 201803>]>,
+    TargetSpecificSpelling<TargetMicrosoftCXXABI, [CXX11<"msvc", "no_unique_address", 201803>]>,
+  ];
   let Documentation = [NoUniqueAddressDocs];
-  let SimpleHandler = 1;
 }
 
 def ReturnsTwice : InheritableAttr {
@@ -2939,10 +3018,10 @@ def Convergent : InheritableAttr {
 
 def NoInline : DeclOrStmtAttr {
   let Spellings = [CustomKeyword<"__noinline__">, GCC<"noinline">,
-                   CXX11<"clang", "noinline">, C2x<"clang", "noinline">,
+                   CXX11<"clang", "noinline">, C23<"clang", "noinline">,
                    Declspec<"noinline">];
   let Accessors = [Accessor<"isClangNoInline", [CXX11<"clang", "noinline">,
-                                                C2x<"clang", "noinline">]>];
+                                                C23<"clang", "noinline">]>];
   let Documentation = [NoInlineDocs];
   let Subjects = SubjectList<[Function, Stmt], WarnDiag,
                              "functions and statements">;
@@ -3521,8 +3600,42 @@ def AArch64SVEPcs: DeclOrTypeAttr {
 
 def ArmStreaming : TypeAttr, TargetSpecificAttr<TargetAArch64> {
   let Spellings = [RegularKeyword<"__arm_streaming">];
-  let Documentation = [ArmStreamingDocs];
+  let Subjects = SubjectList<[HasFunctionProto], ErrorDiag>;
+  let Documentation = [ArmSmeStreamingDocs];
 }
+
+def ArmStreamingCompatible : TypeAttr, TargetSpecificAttr<TargetAArch64> {
+  let Spellings = [RegularKeyword<"__arm_streaming_compatible">];
+  let Subjects = SubjectList<[HasFunctionProto], ErrorDiag>;
+  let Documentation = [ArmSmeStreamingCompatibleDocs];
+}
+
+def ArmSharedZA : TypeAttr, TargetSpecificAttr<TargetAArch64> {
+  let Spellings = [RegularKeyword<"__arm_shared_za">];
+  let Subjects = SubjectList<[HasFunctionProto], ErrorDiag>;
+  let Documentation = [ArmSmeSharedZADocs];
+}
+
+def ArmPreservesZA : TypeAttr, TargetSpecificAttr<TargetAArch64> {
+  let Spellings = [RegularKeyword<"__arm_preserves_za">];
+  let Subjects = SubjectList<[HasFunctionProto], ErrorDiag>;
+  let Documentation = [ArmSmePreservesZADocs];
+}
+
+def ArmLocallyStreaming : InheritableAttr, TargetSpecificAttr<TargetAArch64> {
+  let Spellings = [RegularKeyword<"__arm_locally_streaming">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [ArmSmeLocallyStreamingDocs];
+}
+
+def ArmNewZA : InheritableAttr, TargetSpecificAttr<TargetAArch64> {
+  let Spellings = [RegularKeyword<"__arm_new_za">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [ArmSmeNewZADocs];
+}
+def : MutualExclusions<[ArmNewZA, ArmSharedZA]>;
+def : MutualExclusions<[ArmNewZA, ArmPreservesZA]>;
+
 
 def Pure : InheritableAttr {
   let Spellings = [GCC<"pure">];
@@ -3724,8 +3837,10 @@ def Section : InheritableAttr {
   let Spellings = [GCC<"section">, Declspec<"allocate">];
   let Args = [StringArgument<"Name">];
   let Subjects =
+#if INTEL_CUSTOMIZATION
       SubjectList<[ Function, GlobalVar, ObjCMethod, ObjCProperty ],
-      IntelWarnDiag>; // INTEL
+      IntelWarnDiag>;
+#endif // INTEL_CUSTOMIZATION
   let Documentation = [SectionDocs];
 }
 
@@ -3918,6 +4033,11 @@ def PreserveAll : DeclOrTypeAttr {
   let Documentation = [PreserveAllDocs];
 }
 
+def M68kRTD: DeclOrTypeAttr {
+  let Spellings = [Clang<"m68k_rtd">];
+  let Documentation = [M68kRTDDocs];
+}
+
 def Target : InheritableAttr {
   let Spellings = [GCC<"target">];
   let Args = [StringArgument<"featuresStr">];
@@ -4056,6 +4176,7 @@ def Unavailable : InheritableAttr {
 }
 
 def DiagnoseIf : InheritableAttr {
+  let CanPrintOnLeft = 0;
   // Does not have a [[]] spelling because this attribute requires the ability
   // to parse function arguments but the attribute is not written in the type
   // position.
@@ -4106,7 +4227,7 @@ def ObjCRequiresPropertyDefs : InheritableAttr {
 
 def Unused : InheritableAttr {
   let Spellings = [CXX11<"", "maybe_unused", 201603>, GCC<"unused">,
-                   C2x<"", "maybe_unused", 202106>];
+                   C23<"", "maybe_unused", 202106>];
   let Subjects = SubjectList<[Var, ObjCIvar, Type, Enum, EnumConstant, Label,
                               Field, ObjCMethod, FunctionLike]>;
   let Documentation = [WarnMaybeUnusedDocs];
@@ -4199,7 +4320,7 @@ def WarnUnused : InheritableAttr {
 
 def WarnUnusedResult : InheritableAttr {
   let Spellings = [CXX11<"", "nodiscard", 201907>,
-                   C2x<"", "nodiscard", 202003>,
+                   C23<"", "nodiscard", 202003>,
                    CXX11<"clang", "warn_unused_result">,
                    GCC<"warn_unused_result">];
   let Subjects = SubjectList<[ObjCMethod, Enum, Record, FunctionLike, TypedefName]>;
@@ -4230,7 +4351,7 @@ def WeakRef : InheritableAttr {
   let Spellings = [GCC<"weakref">];
   // A WeakRef that has an argument is treated as being an AliasAttr
   let Args = [StringArgument<"Aliasee", 1>];
-  let Subjects = SubjectList<[Var, Function], IntelWarnDiag>; //***INTEL
+  let Subjects = SubjectList<[Var, Function], IntelWarnDiag>; // INTEL
   let Documentation = [Undocumented];
 }
 
@@ -4248,7 +4369,7 @@ def AnyX86Interrupt : InheritableAttr, TargetSpecificAttr<TargetAnyX86> {
   let Subjects = SubjectList<[HasFunctionProto]>;
   let ParseKind = "Interrupt";
   let HasCustomParsing = 1;
-  let Documentation = [Undocumented];
+  let Documentation = [AnyX86InterruptDocs];
 }
 
 def AnyX86NoCallerSavedRegisters : InheritableAttr,
@@ -4853,7 +4974,7 @@ def InitSeg : Attr {
   }];
 }
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def LoopFuse : StmtAttr {
   let Spellings = [Pragma<"", "loop_fuse">];
   let Args = [DefaultIntArgument<"Depth", 0>,
@@ -4870,7 +4991,7 @@ def LoopFuse : StmtAttr {
   }
   }];
 }
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 def LoopHint : Attr {
   /// #pragma clang loop <option> directive
@@ -4893,8 +5014,7 @@ def LoopHint : Attr {
 
   let Spellings = [Pragma<"clang", "loop">, Pragma<"", "unroll">,
                    Pragma<"", "nounroll">, Pragma<"", "unroll_and_jam">,
-// INTEL_CUSTOMIZATION
-                   Pragma<"", "nounroll_and_jam">,
+#if INTEL_CUSTOMIZATION
                    Pragma<"", "ivdep">,
                    Pragma<"", "ii_at_most">,Pragma<"", "ii_at_least">,
                    Pragma<"", "min_ii_at_target_fmax">,
@@ -4905,56 +5025,55 @@ def LoopHint : Attr {
                    Pragma<"", "fusion">,
                    Pragma<"", "novector">,
                    Pragma<"", "vector">,
-                   Pragma<"", "loop_count">];
-// end INTEL_CUSTOMIZATION
+                   Pragma<"", "loop_count">,
+#endif // INTEL_CUSTOMIZATION
+                   Pragma<"", "nounroll_and_jam">];
+
   /// State of the loop optimization specified by the spelling.
   let Args = [EnumArgument<"Option", "OptionType",
                           ["vectorize", "vectorize_width", "interleave", "interleave_count",
                            "unroll", "unroll_count", "unroll_and_jam", "unroll_and_jam_count",
-                           "vectorize_predicate",
-// INTEL_CUSTOMIZATION
-                           "pipeline", "pipeline_initiation_interval",
-                           "distribute",
+                           "pipeline", "pipeline_initiation_interval", "distribute",
+#if INTEL_CUSTOMIZATION
                            "ivdep", "ivdep-loop", "ivdep-back",
                            "ivdep-hls", "ivdep-hls-intel",
                            "ii_at_most", "ii_at_least",
                            "min_ii_at_target_fmax",
                            "force_hyperopt",
                            "distribute_point", "fusion",
-                           "novector", "always", "aligned",
+                           "novector", "always", "aligned", "unaligned",
                            "dynamic_align","nodynamic_align",
                            "vecremainder","novecremainder", "assert",
                            "temporal", "nontemporal", "vectorlength",
-                           "loop_count", "max", "min", "avg"],
-// end INTEL_CUSTOMIZATION
+                           "loop_count", "max", "min", "avg",
+#endif // INTEL_CUSTOMIZATION
+                           "vectorize_predicate"],
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
                            "Unroll", "UnrollCount", "UnrollAndJam", "UnrollAndJamCount",
-                           "VectorizePredicate",
-// INTEL_CUSTOMIZATION
-                           "PipelineDisabled", "PipelineInitiationInterval",
-                           "Distribute",
+                           "PipelineDisabled", "PipelineInitiationInterval", "Distribute",
+#if INTEL_CUSTOMIZATION
                            "IVDep", "IVDepLoop", "IVDepBack",
                            "IVDepHLS", "IVDepHLSIntel",
                            "IIAtMost", "IIAtLeast", "MinIIAtFmax",
                            "ForceHyperopt", "Distribute", "Fusion", "Vectorize",
                            "VectorizeAlways", "VectorizeAligned",
+                           "VectorizeUnAligned",
                            "VectorizeDynamicAlign", "VectorizeNoDynamicAlign",
                            "VectorizeVecremainder", "VectorizeNoVecremainder",
                            "VectorizeAlwaysAssert", "VectorizeTemporal",
                            "VectorizeNonTemporal", "VectorizeLength",
                            "LoopCount",
-                           "LoopCountMax", "LoopCountMin","LoopCountAvg"]>,
-// end INTEL_CUSTOMIZATION
+                           "LoopCountMax", "LoopCountMin","LoopCountAvg",
+#endif // INTEL_CUSTOMIZATION
+                           "VectorizePredicate"]>,
               EnumArgument<"State", "LoopHintState",
-// INTEL_CUSTOMIZATION
                            ["enable", "disable", "numeric", "fixed_width",
-                            "scalable_width", "assume_safety", "full",
-                            "loopexpr"],
+                            "loopexpr", // INTEL
+                            "scalable_width", "assume_safety", "full"],
                            ["Enable", "Disable", "Numeric", "FixedWidth",
-                            "ScalableWidth", "AssumeSafety", "Full",
-                            "LoopExpr"]>,
-              ExprArgument<"Value">, ExprArgument<"LoopExprValue">];
-// end INTEL_CUSTOMIZATION
+                            "LoopExpr", // INTEL
+                            "ScalableWidth", "AssumeSafety", "Full"]>,
+              ExprArgument<"Value">, ExprArgument<"LoopExprValue">]; // INTEL
 
   let AdditionalMembers = [{
   static const char *getOptionName(int Option) {
@@ -4971,9 +5090,10 @@ def LoopHint : Attr {
     case PipelineInitiationInterval: return "pipeline_initiation_interval";
     case Distribute: return "distribute";
     case VectorizePredicate: return "vectorize_predicate";
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case VectorizeAlways: return "always";
     case VectorizeAligned: return "aligned";
+    case VectorizeUnAligned: return "unaligned";
     case VectorizeDynamicAlign: return "dynamic_align";
     case VectorizeNoDynamicAlign: return "nodynamic_align";
     case VectorizeVecremainder: return "vecremainder";
@@ -4986,7 +5106,7 @@ def LoopHint : Attr {
     case LoopCountMin: return "loop_count min";
     case LoopCountMax: return "loop_count max";
     case LoopCountAvg: return "loop_count avg";
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     }
     llvm_unreachable("Unhandled LoopHint option.");
   }
@@ -5039,7 +5159,7 @@ def OMPGroupPrivateDecl : InheritableAttr {
 }
 #endif // INTEL_COLLAB
 
-include "clang/Basic/intel/IntelAttr.td"
+include "clang/Basic/intel/IntelAttr.td" // INTEL
 
 def OMPCaptureNoInit : InheritableAttr {
   // This attribute has no spellings as it is only ever created implicitly.
@@ -5083,9 +5203,7 @@ def OMPDeclareSimdDecl : Attr {
     VariadicExprArgument<"Aligneds">, VariadicExprArgument<"Alignments">,
     VariadicExprArgument<"Linears">, VariadicUnsignedArgument<"Modifiers">,
     VariadicExprArgument<"Steps">
-// INTEL_CUSTOMIZATION
-    , VariadicIdentifierArgument<"Processors">
-// end INTEL_CUSTOMIZATION
+    , VariadicIdentifierArgument<"Processors"> // INTEL
   ];
   let AdditionalMembers = [{
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
@@ -5342,7 +5460,7 @@ def Error : InheritableAttr {
   let Documentation = [ErrorAttrDocs];
 }
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def PreferDSP : InheritableAttr {
   let Spellings = [CXX11<"intel", "prefer_dsp">, GNU<"prefer_dsp">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
@@ -5364,7 +5482,7 @@ def PropagateDSPPreference : InheritableAttr {
   let Documentation = [Undocumented];
   let SimpleHandler = 1;
 }
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 def HLSLNumThreads: InheritableAttr {
   let Spellings = [Microsoft<"numthreads">];
@@ -5400,24 +5518,14 @@ def HLSLShader : InheritableAttr {
   let Spellings = [Microsoft<"shader">];
   let Subjects = SubjectList<[HLSLEntry]>;
   let LangOpts = [HLSL];
-  // NOTE:
-  // order for the enum should match order in llvm::Triple::EnvironmentType.
-  // ShaderType will be converted to llvm::Triple::EnvironmentType like
-  //   (llvm::Triple::EnvironmentType)((uint32_t)ShaderType +
-  //      (uint32_t)llvm::Triple::EnvironmentType::Pixel).
-  // This will avoid update code for convert when new shader type is added.
   let Args = [
     EnumArgument<"Type", "ShaderType",
-                 [
-                   "pixel", "vertex", "geometry", "hull", "domain", "compute",
-                   "library", "raygeneration", "intersection", "anyHit",
-                   "closestHit", "miss", "callable", "mesh", "amplification"
-                 ],
-                 [
-                   "Pixel", "Vertex", "Geometry", "Hull", "Domain", "Compute",
-                   "Library", "RayGeneration", "Intersection", "AnyHit",
-                   "ClosestHit", "Miss", "Callable", "Mesh", "Amplification"
-                 ]>
+                 ["pixel", "vertex", "geometry", "hull", "domain", "compute",
+                  "raygeneration", "intersection", "anyhit", "closesthit",
+                  "miss", "callable", "mesh", "amplification"],
+                 ["Pixel", "Vertex", "Geometry", "Hull", "Domain", "Compute",
+                  "RayGeneration", "Intersection", "AnyHit", "ClosestHit",
+                  "Miss", "Callable", "Mesh", "Amplification"]>
   ];
   let Documentation = [HLSLSV_ShaderTypeAttrDocs];
 }
@@ -5426,26 +5534,26 @@ def HLSLResource : InheritableAttr {
   let Spellings = [];
   let Subjects = SubjectList<[Struct]>;
   let LangOpts = [HLSL];
-  let Args = [EnumArgument<"ResourceType", "ResourceClass",
+  let Args = [EnumArgument<"ResourceClass", "llvm::hlsl::ResourceClass",
                            ["SRV", "UAV", "CBuffer", "Sampler"],
-                           ["SRV", "UAV", "CBuffer", "Sampler"]
-                           >,
-              EnumArgument<"ResourceShape", "ResourceKind",
+                           ["SRV", "UAV", "CBuffer", "Sampler"],
+                           /*opt=*/0, /*fake=*/0, /*isExternalType=*/1>,
+              EnumArgument<"ResourceKind", "llvm::hlsl::ResourceKind",
                            ["Texture1D", "Texture2D", "Texture2DMS",
                             "Texture3D", "TextureCube", "Texture1DArray",
                             "Texture2DArray", "Texture2DMSArray",
                             "TextureCubeArray", "TypedBuffer", "RawBuffer",
-                            "StructuredBuffer", "CBufferKind", "SamplerKind",
-                            "TBuffer", "RTAccelerationStructure", "FeedbackTexture2D",
-                            "FeedbackTexture2DArray"],
+                            "StructuredBuffer", "CBuffer", "Sampler",
+                            "TBuffer", "RTAccelerationStructure",
+                            "FeedbackTexture2D", "FeedbackTexture2DArray"],
                            ["Texture1D", "Texture2D", "Texture2DMS",
                             "Texture3D", "TextureCube", "Texture1DArray",
                             "Texture2DArray", "Texture2DMSArray",
                             "TextureCubeArray", "TypedBuffer", "RawBuffer",
-                            "StructuredBuffer", "CBufferKind", "SamplerKind",
-                            "TBuffer", "RTAccelerationStructure", "FeedbackTexture2D",
-                            "FeedbackTexture2DArray"]
-                            >
+                            "StructuredBuffer", "CBuffer", "Sampler",
+                            "TBuffer", "RTAccelerationStructure",
+                            "FeedbackTexture2D", "FeedbackTexture2DArray"],
+                           /*opt=*/0, /*fake=*/0, /*isExternalType=*/1>
               ];
   let Documentation = [InternalOnly];
 }
@@ -5500,3 +5608,39 @@ def AvailableOnlyInDefaultEvalMethod : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def CountedBy : InheritableAttr {
+  let Spellings = [Clang<"counted_by">];
+  let Subjects = SubjectList<[Field]>;
+  let Args = [IdentifierArgument<"CountedByField">];
+  let Documentation = [CountedByDocs];
+  let LangOpts = [COnly];
+  // FIXME: This is ugly. Let using a DeclArgument would be nice, but a Decl
+  // isn't yet available due to the fact that we're still parsing the
+  // structure. Maybe that code could be changed sometime in the future.
+  code AdditionalMembers = [{
+    private:
+      SourceRange CountedByFieldLoc;
+    public:
+      SourceRange getCountedByFieldLoc() const { return CountedByFieldLoc; }
+      void setCountedByFieldLoc(SourceRange Loc) { CountedByFieldLoc = Loc; }
+  }];
+}
+
+def PreferredType: InheritableAttr {
+  let Spellings = [Clang<"preferred_type">];
+  let Subjects = SubjectList<[BitField], ErrorDiag>;
+  let Args = [TypeArgument<"Type", 1>];
+  let Documentation = [PreferredTypeDocumentation];
+}
+
+def CodeAlign: StmtAttr {
+  let Spellings = [Clang<"code_align">];
+  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
+                              ErrorDiag, "'for', 'while', and 'do' statements">;
+  let Args = [ExprArgument<"Alignment">];
+  let Documentation = [CodeAlignAttrDocs];
+  let AdditionalMembers = [{
+    static constexpr int MinimumAlignment = 1;
+    static constexpr int MaximumAlignment = 4096;
+  }];
+}

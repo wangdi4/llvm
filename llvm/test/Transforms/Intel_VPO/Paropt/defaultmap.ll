@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -debug -S %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -debug -S %s 2>&1 | FileCheck %s
 
 ; C source test for OMP5.0 defaultmap construct. Need to compile with -fopenmp-version=50.
 ; int AAA[10];

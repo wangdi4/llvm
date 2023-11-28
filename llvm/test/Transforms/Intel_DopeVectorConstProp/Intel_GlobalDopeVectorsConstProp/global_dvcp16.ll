@@ -524,8 +524,13 @@ attributes #4 = { nounwind readnone speculatable }
 
 !omp_offload.info = !{}
 !llvm.module.flags = !{!0, !1, !2}
+!ifx.types.dv = !{!4, !5}
 
 !0 = !{i32 1, !"ThinLTO", i32 0}
 !1 = !{i32 1, !"EnableSplitLTOUnit", i32 1}
 !2 = !{i32 1, !"LTOPostLink", i32 1}
 !3 = !{i64 1, i64 -9223372036854775808}
+!4 = !{%"QNCA_a0$float*$rank2$" zeroinitializer, float 0.000000e+00}
+!5 = !{%"QNCA_a0$%PHYSPROPMOD$.btPHYSPROP_TYPE*$rank1$" zeroinitializer, %"PHYSPROPMOD$.btPHYSPROP_TYPE" zeroinitializer}
+
+

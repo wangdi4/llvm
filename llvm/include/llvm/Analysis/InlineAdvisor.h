@@ -3,7 +3,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Modifications, Copyright (C) 2021-2023 Intel Corporation
+ * Modifications, Copyright (C) 2021 Intel Corporation
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -57,9 +57,8 @@ using namespace InlineReportTypes; // INTEL
 ///
 /// - Development mode, for training new models.
 /// In this mode, we trade off runtime performance for flexibility. This mode
-/// requires the full C Tensorflow API library, and evaluates models
-/// dynamically. This mode also permits generating training logs, for offline
-/// training.
+/// requires the TFLite library, and evaluates models dynamically. This mode
+/// also permits generating training logs, for offline training.
 ///
 /// - Dynamically load an advisor via a plugin (PluginInlineAdvisorAnalysis)
 enum class InliningAdvisorMode : int { Default, Release, Development };
@@ -417,7 +416,7 @@ getDevelopmentModeAdvisor(Module &M, ModuleAnalysisManager &MAM,
 // Default (manual policy) decision making helper APIs. Shared with the legacy
 // pass manager inliner.
 
-/// INTEL: This is the original comment from llorg:
+/// This is the original comment from llorg: // INTEL
 /// Return the cost only if the inliner should attempt to inline at the given
 /// CallSite. If we return the cost, we will emit an optimisation remark later
 /// using that cost, so we won't do so from this function. Return std::nullopt

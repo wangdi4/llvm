@@ -29,10 +29,11 @@
 //===----------------------------------------------------------------------===//
 
 #if INTEL_CUSTOMIZATION
-#include "omptarget-tools.h"
 #include "xpti_registry.h"
 #endif // INTEL_CUSTOMIZATION
 
+#include "OmptCallback.h"
+#include "OmptInterface.h"
 #include "device.h"
 #include "omptarget.h"
 #include "private.h"
@@ -46,13 +47,9 @@
 #include <mutex>
 #include <type_traits>
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 #include <string.h>
-#endif  // INTEL_COLLAB
-
 extern bool isOffloadDisabled();
-
-#if INTEL_COLLAB
 static int64_t GetEncodedDeviceID(int64_t &DeviceID) {
   if (DeviceID == OFFLOAD_DEVICE_DEFAULT)
     return omp_get_default_device();
@@ -70,7 +67,10 @@ static int64_t GetEncodedDeviceID(int64_t &DeviceID) {
 
   return EncodedID;
 }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
+#ifdef OMPT_SUPPORT
+using namespace llvm::omp::target::ompt;
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 /// adds requires flags
@@ -122,23 +122,23 @@ EXTERN void __tgt_unregister_lib(__tgt_bin_desc *Desc) {
 
 template <typename TargetAsyncInfoTy>
 static inline void
-targetDataMapper(ident_t *Loc, int64_t DeviceId, int32_t ArgNum,
-                 void **ArgsBase, void **Args, int64_t *ArgSizes,
-                 int64_t *ArgTypes, map_var_info_t *ArgNames, void **ArgMappers,
-                 TargetDataFuncPtrTy TargetDataFunction,
-                 const char *RegionTypeMsg, const char *RegionName) {
+targetData(ident_t *Loc, int64_t DeviceId, int32_t ArgNum, void **ArgsBase,
+           void **Args, int64_t *ArgSizes, int64_t *ArgTypes,
+           map_var_info_t *ArgNames, void **ArgMappers,
+           TargetDataFuncPtrTy TargetDataFunction, const char *RegionTypeMsg,
+           const char *RegionName) {
   static_assert(std::is_convertible_v<TargetAsyncInfoTy, AsyncInfoTy>,
                 "TargetAsyncInfoTy must be convertible to AsyncInfoTy.");
 
-  TIMESCOPE_WITH_IDENT(Loc);
+  TIMESCOPE_WITH_RTM_AND_IDENT(RegionTypeMsg, Loc);
 
 #if INTEL_CUSTOMIZATION
   XPTIEventCacheTy XPTIEvt(Loc, __func__);
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   int64_t EncodedId = GetEncodedDeviceID(DeviceId);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   DP("Entering data %s region for device %" PRId64 " with %d mappings\n",
      RegionName, DeviceId, ArgNum);
@@ -160,24 +160,28 @@ targetDataMapper(ident_t *Loc, int64_t DeviceId, int32_t ArgNum,
   }
 #endif
 
-#if INTEL_COLLAB
-  PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
-#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
-  bool IsBegin = strncmp(RegionName, "begin", 5) == 0;
-  bool IsEnd = strncmp(RegionName, "end", 3) == 0;
-  bool IsUpdate = strncmp(RegionName, "update", 6) == 0;
-  if (IsBegin)
-    OMPT_TRACE(targetDataEnterBegin(DeviceId));
-  else if (IsEnd)
-    OMPT_TRACE(targetDataExitBegin(DeviceId));
-  else if (IsUpdate)
-    OMPT_TRACE(targetDataUpdateBegin(DeviceId));
+  PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
 #endif // INTEL_CUSTOMIZATION
 
   DeviceTy &Device = *PM->Devices[DeviceId];
   TargetAsyncInfoTy TargetAsyncInfo(Device);
   AsyncInfoTy &AsyncInfo = TargetAsyncInfo;
+
+  /// RAII to establish tool anchors before and after data begin / end / update
+  OMPT_IF_BUILT(assert((TargetDataFunction == targetDataBegin ||
+                        TargetDataFunction == targetDataEnd ||
+                        TargetDataFunction == targetDataUpdate) &&
+                       "Encountered unexpected TargetDataFunction during "
+                       "execution of targetData");
+                auto CallbackFunctions =
+                    (TargetDataFunction == targetDataBegin)
+                        ? RegionInterface.getCallbacks<ompt_target_enter_data>()
+                    : (TargetDataFunction == targetDataEnd)
+                        ? RegionInterface.getCallbacks<ompt_target_exit_data>()
+                        : RegionInterface.getCallbacks<ompt_target_update>();
+                InterfaceRAII TargetDataRAII(CallbackFunctions, DeviceId,
+                                             OMPT_GET_RETURN_ADDRESS(0));)
 
   int Rc = OFFLOAD_SUCCESS;
   Rc = TargetDataFunction(Loc, Device, ArgNum, ArgsBase, Args, ArgSizes,
@@ -190,19 +194,9 @@ targetDataMapper(ident_t *Loc, int64_t DeviceId, int32_t ArgNum,
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
 
 #if INTEL_CUSTOMIZATION
-  if (IsBegin)
-    OMPT_TRACE(targetDataEnterEnd(DeviceId));
-  else if (IsEnd)
-    OMPT_TRACE(targetDataExitEnd(DeviceId));
-  else if (IsUpdate)
-    OMPT_TRACE(targetDataUpdateEnd(DeviceId));
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_COLLAB
   if (EncodedId != DeviceId)
     PM->Devices[DeviceId]->popSubDevice();
-#endif // INTEL_COLLAB
-
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// creates host-to-target data mapping, stores it in the
@@ -214,10 +208,11 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *Loc, int64_t DeviceId,
                                            int64_t *ArgTypes,
                                            map_var_info_t *ArgNames,
                                            void **ArgMappers) {
-  TIMESCOPE_WITH_IDENT(Loc);
-  targetDataMapper<AsyncInfoTy>(Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes,
-                                ArgTypes, ArgNames, ArgMappers, targetDataBegin,
-                                "Entering OpenMP data region", "begin");
+
+  targetData<AsyncInfoTy>(Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes,
+                          ArgTypes, ArgNames, ArgMappers, targetDataBegin,
+                          "Entering OpenMP data region with being_mapper",
+                          "begin");
 }
 
 EXTERN void __tgt_target_data_begin_nowait_mapper(
@@ -225,10 +220,11 @@ EXTERN void __tgt_target_data_begin_nowait_mapper(
     void **Args, int64_t *ArgSizes, int64_t *ArgTypes, map_var_info_t *ArgNames,
     void **ArgMappers, int32_t DepNum, void *DepList, int32_t NoAliasDepNum,
     void *NoAliasDepList) {
-  TIMESCOPE_WITH_IDENT(Loc);
-  targetDataMapper<TaskAsyncInfoWrapperTy>(
+
+  targetData<TaskAsyncInfoWrapperTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
-      ArgMappers, targetDataBegin, "Entering OpenMP data region", "begin");
+      ArgMappers, targetDataBegin,
+      "Entering OpenMP data region with being_nowait_mapper", "begin");
 }
 
 /// passes data from the target, releases target memory and destroys
@@ -240,10 +236,10 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *Loc, int64_t DeviceId,
                                          int64_t *ArgTypes,
                                          map_var_info_t *ArgNames,
                                          void **ArgMappers) {
-  TIMESCOPE_WITH_IDENT(Loc);
-  targetDataMapper<AsyncInfoTy>(Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes,
-                                ArgTypes, ArgNames, ArgMappers, targetDataEnd,
-                                "Exiting OpenMP data region", "end");
+
+  targetData<AsyncInfoTy>(Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes,
+                          ArgTypes, ArgNames, ArgMappers, targetDataEnd,
+                          "Exiting OpenMP data region with end_mapper", "end");
 }
 
 EXTERN void __tgt_target_data_end_nowait_mapper(
@@ -251,10 +247,11 @@ EXTERN void __tgt_target_data_end_nowait_mapper(
     void **Args, int64_t *ArgSizes, int64_t *ArgTypes, map_var_info_t *ArgNames,
     void **ArgMappers, int32_t DepNum, void *DepList, int32_t NoAliasDepNum,
     void *NoAliasDepList) {
-  TIMESCOPE_WITH_IDENT(Loc);
-  targetDataMapper<TaskAsyncInfoWrapperTy>(
+
+  targetData<TaskAsyncInfoWrapperTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
-      ArgMappers, targetDataEnd, "Exiting OpenMP data region", "end");
+      ArgMappers, targetDataEnd,
+      "Exiting OpenMP data region with end_nowait_mapper", "end");
 }
 
 EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
@@ -263,10 +260,12 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
                                             int64_t *ArgTypes,
                                             map_var_info_t *ArgNames,
                                             void **ArgMappers) {
-  TIMESCOPE_WITH_IDENT(Loc);
-  targetDataMapper<AsyncInfoTy>(
+
+  targetData<AsyncInfoTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
-      ArgMappers, targetDataUpdate, "Updating OpenMP data", "update");
+      ArgMappers, targetDataUpdate,
+      "Updating data within the OpenMP data region with update_mapper",
+      "update");
 }
 
 EXTERN void __tgt_target_data_update_nowait_mapper(
@@ -274,10 +273,11 @@ EXTERN void __tgt_target_data_update_nowait_mapper(
     void **Args, int64_t *ArgSizes, int64_t *ArgTypes, map_var_info_t *ArgNames,
     void **ArgMappers, int32_t DepNum, void *DepList, int32_t NoAliasDepNum,
     void *NoAliasDepList) {
-  TIMESCOPE_WITH_IDENT(Loc);
-  targetDataMapper<TaskAsyncInfoWrapperTy>(
+  targetData<TaskAsyncInfoWrapperTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
-      ArgMappers, targetDataUpdate, "Updating OpenMP data", "update");
+      ArgMappers, targetDataUpdate,
+      "Updating data within the OpenMP data region with update_nowait_mapper",
+      "update");
 }
 
 static KernelArgsTy *upgradeKernelArgs(KernelArgsTy *KernelArgs,
@@ -323,9 +323,9 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
   XPTIEventCacheTy XPTIEvt(Loc, __func__);
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   int64_t EncodedId = GetEncodedDeviceID(DeviceId);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   DP("Entering target region for device %" PRId64 " with entry point " DPxMOD
      "\n",
@@ -368,18 +368,18 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
   }
 #endif
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   // Push device encoding
   PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
-#endif // INTEL_COLLAB
-
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetBegin(DeviceId));
 #endif // INTEL_CUSTOMIZATION
 
   DeviceTy &Device = *PM->Devices[DeviceId];
   TargetAsyncInfoTy TargetAsyncInfo(Device);
   AsyncInfoTy &AsyncInfo = TargetAsyncInfo;
+  /// RAII to establish tool anchors before and after target region
+  OMPT_IF_BUILT(InterfaceRAII TargetRAII(
+                    RegionInterface.getCallbacks<ompt_target>(), DeviceId,
+                    /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
 
   int Rc = OFFLOAD_SUCCESS;
   Rc = target(Loc, Device, HostPtr, *KernelArgs, AsyncInfo);
@@ -390,13 +390,9 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
 
 #if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetEnd(DeviceId));
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_COLLAB
   if (EncodedId != DeviceId)
     PM->Devices[DeviceId]->popSubDevice();
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   assert(Rc == OFFLOAD_SUCCESS && "__tgt_target_kernel unexpected failure!");
 
@@ -417,7 +413,6 @@ static inline int targetKernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
 EXTERN int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
                                int32_t ThreadLimit, void *HostPtr,
                                KernelArgsTy *KernelArgs) {
-  TIMESCOPE_WITH_IDENT(Loc);
 #if INTEL_CUSTOMIZATION
   // TODO: investigate what it costs to enable the new (improved) scheme of
   // invoking asynchronous target region. We are using customization in all
@@ -431,6 +426,30 @@ EXTERN int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
 #endif // INTEL_CUSTOMIZATION
     return targetKernel<AsyncInfoTy>(Loc, DeviceId, NumTeams, ThreadLimit,
                                      HostPtr, KernelArgs);
+}
+
+/// Activates the record replay mechanism.
+/// \param DeviceId The device identifier to execute the target region.
+/// \param MemorySize The number of bytes to be (pre-)allocated
+///                   by the bump allocator
+/// /param IsRecord Activates the record replay mechanism in
+///                 'record' mode or 'replay' mode.
+/// /param SaveOutput Store the device memory after kernel
+///                   execution on persistent storage
+EXTERN int __tgt_activate_record_replay(int64_t DeviceId, uint64_t MemorySize,
+                                        void *VAddr, bool IsRecord,
+                                        bool SaveOutput) {
+  if (!deviceIsReady(DeviceId)) {
+    DP("Device %" PRId64 " is not ready\n", DeviceId);
+    return OMP_TGT_FAIL;
+  }
+
+  DeviceTy &Device = *PM->Devices[DeviceId];
+  [[maybe_unused]] int Rc =
+      target_activate_rr(Device, MemorySize, VAddr, IsRecord, SaveOutput);
+  assert(Rc == OFFLOAD_SUCCESS &&
+         "__tgt_activate_record_replay unexpected failure!");
+  return OMP_TGT_SUCCESS;
 }
 
 /// Implements a target kernel entry that replays a pre-recorded kernel.
@@ -462,6 +481,10 @@ EXTERN int __tgt_target_kernel_replay(ident_t *Loc, int64_t DeviceId,
     return OMP_TGT_FAIL;
   }
   DeviceTy &Device = *PM->Devices[DeviceId];
+  /// RAII to establish tool anchors before and after target region
+  OMPT_IF_BUILT(InterfaceRAII TargetRAII(
+                    RegionInterface.getCallbacks<ompt_target>(), DeviceId,
+                    /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
 
   AsyncInfoTy AsyncInfo(Device);
   int Rc = target_replay(Loc, Device, HostPtr, DeviceMemory, DeviceMemorySize,
@@ -500,7 +523,7 @@ EXTERN void __tgt_push_mapper_component(void *RtMapperHandle, void *Base,
       MapComponentInfoTy(Base, Begin, Size, Type, Name));
 }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 EXTERN int32_t __tgt_is_device_available(int64_t DeviceNum, void *DeviceType) {
   DeviceNum = EXTRACT_BITS(DeviceNum, 31, 0);
   if (checkDeviceAndCtors(DeviceNum, nullptr) != OFFLOAD_SUCCESS) {
@@ -704,7 +727,7 @@ EXTERN int __tgt_get_interop_property(
     if ( ExtObj ) {
       *PropertyValue = (void *)&ExtObj->PlugInType;
     } else {
-      int PlugInType = Interop->FrId;	    
+      int PlugInType = Interop->FrId;
       if (PlugInType == 6)
          *PropertyValue = (void *)&interop_plugin_level0_val;
       else if (PlugInType == 3)
@@ -746,7 +769,6 @@ EXTERN int __tgt_get_interop_property(
 
 // End INTEL DISPATCH extension
 
-#if INTEL_CUSTOMIZATION
 EXTERN omp_interop_t __tgt_create_interop(
     int64_t DeviceNum, int32_t InteropType, int32_t NumPrefers,
     int32_t *PreferIds) {
@@ -773,103 +795,110 @@ EXTERN omp_interop_t __tgt_create_interop(
   return Interop;
 }
 
-EXTERN omp_interop_t __tgt_get_interop_obj (
+EXTERN omp_interop_t __tgt_get_interop_obj(
     ident_t *loc_ref, int32_t interop_type, uint32_t num_prefers,
-    int32_t *prefer_ids, int64_t device_num, int gtid, void *current_task ) {
+    int32_t *prefer_ids, int64_t device_num, int gtid, void *current_task) {
 
-   DP("Call to %s with device_num %" PRId64 ", interop_type %" PRId32
-      ", num_prefers %" PRId32 ", prefer_ids " DPxMOD ", gtid %" PRId32
-      ", current_task " DPxMOD "\n",
-      __func__, device_num, interop_type, num_prefers, DPxPTR(prefer_ids),gtid,DPxPTR(current_task));
+  DP("Call to %s with device_num %" PRId64 ", interop_type %" PRId32
+     ", num_prefers %" PRId32 ", prefer_ids " DPxMOD ", gtid %" PRId32
+     ", current_task " DPxMOD "\n",
+     __func__, device_num, interop_type, num_prefers, DPxPTR(prefer_ids), gtid,
+     DPxPTR(current_task));
 
-   if (isOffloadDisabled())
-     return omp_interop_none;
- 
-   omp_interop_t Interop = omp_interop_none;
+  if (isOffloadDisabled())
+    return omp_interop_none;
 
-   // Now, try to create an interop with device_num.
-   if (device_num == OFFLOAD_DEVICE_DEFAULT)
-     device_num = omp_get_default_device();
+  omp_interop_t Interop = omp_interop_none;
 
-   if (deviceIsReady(device_num)) {
-     auto first = PM->InteropTbl.begin(gtid,current_task);
-     auto last = PM->InteropTbl.end(gtid,current_task);
-     __tgt_interop * tiop = NULL;
-     for ( auto iop = first ; iop != last ; ++iop ) {
-       if ( (*iop)->isCompatibleWith (interop_type, num_prefers, prefer_ids, device_num, gtid, current_task) ) {
-         tiop = *iop;
-	 tiop->markDirty();
-         DP("Reused interop " DPxMOD " from device_num %" PRId64 "\n",
-            DPxPTR(tiop), device_num);
-         break;
-       }
-     }
-     if ( !tiop ) {
-       tiop = PM->Devices[device_num]->createInterop(interop_type, num_prefers, prefer_ids);
-       if ( tiop ) {
-          DP("Created an interop " DPxMOD " from device_num %" PRId64 "\n",
-             DPxPTR(tiop), device_num);
-          tiop->setOwner(gtid,current_task);
-          PM->InteropTbl.addInterop(tiop);
-       }
-     }
-     Interop = tiop;
-   }
+  // Now, try to create an interop with device_num.
+  if (device_num == OFFLOAD_DEVICE_DEFAULT)
+    device_num = omp_get_default_device();
 
-   return Interop;
-}
-
-EXTERN void __tgt_target_sync ( ident_t *loc_ref, int gtid, void * current_task, void *event ) {
-   auto first = PM->InteropTbl.begin(gtid,current_task);
-   auto last = PM->InteropTbl.end(gtid,current_task);
-
-   if ( first == last ) return;
-
-   DP("Processing target_sync for gtid %" PRId32 ", current_task " DPxMOD " event " DPxMOD
-      "\n", gtid, DPxPTR(current_task), DPxPTR(event));
-
-   for ( auto it = first ; it != last ; ++it ) {
-      __tgt_interop *iop = *it;
-      if ( iop->TargetSync != NULL &&
-           iop->isOwnedBy ( gtid, current_task ) &&
-           !iop->isClean() ) {
-
-        iop->flush();
-
-        // Implementation option 1
-        iop->syncBarrier();
-        iop->markClean();
-
-        // Alternate implementation option
-        //event = iop->asyncBarrier();
-        // ptask = createProxyTask();
-        //Events->add(event,ptask);
+  if (deviceIsReady(device_num)) {
+    auto first = PM->InteropTbl.begin(gtid, current_task);
+    auto last = PM->InteropTbl.end(gtid, current_task);
+    __tgt_interop *tiop = NULL;
+    for (auto iop = first; iop != last; ++iop) {
+      if ((*iop)->isCompatibleWith(interop_type, num_prefers, prefer_ids,
+                                   device_num, gtid, current_task)) {
+        tiop = *iop;
+        tiop->markDirty();
+        DP("Reused interop " DPxMOD " from device_num %" PRId64 "\n",
+           DPxPTR(tiop), device_num);
+        break;
       }
-   }
-   // This would be needed for the alternate implementation
-   // processEvents();
+    }
+    if (!tiop) {
+      tiop = PM->Devices[device_num]->createInterop(interop_type, num_prefers,
+                                                    prefer_ids);
+      if (tiop) {
+        DP("Created an interop " DPxMOD " from device_num %" PRId64 "\n",
+           DPxPTR(tiop), device_num);
+        tiop->setOwner(gtid, current_task);
+        PM->InteropTbl.addInterop(tiop);
+      }
+    }
+    Interop = tiop;
+  }
+
+  return Interop;
 }
 
-EXTERN int __tgt_interop_use_async ( ident_t *loc_ref, int gtid, omp_interop_t interop, bool nowait, void *ptask ) {
-   DP("Call to %s with interop " DPxMOD ", nowait %" PRId32 "\n", __func__, DPxPTR(interop), nowait);
+EXTERN void __tgt_target_sync(ident_t *loc_ref, int gtid, void *current_task,
+                              void *event) {
+  auto first = PM->InteropTbl.begin(gtid, current_task);
+  auto last = PM->InteropTbl.end(gtid, current_task);
 
-   if (isOffloadDisabled() || !interop)
-      return OFFLOAD_FAIL;
+  if (first == last)
+    return;
 
-   __tgt_interop * iop = static_cast<__tgt_interop *>(interop);
-   if ( iop->TargetSync ) {
-     if ( nowait )
-	iop->asyncBarrier();
-     else {
-        iop->flush();
-        iop->syncBarrier();
-        iop->markClean();
-     }
-   }
+  DP("Processing target_sync for gtid %" PRId32 ", current_task " DPxMOD
+     " event " DPxMOD "\n",
+     gtid, DPxPTR(current_task), DPxPTR(event));
+
+  for (auto it = first; it != last; ++it) {
+    __tgt_interop *iop = *it;
+    if (iop->TargetSync != NULL && iop->isOwnedBy(gtid, current_task) &&
+        !iop->isClean()) {
+
+      iop->flush();
+
+      // Implementation option 1
+      iop->syncBarrier();
+      iop->markClean();
+
+      // Alternate implementation option
+      // event = iop->asyncBarrier();
+      // ptask = createProxyTask();
+      // Events->add(event,ptask);
+    }
+  }
+  // This would be needed for the alternate implementation
+  // processEvents();
+}
+
+EXTERN int __tgt_interop_use_async(ident_t *loc_ref, int gtid,
+                                   omp_interop_t interop, bool nowait,
+                                   void *ptask) {
+  DP("Call to %s with interop " DPxMOD ", nowait %" PRId32 "\n", __func__,
+     DPxPTR(interop), nowait);
+
+  if (isOffloadDisabled() || !interop)
+    return OFFLOAD_FAIL;
+
+  __tgt_interop *iop = static_cast<__tgt_interop *>(interop);
+  if (iop->TargetSync) {
+    if (nowait)
+      iop->asyncBarrier();
+    else {
+      iop->flush();
+      iop->syncBarrier();
+      iop->markClean();
+    }
+  }
 
   return OFFLOAD_SUCCESS;
 }
-
 
 EXTERN int __tgt_release_interop(omp_interop_t Interop) {
   DP("Call to %s with interop " DPxMOD "\n", __func__, DPxPTR(Interop));
@@ -910,8 +939,6 @@ EXTERN int __tgt_use_interop(omp_interop_t Interop) {
   return PM->Devices[DeviceNum]->useInterop(TgtInterop);
 }
 
-#endif // INTEL_CUSTOMIZATION
-
 EXTERN int __tgt_get_target_memory_info(
     void *InteropObj, int32_t NumPtrs, void *TgtPtrs, void *PtrInfo) {
   DP("Call to __tgt_get_target_memory_info with interop object " DPxMOD
@@ -929,34 +956,17 @@ EXTERN int __tgt_get_target_memory_info(
   return Device.getDataAllocInfo(NumPtrs, TgtPtrs, PtrInfo);
 }
 
-#if INTEL_CUSTOMIZATION
 EXTERN void __tgt_push_code_location(const char *Loc, void *CodePtrRA) {
-  OmptGlobal->getTrace().pushCodeLocation(Loc, CodePtrRA);
   // Temporary workaround since code location directly passed with __tgt*
   // entries is incorrect.
   XPTIRegistry->pushCodeLocation(Loc);
+#ifdef OMPT_SUPPORT
+  RegionInterface.CodeLocation = Loc;
+#endif // OMPT_SUPPORT
 }
+
+EXTERN int __tgt_get_num_devices(void) { return omp_get_num_devices(); }
 #endif // INTEL_CUSTOMIZATION
-
-EXTERN int __tgt_get_num_devices(void) {
-  return omp_get_num_devices();
-}
-
-EXTERN void __tgt_add_build_options(
-    const char *CompileOptions, const char *LinkOptions) {
-
-  int64_t DeviceNum = omp_get_default_device();
-
-  if (!deviceIsReady(DeviceNum)) {
-    REPORT("Device %" PRId64 " is not ready.\n", DeviceNum);
-    return;
-  }
-
-  auto RTLInfo = PM->Devices[DeviceNum]->RTL;
-  if (RTLInfo->add_build_options)
-    RTLInfo->add_build_options(CompileOptions, LinkOptions);
-}
-#endif // INTEL_COLLAB
 
 EXTERN void __tgt_set_info_flag(uint32_t NewInfoLevel) {
   std::atomic<uint32_t> &InfoLevel = getInfoLevelInternal();
@@ -982,17 +992,17 @@ EXTERN int __tgt_print_device_info(int64_t DeviceId) {
 typedef void* (*omp_create_task_fptr)(int);
 typedef void (*omp_complete_task_fptr)(int, void *);
 
-EXTERN void __tgt_register_ptask_services ( omp_create_task_fptr createf, 
-                                            omp_complete_task_fptr completef)
-{
-    DP("Callback to __tgt_register_ptask_services with handlers " DPxMOD " " DPxMOD "\n",DPxPTR(createf),DPxPTR(completef));
+EXTERN void __tgt_register_ptask_services(omp_create_task_fptr createf,
+                                          omp_complete_task_fptr completef) {
+  DP("Callback to __tgt_register_ptask_services with handlers " DPxMOD
+     " " DPxMOD "\n",
+     DPxPTR(createf), DPxPTR(completef));
 }
 
-EXTERN void __tgt_task_completed ( void * task )
-{
-    DP("Callback to _tgt_task_completed task=" DPxMOD "\n",DPxPTR(task));
+EXTERN void __tgt_task_completed(void *task) {
+  DP("Callback to _tgt_task_completed task=" DPxMOD "\n", DPxPTR(task));
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 EXTERN void __tgt_target_nowait_query(void **AsyncHandle) {
   if (!AsyncHandle || !*AsyncHandle) {
@@ -1035,3 +1045,79 @@ EXTERN void __tgt_target_nowait_query(void **AsyncHandle) {
   delete AsyncInfo;
   *AsyncHandle = nullptr;
 }
+
+#if INTEL_CUSTOMIZATION
+EXTERN int __tgt_get_mem_resources(int32_t NumDevices, const int32_t *DeviceIds,
+                                   int32_t HostAccess,
+                                   omp_memspace_handle_t MemSpace,
+                                   int32_t *ResourceIds) {
+  // Check if input is correct.
+  int32_t RTLNumDevices = __tgt_get_num_devices();
+  if (NumDevices > RTLNumDevices) {
+    DP("Invalid number of devices requested\n");
+    return 0;
+  }
+  for (int32_t I = 0; I < NumDevices; I++) {
+    if (DeviceIds[I] >= RTLNumDevices || !deviceIsReady(DeviceIds[I])) {
+      DP("Device %" PRId32 " is invalid or not ready\n", DeviceIds[I]);
+      return 0;
+    }
+  }
+  auto *RTL = PM->Devices[DeviceIds[0]]->RTL;
+  if (!RTL->get_mem_resources)
+    return 0;
+  return RTL->get_mem_resources(NumDevices, DeviceIds, HostAccess, MemSpace,
+                                ResourceIds);
+}
+
+EXTERN void *__tgt_omp_alloc(size_t Size, omp_allocator_handle_t Allocator) {
+  if (Allocator <= kmp_max_mem_alloc) {
+    DP("Predefined allocator is not allowed here\n");
+    return nullptr;
+  }
+  // Assume the allocator is tied to a memory space with a list of resources.
+  auto *MemAlloc = reinterpret_cast<kmp_allocator_t *>(Allocator);
+  auto *MemSpace = reinterpret_cast<kmp_memspace_t *>(MemAlloc->memspace);
+  if (!MemSpace || MemSpace->num_resources <= 0 || !MemSpace->resources) {
+    DP("Invalid memory space\n");
+    return nullptr;
+  }
+  // Check if all devices are ready.
+  int32_t NumDevices = __tgt_get_num_devices();
+  for (int32_t I = 0; I < NumDevices; I++) {
+    if (!deviceIsReady(I)) {
+      DP("Device %" PRId32 " is not ready\n", I);
+      return nullptr;
+    }
+  }
+  auto *RTL = PM->Devices[0]->RTL;
+  if (RTL->omp_alloc)
+    return RTL->omp_alloc(Size, Allocator);
+  return nullptr;
+}
+
+EXTERN void __tgt_omp_free(void *Ptr, omp_allocator_handle_t Allocator) {
+  if (Allocator <= kmp_max_mem_alloc) {
+    DP("Predefined allocator is not allowed here\n");
+    return;
+  }
+  // Assume the allocator is tied to a memory space with a list of resources.
+  auto *MemAlloc = reinterpret_cast<kmp_allocator_t *>(Allocator);
+  auto *MemSpace = reinterpret_cast<kmp_memspace_t *>(MemAlloc->memspace);
+  if (!MemSpace || MemSpace->num_resources <= 0 || !MemSpace->resources) {
+    DP("Invalid memory space\n");
+    return;
+  }
+  // Check if all devices are ready.
+  int32_t NumDevices = __tgt_get_num_devices();
+  for (int32_t I = 0; I < NumDevices; I++) {
+    if (!deviceIsReady(I)) {
+      DP("Device %" PRId32 " is not ready\n", I);
+      return;
+    }
+  }
+  auto *RTL = PM->Devices[0]->RTL;
+  if (RTL->omp_free)
+    RTL->omp_free(Ptr, Allocator);
+}
+#endif // INTEL_CUSTOMIZATION

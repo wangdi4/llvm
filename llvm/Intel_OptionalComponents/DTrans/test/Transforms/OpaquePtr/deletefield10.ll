@@ -1,6 +1,7 @@
 ; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This test verifies that the size argument of memfunc calls are correctly.
 
@@ -12,7 +13,7 @@ define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtra
   ; Allocate an array of structures.
   %base = zext i32 %argc to i64
   %n = add i64 %base, 4
-  %sz = mul i64 %n, 16
+  %sz = mul i64 %n, 24
   %p = call ptr @malloc(i64 %sz)
 
   ; Zero initialize the structures
@@ -23,11 +24,11 @@ define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtra
 
   ; Copy the first structure to the second.
   %p2 = getelementptr %struct.test, ptr %p, i64 1
-  call void @llvm.memcpy.p0.p0.i64(ptr %p, ptr %p2, i64 16, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr %p, ptr %p2, i64 24, i1 false)
 
   ; Move the contents of the first two structures to the third and fourth
   %p3 = getelementptr %struct.test, ptr %p, i64 2
-  call void @llvm.memmove.p0.p0.i64(ptr %p, ptr %p3, i64 32, i1 false)
+  call void @llvm.memmove.p0.p0.i64(ptr %p, ptr %p3, i64 48, i1 false)
 
   ; Free the buffer
   call void @free(ptr %p)

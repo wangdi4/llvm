@@ -32,10 +32,11 @@
 #define LLVM_TRANSFORMS_UTILS_LOCAL_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/Analysis/Intel_Andersens.h" // INTEL
 #include "llvm/IR/Dominators.h"
-#include "llvm/Transforms/IPO/Intel_InlineReport.h"       // INTEL
-#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"     // INTEL
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"   // INTEL
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
 #include <cstdint>
 
@@ -95,7 +96,7 @@ bool isInstructionTriviallyDead(Instruction *I,
 /// Return true if the result produced by the instruction would have no side
 /// effects if it was not used. This is equivalent to checking whether
 /// isInstructionTriviallyDead would be true if the use count was 0.
-bool wouldInstructionBeTriviallyDead(Instruction *I,
+bool wouldInstructionBeTriviallyDead(const Instruction *I,
                                      const TargetLibraryInfo *TLI = nullptr);
 
 /// Return true if the result produced by the instruction has no side effects on
@@ -181,7 +182,17 @@ bool TryToSimplifyUncondBranchFromEmptyBlock(BasicBlock *BB,
 /// Check for and eliminate duplicate PHI nodes in this block. This doesn't try
 /// to be clever about PHI nodes which differ only in the order of the incoming
 /// values, but instcombine orders them so it usually won't matter.
+///
+/// This overload removes the duplicate PHI nodes directly.
 bool EliminateDuplicatePHINodes(BasicBlock *BB);
+
+/// Check for and eliminate duplicate PHI nodes in this block. This doesn't try
+/// to be clever about PHI nodes which differ only in the order of the incoming
+/// values, but instcombine orders them so it usually won't matter.
+///
+/// This overload collects the PHI nodes to be removed into the ToRemove set.
+bool EliminateDuplicatePHINodes(BasicBlock *BB,
+                                SmallPtrSetImpl<PHINode *> &ToRemove);
 
 /// This function is used to do simplification of a CFG.  For example, it
 /// adjusts branches to branches to eliminate the extra hop, it eliminates
@@ -193,7 +204,8 @@ extern cl::opt<bool> RequireAndPreserveDomTree;
 bool simplifyCFG(BasicBlock *BB, const TargetTransformInfo &TTI,
                  DomTreeUpdater *DTU = nullptr,
                  const SimplifyCFGOptions &Options = {},
-                 ArrayRef<WeakVH> LoopHeaders = {});
+                 ArrayRef<WeakVH> LoopHeaders = {},       // INTEL
+                 AndersensAAResult *AndersRes = nullptr); // INTEL
 
 /// This function is used to flatten a CFG. For example, it uses parallel-and
 /// and parallel-or mode to collapse if-conditions and merge if-regions with
@@ -221,6 +233,15 @@ AllocaInst *DemoteRegToStack(Instruction &X,
 /// it with a slot in the stack frame, allocated via alloca. The phi node is
 /// deleted and it returns the pointer to the alloca inserted.
 AllocaInst *DemotePHIToStack(PHINode *P, Instruction *AllocaPoint = nullptr);
+
+/// If the specified pointer points to an object that we control, try to modify
+/// the object's alignment to PrefAlign. Returns a minimum known alignment of
+/// the value after the operation, which may be lower than PrefAlign.
+///
+/// Increating value alignment isn't often possible though. If alignment is
+/// important, a more reliable approach is to simply align all global variables
+/// and allocation instructions to their preferred alignment from the beginning.
+Align tryEnforceAlignment(Value *V, Align PrefAlign, const DataLayout &DL);
 
 /// Try to ensure that the alignment of \p V is at least \p PrefAlign bytes. If
 /// the owning object can be modified and has an alignment less than \p
@@ -351,8 +372,6 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
     IsExact = R.isZero();
   }
 
-  Type *BasePtrTy = BasePtr->getType();
-
   if (IsExact && ConstStride) {
     // Emit offset in terms of elements. Avoids i8 bitcast overhead.
     Value *ElementOffset =
@@ -405,13 +424,6 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   /// bytes the pointer is casted to the ElTy* type.
 
   Type *I8Ty = Builder->getInt8Ty();
-  Type *I8PtrTy = Builder->getInt8PtrTy(BasePtrTy->getPointerAddressSpace());
-  Type *DestType = ElTy->getPointerTo(BasePtrTy->getPointerAddressSpace());
-  if (BasePtrTy->isVectorTy()) {
-    I8PtrTy = VectorType::get(I8PtrTy, cast<VectorType>(BasePtrTy));
-    DestType = VectorType::get(DestType, cast<VectorType>(BasePtrTy));
-  }
-
   Value *ByteOffset =
       emitBaseOffset(Builder, DL, nullptr, BasePtr, Lower, Index, Stride);
 
@@ -422,14 +434,11 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
     return BasePtr;
   }
 
-  Value *BasePtrI8 =
-      Builder->CreateBitCast(BasePtr, I8PtrTy);
-
   Value *NewBasePtr =
-      InBounds ? Builder->CreateInBoundsGEP(I8Ty, BasePtrI8, ByteOffset)
-               : Builder->CreateGEP(I8Ty, BasePtrI8, ByteOffset);
+      InBounds ? Builder->CreateInBoundsGEP(I8Ty, BasePtr, ByteOffset)
+               : Builder->CreateGEP(I8Ty, BasePtr, ByteOffset);
 
-  return Builder->CreateBitCast(NewBasePtr, DestType);
+  return NewBasePtr;
 }
 
 template <typename IRBuilderTy>
@@ -655,6 +664,10 @@ void dropDebugUsers(Instruction &I);
 /// (DILocations) and their debug intrinsic instructions are removed.
 void hoistAllInstructionsInto(BasicBlock *DomBlock, Instruction *InsertPt,
                               BasicBlock *BB);
+
+/// Given a constant, create a debug information expression.
+DIExpression *getExpressionForConstant(DIBuilder &DIB, const Constant &C,
+                                       Type &Ty);
 
 //===----------------------------------------------------------------------===//
 //  Intrinsic pattern matching

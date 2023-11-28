@@ -1,4 +1,4 @@
-; RUN: opt -passes='default<O0>' -disable-selective-mv -vecopt < %s -S | FileCheck %s
+; RUN: opt -passes='default<O0>' -acd-enable-all -vecopt < %s -S | FileCheck %s
 
 ; This test checks that AutoCPUClonePass invocation at -O0 does not result in
 ; a crash when llvm.auto.cpu.dispatch metadata is already present on the function.

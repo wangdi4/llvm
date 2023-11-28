@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -86,7 +86,6 @@ void initializeVPOAnalysis(PassRegistry&);
 void initializeVPOTransforms(PassRegistry&);
 #endif // INTEL_COLLAB
 
-void initializeAAEvalLegacyPassPass(PassRegistry&);
 void initializeAAResultsWrapperPassPass(PassRegistry&);
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAssignmentTrackingAnalysisPass(PassRegistry &);
@@ -95,6 +94,7 @@ void initializeArgNoAliasPropPass(PassRegistry &); // INTEL
 void initializeArrayUseWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumptionCacheTrackerPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
+void initializeBasicBlockPathCloningPass(PassRegistry &);
 void initializeBasicBlockSectionsProfileReaderPass(PassRegistry &);
 void initializeBasicBlockSectionsPass(PassRegistry &);
 void initializeBarrierNoopPass(PassRegistry&);
@@ -181,6 +181,7 @@ void initializeFloat128ExpandPass(PassRegistry&); // INTEL
 void initializeFoldLoadsToGatherPass(PassRegistry&); // INTEL
 void initializeFuncletLayoutPass(PassRegistry&);
 void initializeFunctionSplittingWrapperPass(PassRegistry&);        // INTEL
+void initializeGCEmptyBasicBlocksPass(PassRegistry &);
 void initializeGCMachineCodeAnalysisPass(PassRegistry&);
 void initializeGCModuleInfoPass(PassRegistry&);
 void initializeGVNLegacyPassPass(PassRegistry&);
@@ -261,9 +262,7 @@ void initializeLoopUnswitchPass(PassRegistry&);
 void initializeLowerAtomicLegacyPassPass(PassRegistry&);
 void initializeLowerConstantIntrinsicsPass(PassRegistry&);
 void initializeLowerEmuTLSPass(PassRegistry&);
-void initializeLowerExpectIntrinsicPass(PassRegistry&);
 void initializeLowerGlobalDtorsLegacyPassPass(PassRegistry &);
-void initializeLowerGuardIntrinsicLegacyPassPass(PassRegistry&);
 void initializeLowerWidenableConditionLegacyPassPass(PassRegistry&);
 void initializeLowerSubscriptIntrinsicLegacyPassPass(PassRegistry&); // INTEL
 void initializeLowerIntrinsicsPass(PassRegistry&);
@@ -413,7 +412,6 @@ void initializeSYCLLowerInvokeSimdLegacyPassPass(PassRegistry &);
 void initializeSYCLMutatePrintfAddrspaceLegacyPassPass(PassRegistry &);
 void initializeSPIRITTAnnotationsLegacyPassPass(PassRegistry &);
 void initializeESIMDLowerLoadStorePass(PassRegistry &);
-void initializeESIMDLowerVecArgLegacyPassPass(PassRegistry &);
 void initializeESIMDVerifierPass(PassRegistry &);
 void initializeSYCLLowerWGLocalMemoryLegacyPass(PassRegistry &);
 void initializeTailCallElimPass(PassRegistry&);

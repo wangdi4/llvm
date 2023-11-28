@@ -58,7 +58,7 @@ static cl::opt<bool> EnableLineZeroLocations(
     "use-line-zero-locations", cl::Hidden,
     cl::desc("Allow line zero entries to be included in a lexical scope tree."),
     cl::init(false));
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 /// reset - Reset the instance so that it's prepared for another function.
 void LexicalScopes::reset() {
@@ -116,10 +116,11 @@ void LexicalScopes::extractLexicalScopes(
         PrevMI = &MInsn;
         continue;
       }
-
+#if INTEL_CUSTOMIZATION
       if (RangeBeginMI &&
-          (MIDL->getLine() != 0 || EnableLineZeroLocations == true)) // INTEL
+          (MIDL->getLine() != 0 || EnableLineZeroLocations == true))
       {
+#endif // INTEL_CUSTOMIZATION
         // If we have already seen a beginning of an instruction range and
         // current instruction scope does not match scope of first instruction
         // in this range then create a new instruction range.

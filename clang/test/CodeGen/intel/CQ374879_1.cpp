@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O0 -emit-llvm %s -opaque-pointers -o - | FileCheck %s
+// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O0 -emit-llvm %s -o - | FileCheck %s
 
 struct S {int a,b;};
 void bar(S);

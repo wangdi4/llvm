@@ -176,22 +176,22 @@ void foo_max_interleaving()
   #pragma max_interleaving // expected-warning {{expected value}}
   for (int i=0;i<32;++i) {}
 
-  #pragma max_interleaving 4
-  #pragma max_interleaving 8 // expected-error{{duplicate Intel FPGA loop attribute 'max_interleaving'}}
+  #pragma max_interleaving 0
+  #pragma max_interleaving 1 // expected-error{{duplicate Intel FPGA loop attribute 'max_interleaving'}}
   for (int i=0;i<32;++i) {}
 
   #pragma max_interleaving 0
   for (int i=0;i<32;++i) {}
 
   // expected-warning@+1 {{extra tokens at end of '#pragma max_interleaving' - ignored}}
-  #pragma max_interleaving (2) int c[10];
+  #pragma max_interleaving (1) int c[10];
 
   // expected-warning@+1 {{extra tokens at end of '#pragma max_interleaving' - ignored}}
-  #pragma max_interleaving (2) (4)
+  #pragma max_interleaving (1) (1)
   for (int i=0;i<32;++i) {}
 
   // expected-warning@+1 {{extra tokens at end of '#pragma ' - ignored}}
-  #pragma max_interleaving (2,4)
+  #pragma max_interleaving (0,1)
   for (int i=0;i<32;++i) {}
 
   // expected-error@+1 {{invalid value '-1'; must be non-negative}}
@@ -772,7 +772,7 @@ void nontypeargument3()
   // CHECK-NEXT: SYCLIntelMaxInterleavingAttr
   // CHECK: SubstNonTypeTemplateParmExpr{{.*}} 'int'
   // CHECK-NEXT: NonTypeTemplateParmDecl{{.*}} referenced 'int' depth 0 index 0 size
-  // CHECK-NEXT: IntegerLiteral{{.*}} 6
+  // CHECK-NEXT: IntegerLiteral{{.*}} 1
   #pragma max_interleaving size
   for (int i=0;i<32;++i) {}
 }
@@ -808,7 +808,7 @@ int main()
   nontypeargument<5>();
   nontypeargument1<2>();
   nontypeargument2<4>();
-  nontypeargument3<6>();
+  nontypeargument3<1>();
   nontypeargument4<8>();
   nontypeargument5<10>();
 }
@@ -872,7 +872,7 @@ void max_concurrency_dependent() {
 template <int A, int B, int C>
 void max_interleaving_dependent() {
   int a[10];
-  // expected-error@+1 {{'max_interleaving' attribute requires a non-negative integral compile time constant expression}}
+  // expected-error@+1 {{'max_interleaving' attribute requires integer constant value 0 or 1}}
   #pragma max_interleaving C
   for (int i = 0; i != 10; ++i)
     a[i] = 0;
@@ -932,7 +932,7 @@ void loop_coalesce_dependent() {
 int test() {
   max_concurrency_dependent<1, 4, -2>();
   //expected-note@-1 +{{in instantiation of function template specialization}}
-  max_interleaving_dependent<1, 6, -4>();
+  max_interleaving_dependent<1, 0, -4>();
   //expected-note@-1 +{{in instantiation of function template specialization}}
   ii_dependent<2, 4, -1>();
   //expected-note@-1 +{{in instantiation of function template specialization}}

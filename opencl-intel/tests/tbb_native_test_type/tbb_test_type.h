@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2013-2020 Intel Corporation.
+// Copyright 2013 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,12 +15,11 @@
 #pragma once
 
 #include "gtest_wrapper.h"
+#include "tbb/tbb.h"
 
 #ifndef _WIN32
 #include <unistd.h>
 #endif
-
-#include "tbb/tbb.h"
 
 struct parallel_functor {
   parallel_functor(std::atomic<long> &counter) : my_counter(counter) {}

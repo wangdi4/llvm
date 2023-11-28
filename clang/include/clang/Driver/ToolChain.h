@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 - 2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -46,6 +46,7 @@
 #include <cassert>
 #include <climits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -214,6 +215,9 @@ private:
     EffectiveTriple = std::move(ET);
   }
 
+  std::optional<std::string>
+  getFallbackAndroidTargetPath(StringRef BaseDir) const;
+
   mutable std::optional<CXXStdlibType> cxxStdlibType;
   mutable std::optional<RuntimeLibType> runtimeLibType;
   mutable std::optional<UnwindLibType> unwindLibType;
@@ -241,6 +245,11 @@ protected:
                                               StringRef Component,
                                               FileType Type,
                                               bool AddArch) const;
+
+  /// Find the target-specific subdirectory for the current target triple under
+  /// \p BaseDir, doing fallback triple searches as necessary.
+  /// \return The subdirectory path if it exists.
+  std::optional<std::string> getTargetSubDirPath(StringRef BaseDir) const;
 
   /// \name Utilities for implementing subclasses.
   ///@{
@@ -536,11 +545,18 @@ public:
                                     StringRef Component,
                                     FileType Type = ToolChain::FT_Static) const;
 
-  // Returns target specific runtime paths.
-  path_list getRuntimePaths() const;
+  // Returns the target specific runtime path if it exists.
+  std::optional<std::string> getRuntimePath() const;
 
-  // Returns target specific standard library paths.
-  path_list getStdlibPaths() const;
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  // Returns the libc++ path for unified layout v2.
+  std::string getUnifiedLayoutV2LibCXXPath() const;
+#endif // #if INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // #if INTEL_CUSTOMIZATION
+
+  // Returns target specific standard library path if it exists.
+  std::optional<std::string> getStdlibPath() const;
 
   // Returns <ResourceDir>/lib/<OSName>/<arch> or <ResourceDir>/lib/<triple>.
   // This is used by runtimes (such as OpenMP) to find arch-specific libraries.
@@ -597,7 +613,7 @@ public:
 
   // Return the DWARF version to emit, in the absence of arguments
   // to the contrary.
-  virtual unsigned GetDefaultDwarfVersion() const { return 4; }  // INTEL
+  virtual unsigned GetDefaultDwarfVersion() const;
 
   // Some toolchains may have different restrictions on the DWARF version and
   // may need to adjust it. E.g. NVPTX may need to enforce DWARF2 even when host

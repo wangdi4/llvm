@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,23 +12,21 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "Buffer.h"
+#include "BufferContainer.h"
+#include "BufferContainerList.h"
+#include "Exception.h"
+#include "FloatOperations.h"
+#include "Image.h"
+#include "NEATValue.h"
+#include "XMLDataReader.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include <iostream>
 #include <sstream>
 #include <string>
 
-#include "Exception.h"
-#include "XMLDataReader.h"
-
-#include "Buffer.h"
-#include "BufferContainer.h"
-#include "BufferContainerList.h"
-#include "FloatOperations.h"
-#include "Image.h"
-#include "NEATValue.h"
-
-#include "llvm/Support/raw_ostream.h"
 #define DEBUG_TYPE "OpenCLProgramConfiguration"
-#include "llvm/Support/Debug.h"
 
 using namespace std;
 

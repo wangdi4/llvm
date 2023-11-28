@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2022 Intel Corporation
+# Modifications, Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -43,41 +43,24 @@ endif()
 
 # INTEL_CUSTOMIZATION
 if(INTEL_ENABLE_PROTO_BIN_OPTRPT)
-  # Create protobuf .h and .cc files, and put them in a library for use by OptReportSupport component.
-  set(Protobuf_USE_STATIC_LIBS ON)
-  set(protobuf_MODULE_COMPATIBLE ON CACHE BOOL "")
-  set(PROTOBUF_USE_LIBCXX FALSE)
-  if (LLVM_ENABLE_LIBCXX)
-    if(LLVM_COMPILER_IS_GCC_COMPATIBLE)
-      check_cxx_compiler_flag("-stdlib=libc++" CXX_COMPILER_SUPPORTS_STDLIB)
-      llvm_check_linker_flag(CXX "-stdlib=libc++" CXX_LINKER_SUPPORTS_STDLIB)
-      if(CXX_COMPILER_SUPPORTS_STDLIB AND CXX_LINKER_SUPPORTS_STDLIB)
-        set(PROTOBUF_USE_LIBCXX TRUE)
-      endif()
-    endif()
-  endif()
-  if (PROTOBUF_USE_LIBCXX)
-    set(PROTOBUF_ROOT /rdrive/pkg/protobuf/protobuf-3.17.3-libcxx)
-  else()
-    set(PROTOBUF_ROOT /rdrive/pkg/protobuf/protobuf-master-20210712)
-  endif()
-  find_package(Protobuf REQUIRED CONFIG HINTS ${PROTOBUF_ROOT})
+  include(Intel_BuildOptReportProto)
+
   add_definitions(-DGOOGLE_PROTOBUF_NO_RTTI)
   add_definitions(-DINTEL_ENABLE_PROTO_BIN_OPTRPT)
-  include_directories(${PROTOBUF_INCLUDE_DIRS})
-  include_directories(${CMAKE_CURRENT_BINARY_DIR})
-  set(OPT_REPORT_PROTO ${PROJECT_SOURCE_DIR}/include/llvm/Analysis/Intel_OptReport/opt_report_proto.proto)
-  protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${OPT_REPORT_PROTO})
-  set(LLVM_OPTIONAL_SOURCES ${LLVM_OPTIONAL_SOURCES} ${PROTO_SRCS})
-  message( STATUS "INTEL: Protobuf lib found : ${PROTOBUF_LIBRARIES}, binary opt-report C++ library built for compiler." )
+
+  set(LLVM_OPTIONAL_SOURCES ${LLVM_OPTIONAL_SOURCES} ${OPT_REPORT_PROTO_SRCS})
+
   add_llvm_library(LLVMIntel_OptReportProtoWriter
-    ${PROTO_SRCS}
-    ${PROTO_HDRS}
+    ${OPT_REPORT_PROTO_SRCS}
+    ${OPT_REPORT_PROTO_HDRS}
     PARTIAL_SOURCES_INTENDED
 
     LINK_LIBS
     protobuf::libprotobuf
     )
+  target_include_directories(LLVMIntel_OptReportProtoWriter
+      SYSTEM PRIVATE $<TARGET_PROPERTY:protobuf::libprotobuf,INCLUDE_DIRECTORIES>)
+  target_include_directories(LLVMIntel_OptReportProtoWriter PRIVATE ${OPT_REPORT_PROTO_DIR})
 
 endif()
 # end INTEL_CUSTOMIZATION
@@ -137,6 +120,7 @@ add_llvm_component_library(LLVMAnalysis
   Intel_Andersens.cpp
   Intel_ArrayUseAnalysis.cpp
   Intel_DopeVectorAnalysis.cpp
+  Intel_DopeVectorTypeAnalysis.cpp
   Intel_FPValueRange.cpp
   Intel_FPValueRangeAnalysis.cpp
 # INTEL_FEATURE_SW_ADVANCED
@@ -226,6 +210,7 @@ add_llvm_component_library(LLVMAnalysis
   ScalarEvolutionNormalization.cpp
   StackLifetime.cpp
   StackSafetyAnalysis.cpp
+  StructuralHash.cpp
   SyntheticCountsUtils.cpp
   TFLiteUtils.cpp
   TargetLibraryInfo.cpp
@@ -288,6 +273,9 @@ if(INTEL_ENABLE_PROTO_BIN_OPTRPT)
     protobuf::libprotobuf
     LLVMIntel_OptReportProtoWriter
     )
+  target_include_directories(LLVMAnalysis
+      SYSTEM PRIVATE $<TARGET_PROPERTY:protobuf::libprotobuf,INCLUDE_DIRECTORIES>)
+  target_include_directories(LLVMAnalysis PRIVATE ${OPT_REPORT_PROTO_DIR})
 endif()
 # end INTEL_CUSTOMIZATION
 

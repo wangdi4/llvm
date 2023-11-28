@@ -5,16 +5,16 @@
 ; Note: the LLVM IR used as input to this test has already had Mem2Reg applied to it, so no need to
 ; do that here.
 
-; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; Begin non-masked variant checking
 
 ; CHECK-LABEL: @_ZGVbN4vv_vec_sum
 ; CHECK: simd.loop.header:
-; CHECK: %vec.i.cast.gep = getelementptr i32, i32* %vec.i.cast, i32 %index
-; CHECK: %vec.i.elem = load i32, i32* %vec.i.cast.gep
-; CHECK: %vec.j.cast.gep = getelementptr i32, i32* %vec.j.cast, i32 %index
-; CHECK: %vec.j.elem = load i32, i32* %vec.j.cast.gep
+; CHECK: %vec.i.gep = getelementptr i32, ptr %vec.i, i32 %index
+; CHECK: %vec.i.elem = load i32, ptr %vec.i.gep
+; CHECK: %vec.j.gep = getelementptr i32, ptr %vec.j, i32 %index
+; CHECK: %vec.j.elem = load i32, ptr %vec.j.gep
 ; CHECK: %add = add nsw i32 %vec.i.elem, %vec.j.elem
 
 ; ModuleID = 'two_vec_sum.c'

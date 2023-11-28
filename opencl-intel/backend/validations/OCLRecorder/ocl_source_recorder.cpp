@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2023 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,15 +12,14 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "ocl_source_recorder.h"
+#include "compile_data.h"
+#include "link_data.h"
+#include "opencl_clang.h"
 #include <algorithm>
 #include <assert.h>
 #include <mutex>
 #include <vector>
-
-#include "compile_data.h"
-#include "link_data.h"
-#include "ocl_source_recorder.h"
-#include "opencl_clang.h"
 
 using namespace llvm;
 

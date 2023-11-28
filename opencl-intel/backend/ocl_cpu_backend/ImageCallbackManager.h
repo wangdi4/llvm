@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,7 +16,6 @@
 #include "ICompilerConfig.h"
 #include "ImageCallbackLibrary.h"
 #include "cl_cpu_detect.h"
-
 #include <map>
 
 namespace Intel {

@@ -20,7 +20,7 @@
 == Notice
 
 [%hardbreaks]
-Copyright (C) 2023-2023 Intel Corporation.  All rights reserved.
+Copyright (C) 2023 Intel Corporation.  All rights reserved.
 
 Khronos(R) is a registered trademark and SYCL(TM) and SPIR(TM) are trademarks
 of The Khronos Group Inc.  OpenCL(TM) is a trademark of Apple Inc. used by
@@ -145,6 +145,11 @@ The supported values are as follows:
 |GPU |Supported Values
 | PVC | 128 (small register file), 256 (large register file)
 | DG2 | 128 (small register file), 256 (large register file)
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_ESIMD_EMBARGO
+| FS  | 128, 256, 512
+// end INTEL_FEATURE_ESIMD_EMBARGO
+// end INTEL_CUSTOMIZATION
 |===
 
 Providing a value not consistent with the supported values may result in undefined behavior.

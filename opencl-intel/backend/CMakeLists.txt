@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2023 Intel Corporation
+# Copyright (C) 2011 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -55,13 +55,6 @@ file(GLOB_RECURSE OCL_ALL_TD_FILES
      "${BACKEND_ROOT_DIR}/libraries/ocl_builtins/*.td")
 
 set_unicode_off()
-
-#
-# Settings for Linux compilation
-#
-if(NOT WIN32 AND (CMAKE_BUILD_TYPE MATCHES "Release"))
-  add_definitions(-D_FORTIFY_SOURCE=2)
-endif()
 
 ################################################################################
 

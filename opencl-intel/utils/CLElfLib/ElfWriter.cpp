@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -93,8 +93,6 @@ E_RETVAL CElfWriter::AddSection(SSectionNode *pSectionNode) {
     return FAILURE;
 
   pNode = new SSectionNode();
-  if (pNode == nullptr)
-    return OUT_OF_MEMORY;
 
   pNode->Flags = pSectionNode->Flags;
   pNode->Type = pSectionNode->Type;
@@ -107,13 +105,6 @@ E_RETVAL CElfWriter::AddSection(SSectionNode *pSectionNode) {
   // ok to have NULL data
   if (dataSize > 0) {
     pNode->pData = new char[dataSize];
-
-    if (pNode->pData == nullptr) {
-      if (pNode != nullptr)
-        delete pNode;
-      return OUT_OF_MEMORY;
-    }
-
     MEMCPY_S(pNode->pData, dataSize, pSectionNode->pData, dataSize);
     pNode->DataSize = dataSize;
   }

@@ -32,8 +32,8 @@ entry:
   ret void
 }
 
-; CHECK: define fastcc <4 x i64> @_ZGVeM4_foo(<4 x i64> %mask) #2 {
-; CHECK: attributes #2 = { memory(readwrite) "may-have-openmp-directive"="true" "widened-size"="4" }
+; CHECK: define fastcc <4 x i64> @_ZGVeM4_foo(<4 x i64> %mask) #[[ATTR:.*]] {
+; CHECK: attributes #[[ATTR]] = { memory(readwrite) "may-have-openmp-directive"="true" "target-cpu"="skylake-avx512" "target-features"="+{{.*}}" "widened-size"="4" }
 
 attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 
@@ -42,7 +42,7 @@ attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 !0 = !{ptr @basic}
 !1 = !{i32 4}
 !2 = !{!"long*", !"long*"}
-!3 = !{i64 addrspace(1)* null, i64 addrspace(1)* null}
+!3 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY:      WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} alloca
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} alloca

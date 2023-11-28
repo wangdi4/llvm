@@ -119,6 +119,9 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.vector.aligned.enable metadata.
   bool VectorizeAlignedEnable;
 
+  /// Value for llvm.loop.intel.vector.unaligned.enable metadata.
+  bool VectorizeUnAlignedEnable;
+
   /// Value for llvm.loop.intel.vector.dynamic_align.enable metadata.
   bool VectorizeDynamicAlignEnable;
 
@@ -212,6 +215,10 @@ struct LoopAttributes {
   /// Value for llvm.loop.max_concurrency.count metadata.
   std::optional<unsigned> SYCLMaxConcurrencyNThreads;
 
+  /// Value for count variant (min/max/avg) and count metadata.
+  llvm::SmallVector<std::pair<const char *, unsigned int>, 2>
+      SYCLIntelFPGAVariantCount;
+
   /// Flag for llvm.loop.coalesce metadata.
   bool SYCLLoopCoalesceEnable;
 
@@ -227,9 +234,6 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.speculated.iterations.count metadata.
   std::optional<unsigned> SYCLSpeculatedIterationsNIterations;
 
-  /// Value for count variant (min/max/avg) and count metadata.
-  llvm::SmallVector<std::pair<const char *, unsigned int>, 2>
-      SYCLIntelFPGAVariantCount;
   // Value for llvm.loop.intel.max_reinvocation_delay metadata.
   std::optional<unsigned> SYCLMaxReinvocationDelayNCycles;
 
@@ -253,6 +257,9 @@ struct LoopAttributes {
 
   /// Flag for llvm.loop.fusion.disable metatdata.
   bool SYCLNofusionEnable;
+
+  /// Value for 'llvm.loop.align' metadata.
+  unsigned CodeAlign;
 
   /// Value for whether the loop is required to make progress.
   bool MustProgress;
@@ -481,6 +488,10 @@ public:
     StagedAttrs.VectorizeAlignedEnable = true;
   }
 
+  /// Set next pushed loop  'vector.unaligned.enable'
+  void setVectorizeUnAlignedEnable() {
+    StagedAttrs.VectorizeUnAlignedEnable = true;
+  }
 
   /// Set next pushed loop  'vector.dynamic_aligned.enable'
   void setVectorizeDynamicAlignEnable() {
@@ -521,6 +532,7 @@ public:
   void setLoopCountAvg(unsigned C) {
     StagedAttrs.LoopCountAvg = C;
   }
+
 #endif // INTEL_CUSTOMIZATION
 
   /// Set the next pushed loop 'vectorize.enable'
@@ -620,6 +632,9 @@ public:
 
   /// Set flag of nofusion for the next loop pushed.
   void setSYCLNofusionEnable() { StagedAttrs.SYCLNofusionEnable = true; }
+
+  /// Set value of code align for the next loop pushed.
+  void setCodeAlign(unsigned C) { StagedAttrs.CodeAlign = C; }
 
   /// Set no progress for the next loop pushed.
   void setMustProgress(bool P) { StagedAttrs.MustProgress = P; }

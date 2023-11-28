@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2023 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,11 +15,11 @@
 #pragma once
 #include "Context.h"
 #include "GenericMemObj.h"
+#include "Logger.h"
 #include "cl_framework.h"
 #include "cl_objects_map.h"
 #include "ocl_config.h"
 #include "ocl_itt.h"
-#include <Logger.h>
 
 namespace Intel {
 namespace OpenCL {
@@ -237,6 +237,11 @@ public:
                                         size_t szParamValueSize,
                                         void *pParamValue,
                                         size_t *pszParamValueSizeRet);
+
+  virtual cl_int GetKernelMaxConcurrentWorkGroupCount(
+      cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim,
+      const size_t *global_work_offset, const size_t *local_work_size,
+      size_t *max_work_group_count);
 
   // memory object methods
   virtual cl_mem CreateBuffer(cl_context clContext, cl_mem_flags clFlags,

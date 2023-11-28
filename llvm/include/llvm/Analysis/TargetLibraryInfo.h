@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -43,6 +43,7 @@ class Function;
 class Module;
 class Triple;
 class TargetTransformInfo; // INTEL
+enum class VFISAKind;      // INTEL
 
 /// Describes a possible implementation of a floating point builtin operation.
 struct AltMathDesc {
@@ -71,16 +72,53 @@ using VecDescAttrBits =
     std::bitset<static_cast<unsigned>(VecDescAttrs::LastAttr) + 1>;
 #endif // INTEL_CUSTOMIZATION
 
-/// Describes a possible vectorization of a function.
-/// Function 'VectorFnName' is equivalent to 'ScalarFnName' vectorized
-/// by a factor 'VectorizationFactor'.
-struct VecDesc {
+/// Provides info so a possible vectorization of a function can be
+/// computed. Function 'VectorFnName' is equivalent to 'ScalarFnName'
+/// vectorized by a factor 'VectorizationFactor'.
+/// The VABIPrefix string holds information about isa, mask, vlen,
+/// and vparams so a scalar-to-vector mapping of the form:
+///    _ZGV<isa><mask><vlen><vparams>_<scalarname>(<vectorname>)
+/// can be constructed where:
+///
+/// <isa> = "_LLVM_"
+/// <mask> = "M" if masked, "N" if no mask.
+/// <vlen> = Number of concurrent lanes, stored in the `VectorizationFactor`
+///          field of the `VecDesc` struct. If the number of lanes is scalable
+///          then 'x' is printed instead.
+/// <vparams> = "v", as many as are the numArgs.
+/// <scalarname> = the name of the scalar function.
+/// <vectorname> = the name of the vector function.
+class VecDesc {
   StringRef ScalarFnName;
   StringRef VectorFnName;
   ElementCount VectorizationFactor;
   bool Masked;
-  VecDescAttrBits AttrBits = 0;  // INTEL
-  StringRef ReqdCpuFeature = ""; // INTEL
+  StringRef VABIPrefix;
+  VecDescAttrBits AttrBits; // INTEL
+
+public:
+  VecDesc() = delete;
+#if INTEL_CUSTOMIZATION
+  VecDesc(StringRef ScalarFnName, StringRef VectorFnName,
+          ElementCount VectorizationFactor, bool Masked, StringRef VABIPrefix,
+          VecDescAttrBits AttrBits = 0)
+      : ScalarFnName(ScalarFnName), VectorFnName(VectorFnName),
+        VectorizationFactor(VectorizationFactor), Masked(Masked),
+        VABIPrefix(VABIPrefix), AttrBits(AttrBits) {}
+#endif // INTEL_CUSTOMIZATION
+
+  StringRef getScalarFnName() const { return ScalarFnName; }
+  StringRef getVectorFnName() const { return VectorFnName; }
+  ElementCount getVectorizationFactor() const { return VectorizationFactor; }
+  bool isMasked() const { return Masked; }
+  StringRef getVABIPrefix() const { return VABIPrefix; }
+#if INTEL_CUSTOMIZATION
+  VecDescAttrBits getAttrBits() const { return AttrBits; }
+#endif // INTEL_CUSTOMIZATION
+
+  /// Returns a vector function ABI variant string on the form:
+  ///    _ZGV<isa><mask><vlen><vparams>_<scalarname>(<vectorname>)
+  std::string getVectorFunctionABIVariantString() const;
 };
 
   enum LibFunc : unsigned {
@@ -167,10 +205,10 @@ public:
     MASSV,            // IBM MASS vector library.
     SVML,             // Intel short vector math library.
     SLEEFGNUABI, // SLEEF - SIMD Library for Evaluating Elementary Functions.
-    ArmPL,        // Arm Performance Libraries.
 #if INTEL_CUSTOMIZATION
-    Libmvec,          // Glibc vector math library.
-#endif
+    ArmPL,   // Arm Performance Libraries.
+    Libmvec, // Glibc vector math library.
+#endif       // INTEL_CUSTOMIZATION
   };
 
 #if INTEL_CUSTOMIZATION
@@ -193,11 +231,9 @@ public:
   /// and then used by addAltMathFunctionsFromLib for populating the tables of
   /// math function implementations.
   enum AltMathLibrary {
-    NoAltMathLibrary,  // Don't use any alternate math library
-#if INTEL_CUSTOMIZATION
-    SVMLAltMathLibrary,// INTEL SVML Library
-#endif // INTEL_CUSTOMIZATION
-    TestAltMathLibrary // Use a fake alternate math library for testing
+    NoAltMathLibrary,   // Don't use any alternate math library
+    SVMLAltMathLibrary, // Intel SVML Library
+    TestAltMathLibrary  // Use a fake alternate math library for testing
   };
 
   TargetLibraryInfoImpl();
@@ -279,8 +315,9 @@ public:
   /// returned if and only if a vector version for a particular VF
   /// and appropriate 'IsMasked' property exists.
   bool isFunctionVectorizable(StringRef F, const ElementCount &VF,
-                              bool IsMasked) const {
-    return !getVectorizedFunction(F, VF, IsMasked).empty();
+                              bool IsMasked,
+                              const TargetTransformInfo *TTI = nullptr) const {
+    return !getVectorizedFunction(F, VF, IsMasked, TTI).empty();
   }
 
   /// True iff vector library is set to SVML.
@@ -303,11 +340,10 @@ public:
   /// that can be vectorized using its vector library equivalent.
   bool isFortranOnlyVectorFunction(StringRef F) const;
 
-  /// Return the CPU feature that is required to invoke the vector library
-  /// function that corresponds to scalar function \p F for given \p VF. Returns
-  /// empty string if no specific CPU feature is needed.
-  StringRef getVectorFuncReqdCpuFeature(StringRef F,
-                                        const ElementCount &VF) const;
+  /// Return the ISA that is required to invoke the vector library function that
+  /// corresponds to scalar function \p F for given \p VF. Returns
+  /// VFISAKind::Unknown if no specific ISA is needed.
+  VFISAKind getVectorFuncReqdISA(StringRef F, const ElementCount &VF) const;
 
   // True if the provided LibFunc \p F identifies an OpenMP library function,
   // i.e. the LibFunc_kmpc_* LibFuncs.
@@ -320,7 +356,7 @@ public:
   // True if the provided LibFunc \p F identifies a Fortran random number
   // generator library function.
   bool isFortranRNGLibFunc(LibFunc F) const;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// Return true if the function F has a vector equivalent with any
   /// vectorization factor.
@@ -332,6 +368,12 @@ public:
   StringRef
   getVectorizedFunction(StringRef F, const ElementCount &VF, bool Masked,
                         const TargetTransformInfo *TTI = nullptr) const;
+
+  /// Return a pointer to a VecDesc object holding all info for scalar to vector
+  /// mappings in TLI for the equivalent of F, vectorized with factor VF.
+  /// If no such mapping exists, return nullpointer.
+  const VecDesc *getVectorMappingInfo(StringRef F, const ElementCount &VF,
+                                      bool Masked, const TargetTransformInfo *TTI) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// Set to true iff i32 parameters to library functions should have signext
@@ -525,8 +567,9 @@ public:
 
 #if INTEL_CUSTOMIZATION
   bool isFunctionVectorizable(StringRef F, const ElementCount &VF,
-                              bool IsMasked = false) const {
-    return Impl->isFunctionVectorizable(F, VF, IsMasked);
+                              bool IsMasked = false,
+                              const TargetTransformInfo *TTI = nullptr) const {
+    return Impl->isFunctionVectorizable(F, VF, IsMasked, TTI);
   }
 
 private:
@@ -586,12 +629,11 @@ public:
     return Impl->isFortranOnlyVectorFunction(F);
   }
 
-  /// Return the CPU feature that is required to invoke the vector library
-  /// function that corresponds to scalar function \p F for given \p VF. Returns
-  /// empty string if no specific CPU feature is needed.
-  StringRef getVectorFuncReqdCpuFeature(StringRef F,
-                                        const ElementCount &VF) const {
-    return Impl->getVectorFuncReqdCpuFeature(F, VF);
+  /// Return the ISA that is required to invoke the vector library function that
+  /// corresponds to scalar function \p F for given \p VF. Returns
+  /// VFISAKind::Unknown if no specific ISA is needed.
+  VFISAKind getVectorFuncReqdISA(StringRef F, const ElementCount &VF) const {
+    return Impl->getVectorFuncReqdISA(F, VF);
   }
 
   // True if the provided LibFunc \p F identifies an OpenMP library function,
@@ -622,6 +664,10 @@ public:
                         bool Masked = false,
                         const TargetTransformInfo *TTI = nullptr) const {
     return Impl->getVectorizedFunction(F, VF, Masked, TTI);
+  }
+  const VecDesc *getVectorMappingInfo(StringRef F, const ElementCount &VF,
+                                      bool Masked, const TargetTransformInfo *TTI = nullptr) const {
+    return Impl->getVectorMappingInfo(F, VF, Masked, TTI);
   }
 #endif // INTEL_CUSTOMIZATION
 

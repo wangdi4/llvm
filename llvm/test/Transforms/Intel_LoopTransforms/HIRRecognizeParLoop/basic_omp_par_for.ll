@@ -1,6 +1,5 @@
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
 
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
 
 ; The test checks if
 ;   '%1 = @llvm.directive.region.entry()' / '@llvm.directive.region.exit(%1)'
@@ -44,7 +43,7 @@
 ; CHECK:       {
 ; CHECK:         %4 = (%ip.addr)[0];
 
-; CHECK:         + DO i1 = 0, -1 * sext.i32.i64(%2) + smax(sext.i32.i64(%2), %6), 1   <DO_LOOP>
+; CHECK:         + DO i1 = 0, -1 * sext.i32.i64(%2) + smax(sext.i32.i64((-1 + trunc.i64.i32(%n))), sext.i32.i64(%2)), 1   <DO_LOOP>
 ; CHECK:         |   @llvm.lifetime.start.p0{{.*}}(4,  &({{.*}}(%i)[0]));
 ; CHECK:         |   (%4)[i1 + sext.i32.i64(%2)] = i1 + sext.i32.i64(%2);
 ; CHECK:         |   @llvm.lifetime.end.p0{{.*}}(4,  &({{.*}}(%i)[0]));
@@ -62,7 +61,7 @@
 ; CHECK:       {
 ; CHECK:         %4 = (%ip.addr)[0];
 
-; CHECK:         + DO i1 = 0, -1 * sext.i32.i64(%2) + smax(sext.i32.i64(%2), %6), 1   <DO_LOOP> <parallel>
+; CHECK:         + DO i1 = 0, -1 * sext.i32.i64(%2) + smax(sext.i32.i64((-1 + trunc.i64.i32(%n))), sext.i32.i64(%2)), 1   <DO_LOOP> <parallel>
 ; CHECK:         |   @llvm.lifetime.start.p0{{.*}}(4,  &({{.*}}(%i)[0]));
 ; CHECK:         |   (%4)[i1 + sext.i32.i64(%2)] = i1 + sext.i32.i64(%2);
 ; CHECK:         |   @llvm.lifetime.end.p0{{.*}}(4,  &({{.*}}(%i)[0]));

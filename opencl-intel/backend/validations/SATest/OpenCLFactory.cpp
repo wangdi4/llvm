@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,7 +13,6 @@
 // License.
 
 #include "OpenCLFactory.h"
-
 #include "OpenCLBackendWrapper.h"
 #include "OpenCLCPUBackendRunner.h"
 #include "OpenCLComparator.h"
@@ -21,11 +20,11 @@
 #include "OpenCLReferenceRunner.h"
 #include "OpenCLRunConfiguration.h"
 #include "RunResult.h"
-
-#define DEBUG_TYPE "OpenCLFactory"
-// debug macros
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+
+// debug macro
+#define DEBUG_TYPE "OpenCLFactory"
 
 using namespace Validation;
 using std::string;

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2013-2018 Intel Corporation.
+// Copyright 2013 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,8 +17,7 @@
 
 #include "FloatOperations.h"
 #include "NEATValue.h"
-
-#include <imathLibd.h>
+#include "imathLibd.h"
 
 namespace Validation {
 double ComputeUlp(double ref);

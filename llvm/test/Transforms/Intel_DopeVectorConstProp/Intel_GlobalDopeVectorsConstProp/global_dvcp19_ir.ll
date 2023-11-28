@@ -548,6 +548,7 @@ attributes #7 = { noinline }
 !llvm.dbg.cu = !{!15}
 !omp_offload.info = !{}
 !llvm.module.flags = !{!25, !26, !27, !28, !29}
+!ifx.types.dv = !{!191, !192}
 
 !0 = !DIGlobalVariableExpression(var: !1, expr: !DIExpression())
 !1 = distinct !DIGlobalVariable(name: "a", linkageName: "arr_mod_mp_a_", scope: !2, file: !3, line: 10, type: !4, isLocal: false, isDefinition: true)
@@ -740,3 +741,5 @@ attributes #7 = { noinline }
 !188 = !DILocation(line: 74, column: 16, scope: !19)
 !189 = !DILocation(line: 76, column: 16, scope: !19)
 !190 = !DILocation(line: 79, column: 7, scope: !19)
+!191 = !{%"QNCA_a0$float*$rank2$" zeroinitializer, float 0.000000e+00}
+!192 = !{%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$" zeroinitializer, %"ARR_MOD$.btT_TESTTYPE" zeroinitializer}

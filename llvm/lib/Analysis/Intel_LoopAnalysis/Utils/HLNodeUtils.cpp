@@ -1,6 +1,6 @@
 //===------- HLNodeUtils.cpp - Implements HLNodeUtils class ---------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1156,8 +1156,9 @@ HLInst *HLNodeUtils::createCall(FunctionType *FTy, Value *Callee,
 
 HLInst *HLNodeUtils::createStacksave(const DebugLoc &DLoc) {
 
+  Type *PtrTy = getDataLayout().getAllocaPtrType(getContext());
   Function *StacksaveFunc =
-      Intrinsic::getDeclaration(&getModule(), Intrinsic::stacksave);
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::stacksave, {PtrTy});
 
   SmallVector<RegDDRef *, 1> Ops;
   CallInst *Call;
@@ -1170,8 +1171,8 @@ HLInst *HLNodeUtils::createStacksave(const DebugLoc &DLoc) {
 }
 
 HLInst *HLNodeUtils::createStackrestore(RegDDRef *AddrArg) {
-  Function *StackrestoreFunc =
-      Intrinsic::getDeclaration(&getModule(), Intrinsic::stackrestore);
+  Function *StackrestoreFunc = Intrinsic::getDeclaration(
+      &getModule(), Intrinsic::stackrestore, {AddrArg->getDestType()});
 
   SmallVector<RegDDRef *, 1> Ops = {AddrArg};
   CallInst *Call;
@@ -1207,7 +1208,7 @@ HLInst *HLNodeUtils::createDbgPuts(const TargetLibraryInfo &TLI,
 
   StringRef PutsName = TLI.getName(LibFunc_puts);
   FunctionCallee PutsCallee = getModule().getOrInsertFunction(
-      PutsName, Type::getInt32Ty(Ctx), Type::getInt8PtrTy(Ctx, 0));
+      PutsName, Type::getInt32Ty(Ctx), PointerType::getUnqual(Ctx));
   inferNonMandatoryLibFuncAttrs(&getModule(), PutsName, TLI);
 
   GlobalVariable *ConstStr =
@@ -2331,8 +2332,17 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
       if (std::next(Iter) != Loop->Children.end()) {
         Succ = &*(std::next(Iter));
         break;
-      }
+      } else {
+        // Iter can be the last child of preheader, body or loop depending on
+        // whether the later sections of the loop are empty. We should return
+        // null if Iter is the loops's last child because it has two possible
+        // control flow successors depending on whether we exit the loop. For
+        // the other cases, we can continue looking up the parent chain.
+        auto *Inst = dyn_cast<HLInst>(&*Iter);
 
+        if (!Inst || !Inst->isInPreheaderOrPostexit(Loop))
+          return nullptr;
+      }
     } else if (auto Reg = dyn_cast<HLRegion>(Parent)) {
       if (std::next(Iter) != Reg->Children.end()) {
         Succ = &*(std::next(Iter));
@@ -2670,6 +2680,8 @@ bool HLNodeUtils::isInTopSortNumRangeImpl(const HLNode *Node,
   unsigned LastNum =
       IsMaxMode ? LastNode->getMaxTopSortNum() : LastNode->getTopSortNum();
 
+  assert(FirstNum <= LastNum && "Invalid top sort number range!");
+
   return (Num >= FirstNum && Num <= LastNum);
 }
 
@@ -2683,6 +2695,19 @@ bool HLNodeUtils::isInTopSortNumMaxRange(const HLNode *Node,
                                          const HLNode *FirstNode,
                                          const HLNode *LastNode) {
   return isInTopSortNumRangeImpl<true>(Node, FirstNode, LastNode);
+}
+
+bool HLNodeUtils::isBetweenNodes(const HLNode *Node, const HLNode *NodeA,
+                                 const HLNode *NodeB) {
+  assert(Node && "Node is null!");
+  assert(NodeA && "NodeA is null!");
+  assert(NodeB && "NodeB is null!");
+
+  if (NodeA->getTopSortNum() <= NodeB->getTopSortNum()) {
+    return isInTopSortNumRange(Node, NodeA, NodeB);
+  }
+
+  return isInTopSortNumRange(Node, NodeB, NodeA);
 }
 
 const HLNode *HLNodeUtils::getLexicalChildImpl(const HLNode *Parent,
@@ -2765,7 +2790,40 @@ HLNode *HLNodeUtils::getLastLexicalChild(HLNode *Parent, HLNode *Node) {
       static_cast<const HLNode *>(Parent), static_cast<const HLNode *>(Node)));
 }
 
+bool HLNodeUtils::isLexicalFirstChildOfParent(const HLNode *Node) {
+  assert(Node && "Node is null!");
+
+  auto *Parent = Node->getParent();
+
+  if (auto *If = dyn_cast<HLIf>(Parent)) {
+    return (Node == If->getFirstThenChild()) ||
+           (Node == If->getFirstElseChild());
+  }
+
+  if (auto *Switch = dyn_cast<HLSwitch>(Parent)) {
+    if (Node == Switch->getFirstDefaultCaseChild()) {
+      return true;
+    }
+
+    for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+      if (Node == Switch->getFirstCaseChild(I)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  if (auto *Lp = dyn_cast<HLLoop>(Parent)) {
+    return (Node == Lp->getFirstChild());
+  }
+
+  return (Node == cast<HLRegion>(Parent)->getFirstChild());
+}
+
 bool HLNodeUtils::isLexicalLastChildOfParent(const HLNode *Node) {
+  assert(Node && "Node is null!");
+
   auto *Parent = Node->getParent();
 
   if (auto *If = dyn_cast<HLIf>(Parent)) {
@@ -3185,7 +3243,7 @@ bool HLNodeUtils::canAccessTogether(const HLNode *Node1, const HLNode *Node2) {
 }
 
 bool HLNodeUtils::contains(const HLNode *Parent, const HLNode *Node,
-                           bool IncludePrePostHdr) {
+                           bool IncludePrePostHdr, bool AvoidTopSortNum) {
   assert(Parent && "Parent is null!");
   assert(Node && "Node is null!");
 
@@ -3199,13 +3257,18 @@ bool HLNodeUtils::contains(const HLNode *Parent, const HLNode *Node,
     }
   }
 
-  // Use top sort num, if available.
-  if (unsigned TSNum = Node->getTopSortNum()) {
-    assert((isa<HLRegion>(Node) || Node->isAttached()) &&
-           "It is illegal to call top sort number "
-           "dependent utility on disconnected node!");
-    return (TSNum >= Parent->getMinTopSortNum() &&
-            TSNum <= Parent->getMaxTopSortNum());
+  // Use top sort num if not asked by the caller to avoid using.
+  if (!AvoidTopSortNum) {
+    // Use top sort num, if available.
+    // Top sort number is zero for new nodes not attached to region. It is also
+    // zero in the loopopt framework phase.
+    if (unsigned TSNum = Node->getTopSortNum()) {
+      assert((isa<HLRegion>(Node) || Node->isAttached()) &&
+             "It is illegal to call top sort number "
+             "dependent utility on disconnected node!");
+      return (TSNum >= Parent->getMinTopSortNum() &&
+              TSNum <= Parent->getMaxTopSortNum());
+    }
   }
 
   while (Node) {
@@ -4960,6 +5023,8 @@ public:
       OptReportBuilder &ORBuilder =
           Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
+      ORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                 OptRemarkID::DeadLoopOptimizedAway);
       ORBuilder(*Loop).preserveLostOptReport();
 
       HLNodeUtils::remove(Loop);
@@ -5147,6 +5212,9 @@ public:
         (Loop->hasSignedIV() && !Loop->isUnknown() &&
          Loop->getUpperCanonExpr()->isIntConstant(&UpperVal) && (UpperVal < 0));
 
+    // TODO: extract preheader/postexit if we are removing loop due to
+    // non-sensical bounds as those instructions lie outside the loop body and
+    // are therefore not redundant.
     if (HasNonSensicalBounds || (IsTrivialZtt && !ZttIsTrue)) {
       RedundantLoops++;
       notifyWillRemoveNode(Loop);
@@ -5156,6 +5224,8 @@ public:
       OptReportBuilder &ORBuilder =
           Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
+      ORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                 OptRemarkID::DeadLoopOptimizedAway);
       ORBuilder(*Loop).preserveLostOptReport();
 
       HLNodeUtils::remove(Loop);
@@ -5175,12 +5245,12 @@ public:
     }
 
     // Record new loop.
-    LoopSideEffects.emplace_back(Loop, Loop->hasLiveOutTemps());
+    LoopSideEffects.emplace_back(Loop, false);
   }
 
   void visit(HLIf *If) {
     bool IsTrue;
-    if (If->isKnownPredicate(&IsTrue)) {
+    if (!If->isUnknownLoopBottomTest() && If->isKnownPredicate(&IsTrue)) {
       Changed = true;
       RedundantPredicates++;
       notifyWillRemoveNode(If);
@@ -5352,13 +5422,8 @@ public:
 
       notifyWillRemoveNode(Loop);
 
-      OptReportBuilder &ORBuilder =
-          Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
-
-      ORBuilder(*Loop).preserveLostOptReport();
-
       // Do not extract postexit as they will become dead nodes because of goto.
-      Loop->replaceByFirstIteration(false);
+      Loop->replaceByFirstIteration(false, true);
       RedundantEarlyExitLoops++;
 
       // Have to handle the label again in the context of parent loop.
@@ -5375,12 +5440,14 @@ public:
     bool MayRemoveRedundantLoop =
         !DisableAggressiveRedundantLoopRemoval && !CurrentLoopSideEffect;
 
-    if (!LoopSideEffects.empty()) {
-      LoopSideEffects.back().second =
-          LoopSideEffects.back().second || CurrentLoopSideEffect;
+    // Propagate side effect to parent loop.
+    if (!LoopSideEffects.empty() && CurrentLoopSideEffect) {
+      LoopSideEffects.back().second = true;
     }
 
     if (MayRemoveRedundantLoop) {
+      // Make the loop body empty so EmptyNodeRemover can remove the loop inside
+      // the call to postVisitImpl() below.
       HLNodeUtils::remove(Loop->child_begin(), Loop->child_end());
 
       // Explicitly visit post exit nodes because they will be extracted to the
@@ -5388,13 +5455,14 @@ public:
       if (Loop->hasPostexit()) {
         HLNodeUtils::visitRange(*this, Loop->post_begin(), Loop->post_end());
       }
-
-      EmptyNodeRemoverVisitorImpl::postVisit(Loop);
-      return;
     }
 
-    // The loop will stay attached - handle as regular node.
     postVisitImpl(Loop);
+
+    // If the loop wasn't removed then we need to update the number of exits
+    // since gotos could have been removed or optimized.
+    if (Loop->isMultiExit() && Loop->isAttached())
+      HLNodeUtils::updateNumLoopExits(Loop);
   }
 
   // Remove nodes after IF-stmt if it does not fall through.
@@ -5437,6 +5505,12 @@ public:
   }
 
   static bool containsSideEffect(HLInst *Inst) {
+    auto *LvalRef = Inst->getLvalDDRef();
+
+    if (LvalRef && LvalRef->isTerminalRef() &&
+        Inst->getLexicalParentLoop()->isLiveOut(LvalRef->getSymbase()))
+      return true;
+
     return Inst->isSideEffectsCallInst();
   }
 
@@ -5469,6 +5543,22 @@ public:
   }
 
   void visit(HLInst *Inst) {
+    // The following check skips detached postexit instructions. Even if the
+    // parent loop has been removed along with the preheader/postexit
+    // instructions, the visitor still visits the postexit instructions due to
+    // the nature of the algorithm. Visitor was not built for arbitrary removal
+    // of nodes during visit. The parent loop could have been removed because
+    // the ZTT was false. The loop body is skipped by setting SkipNode but
+    // postexit is still visited.
+    //
+    // The parent loop checks below are for compile time savings so we don't try
+    // to traverse the parent chain of every instruction up to the region by
+    // calling isAttached() on every instruction.
+    auto *ParLoop = dyn_cast_or_null<HLLoop>(Inst->getParent());
+
+    if (ParLoop && ParLoop->hasPostexit() && !ParLoop->isAttached())
+      return;
+
     recordSideEffectForNode(Inst);
     visit(static_cast<HLDDNode *>(Inst));
   }
@@ -5751,7 +5841,7 @@ void HLNodeUtils::eliminateRedundantGotos(
 
       if (!Successor) {
         auto TargetBB = Goto->getTargetBBlock();
-        if (TargetBB == Goto->getParentRegion()->getSuccBBlock()) {
+        if (TargetBB && TargetBB == Goto->getParentRegion()->getSuccBBlock()) {
           // Goto is redundant if it has no lexical successor and jumps to
           // region exit.
           Erase = true;

@@ -14,8 +14,6 @@
 # or implied warranties, other than those that are expressly stated in the
 # License.
 #
-# end INTEL_CUSTOMIZATION
-# INTEL_COLLAB
 ##===----------------------------------------------------------------------===##
 #
 # Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -44,25 +42,13 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
       add_definitions(-DOMPTARGET_OPENCL_DEBUG)
     endif()
 
-    if(INTEL_CUSTOMIZATION)
-    add_library(omptarget.rtl.opencl SHARED src/rtl.cpp src/ompt-opencl.cpp)
-    else(INTEL_CUSTOMIZATION)
-    add_library(omptarget.rtl.opencl SHARED src/rtl.cpp)
-    endif(INTEL_CUSTOMIZATION)
-
+    add_library(omptarget.rtl.opencl SHARED src/rtl.cpp src/OmptCallback.cpp)
     target_include_directories(omptarget.rtl.opencl PRIVATE
       ${LIBOMPTARGET_INCLUDE_DIR}
       ${LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS}
       ${LIBOMPTARGET_LLVM_INCLUDE_DIRS}
+      ${LIBOMP_INCLUDE_DIR}
     )
-
-    if(INTEL_CUSTOMIZATION)
-      if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
-        # Statically link C run-time library on Windows.
-        # Otherwise, we cannot use LLVMObject and LLVMSupport.
-        set_msvc_crt_flags(omptarget.rtl.opencl)
-      endif()
-    endif(INTEL_CUSTOMIZATION)
 
     if (NOT OPENMP_STANDALONE_BUILD)
       # We have to disable EH for Windows compilation.
@@ -71,7 +57,6 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
       llvm_update_compile_flags(omptarget.rtl.opencl)
     endif()
 
-    if(INTEL_CUSTOMIZATION)
     # Install plugin under the lib destination folder.
     # DLL part (for DLL platforms) is installed into bin.
     # Do not install interface library for DLL platforms,
@@ -81,30 +66,24 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
             DESTINATION lib${LIBOMPTARGET_LIBDIR_SUFFIX}
             RUNTIME COMPONENT llvm-opencl-ompplugin
             DESTINATION bin)
-    else(INTEL_CUSTOMIZATION)
-    install(TARGETS omptarget.rtl.opencl
-            LIBRARY DESTINATION lib${LIBOMPTARGET_LIBDIR_SUFFIX})
-    endif(INTEL_CUSTOMIZATION)
 
-    if(INTEL_CUSTOMIZATION)
     add_dependencies(omptarget.rtl.opencl libomptarget-libiomp-file)
     target_link_libraries(omptarget.rtl.opencl PRIVATE ${LIBOMP_LIB_FILE})
     if(WIN32)
       libomptarget_add_resource_file(omptarget.rtl.opencl)
     endif()
-    else(INTEL_CUSTOMIZATION)
-    # OpenMP runtime library must be linked in.
-    target_link_libraries(omptarget.rtl.opencl PRIVATE omp)
-    endif(INTEL_CUSTOMIZATION)
 
     target_link_libraries(omptarget.rtl.opencl PRIVATE elf_common LLVMSupport
                           ${LIBOMPTARGET_DEP_OPENCL_LIBRARIES})
 
-    if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    if(CMAKE_SYSTEM_NAME MATCHES "Linux")
       target_link_libraries(omptarget.rtl.opencl PRIVATE dl
           ${OPENMP_PTHREAD_LIB}
           "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
-    elseif (NOT CMAKE_SYSTEM_NAME MATCHES "Windows")
+    elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
+      target_link_libraries(omptarget.rtl.opencl PRIVATE
+          "-def:${CMAKE_CURRENT_SOURCE_DIR}/src/rtl.def")
+    else()
       message(FATAL_ERROR "Missing platfrom support.")
     endif()
 
@@ -118,11 +97,9 @@ else()
   libomptarget_say("Not building OpenCL offloading plugin: OpenCL not found in system.")
 endif()
 
-if(INTEL_CUSTOMIZATION)
 # Enable new IN_LIST operator.
 cmake_policy(SET CMP0057 NEW)
 if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
   add_dependencies(omptarget.rtl.opencl libompdevice)
 endif()
-endif(INTEL_CUSTOMIZATION)
-# end INTEL_COLLAB
+# end INTEL_CUSTOMIZATION

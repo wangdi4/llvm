@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2018-2022 Intel Corporation.
+// Copyright 2018 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -21,9 +21,9 @@
 #include "opencl_c_features.h"
 #include "opencl_clang.h"
 
-#include <llvm/ADT/SmallVector.h>
-#include <llvm/ADT/StringRef.h>
-#include <llvm/ADT/StringSet.h>
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringSet.h"
 #include <sstream>
 
 using namespace llvm;
@@ -223,10 +223,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 
     optionsEx << " -include " << OPENCL_CTH_PRE_RELEASE_H_name;
   }
-
-#ifndef SPIRV_ENABLE_OPAQUE_POINTERS
-  optionsEx << " -no-opaque-pointers";
-#endif
 
   IOCLFEBinaryResultPtr spBinaryResult;
 

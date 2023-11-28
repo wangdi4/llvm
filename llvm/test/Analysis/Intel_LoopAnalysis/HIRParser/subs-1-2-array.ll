@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s -hir-details-dims -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-details-dims -passes="hir-ssa-deconstruction,print<hir>" -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -20,14 +20,14 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @MAIN__() {
 alloca:
-  %0 = tail call i32 @for_set_reentrancy(i32* nonnull @0)
+  %0 = tail call i32 @for_set_reentrancy(ptr nonnull @0)
   br label %bb17
 
 bb17:                                             ; preds = %alloca, %bb17
   %"var$3.016" = phi i64 [ 1, %alloca ], [ %add11, %bb17 ]
-  %1 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([3 x [1 x i32]], [3 x [1 x i32]]* @"_unnamed_main$$_$A", i64 0, i64 0, i64 0), i64 %"var$3.016")
-  %2 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1, i64 1)
-  store i32 5, i32* %2, align 4
+  %1 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 4, ptr elementtype(i32) @"_unnamed_main$$_$A", i64 %"var$3.016")
+  %2 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %1, i64 1)
+  store i32 5, ptr %2, align 4
   %add11 = add nuw nsw i64 %"var$3.016", 1
   %exitcond = icmp eq i64 %add11, 4
   br i1 %exitcond, label %bb1, label %bb17
@@ -36,10 +36,10 @@ bb1:                                              ; preds = %bb17
   ret void
 }
 
-declare i32 @for_set_reentrancy(i32*) local_unnamed_addr
+declare i32 @for_set_reentrancy(ptr) local_unnamed_addr
 
 ; Function Attrs: nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #1 = { nounwind readnone speculatable }
 

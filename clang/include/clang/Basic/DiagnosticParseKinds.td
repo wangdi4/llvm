@@ -1,20 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //==--- DiagnosticParseKinds.td - libparse diagnostics --------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -178,15 +161,13 @@ def ext_generic_with_type_arg : Extension<
   "passing a type argument as the first operand to '_Generic' is a Clang "
   "extension">, InGroup<DiagGroup<"generic-type-extension">>;
 
-def err_no_arith_type : Error <"expression must have an arithmetic type">; // INTEL
-
 def ext_c99_feature : Extension<
   "'%0' is a C99 extension">, InGroup<C99>;
 def ext_c11_feature : Extension<
   "'%0' is a C11 extension">, InGroup<C11>;
-def warn_c2x_compat_keyword : Warning<
- "'%0' is incompatible with C standards before C2x">,
- InGroup<CPre2xCompat>, DefaultIgnore;
+def warn_c23_compat_keyword : Warning<
+ "'%0' is incompatible with C standards before C23">,
+ InGroup<CPre23Compat>, DefaultIgnore;
 
 def err_c11_noreturn_misplaced : Error<
   "'_Noreturn' keyword must precede function declarator">;
@@ -266,12 +247,6 @@ def err_invalid_token_after_toplevel_declarator : Error<
 def err_invalid_token_after_declarator_suggest_equal : Error<
   "invalid %0 at end of declaration; did you mean '='?">;
 def err_expected_statement : Error<"expected statement">;
-// if INTEL_CUSTOMIZATION
-def warn_attributes_ignored_after_init
-    : Warning<"variable attributes appearing after a parenthesized initializer "
-              "are ignored">,
-      InGroup<IgnoredAttributes>;
-// endif INTEL_CUSTOMIZATION
 def err_expected_lparen_after : Error<"expected '(' after '%0'">;
 def err_expected_rparen_after : Error<"expected ')' after '%0'">;
 def err_expected_punc : Error<"expected ')' or ',' after '%0'">;
@@ -324,17 +299,15 @@ def note_missing_selector_name : Note<
 def note_force_empty_selector_name : Note<
   "or insert whitespace before ':' to use %0 as parameter name "
   "and have an empty entry in the selector">;
-def err_switch_label_end_of_compound_statement : Error<
-  "label at end of switch compound statement: expected statement">;
 def ext_c_label_end_of_compound_statement : ExtWarn<
-  "label at end of compound statement is a C2x extension">,
-   InGroup<C2x>;
+  "label at end of compound statement is a C23 extension">,
+   InGroup<C23>;
 def ext_cxx_label_end_of_compound_statement : ExtWarn<
   "label at end of compound statement is a C++23 extension">,
    InGroup<CXX23>;
-def warn_c2x_compat_label_end_of_compound_statement : Warning<
-  "label at end of compound statement is incompatible with C standards before C2x">,
-  InGroup<CPre2xCompat>, DefaultIgnore;
+def warn_c23_compat_label_end_of_compound_statement : Warning<
+  "label at end of compound statement is incompatible with C standards before C23">,
+  InGroup<CPre23Compat>, DefaultIgnore;
 def warn_cxx20_compat_label_end_of_compound_statement : Warning<
   "label at end of compound statement is incompatible with C++ standards before C++23">,
   InGroup<CXXPre23Compat>, DefaultIgnore;
@@ -474,15 +447,15 @@ def ext_ms_static_assert : ExtWarn<
 def ext_cxx_static_assert_no_message : ExtWarn<
   "'static_assert' with no message is a C++17 extension">, InGroup<CXX17>;
 def ext_c_static_assert_no_message : ExtWarn<
-  "'_Static_assert' with no message is a C2x extension">, InGroup<C2x>;
+  "'_Static_assert' with no message is a C23 extension">, InGroup<C23>;
 def warn_cxx14_compat_static_assert_no_message : Warning<
   "'static_assert' with no message is incompatible with C++ standards before "
   "C++17">,
   DefaultIgnore, InGroup<CXXPre17Compat>;
 def warn_c17_compat_static_assert_no_message : Warning<
   "'_Static_assert' with no message is incompatible with C standards before "
-  "C2x">,
-  DefaultIgnore, InGroup<CPre2xCompat>;
+  "C23">,
+  DefaultIgnore, InGroup<CPre23Compat>;
 def err_function_definition_not_allowed : Error<
   "function definition is not allowed here">;
 def err_expected_end_of_enumerator : Error<
@@ -731,7 +704,7 @@ def warn_cxx98_compat_noexcept_expr : Warning<
 def warn_cxx98_compat_nullptr : Warning<
   "'nullptr' is incompatible with C++98">, InGroup<CXX98Compat>, DefaultIgnore;
 def ext_c_nullptr : Extension<
-  "'nullptr' is a C2x extension">, InGroup<C2x>;
+  "'nullptr' is a C23 extension">, InGroup<C23>;
 
 def warn_wrong_clang_attr_namespace : Warning<
   "'__clang__' is a predefined macro name, not an attribute scope specifier; "
@@ -746,8 +719,17 @@ def warn_cxx14_compat_ns_enum_attribute : Warning<
 def warn_cxx98_compat_alignas : Warning<"'alignas' is incompatible with C++98">,
   InGroup<CXX98Compat>, DefaultIgnore;
 def warn_cxx98_compat_attribute : Warning<
-  "C++11 attribute syntax is incompatible with C++98">,
+  "[[]] attributes are incompatible with C++ standards before C++11">,
   InGroup<CXX98Compat>, DefaultIgnore;
+def warn_ext_cxx11_attributes : Extension<
+  "[[]] attributes are a C++11 extension">,
+  InGroup<CXX11>;
+def warn_pre_c23_compat_attributes : Warning<
+  "[[]] attributes are incompatible with C standards before C23">,
+  DefaultIgnore, InGroup<CPre23Compat>;
+def warn_ext_c23_attributes : Extension<
+  "[[]] attributes are a C23 extension">,
+  InGroup<C23>;
 def err_cxx11_attribute_forbids_arguments : Error<
   "attribute %0 cannot have an argument list">;
 def err_attribute_requires_arguments : Error<
@@ -1366,24 +1348,24 @@ def warn_pragma_omp_ignored : Warning<
 def warn_omp_extra_tokens_at_eol : Warning<
   "extra tokens at the end of '#pragma omp %0' are ignored">,
   InGroup<ExtraTokens>;
+def err_omp_multiple_step_or_linear_modifier : Error<
+  "multiple %select{'step size'|'linear modifier'}0 found in linear clause">;
+def err_omp_deprecate_old_syntax: Error<
+  "old syntax '%0' on '%1' clause was deprecated, use new syntax '%2'">;
 def warn_pragma_expected_colon_r_paren : Warning<
   "missing ':' or ')' after %0 - ignoring">, InGroup<IgnoredPragmas>;
 def err_omp_unknown_directive : Error<
   "expected an OpenMP directive">;
 def err_omp_unexpected_directive : Error<
   "unexpected OpenMP directive %select{|'#pragma omp %1'}0">;
-// if INTEL_CUSTOMIZATION
-// CQ#410305 ignore declare target directive inside function.
-def warn_omp_ignore_unexpected_directive : Warning<
-  "ignoring unexpected OpenMP directive %select{|'#pragma omp %1'}0">,
-  InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_omp_expected_punc : Error<
   "expected ',' or ')' in '%0' %select{clause|directive}1">;
 def warn_clause_expected_string : Warning<
   "expected string literal in 'clause %0' - ignoring">, InGroup<IgnoredPragmas>;
 def err_omp_unexpected_clause : Error<
   "unexpected OpenMP clause '%0' in directive '#pragma omp %1'">;
+def err_omp_unexpected_clause_extension_only : Error<
+  "OpenMP clause '%0' is only available as extension, use '-fopenmp-extensions'">;
 def err_omp_immediate_directive : Error<
   "'#pragma omp %0' %select{|with '%2' clause }1cannot be an immediate substatement">;
 def err_omp_expected_identifier_for_critical : Error<
@@ -1403,25 +1385,6 @@ def err_omp_decl_in_declare_target_function : Error<
   "'declare target function' directive">;
 def err_omp_extension_mismatch : Error<
   "use '#pragma ompx'%select{ only|}0 for OpenMP extensions">;
-#endif // INTEL_COLLAB
-def err_omp_unknown_map_type : Error<
-  "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
-def err_omp_unknown_map_type_modifier : Error<
-  "incorrect map type modifier, expected one of: 'always', 'close', 'mapper'"
-  "%select{|, 'present'|, 'present', 'iterator'}0%select{|, 'ompx_hold'}1">;
-#if INTEL_CUSTOMIZATION
-def err_expected_three : Error<"expected %0, %1 or %2">;
-def err_omp_unknown_lastprivate_modifier : Error<
-  "incorrect lastprivate modifier, expected 'conditional'">;
-def err_omp_expected_identifier_for_ompx_processor : Error<
-  "expected identifier in 'ompx_processor' clause">;
-#if INTEL_FEATURE_CSA
-def err_omp_unknown_dataflow_modifier : Error<"unexpected 'dataflow' modifier, expected 'static', 'num_workers' or 'pipeline'">;
-def err_omp_conflicting_dataflow_num_workers_modifier: Error<"'num_workers' modifier of 'dataflow' clause conflicts with 'num_threads' clause">;
-def note_omp_conflicting_dataflow_num_workers_modifier: Note<"conflicting entry is here">;
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-// INTEL_COLLAB
 def err_omp_bad_context_selector_set : Error<
   "unknown or unsupported context selector set, expecting %0">;
 def err_omp_bad_context_selector : Error<
@@ -1445,7 +1408,12 @@ def warn_omp_groupprivate_only_nohost
 def err_omp_declare_target_unexpected_local_clause: Error<
   "unexpected 'local' clause">;
 def err_omp_unexpected_device_type : Error<"unexpected device_type clause">;
-// end INTEL_COLLAB
+#endif // INTEL_COLLAB
+def err_omp_unknown_map_type : Error<
+  "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
+def err_omp_unknown_map_type_modifier : Error<
+  "incorrect map type modifier, expected one of: 'always', 'close', 'mapper'"
+  "%select{|, 'present'|, 'present', 'iterator'}0%select{|, 'ompx_hold'}1">;
 def err_omp_map_type_missing : Error<
   "missing map type">;
 def err_omp_map_type_modifier_missing : Error<
@@ -1520,6 +1488,8 @@ def warn_unknown_declare_variant_isa_trait
               "spelling or consider restricting the context selector with the "
               "'arch' selector further">,
       InGroup<SourceUsesOpenMP>;
+def note_ompx_bare_clause : Note<
+  "OpenMP extension clause '%0' only allowed with '#pragma omp %1'">;
 def note_omp_declare_variant_ctx_options
     : Note<"context %select{set|selector|property}0 options are: %1">;
 def warn_omp_declare_variant_expected
@@ -1598,6 +1568,7 @@ def warn_omp51_compat_attributes : Warning<
   "standards before OpenMP 5.1">,
   InGroup<OpenMPPre51Compat>, DefaultIgnore;
 def err_omp_expected_colon : Error<"missing ':' in %0">;
+def err_omp_missing_comma : Error< "missing ',' after %0">;
 def err_omp_expected_context_selector
     : Error<"expected valid context selector in %0">;
 def err_omp_requires_out_inout_depend_type : Error<
@@ -1608,6 +1579,9 @@ def warn_omp_more_one_omp_all_memory : Warning<
   InGroup<OpenMPClauses>;
 def warn_omp_depend_in_ordered_deprecated : Warning<"'depend' clause for"
   " 'ordered' is deprecated; use 'doacross' instead">, InGroup<Deprecated>;
+def warn_omp_invalid_attribute_for_ompx_attributes : Warning<"'ompx_attribute' clause only allows "
+  "'amdgpu_flat_work_group_size', 'amdgpu_waves_per_eu', and 'launch_bounds'; "
+  "%0 is ignored">, InGroup<OpenMPExtensions>;
 
 // Pragma loop support.
 def err_pragma_loop_missing_argument : Error<

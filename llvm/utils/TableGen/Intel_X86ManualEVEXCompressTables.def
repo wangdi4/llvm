@@ -1,0 +1,53 @@
+//===- Intel_X86EVEXCompressManualItems.def ---------------------*- C++ -*-==//
+//
+//      Copyright (c) 2023 Intel Corporation.
+//      All rights reserved.
+//
+//        INTEL CORPORATION PROPRIETARY INFORMATION
+//
+// This software is supplied under the terms of a license
+// agreement or nondisclosure agreement with Intel Corp.
+// and may not be copied or disclosed except in accordance
+// with the terms of that agreement.
+//
+// ===--------------------------------------------------------------------=== //
+
+#ifndef EVEXENTRY
+#define EVEXENTRY(EVEX, LEGACY)
+#endif
+// The following entries are added manually b/c:
+//  1.  The prefix is used specially, like RAOINT, prefix could be used to
+//      identify instrs.
+//  2.  Opcode could change when promote to map4, like shld/shrd.
+EVEXENTRY(CMOV32rm_ND, CMOV32rm)
+EVEXENTRY(CMOV32rr_ND, CMOV32rr)
+
+EVEXENTRY(SHLD16rri8_ND, SHLD16rri8)
+EVEXENTRY(SHRD16rri8_ND, SHRD16rri8)
+EVEXENTRY(SHLD32rri8_ND, SHLD32rri8)
+EVEXENTRY(SHRD32rri8_ND, SHRD32rri8)
+EVEXENTRY(SHLD64rri8_ND, SHLD64rri8)
+EVEXENTRY(SHRD64rri8_ND, SHRD64rri8)
+
+EVEXENTRY(AADD32mr_EVEX, AADD32mr)
+EVEXENTRY(AADD64mr_EVEX, AADD64mr)
+
+EVEXENTRY(AAND32mr_EVEX, AAND32mr)
+EVEXENTRY(AAND64mr_EVEX, AAND64mr)
+
+EVEXENTRY(AOR32mr_EVEX, AOR32mr)
+EVEXENTRY(AOR64mr_EVEX, AOR64mr)
+
+EVEXENTRY(AXOR32mr_EVEX, AXOR32mr)
+EVEXENTRY(AXOR64mr_EVEX, AXOR64mr)
+
+EVEXENTRY(MOVBE16mr_EVEX, MOVBE16mr)
+EVEXENTRY(MOVBE32mr_EVEX, MOVBE32mr)
+EVEXENTRY(MOVBE64mr_EVEX, MOVBE64mr)
+EVEXENTRY(MOVBE16rm_EVEX, MOVBE16rm)
+EVEXENTRY(MOVBE32rm_EVEX, MOVBE32rm)
+EVEXENTRY(MOVBE64rm_EVEX, MOVBE64rm)
+
+EVEXENTRY(ENCODEKEY128_EVEX, ENCODEKEY128)
+EVEXENTRY(ENCODEKEY256_EVEX, ENCODEKEY256)
+#undef EVEXENTRY

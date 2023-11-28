@@ -33,7 +33,6 @@
 #include "DwarfExpression.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -815,8 +814,8 @@ void DwarfUnit::constructTypeDIE(DIE &Buffer, const DIDerivedType *DTy) {
     if (auto TypeDIE =
             getOrCreateTypeDIE(cast<DIDerivedType>(DTy)->getClassType()))
       addDIEEntry(Buffer, dwarf::DW_AT_containing_type, *TypeDIE);
-#endif
   }
+#endif // INTEL_CUSTOMIZATION
 
   addAccess(Buffer, DTy->getFlags());
 

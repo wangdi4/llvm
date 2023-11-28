@@ -1,6 +1,6 @@
 //===-------- HLInst.cpp - Implements the HLInst class --------------------===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -17,6 +17,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
@@ -564,6 +565,24 @@ bool HLInst::isDirective(int DirectiveID) const {
 
 bool HLInst::isAutoVecDirective() const {
   return isDirective(DIR_VPO_AUTO_VEC);
+}
+
+bool HLInst::isVectorizableCall(const TargetLibraryInfo &TLI) const {
+  if (!isCallInst()) {
+    return false;
+  }
+
+  Intrinsic::ID IntrinID;
+
+  if (isIntrinCall(IntrinID) && isTriviallyVectorizable(IntrinID)) {
+    return true;
+  }
+
+  if (auto *Func = cast<CallInst>(Inst)->getCalledFunction()) {
+    return TLI.isFunctionVectorizable(Func->getName());
+  }
+
+  return false;
 }
 
 bool HLInst::isValidReductionOpCode(unsigned OpCode) {

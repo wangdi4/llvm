@@ -1,4 +1,3 @@
-# REQUIRES: intel_feature_isa_apx_f
 // RUN: llvm-mc -triple x86_64-linux-gnu -filetype=obj %s | llvm-readobj -r - | FileCheck %s
 
 // CHECK:      Relocations [

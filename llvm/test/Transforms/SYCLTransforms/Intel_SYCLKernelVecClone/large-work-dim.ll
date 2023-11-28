@@ -27,7 +27,7 @@ declare i32 @_Z12get_local_idj(i32) local_unnamed_addr
 !0 = !{ptr @foo}
 !1 = !{i32 4}
 !2 = !{!"int*"}
-!3 = !{i32 addrspace(1)* null}
+!3 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_foo {{.*}} call

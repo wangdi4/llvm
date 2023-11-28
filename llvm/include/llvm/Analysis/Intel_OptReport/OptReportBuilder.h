@@ -1,6 +1,6 @@
 //===------ Intel_OptReportBuilder.h --------------------------*- C++ -*---===//
 //
-// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -168,44 +168,17 @@ public:
                                                    std::forward<F>(Func));
   }
 
-  // Legacy interface to add origin remarks without remark ID.
-  // TODO: Remove this interface after all opt-report clients are updated to use
-  // new interface using remark IDs.
-  template <typename... Args> OptReportThunk<T> &addOrigin(Args &&...args) {
-    return addOrigin(OptRemarkID::InvalidRemarkID, std::forward<Args>(args)...);
-  }
-
   // Interface to add origin remarks using given remark ID.
   template <typename... Args>
   OptReportThunk<T> &addOrigin(OptRemarkID RemarkID, Args &&...args) {
     if (!Builder.getVerbosity())
       return *this;
 
-    OptRemark Remark;
-    if (RemarkID == OptRemarkID::InvalidRemarkID) {
-      Remark =
-          OptRemark::get(Builder.getContext(), static_cast<unsigned>(RemarkID),
-                         std::forward<Args>(args)...);
-    } else {
-      // TODO: Remark message should not be added to metadata when remark ID is
-      // available. It will be directly obtained from catalogue when the remark
-      // is being printed. Update when legacy interface is retired.
-      Remark = OptRemark::get(
-          Builder.getContext(), static_cast<unsigned>(RemarkID),
-          OptReportDiag::getMsg(RemarkID), std::forward<Args>(args)...);
-    }
+    assert(RemarkID != OptRemarkID::InvalidRemarkID && "Remark ID is invalid!");
+    OptRemark Remark = OptRemark::get(Builder.getContext(), RemarkID,
+                                      std::forward<Args>(args)...);
     getOrCreateOptReport().addOrigin(Remark);
     return *this;
-  }
-
-  // Legacy interface to add opt-report remarks without remark ID.
-  // TODO: Remove this interface after all opt-report clients are updated to use
-  // new interface using remark IDs.
-  template <typename... Args>
-  OptReportThunk<T> &addRemark(OptReportVerbosity::Level MessageVerbosity,
-                               Args &&...args) {
-    return addRemark(MessageVerbosity, OptRemarkID::InvalidRemarkID,
-                     std::forward<Args>(args)...);
   }
 
   // Interface to add opt-report remarks using given remark ID.
@@ -215,19 +188,9 @@ public:
     if (Builder.getVerbosity() < MessageVerbosity)
       return *this;
 
-    OptRemark Remark;
-    if (RemarkID == OptRemarkID::InvalidRemarkID) {
-      Remark =
-          OptRemark::get(Builder.getContext(), static_cast<unsigned>(RemarkID),
-                         std::forward<Args>(args)...);
-    } else {
-      // TODO: Remark message should not be added to metadata when remark ID is
-      // available. It will be directly obtained from catalogue when the remark
-      // is being printed. Update when legacy interface is retired.
-      Remark = OptRemark::get(
-          Builder.getContext(), static_cast<unsigned>(RemarkID),
-          OptReportDiag::getMsg(RemarkID), std::forward<Args>(args)...);
-    }
+    assert(RemarkID != OptRemarkID::InvalidRemarkID && "Remark ID is invalid!");
+    OptRemark Remark = OptRemark::get(Builder.getContext(), RemarkID,
+                                      std::forward<Args>(args)...);
     getOrCreateOptReport().addRemark(Remark);
     return *this;
   }
@@ -360,16 +323,16 @@ template <> struct OptReportTraits<Function> {
   using ObjectHandleTy = Function &;
 
   static OptReport getOptReport(const Function &F) {
-    return cast_or_null<MDTuple>(F.getMetadata(OptReportTag::Root));
+    return cast_or_null<MDTuple>(F.getMetadata(OptReportTag::Report));
   }
 
   static void setOptReport(Function &F, OptReport OR) {
     assert(OR && "eraseOptReport method should be used to remove OptReport");
-    F.setMetadata(OptReportTag::Root, OR.get());
+    F.setMetadata(OptReportTag::Report, OR.get());
   }
 
   static void eraseOptReport(Function &F) {
-    F.setMetadata(OptReportTag::Root, nullptr);
+    F.setMetadata(OptReportTag::Report, nullptr);
   }
 
   static DebugLoc getDebugLoc(const Function &F) { return nullptr; }

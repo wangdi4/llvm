@@ -4,28 +4,26 @@
 ; LIT test to generate vector code generation of -1 stride case. Test checks that
 ; we generate wide load/store with appropriate vector and mask reversal.
 ;
-define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
-; IRCHECK:  define dso_local void @foo(i64* noalias nocapture [[LARR0:%.*]]) local_unnamed_addr {
+define dso_local void @foo(ptr noalias nocapture %larr) local_unnamed_addr #0 {
+; IRCHECK:  define dso_local void @foo(ptr noalias nocapture [[LARR0:%.*]]) local_unnamed_addr {
 ; IRCHECK:       vector.body:
 ; IRCHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP8:%.*]], [[VPLANNEDBB70:%.*]] ]
 ; IRCHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP7:%.*]], [[VPLANNEDBB70]] ]
 ; IRCHECK-NEXT:    [[TMP0:%.*]] = sub nsw <4 x i64> zeroinitializer, [[VEC_PHI0]]
 ; IRCHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
-; IRCHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, i64* [[LARR0]], i64 [[DOTEXTRACT_0_0]]
-; IRCHECK-NEXT:    [[TMP1:%.*]] = getelementptr i64, i64* [[SCALAR_GEP0]], i32 -3
-; IRCHECK-NEXT:    [[TMP2:%.*]] = bitcast i64* [[TMP1]] to <4 x i64>*
-; IRCHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i64>, <4 x i64>* [[TMP2]], align 8
+; IRCHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, ptr [[LARR0]], i64 [[DOTEXTRACT_0_0]]
+; IRCHECK-NEXT:    [[TMP1:%.*]] = getelementptr i64, ptr [[SCALAR_GEP0]], i32 -3
+; IRCHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i64>, ptr [[TMP1]], align 8
 ; IRCHECK-NEXT:    [[REVERSE0:%.*]] = shufflevector <4 x i64> [[WIDE_LOAD0]], <4 x i64> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
 ; IRCHECK-NEXT:    [[TMP3:%.*]] = icmp sgt <4 x i64> [[REVERSE0]], <i64 10, i64 10, i64 10, i64 10>
 ; IRCHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; IRCHECK-EMPTY:
 ; IRCHECK-NEXT:  VPlannedBB3:
 ; IRCHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i64> [[REVERSE0]], <i64 1, i64 1, i64 1, i64 1>
-; IRCHECK-NEXT:    [[TMP5:%.*]] = getelementptr i64, i64* [[SCALAR_GEP0]], i32 -3
-; IRCHECK-NEXT:    [[TMP6:%.*]] = bitcast i64* [[TMP5]] to <4 x i64>*
+; IRCHECK-NEXT:    [[TMP5:%.*]] = getelementptr i64, ptr [[SCALAR_GEP0]], i32 -3
 ; IRCHECK-NEXT:    [[REVERSE50:%.*]] = shufflevector <4 x i64> [[TMP4]], <4 x i64> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
 ; IRCHECK-NEXT:    [[REVERSE60:%.*]] = shufflevector <4 x i1> [[TMP3]], <4 x i1> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
-; IRCHECK-NEXT:    call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> [[REVERSE50]], <4 x i64>* [[TMP6]], i32 8, <4 x i1> [[REVERSE60]])
+; IRCHECK-NEXT:    call void @llvm.masked.store.v4i64.p0(<4 x i64> [[REVERSE50]], ptr [[TMP5]], i32 8, <4 x i1> [[REVERSE60]])
 ; IRCHECK-NEXT:    br label [[VPLANNEDBB70]]
 ; IRCHECK-EMPTY:
 ; IRCHECK-NEXT:  VPlannedBB6:
@@ -50,14 +48,14 @@ entry:
 for.body:                                         ; preds = %if.end, %entry
   %l1.011 = phi i64 [ 0, %entry ], [ %inc, %if.end ]
   %sub = sub nsw i64 0, %l1.011
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %sub
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %sub
+  %0 = load i64, ptr %arrayidx, align 8
   %cmp1 = icmp sgt i64 %0, 10
   br i1 %cmp1, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
   %add = add nsw i64 %0, 1
-  store i64 %add, i64* %arrayidx, align 8
+  store i64 %add, ptr %arrayidx, align 8
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body

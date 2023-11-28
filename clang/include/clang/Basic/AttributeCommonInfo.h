@@ -30,12 +30,14 @@
 
 #ifndef LLVM_CLANG_BASIC_ATTRIBUTECOMMONINFO_H
 #define LLVM_CLANG_BASIC_ATTRIBUTECOMMONINFO_H
+
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TokenKinds.h"
 
 namespace clang {
-class IdentifierInfo;
+
 class ASTRecordWriter;
+class IdentifierInfo;
 
 class AttributeCommonInfo {
 public:
@@ -48,7 +50,7 @@ public:
     AS_CXX11,
 
     /// [[...]]
-    AS_C2x,
+    AS_C23,
 
     /// __declspec(...)
     AS_Declspec,
@@ -89,15 +91,20 @@ private:
   SourceRange AttrRange;
   const SourceLocation ScopeLoc;
   // Corresponds to the Kind enum.
+  LLVM_PREFERRED_TYPE(Kind)
   unsigned AttrKind : 16;
   /// Corresponds to the Syntax enum.
+  LLVM_PREFERRED_TYPE(Syntax)
   unsigned SyntaxUsed : 4;
+ LLVM_PREFERRED_TYPE(bool)
 #if INTEL_CUSTOMIZATION
   unsigned SpellingIndex : 5;
 #else // INTEL_CUSTOMIZATION
   unsigned SpellingIndex : 4;
 #endif // INTEL_CUSTOMIZATION
+  LLVM_PREFERRED_TYPE(bool)
   unsigned IsAlignas : 1;
+  LLVM_PREFERRED_TYPE(bool)
   unsigned IsRegularKeywordAttribute : 1;
 
 protected:
@@ -129,7 +136,7 @@ public:
 
     static Form GNU() { return AS_GNU; }
     static Form CXX11() { return AS_CXX11; }
-    static Form C2x() { return AS_C2x; }
+    static Form C23() { return AS_C23; }
     static Form Declspec() { return AS_Declspec; }
     static Form Microsoft() { return AS_Microsoft; }
     static Form Keyword(bool IsAlignas, bool IsRegularKeywordAttribute) {
@@ -146,13 +153,16 @@ public:
         : SyntaxUsed(SyntaxUsed), SpellingIndex(SpellingNotCalculated),
           IsAlignas(0), IsRegularKeywordAttribute(0) {}
 
+    LLVM_PREFERRED_TYPE(Syntax)
     unsigned SyntaxUsed : 4;
 #if INTEL_CUSTOMIZATION
     unsigned SpellingIndex : 5;
 #else // INTEL_CUSTOMIZATION
     unsigned SpellingIndex : 4;
 #endif // INTEL_CUSTOMIZATION
+    LLVM_PREFERRED_TYPE(bool)
     unsigned IsAlignas : 1;
+    LLVM_PREFERRED_TYPE(bool)
     unsigned IsRegularKeywordAttribute : 1;
   };
 
@@ -217,12 +227,21 @@ public:
 
   bool isCXX11Attribute() const { return SyntaxUsed == AS_CXX11 || IsAlignas; }
 
-  bool isC2xAttribute() const { return SyntaxUsed == AS_C2x; }
+  bool isC23Attribute() const { return SyntaxUsed == AS_C23; }
+
+  bool isAlignas() const {
+    // FIXME: In the current state, the IsAlignas member variable is only true
+    // with the C++  `alignas` keyword but not `_Alignas`. The following
+    // expression works around the otherwise lost information so it will return
+    // true for `alignas` or `_Alignas` while still returning false for things
+    // like  `__attribute__((aligned))`.
+    return (getParsedKind() == AT_Aligned && isKeywordAttribute());
+  }
 
   /// The attribute is spelled [[]] in either C or C++ mode, including standard
   /// attributes spelled with a keyword, like alignas.
   bool isStandardAttributeSyntax() const {
-    return isCXX11Attribute() || isC2xAttribute();
+    return isCXX11Attribute() || isC23Attribute();
   }
 
   bool isGNUAttribute() const { return SyntaxUsed == AS_GNU; }

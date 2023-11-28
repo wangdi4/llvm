@@ -1,6 +1,6 @@
 //===----------------- Intel_VPOParoptOptimizeDataSharing -----------------===//
 //
-//   Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -45,7 +45,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -124,14 +124,11 @@ static bool optimizeDataSharing(
   LLVM_DEBUG(dbgs() << PASS_NAME << " for Function: ");
   LLVM_DEBUG(dbgs().write_escaped(F.getName()) << '\n');
 
-  VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
-                        WI.getSE(), WI.getTargetTransformInfo(),
-                        WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                        WI.getAliasAnalysis(), OmpNoFECollapse,
-#if INTEL_CUSTOMIZATION
-                        OptReportVerbosity::None,
-#endif  // INTEL_CUSTOMIZATION
-                        ORE, 2, false);
+  VPOParoptTransform VP(
+      nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
+      WI.getTargetTransformInfo(), WI.getAssumptionCache(),
+      WI.getTargetLibraryInfo(), WI.getAliasAnalysis(), /*MemorySSA=*/nullptr,
+      OmpNoFECollapse, OptReportVerbosity::None, ORE, 2, false);
 
   BBToWRNMapTy BBToWRNMap;
   // Track the number of optimized items for DataSharingOptNumCase control.
@@ -777,7 +774,7 @@ bool VPOParoptTransform::optimizeDataSharingForReductionItems(
     // No need to reset the BBSets afterwards.
     W->populateBBSet();
 
-    SmallPtrSet<Value *, 8> OptimizableItems;
+    SmallDenseMap<Value *, Type *, 8> OptimizableItems;
 
     if (W->canHaveReduction()) {
       for (auto *Item : W->getRed().items()) {
@@ -789,10 +786,19 @@ bool VPOParoptTransform::optimizeDataSharingForReductionItems(
           // Do not optimize UDR.
           continue;
 
+        if (Item->getIsByRef())
+          // TODO: figure out if handling byrefs is needed for any case.
+          continue;
+
         Type *AllocaTy;
         Value *NumElements;
         std::tie(AllocaTy, NumElements, std::ignore) =
             VPOParoptUtils::getItemInfo(Item);
+
+        if (NumElements && (!isa<ConstantInt>(NumElements) ||
+                            cast<ConstantInt>(NumElements)->isOne()))
+          // TODO: figure out handling of array reductions.
+          continue;
 
         Type *ScalarTy = AllocaTy->getScalarType();
 
@@ -811,7 +817,7 @@ bool VPOParoptTransform::optimizeDataSharingForReductionItems(
           continue;
 
         if (!CannotBeReducedByInnerRegions(W, Item->getOrig()))
-          OptimizableItems.insert(Item->getOrig());
+          OptimizableItems.insert({Item->getOrig(), ScalarTy});
       }
     }
 
@@ -820,8 +826,9 @@ bool VPOParoptTransform::optimizeDataSharingForReductionItems(
       continue;
 
     LLVM_DEBUG(dbgs() << "REDUCTION optimizable items:\n";
-               for (auto *V : OptimizableItems)
-                 dbgs() << *V << "\n");
+               for (auto OI
+                    : OptimizableItems) dbgs()
+               << *OI.first << "\n");
 
     // Add LOCAL modifiers to PRIVATE/FIRSTPRIVATE clauses.
     SmallVector<OperandBundleDef, 16> OpBundles;
@@ -829,35 +836,61 @@ bool VPOParoptTransform::optimizeDataSharingForReductionItems(
     EntryCI->getOperandBundlesAsDefs(OpBundles);
     SmallVector<OperandBundleDef, 16> NewOpBundles;
     bool ClauseModified = false;
-    StringRef SharedClauseString =
-        VPOAnalysisUtils::getClauseString(QUAL_OMP_SHARED);
+    std::string SharedClauseString =
+        VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_SHARED);
 
     for (unsigned OI = 0; OI < OpBundles.size(); ++OI) {
       StringRef ClauseString = OpBundles[OI].getTag();
 
-      // FIXME: we currently handle clauses with just one item.
-      //        This also means that array reductions are not supported.
-      if (OpBundles[OI].input_size() == 1) {
-        Value *ClauseItem = OpBundles[OI].inputs()[0];
+      auto RetainOriginalBundle = [&]() {
+        OperandBundleDef B(ClauseString.str(), OpBundles[OI].inputs());
+        NewOpBundles.push_back(B);
+      };
 
-        ClauseSpecifier ClauseInfo(ClauseString);
-        int ClauseId = ClauseInfo.getId();
-
-        if (VPOAnalysisUtils::isReductionClause(ClauseId) &&
-            OptimizableItems.count(ClauseItem) != 0 &&
-            (DataSharingOptNumCase < 0 ||
-             NumOptimizedItems < DataSharingOptNumCase)) {
-          // This is a REDUCTION clause with an optimizable item.
-          LLVM_DEBUG(dbgs() << "Will transform to SHARED: " << *ClauseItem <<
-                     "\n");
-          ClauseString = SharedClauseString;
-          ++NumOptimizedItems;
-          Changed = true;
-          ClauseModified = true;
-        }
+      if (!VPOAnalysisUtils::isOpenMPClause(ClauseString)) {
+        RetainOriginalBundle();
+        continue;
       }
 
-      OperandBundleDef B(ClauseString.str(), OpBundles[OI].inputs());
+      ClauseSpecifier ClauseInfo(ClauseString);
+
+      // FIXME: we currently handle clauses with just one item.
+      //        This also means that array reductions are not supported.
+      if (OpBundles[OI].input_size() != 1 && !ClauseInfo.getIsTyped()) {
+        RetainOriginalBundle();
+        continue;
+      }
+
+      Value *ClauseItem = OpBundles[OI].inputs()[0];
+      int ClauseId = ClauseInfo.getId();
+
+      if (!VPOAnalysisUtils::isReductionClause(ClauseId) ||
+          OptimizableItems.count(ClauseItem) == 0 ||
+          (DataSharingOptNumCase >= 0 &&
+           NumOptimizedItems >= DataSharingOptNumCase)) {
+        RetainOriginalBundle();
+        continue;
+      }
+
+      // This is a REDUCTION clause with an optimizable item.
+      // We should reach this point only for scalar double reduction items. No
+      // arrays, array-sections, byrefs, UDRs. So we can safely emit a typed
+      // clause with num-elements as 1.
+
+      Type *ElementTy = OptimizableItems.at(ClauseItem);
+      LLVM_DEBUG(dbgs() << "Will transform to SHARED: " << *ClauseItem << " ("
+                        << *ElementTy << ")\n");
+
+      ++NumOptimizedItems;
+      Changed = true;
+      ClauseModified = true;
+
+      Value *ElementTyZeroVal = Constant::getNullValue(ElementTy);
+      Value *NumElementsOne =
+          ConstantInt::get(Type::getInt32Ty(F->getContext()), 1);
+
+      OperandBundleDef B(SharedClauseString,
+                         {ClauseItem, ElementTyZeroVal, NumElementsOne});
       NewOpBundles.push_back(B);
     }
 

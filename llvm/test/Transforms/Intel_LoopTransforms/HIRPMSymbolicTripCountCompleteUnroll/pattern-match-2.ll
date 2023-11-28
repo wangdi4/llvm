@@ -1,7 +1,5 @@
 ; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pm-symbolic-tripcount-completeunroll,print<hir>" -aa-pipeline="basic-aa,tbaa" -disable-output < %s 2>&1 | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pm-symbolic-tripcount-completeunroll,print<hir>" -aa-pipeline="basic-aa,tbaa" -disable-output < %s 2>&1 | FileCheck %s
-;
 ; The input is very similar to pattern-match-1.ll, but slightly different in dealing with copy instructions (see copy inst 1 and 2 below).
 ; Make sure this alternative pattern is also matched by HIRSymbolicTripCountCompleteUnroll.
 

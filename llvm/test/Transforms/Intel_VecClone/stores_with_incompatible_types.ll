@@ -3,18 +3,17 @@
 ; Test to verify that VecClone does not emit invalid stores with incompatible
 ; types during updateScalarMemRefsWithVector.
 
-; RUN: opt -opaque-pointers=0 -passes=vec-clone -S < %s | FileCheck %s
+; RUN: opt -passes=vec-clone -S < %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
-define dso_local void @foo(float* nocapture %p) local_unnamed_addr #0 {
-; CHECK:  define dso_local void @_ZGVbN2v_foo(<2 x float*> nocapture [[P0:%.*]]) local_unnamed_addr #1 {
+define dso_local void @foo(ptr nocapture %p) local_unnamed_addr #0 {
+; CHECK:  define dso_local void @_ZGVbN2v_foo(<2 x ptr> nocapture [[P0:%.*]]) local_unnamed_addr #1 {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[VEC_P0:%.*]] = alloca <2 x float*>, align 16
-; CHECK-NEXT:    [[VEC_P_CAST0:%.*]] = bitcast <2 x float*>* [[VEC_P0]] to float**
-; CHECK-NEXT:    store <2 x float*> [[P0]], <2 x float*>* [[VEC_P0]], align 16
+; CHECK-NEXT:    [[VEC_P0:%.*]] = alloca <2 x ptr>, align 16
+; CHECK-NEXT:    store <2 x ptr> [[P0]], ptr [[VEC_P0]], align 16
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
@@ -26,9 +25,9 @@ define dso_local void @foo(float* nocapture %p) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.header:
 ; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
-; CHECK-NEXT:    [[VEC_P_CAST_GEP0:%.*]] = getelementptr float*, float** [[VEC_P_CAST0]], i32 [[INDEX0]]
-; CHECK-NEXT:    [[VEC_P_ELEM0:%.*]] = load float*, float** [[VEC_P_CAST_GEP0]], align 8
-; CHECK-NEXT:    store float 0.000000e+00, float* [[VEC_P_ELEM0]], align 4
+; CHECK-NEXT:    [[VEC_P_CAST_GEP0:%.*]] = getelementptr ptr, ptr [[VEC_P0]], i32 [[INDEX0]]
+; CHECK-NEXT:    [[VEC_P_ELEM0:%.*]] = load ptr, ptr [[VEC_P_CAST_GEP0]], align 8
+; CHECK-NEXT:    store float 0.000000e+00, ptr [[VEC_P_ELEM0]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.latch:
@@ -45,7 +44,7 @@ define dso_local void @foo(float* nocapture %p) local_unnamed_addr #0 {
 ; CHECK-NEXT:  }
 ;
 entry:
-  store float 0.000000e+00, float* %p, align 4
+  store float 0.000000e+00, ptr %p, align 4
   ret void
 }
 

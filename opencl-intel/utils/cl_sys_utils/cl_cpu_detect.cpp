@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2021 Intel Corporation.
+// Copyright 2007 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,7 +17,6 @@
 #include "hw_utils.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/TargetParser/Host.h"
-
 #include <map>
 
 using namespace Intel::OpenCL::Utils;
@@ -214,6 +213,10 @@ CPUDetect *CPUDetect::GetInstance() {
 
 CPUDetect::CPUDetect(void) : m_is64BitOS(sizeof(void *) == 8) {
   m_HostCPUString = llvm::sys::getHostCPUName().str();
+#ifdef INTEL_PRODUCT_RELEASE
+  if (m_HostCPUString == "generic")
+    reportWarning("Unknown host CPU.");
+#endif // INTEL_PRODUCT_RELEASE
   llvm::sys::getHostCPUFeatures(m_HostCPUFeatures);
   GetHostCPUBrandInfo();
   // If CL_CONFIG_CPU_TARGET_ARCH is not used, m_CPUFeatures and

@@ -12,72 +12,128 @@
 #include "TestsHelpClasses.h"
 #include "cl_types.h"
 
-void UniformWorkGroupTest() {
+extern cl_device_type gDeviceType;
 
-  cl_platform_id platform = 0;
-  cl_device_id device;
-  cl_context context;
-  cl_command_queue queue;
-  cl_program program;
-  cl_kernel kernel;
+static constexpr unsigned N = 3;
+static const char *source[] = {"kernel void dummy_kernel() {}"};
 
-  const char *compile_flag[] = {"", "-cl-std=CL2.0",
-                                "-cl-std=CL2.0 -cl-uniform-work-group-size"};
-  cl_int enqueue_result[] = {CL_INVALID_WORK_GROUP_SIZE, CL_SUCCESS,
-                             CL_INVALID_WORK_GROUP_SIZE};
+static const char *compileFlags[N] = {
+    "", "-cl-std=CL2.0", "-cl-std=CL2.0 -cl-uniform-work-group-size"};
+static constexpr cl_int expectedResults[N] = {
+    CL_INVALID_WORK_GROUP_SIZE, CL_SUCCESS, CL_INVALID_WORK_GROUP_SIZE};
+static constexpr size_t localSize[] = {4};
+static constexpr size_t globalSize[] = {7};
 
-  // Get platform
-  cl_int iRet = clGetPlatformIDs(1, &platform, nullptr);
-  ASSERT_OCL_SUCCESS(iRet, clGetPlatformIDs);
+class UniformWorkGroupTest : public ::testing::Test {
+protected:
+  virtual void SetUp() override {
+    cl_platform_id platform;
+    cl_int err = clGetPlatformIDs(1, &platform, nullptr);
+    ASSERT_OCL_SUCCESS(err, clGetPlatformIDs);
 
-  // Get device
-  iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, nullptr);
-  ASSERT_OCL_SUCCESS(iRet, clGetDeviceIDs);
+    err = clGetDeviceIDs(platform, gDeviceType, 1, &m_device, nullptr);
+    ASSERT_OCL_SUCCESS(err, clGetDeviceIDs);
 
-  // Create context
-  context = clCreateContext(nullptr, 1, &device, nullptr, nullptr, &iRet);
-  ASSERT_OCL_SUCCESS(iRet, clCreateContext);
+    m_context = clCreateContext(nullptr, 1, &m_device, nullptr, nullptr, &err);
+    ASSERT_OCL_SUCCESS(err, clCreateContext);
 
-  // Create command queue
-  queue = clCreateCommandQueueWithProperties(context, device, nullptr, &iRet);
-  ASSERT_OCL_SUCCESS(iRet, clCreateCommandQueueWithProperties);
-
-  const char *dummy_kernel[] = {"__kernel void dummy_kernel() {}"};
-
-  // Create program
-  program = clCreateProgramWithSource(context, 1, dummy_kernel, nullptr, &iRet);
-  ASSERT_OCL_SUCCESS(iRet, clCreateProgramWithSource);
-
-  size_t local_work_size[] = {4};
-  size_t global_work_size[] = {7};
-
-  for (unsigned i = 0; i < 3; ++i) {
-    std::string errMsg =
-        "Compile flag '" + std::string(compile_flag[i]) + "' failed";
-
-    // Build program
-    iRet =
-        clBuildProgram(program, 0, nullptr, compile_flag[i], nullptr, nullptr);
-    ASSERT_OCL_SUCCESS(iRet, clBuildProgram) << errMsg;
-
-    // Create kernel
-    kernel = clCreateKernel(program, "dummy_kernel", &iRet);
-    ASSERT_OCL_SUCCESS(iRet, clCreateKernel) << errMsg;
-
-    // Enqueue kernel
-    iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size,
-                                  local_work_size, 0, NULL, NULL);
-    ASSERT_OCL_EQ(enqueue_result[i], iRet, clEnqueueNDRangeKernel) << errMsg;
-
-    iRet = clFinish(queue);
-    ASSERT_OCL_SUCCESS(iRet, clFinish) << errMsg;
-
-    iRet = clReleaseKernel(kernel);
-    ASSERT_OCL_SUCCESS(iRet, clReleaseKernel) << errMsg;
+    m_queue =
+        clCreateCommandQueueWithProperties(m_context, m_device, nullptr, &err);
+    ASSERT_OCL_SUCCESS(err, clCreateCommandQueueWithProperties);
   }
 
-  iRet = clReleaseProgram(program);
-  ASSERT_OCL_SUCCESS(iRet, clReleaseProgram);
-  iRet = clReleaseContext(context);
-  ASSERT_OCL_SUCCESS(iRet, clReleaseContext);
+  virtual void TearDown() override {
+    cl_int err;
+    err = clReleaseCommandQueue(m_queue);
+    EXPECT_OCL_SUCCESS(err, clReleaseCommandQueue);
+    err = clReleaseContext(m_context);
+    EXPECT_OCL_SUCCESS(err, clReleaseContext);
+  }
+
+protected:
+  cl_device_id m_device;
+  cl_context m_context;
+  cl_command_queue m_queue;
+};
+
+TEST_F(UniformWorkGroupTest, CompileAndLink) {
+  cl_int err;
+  cl_program program[N] = {nullptr};
+  cl_program program2[N] = {nullptr};
+
+  for (unsigned i = 0; i < N; ++i) {
+    std::string errMsg =
+        "Compile flag '" + std::string(compileFlags[i]) + "' failed";
+
+    // Create program
+    program[i] = clCreateProgramWithSource(m_context, 1, source, nullptr, &err);
+    ASSERT_OCL_SUCCESS(err, clCreateProgramWithSource);
+
+    // Build program
+    err = clCompileProgram(program[i], 1, &m_device, compileFlags[i], 0,
+                           nullptr, nullptr, nullptr, nullptr);
+    ASSERT_OCL_SUCCESS(err, clCompileProgram) << errMsg;
+
+    program2[i] = clLinkProgram(m_context, 1, &m_device, nullptr, 1,
+                                &program[i], nullptr, nullptr, nullptr);
+    ASSERT_OCL_SUCCESS(err, clLinkProgram) << errMsg;
+
+    // Create kernel
+    cl_kernel kernel = clCreateKernel(program2[i], "dummy_kernel", &err);
+    ASSERT_OCL_SUCCESS(err, clCreateKernel) << errMsg;
+
+    // Enqueue kernel
+    err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, globalSize,
+                                 localSize, 0, NULL, NULL);
+    ASSERT_OCL_EQ(expectedResults[i], err, clEnqueueNDRangeKernel) << errMsg;
+
+    err = clFinish(m_queue);
+    ASSERT_OCL_SUCCESS(err, clFinish) << errMsg;
+
+    err = clReleaseKernel(kernel);
+    ASSERT_OCL_SUCCESS(err, clReleaseKernel) << errMsg;
+  }
+
+  for (unsigned i = 0; i < N; ++i) {
+    err = clReleaseProgram(program[i]);
+    EXPECT_OCL_SUCCESS(err, clReleaseProgram);
+    err = clReleaseProgram(program2[i]);
+    EXPECT_OCL_SUCCESS(err, clReleaseProgram);
+  }
+}
+
+TEST_F(UniformWorkGroupTest, Build) {
+  cl_int err;
+  // Create program
+  cl_program program =
+      clCreateProgramWithSource(m_context, 1, source, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, clCreateProgramWithSource);
+
+  for (unsigned i = 0; i < N; ++i) {
+    std::string errMsg =
+        "Compile flag '" + std::string(compileFlags[i]) + "' failed";
+
+    // Build program
+    err =
+        clBuildProgram(program, 0, nullptr, compileFlags[i], nullptr, nullptr);
+    ASSERT_OCL_SUCCESS(err, clBuildProgram) << errMsg;
+
+    // Create kernel
+    cl_kernel kernel = clCreateKernel(program, "dummy_kernel", &err);
+    ASSERT_OCL_SUCCESS(err, clCreateKernel) << errMsg;
+
+    // Enqueue kernel
+    err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, globalSize,
+                                 localSize, 0, NULL, NULL);
+    ASSERT_OCL_EQ(expectedResults[i], err, clEnqueueNDRangeKernel) << errMsg;
+
+    err = clFinish(m_queue);
+    ASSERT_OCL_SUCCESS(err, clFinish) << errMsg;
+
+    err = clReleaseKernel(kernel);
+    ASSERT_OCL_SUCCESS(err, clReleaseKernel) << errMsg;
+  }
+
+  err = clReleaseProgram(program);
+  ASSERT_OCL_SUCCESS(err, clReleaseProgram);
 }

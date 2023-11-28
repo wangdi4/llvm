@@ -14,7 +14,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture readonly %arr) {
+define void @foo(ptr nocapture readonly %arr) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
 ; CHECK:         [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP2:%.*]], i64 0
@@ -23,7 +23,7 @@ define void @foo(i32* nocapture readonly %arr) {
 ; CHECK:       pred.call.if:
 ; CHECK-NEXT:    call fastcc void @baz(i32 [[DOTEXTRACT_0_:%.*]]) #0
 ; CHECK-NEXT:    br label [[TMP5]]
-; CHECK:       5:
+; CHECK:       4:
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE:%.*]]
 ; CHECK:       pred.call.continue:
 ; CHECK-NEXT:    [[PREDICATE1:%.*]] = extractelement <2 x i1> [[TMP2]], i64 1
@@ -32,7 +32,7 @@ define void @foo(i32* nocapture readonly %arr) {
 ; CHECK:       [[PRED_CALL_IF3]]:
 ; CHECK-NEXT:    call fastcc void @baz(i32 [[DOTEXTRACT_1_:%.*]]) #0
 ; CHECK-NEXT:    br label [[TMP7]]
-; CHECK:       7:
+; CHECK:       6:
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE4:%.*]]
 ;
 ; OPTREPORT:      remark #15485: serialized function calls: 1
@@ -43,8 +43,8 @@ entry:
 
 for.body:                                         ; preds = %for.inc, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %arr, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %arr, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %tobool = icmp eq i32 %0, 0
   br i1 %tobool, label %for.inc, label %if.then
 

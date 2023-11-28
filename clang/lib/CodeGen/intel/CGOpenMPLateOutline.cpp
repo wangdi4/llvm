@@ -62,7 +62,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
   bool UseSingleArrayFuncs = CGF.getLangOpts().OpenMPUseSingleElemArrayFuncs;
   if (Ty->isArrayType() && (UseSingleArrayFuncs || IsUDR))
     Ty = Ctx.getBaseElementType(Ty).getNonReferenceType();
-  CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
+  CGM.getCXXABI().getMangleContext().mangleCanonicalTypeName(Ty, Out);
   Out << ".omp.def_constr";
 
   if (llvm::Value *F = CGM.GetGlobalValue(OutName))
@@ -77,7 +77,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
 
   FunctionArgList Args;
   ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
-                        /*Id=*/nullptr, PtrTy, ImplicitParamDecl::Other);
+                        /*Id=*/nullptr, PtrTy, ImplicitParamKind::Other);
   Args.push_back(&Dst);
 
   auto &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(PtrTy, Args);
@@ -128,7 +128,7 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty, bool IsUDR) {
   bool UseSingleArrayFuncs = CGF.getLangOpts().OpenMPUseSingleElemArrayFuncs;
   if (Ty->isArrayType() && (UseSingleArrayFuncs || IsUDR))
     Ty = Ctx.getBaseElementType(Ty).getNonReferenceType();
-  CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
+  CGM.getCXXABI().getMangleContext().mangleCanonicalTypeName(Ty, Out);
   Out << ".omp.destr";
 
   if (llvm::Value *F = CGM.GetGlobalValue(OutName))
@@ -143,7 +143,7 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty, bool IsUDR) {
 
   FunctionArgList Args;
   ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
-                        /*Id=*/nullptr, PtrTy, ImplicitParamDecl::Other);
+                        /*Id=*/nullptr, PtrTy, ImplicitParamKind::Other);
   Args.push_back(&Dst);
 
   auto &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(
@@ -190,7 +190,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
 
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
-  CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
+  CGM.getCXXABI().getMangleContext().mangleCanonicalTypeName(Ty, Out);
   Out << ".omp.copy_constr";
 
   if (llvm::Value *F = CGM.GetGlobalValue(OutName))
@@ -223,10 +223,10 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
 
   FunctionArgList Args;
   ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
-                            ImplicitParamDecl::Other);
+                            ImplicitParamKind::Other);
   Args.push_back(&DstDecl);
   ImplicitParamDecl SrcDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
-                            ImplicitParamDecl::Other);
+                            ImplicitParamKind::Other);
   Args.push_back(&SrcDecl);
 
   const CGFunctionInfo &FI =
@@ -305,7 +305,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
 
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
-  CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
+  CGM.getCXXABI().getMangleContext().mangleCanonicalTypeName(Ty, Out);
   Out << ".omp.copy_assign";
 
   if (llvm::Value *F = CGM.GetGlobalValue(OutName))
@@ -327,10 +327,10 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
 
   FunctionArgList Args;
   ImplicitParamDecl DstDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
-                            ImplicitParamDecl::Other);
+                            ImplicitParamKind::Other);
   Args.push_back(&DstDecl);
   ImplicitParamDecl SrcDecl(C, FD, SourceLocation(), nullptr, ObjPtrTy,
-                            ImplicitParamDecl::Other);
+                            ImplicitParamKind::Other);
   Args.push_back(&SrcDecl);
 
   const CGFunctionInfo &FI =
@@ -487,13 +487,13 @@ void OpenMPLateOutliner::addArg(llvm::Value *V, bool Handled, bool IsTyped,
 void OpenMPLateOutliner::addNoElementTypedArg(llvm::Value *V,
                                               llvm::Type *ElementType,
                                               bool Handled) {
-  addArg(V, Handled, UseTypedClauses, ElementType);
+  addArg(V, Handled, /*IsTyped=*/true, ElementType);
 }
 
 void OpenMPLateOutliner::addSingleElementTypedArg(llvm::Value *V,
                                                   llvm::Type *ElementType,
                                                   bool Handled) {
-  addArg(V, Handled, UseTypedClauses, ElementType, /*ZeroValue=*/nullptr,
+  addArg(V, Handled, /*IsTyped=*/true, ElementType, /*ZeroValue=*/nullptr,
          CGF.Builder.getInt32(1));
 }
 
@@ -667,103 +667,90 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
         addArg(LowerBound.getPointer(CGF), /*Handled=*/true);
     }
 
-    if (IsTyped) {
-      const Expr *Base = getArraySectionBase(E);
-      QualType BaseT(Base->getType()->getPointeeOrArrayElementType(), 0);
-      if (BaseT->isArrayType())
-        BaseT = QualType(BaseT->getPointeeOrArrayElementType(), 0);
-      CharUnits ElementSize = CGF.getContext().getTypeSizeInChars(BaseT);
-      llvm::Value *Size = CGF.CGM.getSize(ElementSize);;
+    const Expr *Base = getArraySectionBase(E);
+    QualType BaseT(Base->getType()->getPointeeOrArrayElementType(), 0);
+    if (BaseT->isArrayType())
+      BaseT = QualType(BaseT->getPointeeOrArrayElementType(), 0);
+    CharUnits ElementSize = CGF.getContext().getTypeSizeInChars(BaseT);
+    llvm::Value *Size = CGF.CGM.getSize(ElementSize);
 
-      addArg(llvm::Constant::getNullValue(
-          ElementType ? ElementType : CGF.CGM.getTypes().ConvertType(BaseT)));
+    addArg(llvm::Constant::getNullValue(
+        ElementType ? ElementType : CGF.CGM.getTypes().ConvertType(BaseT)));
 
-      llvm::Value *BaseCast = nullptr;
-      if (ArraySecUsesBase && !IsConstantCase && !IsSimpleCase) {
-        // If the array section variable is a pointer or reference, it contains
-        // the address of the first element and it differs from the address
-        // used in the first Arg. Load it here.
-        if (Base->getType()->isPointerType())
-          BaseAddr = CGF.EmitPointerWithAlignment(Base).getPointer();
-        else if (IsRef)
-          BaseAddr = CGF.EmitLValue(Base).getPointer(CGF);
-        BaseCast =
-            CGF.Builder.CreatePtrToInt(BaseAddr, CGF.PtrDiffTy, "sec.base.cast");
-      }
+    llvm::Value *BaseCast = nullptr;
+    if (ArraySecUsesBase && !IsConstantCase && !IsSimpleCase) {
+      // If the array section variable is a pointer or reference, it contains
+      // the address of the first element and it differs from the address
+      // used in the first Arg. Load it here.
+      if (Base->getType()->isPointerType())
+        BaseAddr = CGF.EmitPointerWithAlignment(Base).getPointer();
+      else if (IsRef)
+        BaseAddr = CGF.EmitLValue(Base).getPointer(CGF);
+      BaseCast =
+          CGF.Builder.CreatePtrToInt(BaseAddr, CGF.PtrDiffTy, "sec.base.cast");
+    }
 
-      llvm::Value *NumElements;
-      llvm::Value *OffsetInElements;
+    llvm::Value *NumElements;
+    llvm::Value *OffsetInElements;
 
-      if (IsConstantCase) {
-        NumElements = llvm::ConstantInt::get(CGF.SizeTy, AI.Elements);
-        if (ArraySecUsesBase)
-          OffsetInElements = llvm::ConstantInt::get(CGF.SizeTy, AI.Offset);
-      } else if (IsSimpleCase) {
-        NumElements = SimpleInfo.Elements;
-        if (ArraySecUsesBase)
-          OffsetInElements = SimpleInfo.Offset;
+    if (IsConstantCase) {
+      NumElements = llvm::ConstantInt::get(CGF.SizeTy, AI.Elements);
+      if (ArraySecUsesBase)
+        OffsetInElements = llvm::ConstantInt::get(CGF.SizeTy, AI.Offset);
+    } else if (IsSimpleCase) {
+      NumElements = SimpleInfo.Elements;
+      if (ArraySecUsesBase)
+        OffsetInElements = SimpleInfo.Offset;
+    } else {
+      if (auto *AS = dyn_cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts())) {
+        llvm::Value *LowerCast = CGF.Builder.CreatePtrToInt(
+            LowerBound.getPointer(CGF), CGF.PtrDiffTy, "sec.lower.cast");
+
+        LValue UpperBound =
+            CGF.EmitOMPArraySectionExpr(AS, /*IsLowerBound=*/false);
+        llvm::Value *UpperCast = CGF.Builder.CreatePtrToInt(
+            UpperBound.getPointer(CGF), CGF.PtrDiffTy, "sec.upper.cast");
+
+        llvm::Value *NumElementsInChars =
+            CGF.Builder.CreateSub(UpperCast, LowerCast);
+        NumElements =
+            ElementSize.isOne()
+                ? NumElementsInChars
+                : CGF.Builder.CreateExactSDiv(NumElementsInChars, Size);
+        NumElements = CGF.Builder.CreateAdd(
+            NumElements, llvm::ConstantInt::get(CGF.PtrDiffTy, /*V=*/1),
+            "sec.number_of_elements");
+
+        if (ArraySecUsesBase) {
+          llvm::Value *OffsetInChars =
+              CGF.Builder.CreateSub(LowerCast, BaseCast);
+          OffsetInElements =
+              ElementSize.isOne()
+                  ? OffsetInChars
+                  : CGF.Builder.CreateExactSDiv(OffsetInChars, Size,
+                                                "sec.offset_in_elements");
+        }
       } else {
-        if (auto *AS =
-                dyn_cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts())) {
+        assert(isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) &&
+               "expected subscript expression");
+
+        NumElements = llvm::ConstantInt::get(CGF.PtrDiffTy, /*V=*/1);
+        if (ArraySecUsesBase) {
           llvm::Value *LowerCast = CGF.Builder.CreatePtrToInt(
               LowerBound.getPointer(CGF), CGF.PtrDiffTy, "sec.lower.cast");
-
-          LValue UpperBound =
-              CGF.EmitOMPArraySectionExpr(AS, /*IsLowerBound=*/false);
-          llvm::Value *UpperCast = CGF.Builder.CreatePtrToInt(
-              UpperBound.getPointer(CGF), CGF.PtrDiffTy, "sec.upper.cast");
-
-          llvm::Value *NumElementsInChars =
-              CGF.Builder.CreateSub(UpperCast, LowerCast);
-          NumElements =
+          llvm::Value *OffsetInChars =
+              CGF.Builder.CreateSub(LowerCast, BaseCast);
+          OffsetInElements =
               ElementSize.isOne()
-                  ? NumElementsInChars
-                  : CGF.Builder.CreateExactSDiv(NumElementsInChars, Size);
-          NumElements = CGF.Builder.CreateAdd(
-              NumElements, llvm::ConstantInt::get(CGF.PtrDiffTy, /*V=*/1),
-              "sec.number_of_elements");
-
-          if (ArraySecUsesBase) {
-            llvm::Value *OffsetInChars =
-                CGF.Builder.CreateSub(LowerCast, BaseCast);
-            OffsetInElements =
-                ElementSize.isOne()
-                    ? OffsetInChars
-                    : CGF.Builder.CreateExactSDiv(OffsetInChars, Size,
-                                                  "sec.offset_in_elements");
-          }
-        } else {
-          assert(isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) &&
-                 "expected subscript expression");
-
-          NumElements = llvm::ConstantInt::get(CGF.PtrDiffTy, /*V=*/1);
-          if (ArraySecUsesBase) {
-            llvm::Value *LowerCast = CGF.Builder.CreatePtrToInt(
-                LowerBound.getPointer(CGF), CGF.PtrDiffTy, "sec.lower.cast");
-            llvm::Value *OffsetInChars =
-                CGF.Builder.CreateSub(LowerCast, BaseCast);
-            OffsetInElements =
-                ElementSize.isOne()
-                    ? OffsetInChars
-                    : CGF.Builder.CreateExactSDiv(OffsetInChars, Size,
-                                                  "sec.offset_in_elements");
-          }
+                  ? OffsetInChars
+                  : CGF.Builder.CreateExactSDiv(OffsetInChars, Size,
+                                                "sec.offset_in_elements");
         }
       }
-      addArg(NumElements);
-      if (ArraySecUsesBase)
-        addArg(OffsetInElements);
-    } else {
-      addArg(llvm::ConstantInt::get(CGF.SizeTy, AS.size()));
-      for (auto &V : AS) {
-        assert(V.LowerBound);
-        addArg(V.LowerBound);
-        assert(V.Length);
-        addArg(V.Length);
-        assert(V.Stride);
-        addArg(V.Stride);
-      }
     }
+    addArg(NumElements);
+    if (ArraySecUsesBase)
+      addArg(OffsetInElements);
   } else {
     assert(E->isGLValue());
     if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
@@ -799,7 +786,7 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
 
 void OpenMPLateOutliner::addTypedArg(const Expr *E, bool IsRef,
                                      bool NeedsTypedElements) {
-  addArg(E, IsRef, UseTypedClauses, NeedsTypedElements);
+  addArg(E, IsRef, /*IsTyped=*/true, NeedsTypedElements);
 }
 
 /// Verify current if-clause applies to current directive, which can be
@@ -927,8 +914,7 @@ void OpenMPLateOutliner::emitImplicit(llvm::Value *V, llvm::Type *ElementType,
   default:
     llvm_unreachable("Clause not allowed");
   }
-  if (UseTypedClauses)
-    CSB.setTyped();
+  CSB.setTyped();
   addArg(CSB.getString());
   addSingleElementTypedArg(V, ElementType, Handled);
 }
@@ -941,18 +927,17 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
     ClauseStringBuilder &CSB = CEH.getBuilder();
     CSB.add("QUAL.OMP.LINEAR");
     CSB.setIV();
-    if (UseTypedClauses)
-      CSB.setTyped();
-    if (UseTypedClauses && IsPtr)
+    CSB.setTyped();
+    if (IsPtr)
       CSB.setPtrToPtr();
     CEH.setImplicitClause(ICK_linear);
     addArg(CSB.getString());
-    if (UseTypedClauses && IsPtr) {
+    if (IsPtr) {
       QualType PointeeT = E->getType()->getPointeeType();
       llvm::Type *ElemTy = PointeeT->isFunctionType()
                                ? CGF.Int8Ty
                                : CGF.ConvertTypeForMem(PointeeT);
-      addArg(E, /*IsRef=*/false, UseTypedClauses, /*NeedsTypedElements=*/true,
+      addArg(E, /*IsRef=*/false, /*IsTyped=*/true, /*NeedsTypedElements=*/true,
              ElemTy);
     } else {
       addTypedArg(E);
@@ -1004,8 +989,7 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
     addArg(E);
     return;
   }
-  if (UseTypedClauses)
-    CSB.setTyped();
+  CSB.setTyped();
   llvm::Type *ElementType = nullptr;
   bool IsRef = false;
   if (K == ICK_shared) {
@@ -1025,7 +1009,7 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   addArg(CSB.getString());
   bool NeedsTypedElements =
       K == ICK_normalized_iv || K == ICK_normalized_ub ? false : true;
-  addArg(E, IsRef, UseTypedClauses, NeedsTypedElements, ElementType);
+  addArg(E, IsRef, /*IsTyped=*/true, NeedsTypedElements, ElementType);
 }
 
 void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
@@ -1047,8 +1031,7 @@ void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
       CSB.add("QUAL.OMP.NORMALIZED.IV");
     else
       CSB.add("QUAL.OMP.NORMALIZED.UB");
-    if (UseTypedClauses)
-      CSB.setTyped();
+    CSB.setTyped();
     addArg(CSB.getString());
     for (auto &A : ImplicitMap) {
       if (A.second == K) {
@@ -1228,8 +1211,9 @@ void OpenMPLateOutliner::addImplicitClauses() {
       else
         emitImplicit(VD, ICK_firstprivate);
 #if INTEL_CUSTOMIZATION
-      if (OptRepFPMapInfos.find(VD) != OptRepFPMapInfos.end())
-        emitRemark(OptRepFPMapInfos[VD]);
+      const auto FoundFPMapLoc = OptRepFPMapLocs.find(VD);
+      if (FoundFPMapLoc != OptRepFPMapLocs.end())
+        emitImplicitFirstPrivateRemark(VD, FoundFPMapLoc->second);
 #endif  // INTEL_CUSTOMIZATION
     } else if (isImplicitTask(OMPD_task)) {
       // BE requests:
@@ -1281,8 +1265,7 @@ void OpenMPLateOutliner::addImplicitClauses() {
       if (!alreadyHandled(V)) {
         ClauseEmissionHelper CEH(*this, OMPC_private, "QUAL.OMP.PRIVATE");
         ClauseStringBuilder &CSB = CEH.getBuilder();
-        if (UseTypedClauses)
-          CSB.setTyped();
+        CSB.setTyped();
         addArg(CSB.getString());
         addSingleElementTypedArg(V, ElementType, /*Handled=*/true);
       }
@@ -1291,8 +1274,7 @@ void OpenMPLateOutliner::addImplicitClauses() {
         ClauseEmissionHelper CEH(*this, OMPC_firstprivate,
                                  "QUAL.OMP.FIRSTPRIVATE");
         ClauseStringBuilder &CSB = CEH.getBuilder();
-        if (UseTypedClauses)
-          CSB.setTyped();
+        CSB.setTyped();
         addArg(CSB.getString());
         addSingleElementTypedArg(V, ElementType, /*Handled=*/true);
       }
@@ -1380,8 +1362,7 @@ void OpenMPLateOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
     bool IsRef = VD->getType()->isReferenceType();
     if (IsRef)
       CSB.setByRef();
-    if (UseTypedClauses)
-      CSB.setTyped();
+    CSB.setTyped();
     addArg(CSB.getString());
     addTypedArg(E, IsRef);
   }
@@ -1414,8 +1395,7 @@ void OpenMPLateOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
       CSB.setNonPod();
     if (IsRef)
       CSB.setByRef();
-    if (UseTypedClauses)
-      CSB.setTyped();
+    CSB.setTyped();
     addArg(CSB.getString());
     addTypedArg(E, IsRef);
     if (Init || Private->getType().isDestructedType()) {
@@ -1446,8 +1426,7 @@ void OpenMPLateOutliner::emitOMPLastprivateClause(
       CSB.setByRef();
     if (Cl->getKind() == OMPC_LASTPRIVATE_conditional)
       CSB.setConditional();
-    if (UseTypedClauses)
-      CSB.setTyped();
+    CSB.setTyped();
     addArg(CSB.getString());
     addTypedArg(E, IsRef);
     if (!IsPODType) {
@@ -1475,18 +1454,17 @@ void OpenMPLateOutliner::emitOMPLinearClause(const OMPLinearClause *Cl) {
     ClauseStringBuilder &CSB = CEH.getBuilder();
     if (IsRef)
       CSB.setByRef();
-    if (UseTypedClauses)
-      CSB.setTyped();
-    if (UseTypedClauses && IsPtr)
+    CSB.setTyped();
+    if (IsPtr)
       CSB.setPtrToPtr();
     addArg(CSB.getString());
-    if (UseTypedClauses && IsPtr) {
+    if (IsPtr) {
       QualType PointeeT = E->getType()->getPointeeType();
       llvm::Type *ElemTy = PointeeT->isFunctionType()
                                ? CGF.Int8Ty
                                : CGF.ConvertTypeForMem(PointeeT);
-      addArg(E, IsRef, UseTypedClauses, /*NeedsTypedElements=*/true, ElemTy);
-     } else
+      addArg(E, IsRef, /*IsTyped=*/true, /*NeedsTypedElements=*/true, ElemTy);
+    } else
       addTypedArg(E, IsRef);
     addArg(Cl->getStep() ? CGF.EmitScalarExpr(Cl->getStep())
                          : CGF.Builder.getInt32(1));
@@ -1658,7 +1636,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       QualType BaseTy = getArraySectionBase(E)->getType();
       if (isa<ComplexType>(BaseTy->getPointeeOrArrayElementType()))
         CSB.setCmplx();
-      if (UseTypedClauses && BaseTy->isPointerType()) {
+      if (BaseTy->isPointerType()) {
         CSB.setPtrToPtr();
         QualType PointeeTy = BaseTy->getPointeeType();
         if (PointeeTy->isArrayType())
@@ -1666,11 +1644,10 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
         ElemTy = CGF.ConvertTypeForMem(PointeeTy);
       }
     }
-    if (UseTypedClauses)
-      CSB.setTyped();
+    CSB.setTyped();
     addArg(CSB.getString());
     if (ElemTy)
-      addArg(E, IsRef, UseTypedClauses, /*NeedsTypedElements=*/true, ElemTy);
+      addArg(E, IsRef, /*IsTyped=*/true, /*NeedsTypedElements=*/true, ElemTy);
     else
       addTypedArg(E, IsRef);
     if (IsUDR && CGF.getLangOpts().OpenMPIsTargetDevice && !IsDeviceTarget) {
@@ -1839,8 +1816,7 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
       CSB.setNonPod();
     if (IsRef)
       CSB.setByRef();
-    if (UseTypedClauses)
-      CSB.setTyped();
+    CSB.setTyped();
     addArg(CSB.getString());
     addTypedArg(E, IsRef);
     if (!IsPODType) {
@@ -1860,8 +1836,7 @@ void OpenMPLateOutliner::emitOMPCopyinClause(const OMPCopyinClause *Cl) {
     const VarDecl *VD = getExplicitVarDecl(E);
     assert(VD && "expected VarDecl in copyin clause");
     addExplicit(VD, OMPC_copyin);
-    if (UseTypedClauses)
-      CSB.setTyped();
+    CSB.setTyped();
     addArg(CSB.getString());
     addTypedArg(E);
   }
@@ -1933,7 +1908,7 @@ void OpenMPLateOutliner::emitOMPProcBindClause(const OMPProcBindClause *Cl) {
   switch (Cl->getProcBindKind()) {
   case OMP_PROC_BIND_master:
   case OMP_PROC_BIND_primary:
-    addArg("QUAL.OMP.PROC_BIND.MASTER");
+    addArg("QUAL.OMP.PROC_BIND.PRIMARY");
     break;
   case OMP_PROC_BIND_close:
     addArg("QUAL.OMP.PROC_BIND.CLOSE");
@@ -2045,37 +2020,26 @@ void OpenMPLateOutliner::emitDoacrossClause(const T *C, bool IsSource) {
 }
 
 void OpenMPLateOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
-  // This function is needed until old IR for depend clause is no longer
-  // necessary and flag has been removed.
-  if (CGF.getLangOpts().OpenMPNewDependIR)
-    return;
-  auto DepKind = Cl->getDependencyKind();
-  if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink)
-    return emitDoacrossClause(Cl, DepKind == OMPC_DEPEND_source);
-
-  for (auto *E : Cl->varlists()) {
-    ClauseEmissionHelper CEH(*this, OMPC_depend);
-    ClauseStringBuilder &CSB = CEH.getBuilder();
-    switch (DepKind) {
-    case OMPC_DEPEND_in:
-      CSB.add("QUAL.OMP.DEPEND.IN");
-      break;
-    case OMPC_DEPEND_out:
-      CSB.add("QUAL.OMP.DEPEND.OUT");
-      break;
-    case OMPC_DEPEND_inout:
-      CSB.add("QUAL.OMP.DEPEND.INOUT");
-      break;
-    default:
-      llvm_unreachable("Unknown depend clause");
-    }
-    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
-        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
-      CSB.setArrSect();
-    addArg(CSB.getString());
-    addArg(E);
-  }
+  // The 'depend' clause is handled by emitOMPAllDependClauses.
 }
+
+#if INTEL_CUSTOMIZATION
+void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_full, "QUAL.OMP.FULL");
+  addArg(CEH.getBuilder().getString());
+}
+
+void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_partial, "QUAL.OMP.PARTIAL");
+  addArg(CEH.getBuilder().getString());
+  uint64_t Factor = 0;
+  if (Expr *FactorExpr = Cl->getFactor())
+    Factor = FactorExpr->EvaluateKnownConstInt(CGF.getContext()).getZExtValue();
+  addArg(llvm::ConstantInt::get(CGF.Int64Ty, Factor));
+}
+#endif // INTEL_CUSTOMIZATION
+
+void OpenMPLateOutliner::emitOMPXAttributeClause(const OMPXAttributeClause *) {}
 
 void OpenMPLateOutliner::emitOMPDoacrossClause(const OMPDoacrossClause *Cl) {
   auto Kind = Cl->getDependenceType();
@@ -2231,8 +2195,7 @@ void OpenMPLateOutliner::emitOMPNumTeamsClause(const OMPNumTeamsClause *Cl) {
   Address A = CGF.getMappedClause(Cl);
   if (A.isValid()) {
     addValueRef(A.getPointer(), A.getElementType());
-    if (UseTypedClauses)
-      CSB.setTyped();
+    CSB.setTyped();
     addArg(CSB.getString());
     addNoElementTypedArg(A.getPointer(), A.getElementType(), /*Handled=*/true);
   } else {
@@ -2248,8 +2211,7 @@ void OpenMPLateOutliner::emitOMPThreadLimitClause(
   Address A = CGF.getMappedClause(Cl);
   if (A.isValid()) {
     addValueRef(A.getPointer(), A.getElementType());
-    if (UseTypedClauses)
-      CSB.setTyped();
+    CSB.setTyped();
     addArg(CSB.getString());
     addNoElementTypedArg(A.getPointer(), A.getElementType(), /*Handled=*/true);
   } else {
@@ -2293,8 +2255,7 @@ void OpenMPLateOutliner::emitOMPCopyprivateClause(
     addExplicit(VD, OMPC_copyprivate);
     if (!IsPODType)
       CSB.setNonPod();
-    if (UseTypedClauses)
-      CSB.setTyped();
+    CSB.setTyped();
     addArg(CSB.getString());
     addTypedArg(E);
     if (!IsPODType) {
@@ -2385,7 +2346,7 @@ void OpenMPLateOutliner::buildMapQualifier(
 namespace {
 class ExprVarRefFinder final : public ConstStmtVisitor<ExprVarRefFinder> {
   CodeGenFunction &CGF;
-  llvm::MapVector<const VarDecl *, std::string> *FPInfos;
+  llvm::MapVector<const VarDecl *, PresumedLoc> *FPLocs;
   llvm::SmallVector<const Expr *> MapVarExprs;
 public:
   llvm::SmallVector<const Expr *> &getMapVarExprs() { return MapVarExprs; }
@@ -2404,7 +2365,7 @@ public:
                   Name + ")\" because \"" + Name + "\" is a scalar variable ";
       ReasonStr += "referenced within the construct at line:[" +
                    std::to_string(Line) + ":" + std::to_string(Column) + "]";
-      FPInfos->insert(std::make_pair(VD, ReasonStr));
+      FPLocs->insert(std::make_pair(VD, PLoc));
     }
   }
   void VisitMemberExpr(const MemberExpr *ME) {
@@ -2420,45 +2381,112 @@ public:
         Visit(Child);
   }
   ExprVarRefFinder(CodeGenFunction &CGF,
-                   llvm::MapVector<const VarDecl *, std::string> *FPInfos)
-      : CGF(CGF), FPInfos(FPInfos) {}
+                   llvm::MapVector<const VarDecl *, PresumedLoc> *FPLocs)
+      : CGF(CGF), FPLocs(FPLocs) {}
 };
+} // namespace
+
+llvm::OptReport OpenMPLateOutliner::getOrCreateOptReport() {
+  if (DirectiveOptReport)
+    return DirectiveOptReport;
+
+  llvm::LLVMContext &Context = CGF.CurFn->getContext();
+  DirectiveOptReport = llvm::OptReport::createEmptyOptReport(Context);
+
+  const StringRef Construct =
+      getOpenMPDirectiveName(Directive.getDirectiveKind());
+  DirectiveOptReport.setTitle("OMP " + Construct.upper());
+  llvm::DebugLoc DL = CGF.SourceLocToDebugLoc(Directive.getBeginLoc());
+  if (DL)
+    DirectiveOptReport.setDebugLoc(DL);
+  return DirectiveOptReport;
 }
-static std::string getReasonStr(const ValueDecl *Var, CodeGenFunction &CGF,
-                                ImplicitParamDecl *CXXABIThisDecl,
-                                OpenMPMapClauseKind MapType,
-                                bool IsCaptureByLambda, SourceLocation Loc) {
-  std::string Name = Var->getNameAsString();
-  std::string Strs;
-  std::string Capture = IsCaptureByLambda ? "(captured by lambda) " : " ";
-  Strs += " \"" + Name + "\"" + Capture + "has an implicit clause: \"map(";
-  Strs += MapType == OMPC_MAP_to ? "to : " : "tofrom : ";
-  PresumedLoc PLoc = CGF.getContext().getSourceManager().getPresumedLoc(Loc);
-  unsigned Line = PLoc.getLine();
-  unsigned Column = PLoc.getColumn();
-  std::string LineInfo;
-  if (IsCaptureByLambda)
-    LineInfo = "referenced at line:[" + std::to_string(Line) + ":" +
-               std::to_string(Column) + "]";
-  else
-    LineInfo = "referenced within the construct at line:[" +
-               std::to_string(Line) + ":" + std::to_string(Column) + "]";
-  if (IsCaptureByLambda)
-    return Strs + Name + ")\" because \"" + Name +
-           "\" is captured in a lambda mapped on the construct, and is " +
-           LineInfo;
-  else if (Var == CXXABIThisDecl)
-    return Strs + Name + "[:1])\" because \"" + Name + "\" this keyword is " +
-           LineInfo;
-  else if (isa<FieldDecl>(Var))
-    return Strs + Name + ")\" because field \"" + Name +
-           "\" is a non-scalar variable " + LineInfo;
-  else if (Var->getType()->isPointerType())
-    return Strs + Name + "[:0])\" because \"" + Name +
-           "\" is a pointer variable " + LineInfo;
-  else
-    return Strs + Name + ")\" because \"" + Name +
-           "\" is a non-scalar variable " + LineInfo;
+
+void OpenMPLateOutliner::emitImplicitMapRemark(
+    const ValueDecl *Var, ImplicitParamDecl *CXXABIThisDecl,
+    OpenMPMapClauseKind MapType, bool IsCaptureByLambda, SourceLocation Loc) {
+  const std::string Name = Var->getNameAsString();
+  llvm::AuxRemarkID Capture = llvm::AuxRemarkID::Empty;
+  std::string MapClause =
+      (MapType == OMPC_MAP_to ? "to : " : "tofrom : ") + Name;
+  llvm::AuxRemarkID Reason = llvm::AuxRemarkID::InvalidAuxRemark;
+  const PresumedLoc PLoc =
+      CGF.getContext().getSourceManager().getPresumedLoc(Loc);
+  const unsigned Line = PLoc.getLine();
+  const unsigned Column = PLoc.getColumn();
+  if (IsCaptureByLambda) {
+    Capture = llvm::AuxRemarkID::CapturedByLambda;
+    Reason = llvm::AuxRemarkID::CapturedInReferencedLambda;
+  } else if (Var == CXXABIThisDecl) {
+    MapClause += "[:1]";
+    Reason = llvm::AuxRemarkID::ThisKeywordReferenced;
+  } else if (isa<FieldDecl>(Var)) {
+    Reason = llvm::AuxRemarkID::NonScalarFieldReferenced;
+  } else if (Var->getType()->isPointerType()) {
+    MapClause += "[:0]";
+    Reason = llvm::AuxRemarkID::PointerVariableReferenced;
+  } else {
+    Reason = llvm::AuxRemarkID::NonScalarVariableReferenced;
+  }
+
+  if (OROptions.getVerbosity() >= llvm::OptReportVerbosity::High) {
+    llvm::LLVMContext &Context = CGF.CurFn->getContext();
+    getOrCreateOptReport().addRemark(
+        llvm::OptRemark::get(Context, llvm::OptRemarkID::OpenMPClangImplicitMap,
+                             Name, Capture, MapClause, Reason, Line, Column));
+  }
+
+  if (!CGF.CGM.getCodeGenOpts().OptRecordFile.empty() ||
+      CGF.CGM.getCodeGenOpts().OptimizationRemark.patternMatches("openmp")) {
+    const StringRef Construct =
+        getOpenMPDirectiveName(Directive.getDirectiveKind());
+    llvm::DebugLoc DL = CGF.SourceLocToDebugLoc(Directive.getBeginLoc());
+    llvm::OptimizationRemarkEmitter ORE(CGF.CurFn);
+    llvm::OptimizationRemark R("openmp", "Region", DL,
+                               &CGF.CurFn->getEntryBlock());
+    R << llvm::ore::NV("Construct", Construct) << " construct: \""
+      << llvm::ore::NV("Name", Name)
+      << ("\"" + StringRef(llvm::OptReportAuxDiag::getMsg(Capture)) +
+          " has an implicit clause \"map(")
+             .str()
+      << llvm::ore::NV("MapClause", MapClause) << ")\" because "
+      << llvm::ore::NV("Reason", llvm::OptReportAuxDiag::getMsg(Reason))
+      << " at line:[" << llvm::ore::NV("Line", Line) << ":"
+      << llvm::ore::NV("Column", Column) << "]";
+    ORE.emit(R);
+  }
+}
+
+void OpenMPLateOutliner::emitImplicitFirstPrivateRemark(const ValueDecl *Var,
+                                                        PresumedLoc PLoc) {
+  const StringRef Name = Var->getName();
+  const unsigned Line = PLoc.getLine();
+  const unsigned Column = PLoc.getColumn();
+
+  if (OROptions.getVerbosity() >= llvm::OptReportVerbosity::High) {
+    llvm::LLVMContext &Context = CGF.CurFn->getContext();
+    getOrCreateOptReport().addRemark(llvm::OptRemark::get(
+        Context, llvm::OptRemarkID::OpenMPClangImplicitFirstPrivate, Name, Name,
+        Line, Column));
+  }
+
+  if (!CGF.CGM.getCodeGenOpts().OptRecordFile.empty() ||
+      CGF.CGM.getCodeGenOpts().OptimizationRemark.patternMatches("openmp")) {
+    const StringRef Construct =
+        getOpenMPDirectiveName(Directive.getDirectiveKind());
+    llvm::DebugLoc DL = CGF.SourceLocToDebugLoc(Directive.getBeginLoc());
+    llvm::OptimizationRemarkEmitter ORE(CGF.CurFn);
+    llvm::OptimizationRemark R("openmp", "Region", DL,
+                               &CGF.CurFn->getEntryBlock());
+    R << llvm::ore::NV("Construct", Construct) << " construct: \""
+      << llvm::ore::NV("Name", Name)
+      << "\" has an implicit clause \"firstprivate("
+      << llvm::ore::NV("FirstPrivateClause", Name)
+      << ")\" because it is a scalar variable referenced at line:["
+      << llvm::ore::NV("Line", Line) << ":" << llvm::ore::NV("Column", Column)
+      << "]";
+    ORE.emit(R);
+  }
 }
 
 static SourceLocation
@@ -2512,9 +2540,9 @@ static void
 getMapReportInfo(OpenMPLateOutliner &O, const OMPExecutableDirective &Dir,
                  CodeGenFunction &CGF, ImplicitParamDecl *CXXABIThisDecl,
                  const SmallVector<CGOpenMPRuntime::LOMapInfo, 4> &Info,
-                 llvm::MapVector<const VarDecl *, std::string> *FPInfos) {
+                 llvm::MapVector<const VarDecl *, PresumedLoc> *FPLocs) {
   const Stmt *S = Dir.getCapturedStmt(OMPD_target)->getCapturedStmt();
-  ExprVarRefFinder Finder(CGF, FPInfos);
+  ExprVarRefFinder Finder(CGF, FPLocs);
   Finder.Visit(S);
   llvm::SmallVector<const Expr *> &MapVarExprs = Finder.getMapVarExprs();
   for (auto &I : Info) {
@@ -2528,29 +2556,15 @@ getMapReportInfo(OpenMPLateOutliner &O, const OMPExecutableDirective &Dir,
       SourceLocation Loc = getExprLocation(MapVarExprs, Dir, &IsCaptureByLambda,
                                            CXXABIThisDecl, &Var);
       assert(Loc.isValid() && "Reference location is not set");
-      O.emitRemark(getReasonStr(Var, CGF, CXXABIThisDecl, I.MapType,
-                                IsCaptureByLambda, Loc));
+      O.emitImplicitMapRemark(Var, CXXABIThisDecl, I.MapType, IsCaptureByLambda,
+                              Loc);
     }
   }
-}
-
-void OpenMPLateOutliner::emitRemark(std::string Str) {
-  llvm::OptimizationRemarkEmitter ORE(CGF.CurFn);
-  llvm::DiagnosticLocation DL =
-      CGF.SourceLocToDebugLoc(Directive.getBeginLoc());
-  llvm::OptimizationRemark R("openmp", "Region", DL,
-                             &CGF.CurFn->getEntryBlock());
-  R << llvm::ore::NV("Construct",
-                     getOpenMPDirectiveName(Directive.getDirectiveKind()))
-    << " construct:";
-  R << Str;
-  ORE.emit(R);
 }
 #endif // INTEL_CUSTOMIZATION
 
 void OpenMPLateOutliner::emitOMPAllDependClauses() {
-  if (!CGF.getLangOpts().OpenMPNewDependIR ||
-      !Directive.hasClausesOfKind<OMPDependClause>())
+  if (!Directive.hasClausesOfKind<OMPDependClause>())
     return;
 
   bool IsDoacrossType = false;
@@ -2768,11 +2782,12 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
   // generate info for map report.
   if (isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()) &&
       (!CGF.CGM.getCodeGenOpts().OptRecordFile.empty() ||
-       CGF.CGM.getCodeGenOpts().OptimizationRemark.patternMatches("openmp"))) {
-    llvm::MapVector<const VarDecl *, std::string> FPInfos;
+       CGF.CGM.getCodeGenOpts().OptimizationRemark.patternMatches("openmp") ||
+       OROptions.getVerbosity() >= llvm::OptReportVerbosity::High)) {
+    llvm::MapVector<const VarDecl *, PresumedLoc> FPLocs;
     getMapReportInfo(*this, Directive, CGF, CGF.getCXXABIThisDecl(), Info,
-                     &FPInfos);
-    OptRepFPMapInfos = std::move(FPInfos);
+                     &FPLocs);
+    OptRepFPMapLocs = std::move(FPLocs);
   }
 #endif // INTEL_CUSTOMIZATION
 }
@@ -3176,8 +3191,7 @@ void OpenMPLateOutliner::emitOMPDetachClause(const OMPDetachClause *Cl) {
   bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
   if (IsRef)
     CSB.setByRef();
-  if (UseTypedClauses)
-    CSB.setTyped();
+  CSB.setTyped();
   addArg(CSB.getString());
   addTypedArg(E, IsRef);
 }
@@ -3187,12 +3201,21 @@ void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *Cl) {
   assert(false && "clauses handled in emitOMPAllAffinityClauses");
 }
+#if INTEL_CUSTOMIZATION
+void OpenMPLateOutliner::emitOMPXRegisterAllocModeClause(
+    const OMPXRegisterAllocModeClause *C) {
+  ClauseEmissionHelper CEH(*this, OMPC_ompx_register_alloc_mode,
+                           "QUAL.OMP.REGISTER.ALLOC.MODE");
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  addArg(CSB.getString());
+  addArg(CGF.Builder.getInt32(C->getModeKind()));
+}
+#endif // INTEL_CUSTOMIZATION
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
-void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
-void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
 void OpenMPLateOutliner::emitOMPXDynCGroupMemClause(
     const OMPXDynCGroupMemClause *) {}
+void OpenMPLateOutliner::emitOMPXBareClause(const OMPXBareClause *) {}
 
 void OpenMPLateOutliner::emitOMPInitClause(const OMPInitClause *Cl) {
   // Gather any valid preferences first.
@@ -3309,17 +3332,18 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
   if (CurrentDirectiveKind == OMPD_unknown)
     CurrentDirectiveKind = D.getDirectiveKind();
 
-  if (D.hasAssociatedStmt() && needsVLAExprEmission()) {
-    const auto *CS = cast_or_null<CapturedStmt>(D.getAssociatedStmt());
-    CGF.VLASizeMapHandler->ModifyVLASizeMap(CS);
-  }
-
   RegionEntryDirective =
       CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry);
   RegionExitDirective =
       CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit);
 
-  UseTypedClauses = CGF.CGM.getCodeGenOpts().OpenMPTypedClauses;
+  if (CurrentDirectiveKind == OMPD_unroll)
+    return;
+
+  if (D.hasAssociatedStmt() && needsVLAExprEmission()) {
+    const auto *CS = cast_or_null<CapturedStmt>(D.getAssociatedStmt());
+    CGF.VLASizeMapHandler->ModifyVLASizeMap(CS);
+  }
 
   if (isOpenMPLoopDirective(CurrentDirectiveKind)) {
     auto *LoopDir = cast<OMPLoopDirective>(&D);
@@ -3424,6 +3448,9 @@ OpenMPLateOutliner::~OpenMPLateOutliner() {
     llvm::CallInst *MarkerCall = D.CallEntry;
     CGF.Builder.SetInsertPoint(MarkerCall);
     D.CallEntry = CGF.Builder.CreateCall(RegionEntryDirective, {}, D.OpBundles);
+    D.CallEntry->setMetadata(llvm::OptReportTag::Report,
+                             DirectiveOptReport.get());
+    DirectiveOptReport = {};
     if (MarkerCall != MarkerInstruction)
       MarkerCall->eraseFromParent();
     D.clear();
@@ -3478,6 +3505,13 @@ void OpenMPLateOutliner::emitOMPForSimdDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.LOOP", "DIR.OMP.END.LOOP", OMPD_for);
   startDirectiveIntrinsicSet("DIR.OMP.SIMD", "DIR.OMP.END.SIMD", OMPD_simd);
 }
+
+#if INTEL_CUSTOMIZATION
+void OpenMPLateOutliner::emitOMPUnrollDirective() {
+  startDirectiveIntrinsicSet("DIR.OMP.UNROLL", "DIR.OMP.END.UNROLL",
+                             OMPD_unroll);
+}
+#endif // INTEL_CUSTOMIZATION
 
 void OpenMPLateOutliner::emitOMPParallelForSimdDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.PARALLEL.LOOP",
@@ -3942,6 +3976,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_prefetch:
   case OMPD_scope:
   case OMPD_interop:
+  case OMPD_unroll:
     return false;
   case OMPD_unknown:
   default:
@@ -4346,7 +4381,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_target: {
 #if INTEL_CUSTOMIZATION
     CGM.setHasTargetCode();
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
     // Get an index of the associated offload entry for this target directive.
     assert(CurFuncDecl && "No parent declaration for target region!");
@@ -4473,11 +4508,16 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     Outliner.emitOMPScopeDirective();
     break;
 
+#if INTEL_CUSTOMIZATION
+  case OMPD_unroll:
+    Outliner.emitOMPUnrollDirective();
+    break;
+#endif // INTEL_CUSTOMIZATION
+
   // These directives are not yet implemented.
   case OMPD_requires:
   case OMPD_depobj:
   case OMPD_tile:
-  case OMPD_unroll:
     break;
 
   // These directives do not create region directives.

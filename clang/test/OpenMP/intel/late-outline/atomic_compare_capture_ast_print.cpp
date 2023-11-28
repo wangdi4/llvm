@@ -46,17 +46,17 @@ T foo(T t) {
   //DUMP:OMPAtomicDirective
   //DUMP:OMPCompareClause
   //DUMP:OMPCaptureClause
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '<'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
   #pragma omp atomic compare capture
   { v = x; if (expr < x) { x = expr; } }
 
@@ -72,15 +72,15 @@ T foo(T t) {
   //DUMP:OMPCaptureClause
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '<'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   #pragma omp atomic compare capture
   { if (expr < x) { x = expr; } v = x; }
 
@@ -94,17 +94,17 @@ T foo(T t) {
   //DUMP:OMPAtomicDirective
   //DUMP:OMPCompareClause
   //DUMP:OMPCaptureClause
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '>'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
   #pragma omp atomic compare capture
   { v = x; if (expr > x) { x = expr; } }
 
@@ -120,15 +120,15 @@ T foo(T t) {
   //DUMP:OMPCaptureClause
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '>'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   #pragma omp atomic compare capture
   { if (expr > x) { x = expr; } v = x; }
 
@@ -142,17 +142,17 @@ T foo(T t) {
   //DUMP:OMPAtomicDirective
   //DUMP:OMPCompareClause
   //DUMP:OMPCaptureClause
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '<'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
   #pragma omp atomic compare capture
   { v = x; if (x < expr) { x = expr; } }
 
@@ -168,15 +168,15 @@ T foo(T t) {
   //DUMP:OMPCaptureClause
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '<'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   #pragma omp atomic compare capture
   { if (x < expr) { x = expr; } v = x; }
 
@@ -190,17 +190,17 @@ T foo(T t) {
   //DUMP:OMPAtomicDirective
   //DUMP:OMPCompareClause
   //DUMP:OMPCaptureClause
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '>'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
   #pragma omp atomic compare capture
   { v = x; if (x > expr) { x = expr; } }
 
@@ -216,15 +216,15 @@ T foo(T t) {
   //DUMP:OMPCaptureClause
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '>'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'expr' 'float':'float'
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'expr' 'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   #pragma omp atomic compare capture
   { if (x > expr) { x = expr; } v = x; }
 
@@ -238,17 +238,17 @@ T foo(T t) {
   //DUMP:OMPAtomicDirective
   //DUMP:OMPCompareClause
   //DUMP:OMPCaptureClause
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '=='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'e' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'e' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'d' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'d' 'float'
   #pragma omp atomic compare capture
   { v = x; if (x == e) { x = d; } }
 
@@ -264,15 +264,15 @@ T foo(T t) {
   //DUMP:OMPCaptureClause
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '=='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'e' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'e' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'d' 'float':'float'
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'d' 'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   #pragma omp atomic compare capture
   { if (x == e) { x = d; } v = x; }
 
@@ -287,16 +287,16 @@ T foo(T t) {
   //DUMP:OMPCaptureClause
   //DUMP:IfStmt
   //DUMP:BinaryOperator {{.*}}'bool' '=='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'e' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'e' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'d' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'d' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   #pragma omp atomic compare capture
   if (x == e) { x = d; } else { v = x; }
 
@@ -314,14 +314,14 @@ T foo(T t) {
   //DUMP:BinaryOperator {{.*}}'int' lvalue '='
   //DUMP:DeclRefExpr {{.*}}'r' 'int'
   //DUMP:BinaryOperator {{.*}}'bool' '=='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'e' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'e' 'float'
   //DUMP:IfStmt
   //DUMP:DeclRefExpr {{.*}}'r' 'int'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'d' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'d' 'float'
   #pragma omp atomic compare capture
   { r = x == e; if (r) { x = d; } }
 
@@ -341,18 +341,18 @@ T foo(T t) {
   //DUMP:BinaryOperator {{.*}}'int' lvalue '='
   //DUMP:DeclRefExpr {{.*}}'r' 'int'
   //DUMP:BinaryOperator {{.*}}'bool' '=='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'e' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'e' 'float'
   //DUMP:IfStmt
   //DUMP:DeclRefExpr {{.*}}'r' 'int'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'d' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
+  //DUMP:DeclRefExpr {{.*}}'d' 'float'
   //DUMP:CompoundStmt
-  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
-  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
-  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:BinaryOperator {{.*}}'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float'
   #pragma omp atomic compare capture
   { r = x == e; if (r) { x = d; } else { v = x; } }
 

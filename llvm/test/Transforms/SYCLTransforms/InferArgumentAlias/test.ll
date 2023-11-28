@@ -81,14 +81,14 @@ declare void @_Z7barrierj(i32)
 !14 = !{i32 0, i32 0}
 !15 = !{}
 !16 = !{!"int*", !"int*", !"int*", !"int*", !"int", !"int*", !"int*"}
-!17 = !{i32 addrspace(1)* null, i32 addrspace(2)* null, i32 addrspace(2)* null, i32 addrspace(2)* null, i32 0, i32 addrspace(3)* null, i32 addrspace(3)* null}
+!17 = !{ptr addrspace(1) null, ptr addrspace(2) null, ptr addrspace(2) null, ptr addrspace(2) null, i32 0, ptr addrspace(3) null, ptr addrspace(3) null}
 !18 = !{!"int*", !"int*", !"int*"}
-!19 = !{i32 addrspace(1)* null, i32 addrspace(2)* null, i32 addrspace(3)* null}
+!19 = !{ptr addrspace(1) null, ptr addrspace(2) null, ptr addrspace(3) null}
 !20 = !{!"int*", !"int*", !"int*"}
-!21 = !{i32 addrspace(4)* null, i32 addrspace(1)* null, i32 addrspace(3)* null}
+!21 = !{ptr addrspace(4) null, ptr addrspace(1) null, ptr addrspace(3) null}
 !22 = !{!"int*", !"int*"}
-!23 = !{i32 addrspace(1)* null, i32 addrspace(3)* null}
+!23 = !{ptr addrspace(1) null, ptr addrspace(3) null}
 !24 = !{!"int*", !"int*", !"int*"}
-!25 = !{i32 addrspace(1)* null, i32 addrspace(3)* null, i32 addrspace(3)* null}
+!25 = !{ptr addrspace(1) null, ptr addrspace(3) null, ptr addrspace(3) null}
 
 ; DEBUGIFY-NOT: WARNING

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -S -passes="vec-clone" < %s | FileCheck %s
+; RUN: opt -S -passes="vec-clone" < %s | FileCheck %s
 ;
 ; Validate parameter debug information following the -passes=vec-clone pass.
 ; Specifically,
@@ -17,13 +17,13 @@ declare void @llvm.dbg.value(metadata, metadata, metadata) #2
 define i32 @foo(i32 %x, i32 %y) #0 !dbg !5 {
 entry:
   %x.addr = alloca i32, align 4
-  call void @llvm.dbg.declare(metadata i32* %x.addr, metadata !10, metadata !DIExpression()), !dbg !12
+  call void @llvm.dbg.declare(metadata ptr %x.addr, metadata !10, metadata !DIExpression()), !dbg !12
   %y.addr = alloca i32, align 4
-  call void @llvm.dbg.declare(metadata i32* %y.addr, metadata !11, metadata !DIExpression()), !dbg !13
-  store i32 %x, i32* %x.addr, align 4
-  store i32 %y, i32* %y.addr, align 4
-  %0 = load i32, i32* %y.addr, align 4
-  %1 = load i32, i32* %x.addr, align 4
+  call void @llvm.dbg.declare(metadata ptr %y.addr, metadata !11, metadata !DIExpression()), !dbg !13
+  store i32 %x, ptr %x.addr, align 4
+  store i32 %y, ptr %y.addr, align 4
+  %0 = load i32, ptr %y.addr, align 4
+  %1 = load i32, ptr %x.addr, align 4
   %add = add nsw i32 %0, %1
   ret i32 %add
 }
@@ -33,56 +33,56 @@ entry:
 ; CHECK-SAME:   {
 ; CHECK:      entry:
 ; CHECK:        %alloca.x = alloca i32
-; CHECK:        store i32 %x, i32* %alloca.x
+; CHECK:        store i32 %x, ptr %alloca.x
 ; CHECK:        %alloca.y = alloca i32
-; CHECK:        store i32 %y, i32* %alloca.y
+; CHECK:        store i32 %y, ptr %alloca.y
 ; CHECK:        %x.addr = alloca i32
 ; CHECK:        %y.addr = alloca i32
-; CHECK:        call void @llvm.dbg.declare(metadata i32* %x.addr
+; CHECK:        call void @llvm.dbg.declare(metadata ptr %x.addr
 ; CHECK-SAME:                               metadata [[X:![0-9]+]]
 ; CHECK-SAME:                               metadata !DIExpression()
-; CHECK:        call void @llvm.dbg.declare(metadata i32* %y.addr
+; CHECK:        call void @llvm.dbg.declare(metadata ptr %y.addr
 ; CHECK-SAME:                               metadata [[Y:![0-9]+]]
 ; CHECK-SAME:                               metadata !DIExpression()
 ; CHECK:      }
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @bar(i32* %a, i32 %b) #1 !dbg !15 {
+define dso_local i32 @bar(ptr %a, i32 %b) #1 !dbg !15 {
 entry:
-  call void @llvm.dbg.value(metadata i32* %a, metadata !17, metadata !DIExpression(DW_OP_deref)), !dbg !19
+  call void @llvm.dbg.value(metadata ptr %a, metadata !17, metadata !DIExpression(DW_OP_deref)), !dbg !19
   call void @llvm.dbg.value(metadata i32 %b, metadata !18, metadata !DIExpression()), !dbg !20
   %idxprom = sext i32 %b to i64
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, 20
-  call void @llvm.dbg.value(metadata i32* %a, metadata !17, metadata !DIExpression(DW_OP_deref)), !dbg !19
-  store i32 %add, i32* %arrayidx, align 4
+  call void @llvm.dbg.value(metadata ptr %a, metadata !17, metadata !DIExpression(DW_OP_deref)), !dbg !19
+  store i32 %add, ptr %arrayidx, align 4
   ret i32 undef
 }
 
-; CHECK:      define {{.*}} @_ZGVbN4ul_bar(i32* %a, i32 %b)
+; CHECK:      define {{.*}} @_ZGVbN4ul_bar(ptr %a, i32 %b)
 ; CHECK-SAME:   !dbg [[VECCLONE_BAR:![0-9]+]]
 ; CHECK-SAME:   {
 ; CHECK:      entry:
 ; CHECK:        call void @llvm.dbg.value(metadata i32 %b
 ; CHECK-SAME:                             metadata [[B:![0-9]+]]
 ; CHECK-SAME:                             metadata !DIExpression()
-; CHECK:        %alloca.b = alloca i32, align 4, !dbg !33
-; CHECK:        store i32 %b, i32* %alloca.b, align 4, !dbg !33
-; CHECK:        call void @llvm.dbg.value(metadata i32* %a
+; CHECK:        %alloca.b = alloca i32, align 4
+; CHECK:        store i32 %b, ptr %alloca.b, align 4
+; CHECK:        call void @llvm.dbg.value(metadata ptr %a
 ; CHECK-SAME:                             metadata [[A:![0-9]+]]
 ; CHECK-SAME:                             metadata !DIExpression(DW_OP_deref)
-; CHECK-NOT:    call void @llvm.dbg.value(metadata i32* %a
-; CHECK:        %alloca.a = alloca i32*, align 8
-; CHECK:        store i32* %a, i32** %alloca.a, align 8
+; CHECK-NOT:    call void @llvm.dbg.value(metadata ptr %a
+; CHECK:        %alloca.a = alloca ptr, align 8
+; CHECK:        store ptr %a, ptr %alloca.a, align 8
 ; CHECK:      simd.loop.header:
-; CHECK:        call void @llvm.dbg.value(metadata i32* %load.a
+; CHECK:        call void @llvm.dbg.value(metadata ptr %load.a
 ; CHECK-SAME:                             metadata [[A]]
 ; CHECK-SAME:                             metadata !DIExpression(DW_OP_deref)
 ; CHECK:        call void @llvm.dbg.value(metadata i32 %load.b
 ; CHECK-SAME:                             metadata [[B]]
 ; CHECK-SAME:                             metadata !DIExpression()
-; CHECK:        call void @llvm.dbg.value(metadata i32* %load.a
+; CHECK:        call void @llvm.dbg.value(metadata ptr %load.a
 ; CHECK-SAME:                             metadata [[A]]
 ; CHECK-SAME:                             metadata !DIExpression(DW_OP_deref)
 ; CHECK:      }

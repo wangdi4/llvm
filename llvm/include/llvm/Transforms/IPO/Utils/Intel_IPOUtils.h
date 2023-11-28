@@ -1,6 +1,6 @@
 //===----  Intel_IPOUtils.h - IPO Utility Functions   --------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -58,8 +58,8 @@ public:
 
   static bool preserveOrSuppressInlineReport(Instruction *I, Instruction *NI);
 
-  static bool isProdBuild(void) {
-#if defined(NDEBUG)
+  static bool isProductReleaseBuild(void) {
+#if defined(INTEL_PRODUCT_RELEASE)
     return true;
 #endif
     return false;

@@ -11,6 +11,8 @@
 ; The goal of this test case is to make sure that there are no repeated functions
 ; when checking the number targets.
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+
 %"class.std::ios_base::Init" = type { i8 }
 %class.Derived = type { %class.Base }
 %class.Base = type { ptr }

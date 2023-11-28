@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -308,12 +308,6 @@ Pass *createLowerAtomicPass();
 
 //===----------------------------------------------------------------------===//
 //
-// LowerGuardIntrinsic - Lower guard intrinsics to normal control flow.
-//
-Pass *createLowerGuardIntrinsicPass();
-
-//===----------------------------------------------------------------------===//
-//
 // LowerWidenableCondition - Lower widenable condition to i1 true.
 //
 Pass *createLowerWidenableConditionPass();
@@ -333,12 +327,6 @@ Pass *createMergeICmpsLegacyPass();
 //
 FunctionPass *createInferAddressSpacesPass(unsigned AddressSpace = ~0u);
 extern char &InferAddressSpacesID;
-
-//===----------------------------------------------------------------------===//
-//
-// LowerExpectIntrinsics - Removes llvm.expect intrinsics and creates
-// "block_weights" metadata.
-FunctionPass *createLowerExpectIntrinsicPass();
 
 #if INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//

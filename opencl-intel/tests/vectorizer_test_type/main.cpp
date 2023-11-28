@@ -1,8 +1,7 @@
-#include <set>
-#include <string>
-
 #include "KernelExecutor/KerenelExecutor.h"
 #include "TestsRunner/TestsRunner.h"
+#include <set>
+#include <string>
 
 using std::set;
 using std::string;

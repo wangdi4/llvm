@@ -1,11 +1,11 @@
-; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
 
 ; This test checks that WG loops are created in O0 and -g mode.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-; CHECK: @LocalIds = linkonce_odr thread_local global [3 x i64] undef, align 16
+; CHECK: @__LocalIds = internal thread_local global [3 x i64] undef, align 16
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
 define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst) #0 !dbg !6 !kernel_arg_addr_space !13 !kernel_arg_access_qual !14 !kernel_arg_type !15 !kernel_arg_base_type !15 !kernel_arg_type_qual !16 !kernel_arg_name !17 !kernel_arg_host_accessible !18 !kernel_arg_pipe_depth !19 !kernel_arg_pipe_io !16 !kernel_arg_buffer_location !16 !no_barrier_path !20 !kernel_has_sub_groups !18 !kernel_execution_length !21 !kernel_has_global_sync !18 !recommended_vector_length !13 {
@@ -20,18 +20,18 @@ entry:
 ; CHECK: dim_1_pre_head:
 ; CHECK-NEXT: %dim_2_ind_var = phi i64 [ %base.gid.dim2, %dim_2_pre_head ], [ %dim_2_inc_ind_var, %dim_1_exit ]
 ; CHECK-NEXT: %dim_2_tid = phi i64 [ %dim_2_sub_lid, %dim_2_pre_head ], [ %dim_2_inc_tid, %dim_1_exit ]
-; CHECK-NEXT: store i64 %dim_2_tid, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 2), align 8
+; CHECK-NEXT: store i64 %dim_2_tid, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 2), align 8
 ; CHECK-NEXT: br label %dim_0_pre_head
 ; CHECK: dim_0_pre_head:
 ; CHECK-NEXT: %dim_1_ind_var = phi i64 [ %base.gid.dim1, %dim_1_pre_head ], [ %dim_1_inc_ind_var, %dim_0_exit ]
 ; CHECK-NEXT: %dim_1_tid = phi i64 [ %dim_1_sub_lid, %dim_1_pre_head ], [ %dim_1_inc_tid, %dim_0_exit ]
-; CHECK-NEXT: store i64 %dim_1_tid, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 1), align 8
+; CHECK-NEXT: store i64 %dim_1_tid, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 1), align 8
 ; CHECK-NEXT: br label %scalar_kernel_entry
 ; CHECK: scalar_kernel_entry:
 ; CHECK-NEXT: %dim_0_ind_var = phi i64 [ %base.gid.dim0, %dim_0_pre_head ], [ %dim_0_inc_ind_var, %scalar_kernel_entry ]
 ; CHECK-NEXT: %dim_0_tid = phi i64 [ %dim_0_sub_lid, %dim_0_pre_head ], [ %dim_0_inc_tid, %scalar_kernel_entry ]
-; CHECK-NEXT: store i64 %dim_0_tid, ptr @LocalIds, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata [[DIVarGID0:![0-9]+]], metadata !DIExpression()), !dbg [[DILocGID:![0-9]+]]
+; CHECK-NEXT: store i64 %dim_0_tid, ptr @__LocalIds, align 8, !dbg [[DILocGID:![0-9]+]]
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata [[DIVarGID0:![0-9]+]], metadata !DIExpression()), !dbg [[DILocGID]]
 ; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata [[DIVarGID1:![0-9]+]], metadata !DIExpression()), !dbg [[DILocGID]]
 ; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata [[DIVarGID2:![0-9]+]], metadata !DIExpression()), !dbg [[DILocGID]]
 ; CHECK-NEXT: store volatile i64 %dim_0_ind_var, ptr %__ocl_dbg_gid0, align 8

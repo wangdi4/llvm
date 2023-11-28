@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -19,6 +19,7 @@
 #include "cl_autoptr_ex.h"
 #include "cl_device_api.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_synch_objects.h"
 #include "cl_user_logger.h"
 #include "events_manager.h"
 #include "fe_compiler.h"
@@ -30,8 +31,6 @@
 #include "program_with_source.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
-#include <cl_synch_objects.h>
-
 #include <string>
 
 using namespace Intel::OpenCL::Framework;
@@ -214,13 +213,6 @@ bool CompileTask::Execute() {
   }
 
   pBinary.reset(new char[uiBinarySize]);
-  if (NULL == pBinary.get()) {
-    // Build failed
-    m_pDeviceProgram->SetBuildLogInternal("Compilation failed\n");
-    m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_COMPILE_FAILED);
-    SetComplete(CL_BUILD_SUCCESS);
-    return true;
-  }
 
   if (pElfWriter->ResolveBinary(*pBinary.getOutPtr(), uiBinarySize) !=
       CLElfLib::SUCCESS) {
@@ -383,13 +375,6 @@ bool LinkTask::Execute() {
   }
 
   pBinary.reset(new char[uiBinarySize]);
-  if (NULL == pBinary.get()) {
-    // Build failed
-    m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_LINK_FAILED);
-    m_pDeviceProgram->SetBuildLogInternal("Linking failed\n");
-    SetComplete(CL_BUILD_SUCCESS);
-    return true;
-  }
 
   if (pElfWriter->ResolveBinary(*pBinary.getOutPtr(), uiBinarySize) !=
       CLElfLib::SUCCESS) {
@@ -663,15 +648,7 @@ cl_err_code ProgramService::CompileProgram(
 
   if (0 < num_input_headers) {
     pszHeaders = new const char *[num_input_headers];
-    if (NULL == pszHeaders) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
-
     pszHeadersNames = new char *[num_input_headers];
-    if (!pszHeadersNames) {
-      delete[] pszHeaders;
-      return CL_OUT_OF_HOST_MEMORY;
-    }
   }
 
   // Get the sources for all the headers
@@ -689,31 +666,11 @@ cl_err_code ProgramService::CompileProgram(
 
     size_t len = strlen(header_include_names[i]) + 1;
     pszHeadersNames[i] = new char[len];
-    if (NULL == pszHeadersNames[i]) {
-      for (cl_uint j = 0; j < i; ++j) {
-        delete[] pszHeadersNames[j];
-      }
-      delete[] pszHeaders;
-      delete[] pszHeadersNames;
-
-      return CL_OUT_OF_HOST_MEMORY;
-    }
-
     STRCPY_S(pszHeadersNames[i], len, header_include_names[i]);
   }
 
   // This will be released in PostBuildTask
   DeviceProgram **ppDevicePrograms = new DeviceProgram *[uiNumDevices];
-  if (NULL == ppDevicePrograms) {
-    // Release allocated memory of the headers
-    for (cl_uint j = 0; j < num_input_headers; j++) {
-      delete[] pszHeadersNames[j];
-    }
-    delete[] pszHeaders;
-    delete[] pszHeadersNames;
-
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   if (num_devices > 0) {
     // Retrive device programs for specified devices
@@ -924,9 +881,7 @@ cl_err_code ProgramService::LinkProgram(
 
   // This will be released in PostBuildTask
   DeviceProgram **ppDevicePrograms = new DeviceProgram *[uiNumDevices];
-  if (NULL == ppDevicePrograms) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   if (num_devices > 0) {
     // Retrive device programs for specified devices
     for (cl_uint i = 0; i < uiNumDevices; ++i) {
@@ -1056,34 +1011,8 @@ cl_err_code ProgramService::LinkProgram(
       if (arrBuildForDevice[i]) {
         bNeedToBuild = true;
         ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BE_BUILDING);
-
-        // Propagate "-cl-opt-disable" and "-g" options used for
-        // compilation to build task because build task is actually
-        // performing all backend optimizations depending on
-        // provided options. This propagation is necessary for
-        // scenario when SYCL compiler is used with CPU backend
-        // because SYCL compiler doesn't add metadata for these
-        // options. In case of OpenCL options are propagated using
-        // opencl.compiler.options metadata.
-        std::string compileOptions;
-        for (unsigned int libIndex = 0; libIndex < num_input_programs;
-             ++libIndex) {
-          if (const char *opts =
-                  input_programs[libIndex]->GetBuildOptionsInternal(
-                      ppDevicePrograms[i]->GetDeviceId())) {
-            if (std::string(opts).find("-cl-opt-disable") !=
-                    std::string::npos &&
-                compileOptions.find("-cl-opt-disable") == std::string::npos)
-              compileOptions.append(" -cl-opt-disable");
-            if (std::string(opts).find("-g") != std::string::npos &&
-                compileOptions.find("-g") == std::string::npos)
-              compileOptions.append(" -g");
-          }
-        }
-
-        std::string mergedOptions = compileOptions + buildOptions;
         arrDeviceBuildTasks[i] = DeviceBuildTask::Allocate(
-            context, program, ppDevicePrograms[i], mergedOptions.c_str());
+            context, program, ppDevicePrograms[i], buildOptions.c_str());
         if (NULL == arrDeviceBuildTasks[i].GetPtr()) {
           ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
         } else if (NULL != arrLinkTasks[i].GetPtr()) {
@@ -1219,9 +1148,7 @@ cl_err_code ProgramService::BuildProgram(SharedPtr<Program> &program,
 
   // this will be released in PostBuildTask
   DeviceProgram **ppDevicePrograms = new DeviceProgram *[uiNumDevices];
-  if (NULL == ppDevicePrograms) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   if (num_devices > 0) {
     // Retrive device programs for specified devices
     for (cl_uint i = 0; i < uiNumDevices; ++i) {

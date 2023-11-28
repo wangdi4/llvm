@@ -5,17 +5,17 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-declare dso_local i32* @_Z3barPif(i32) #2
+declare dso_local ptr @_Z3barPif(i32) #2
 
 ; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #3
+declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #3
+declare void @llvm.directive.region.exit(token) #1
 
-define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
+define void @_fdirect(<4 x i32> %mask) #1 {
 ; CHECK-LABEL:  VPlan after CallVecDecisions analysis for merged CFG:
-; CHECK-NEXT:  VPlan IR for: _ZGVbM4_direct:simd.loop
+; CHECK-NEXT:  VPlan IR for: _fdirect:simd.loop
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
@@ -29,8 +29,8 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_MASK_GEP:%.*]] = getelementptr i32* [[MASK_CAST0:%.*]] i32 [[VP_INDEX]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_MASK_PARM:%.*]] = load i32* [[VP_MASK_GEP]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_MASK_GEP:%.*]] = getelementptr i32, ptr [[MASK_CAST0:%.*]] i32 [[VP_INDEX]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_MASK_PARM:%.*]] = load ptr [[VP_MASK_GEP]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK_COND:%.*]] = icmp ne i32 [[VP_MASK_PARM]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK_COND_NOT:%.*]] = not i1 [[VP_MASK_COND]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
@@ -41,7 +41,7 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_MASK_COND]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_CALL_I:%.*]] = call i32 5 _ZGVbM4v_Z3barPif [x 1] [@CurrMask]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_CALL_I:%.*]] = call i32 5 _ZGVbM4v_Z3barPif [x 1] [@CurrMask]
 ; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]]
@@ -62,11 +62,10 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ;
-; CHECK:  define void @_ZGVbM4_direct(<4 x i32> [[MASK0:%.*]]) #2 {
+; CHECK:  define void @_fdirect(<4 x i32> [[MASK0:%.*]]) #1 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VEC_MASK0:%.*]] = alloca <4 x i32>, align 16
-; CHECK-NEXT:    [[MASK_CAST0]] = bitcast <4 x i32>* [[VEC_MASK0]] to i32*
-; CHECK-NEXT:    store <4 x i32> [[MASK0]], <4 x i32>* [[VEC_MASK0]], align 16
+; CHECK-NEXT:    store <4 x i32> [[MASK0]], ptr [[VEC_MASK0]], align 16
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
@@ -81,9 +80,8 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-NEXT:  vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VPLANNEDBB10]] ], [ [[TMP5:%.*]], [[VPLANNEDBB50:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB10]] ], [ [[TMP4:%.*]], [[VPLANNEDBB50]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 16
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i32, ptr [[VEC_MASK0]], i32 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, ptr [[SCALAR_GEP0]], align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp ne <4 x i32> [[WIDE_LOAD0]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
@@ -93,7 +91,7 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
 ; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <4 x i1> [[TMP1]] to <4 x i64>
-; CHECK-NEXT:    [[TMP3:%.*]] = call <4 x i32*> @_ZGVbM4v_Z3barPif(<4 x i32> <i32 5, i32 5, i32 5, i32 5>, <4 x i64> [[MASKEXT0]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call <4 x ptr> @_ZGVbM4v_Z3barPif(<4 x i32> <i32 5, i32 5, i32 5, i32 5>, <4 x i64> [[MASKEXT0]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
@@ -106,8 +104,7 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ;
 entry:
   %vec.mask = alloca <4 x i32>, align 16
-  %mask.cast = bitcast <4 x i32>* %vec.mask to i32*
-  store <4 x i32> %mask, <4 x i32>* %vec.mask, align 16
+  store <4 x i32> %mask, ptr %vec.mask, align 16
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
@@ -116,13 +113,13 @@ simd.begin.region:                                ; preds = %entry
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
-  %mask.gep = getelementptr i32, i32* %mask.cast, i32 %index
-  %mask.parm = load i32, i32* %mask.gep, align 4
+  %mask.gep = getelementptr i32, ptr %vec.mask, i32 %index
+  %mask.parm = load i32, ptr %mask.gep, align 4
   %mask.cond = icmp ne i32 %mask.parm, 0
   br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
 
 simd.loop.then:                                   ; preds = %simd.loop
-  %call.i = call i32 * @_Z3barPif(i32 5) #2
+  %call.i = call ptr @_Z3barPif(i32 5) #2
   br label %simd.loop.exit
 
 simd.loop.else:                                   ; preds = %simd.loop
@@ -141,6 +138,5 @@ return:                                           ; preds = %simd.end.region
   ret void
 }
 
-attributes #1 = { "vector-variants"="_ZGVbM4_direct,_ZGVbN4_direct" }
+attributes #1 = { nounwind }
 attributes #2 = { "vector-variants"="_ZGVbM4v_Z3barPif,_ZGVbN4v_Z3barPif" }
-attributes #3 = { nounwind }

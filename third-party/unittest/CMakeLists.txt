@@ -87,11 +87,6 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   )
 endif()
 if (WIN32)
-  if (${CMAKE_BUILD_TYPE} MATCHES Debug)
-    set(_STL_LIB "/MDd")
-  else()
-    set(_STL_LIB "/MD")
-  endif()
   add_llvm_library(llvm_gtest_dyn
     googletest/src/gtest-all.cc
     googlemock/src/gmock-all.cc
@@ -104,11 +99,10 @@ if (WIN32)
 
     # This is a library meant only for the build tree.
     BUILDTREE_ONLY
-
-    STDLIB
-    ${_STL_LIB}
   )
 
+  set_property(TARGET llvm_gtest_dyn
+               PROPERTY MSVC_RUNTIME_LIBRARY  "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   target_include_directories(llvm_gtest_dyn
     PUBLIC googletest/include googlemock/include
     PRIVATE googletest googlemock
@@ -131,8 +125,8 @@ endif ()
 target_include_directories(llvm_gtest
   PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/googletest/include>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/googlemock/include>
-         $<INSTALL_INTERFACE:include/llvm-gtest/>
-         $<INSTALL_INTERFACE:include/llvm-gmock/>
+         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/llvm-gtest/>
+         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/llvm-gmock/>
   PRIVATE googletest googlemock
   )
 
@@ -140,9 +134,9 @@ add_subdirectory(UnitTestMain)
 
 if (LLVM_INSTALL_GTEST)
   install(TARGETS llvm_gtest llvm_gtest_main LLVMTestingSupport LLVMTestingAnnotations
-	  ARCHIVE DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT llvm_gtest)
-  install(DIRECTORY googletest/include/gtest/ DESTINATION include/llvm-gtest/gtest/ COMPONENT llvm_gtest)
-  install(DIRECTORY googlemock/include/gmock/ DESTINATION include/llvm-gmock/gmock/ COMPONENT llvm_gtest)
+	  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT llvm_gtest)
+  install(DIRECTORY googletest/include/gtest/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/llvm-gtest/gtest/" COMPONENT llvm_gtest)
+  install(DIRECTORY googlemock/include/gmock/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/llvm-gmock/gmock/" COMPONENT llvm_gtest)
 endif()
 
 # When LLVM_LINK_LLVM_DYLIB is enabled, libLLVM.so is added to the interface

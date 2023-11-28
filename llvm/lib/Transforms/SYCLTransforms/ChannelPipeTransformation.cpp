@@ -16,10 +16,13 @@
 
 #include "llvm/Transforms/SYCLTransforms/ChannelPipeTransformation.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/DiagnosticInfo.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/SYCLChannelPipeUtils.h"
-#include "llvm/Transforms/Utils/Cloning.h"
+#include <numeric>
 #include <stack>
 
 using namespace llvm;
@@ -29,45 +32,14 @@ using namespace CompilationUtils;
 
 #define DEBUG_TYPE "sycl-kernel-channel-pipe-transformation"
 
-using ValueToValueMap = DenseMap<Value *, Value *>;
-using ValueToValueStableMap = MapVector<Value *, Value *>;
 using AllocaMapType = DenseMap<std::pair<Function *, Type *>, Value *>;
-using ValueValuePair = std::pair<Value *, Value *>;
 // Stack is needed here to implement iterative DFS through global channel uses
 // The second argument defines underlying container for stack: by default it is
 // a std::deque, let's change it to std::vector since the last one has less
 // overheads on accessing elements
-using WorkListType = std::stack<ValueValuePair, std::vector<ValueValuePair>>;
+using WorkListType = std::stack<Value *, std::vector<Value *>>;
 
 extern unsigned SYCLChannelDepthEmulationMode;
-
-static GlobalVariable *createGlobalPipeScalar(Module &M, Type *PipeTy,
-                                              const Twine &Name) {
-  auto *PipeGV = new GlobalVariable(
-      M, PipeTy, /*isConstant=*/false, GlobalValue::ExternalLinkage,
-      /*Initializer=*/nullptr, Name, /*InsertBefore=*/nullptr,
-      GlobalValue::ThreadLocalMode::NotThreadLocal, ADDRESS_SPACE_GLOBAL);
-
-  PipeGV->setInitializer(ConstantPointerNull::get(cast<PointerType>(PipeTy)));
-  PipeGV->setAlignment(M.getDataLayout().getPreferredAlign(PipeGV));
-  return PipeGV;
-}
-
-static GlobalVariable *createGlobalPipeArray(Module &M, Type *PipeTy,
-                                             ArrayRef<size_t> Dimensions,
-                                             const Twine &Name) {
-  auto *PipeArrayTy = createMultiDimArray(PipeTy, Dimensions);
-  assert(PipeArrayTy && "Is Dimensions invalid? Size of Dimensions must greater than 0.");
-
-  auto *PipeGV = new GlobalVariable(
-      M, PipeArrayTy, /*isConstant=*/false, GlobalValue::ExternalLinkage,
-      /*Initializer=*/nullptr, Name, /*InsertBefore=*/nullptr,
-      GlobalValue::ThreadLocalMode::NotThreadLocal, ADDRESS_SPACE_GLOBAL);
-
-  PipeGV->setInitializer(ConstantAggregateZero::get(PipeArrayTy));
-  PipeGV->setAlignment(M.getDataLayout().getPreferredAlign(PipeGV));
-  return PipeGV;
-}
 
 /**
  * \brief Calculates combination of indices to access the next element in a
@@ -134,41 +106,118 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
 
   SmallVector<size_t, 8> Dimensions;
   getArrayTypeDimensions(PipePtrArrayTy, Dimensions);
+  unsigned NumDims = Dimensions.size();
+  assert(NumDims >= 1 && "invalid array type dimensions");
 
   Type *BSIndexTy = Type::getIntNTy(
       M.getContext(),
       M.getDataLayout().getPointerSizeInBits(ADDRESS_SPACE_GLOBAL));
-  Value *ZeroConstantInt = ConstantInt::get(BSIndexTy, 0);
-
-  size_t DimensionsNum = Dimensions.size();
-  SmallVector<size_t, 8> IndicesListForPipeElem(DimensionsNum, 0);
-  SmallVector<Value *, 8> GEPIndicesListForPipeElem(DimensionsNum + 1, 0);
-
+  Value *Zero = ConstantInt::get(BSIndexTy, 0);
   size_t BSItemSize = OpenCLInterface::__pipe_get_total_size_fpga(
       PipeMD.PacketSize, PipeMD.Depth, SYCLChannelDepthEmulationMode);
-  size_t BSItemsCount = getNumElementsOfNestedArray(PipePtrArrayTy);
 
-  // iterate over all elements from backing store
-  for (size_t I = 0; I < BSItemsCount; ++I) {
-    // create GEP from backing store
-    Value *IndexListForBSElem[] = {ZeroConstantInt,
-                                   ConstantInt::get(BSIndexTy, I * BSItemSize)};
-    Value *BSElemPtr = Builder.CreateGEP(
-        BS->getValueType(), BS, ArrayRef<Value *>(IndexListForBSElem, 2));
+  // For small array, there is no need to create loop.
+  constexpr size_t Threshold = 8;
+  size_t BSItemsCount = std::accumulate(Dimensions.begin(), Dimensions.end(), 1,
+                                        std::multiplies<size_t>());
+  if (BSItemsCount <= Threshold) {
+    SmallVector<size_t, 8> IndicesListForPipeElem(NumDims, 0);
+    SmallVector<Value *, 8> GEPIndicesListForPipeElem(NumDims + 1);
+    // Iterate over all elements from backing store.
+    for (size_t I = 0; I < BSItemsCount; ++I) {
+      // Create GEP from backing store.
+      Value *IndexListForBSElem[] = {
+          Zero, ConstantInt::get(BSIndexTy, I * BSItemSize)};
+      Value *BSElemPtr = Builder.CreateGEP(
+          BS->getValueType(), BS, ArrayRef<Value *>(IndexListForBSElem, 2));
 
-    // convert current indices list to GEP indices
-    convertToGEPIndicesList(IndicesListForPipeElem,
-                            GEPIndicesListForPipeElem, M);
-    // increment current indices
-    incrementIndicesList(IndicesListForPipeElem, Dimensions);
+      // Convert current indices list to GEP indices.
+      convertToGEPIndicesList(IndicesListForPipeElem, GEPIndicesListForPipeElem,
+                              M);
+      // Increment current indices.
+      incrementIndicesList(IndicesListForPipeElem, Dimensions);
 
-    // create GEP from pipe array
-    Value *PipeElemPtr =
-        Builder.CreateGEP(PipePtrArrayTy, PipeArrayGlobal,
-                          ArrayRef<Value *>(GEPIndicesListForPipeElem));
-    Builder.CreateStore(Builder.CreateBitCast(BSElemPtr, PipePtrTy),
-                        Builder.CreateBitCast(PipeElemPtr, PipePtrPtrTy));
+      // Create GEP from pipe array.
+      Value *PipeElemPtr =
+          Builder.CreateGEP(PipePtrArrayTy, PipeArrayGlobal,
+                            ArrayRef<Value *>(GEPIndicesListForPipeElem));
+      Builder.CreateStore(Builder.CreateBitCast(BSElemPtr, PipePtrTy),
+                          Builder.CreateBitCast(PipeElemPtr, PipePtrPtrTy));
+    }
+    return;
   }
+
+  BasicBlock *Exit = Builder.GetInsertBlock();
+  auto *Header = Exit->splitBasicBlockBefore(Exit->getTerminator(), "body");
+  auto *Preheader =
+      Header->splitBasicBlockBefore(Header->getTerminator(), "preheader");
+  unsigned NumLatches = NumDims - 1;
+  SmallVector<BasicBlock *, 8> Latches(NumLatches);
+  for (size_t I = 0; I < NumLatches; ++I) {
+    BasicBlock *BB = Exit;
+    Latches[I] = BB->splitBasicBlockBefore(BB->getTerminator(),
+                                           Twine("latch") + Twine(I + 1));
+  }
+
+  Builder.SetInsertPoint(Header->getTerminator());
+  SmallVector<PHINode *, 8> PHIs(NumDims);
+  for (int I = (int)NumDims - 1; I >= 0; --I) {
+    auto *PHI =
+        Builder.CreatePHI(BSIndexTy, NumDims + 1, Twine("i") + Twine(I));
+    PHI->addIncoming(Zero, Preheader);
+    PHI->addIncoming(PHI, Header);
+    for (int I2 = 0; I2 < (int)NumLatches; ++I2) {
+      PHI->addIncoming(I <= I2 ? cast<Value>(Zero) : cast<Value>(PHI),
+                       Latches[I2]);
+    }
+    PHIs[I] = PHI;
+  }
+
+  Value *One = ConstantInt::get(BSIndexTy, 1);
+  PHINode *LinearIdx = nullptr;
+  if (NumDims > 1) {
+    LinearIdx = Builder.CreatePHI(BSIndexTy, NumDims + 1, "j");
+    auto *LinearIdxInc =
+        Builder.CreateAdd(LinearIdx, One, Twine(LinearIdx->getName()) + ".inc");
+    LinearIdx->addIncoming(Zero, Preheader);
+    for (unsigned I = 0; I < NumDims; ++I)
+      LinearIdx->addIncoming(LinearIdxInc, I == 0 ? Header : Latches[I - 1]);
+  }
+
+  SmallVector<Value *, 8> Increments(NumDims);
+  for (unsigned I = 0; I < NumDims; ++I) {
+    BasicBlock *BB = (I == 0) ? Header : Latches[I - 1];
+    auto *OldTerminator = BB->getTerminator();
+    Builder.SetInsertPoint(OldTerminator);
+    Increments[I] =
+        Builder.CreateAdd(PHIs[I], One, Twine(PHIs[I]->getName()) + ".inc");
+    PHIs[I]->setIncomingValue(1 + I, Increments[I]);
+    auto *Cond = Builder.CreateCmp(
+        CmpInst::ICMP_SLT, Increments[I],
+        ConstantInt::get(BSIndexTy, (uint64_t)Dimensions[NumDims - 1 - I]));
+    Builder.CreateCondBr(Cond, Header, I == (NumDims - 1) ? Exit : Latches[I]);
+    OldTerminator->eraseFromParent();
+  }
+
+  Builder.SetInsertPoint(cast<Instruction>(Increments[0]));
+  // Create GEP from backing store.
+  Value *Index = LinearIdx ? LinearIdx : PHIs[0];
+  Value *BSIdx =
+      Builder.CreateMul(Index, ConstantInt::get(BSIndexTy, BSItemSize),
+                        "elem.ind", /*HasNUW*/ true, /*HasNSW*/ true);
+  Value *IndexListForBSElem[] = {Zero, BSIdx};
+  Value *BSElemPtr =
+      Builder.CreateGEP(BS->getValueType(), BS, IndexListForBSElem);
+
+  // Convert current indices list to GEP indices.
+  SmallVector<Value *, 8> GEPIndicesListForPipeElem = {Zero};
+  GEPIndicesListForPipeElem.append(PHIs.rbegin(), PHIs.rend());
+
+  // Create GEP from pipe array.
+  auto *PipeElemPtr = Builder.CreateGEP(PipePtrArrayTy, PipeArrayGlobal,
+                                        GEPIndicesListForPipeElem);
+  Builder.CreateStore(Builder.CreateBitCast(BSElemPtr, PipePtrTy),
+                      Builder.CreateBitCast(PipeElemPtr, PipePtrPtrTy));
 }
 
 static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
@@ -176,14 +225,13 @@ static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
                                       Function *GlobalCtor,
                                       Function *PipeInitArray) {
   auto *BS = SYCLChannelPipeUtils::createPipeBackingStore(PipeGV, MD);
+  auto *Terminator = GlobalCtor->getEntryBlock().getTerminator();
 
-  IRBuilder<> Builder(GlobalCtor->getEntryBlock().getTerminator());
+  IRBuilder<> Builder(Terminator);
 
   Value *PacketSize = Builder.getInt32(MD.PacketSize);
   Value *Depth = Builder.getInt32(MD.Depth);
 
-  // TODO: seems to be a good place to rewrite. Generate loops in IR instead of
-  // generating a huge bunch of GEP instructions
   generateBSItemsToPipeArrayStores(
       *(PipeGV->getParent()), Builder, BS, PipeGV, MD);
 
@@ -192,6 +240,8 @@ static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
   size_t BSNumItems = getNumElementsOfNestedArray(PipePtrArrayTy);
   Value *Mode = Builder.getInt32(SYCLChannelDepthEmulationMode);
 
+  Terminator->getParent()->setName("exit");
+  Builder.SetInsertPoint(Terminator);
   SmallVector<Value *, 6> CallArgs = {
       Builder.CreateBitCast(PipeGV,
                             PipeInitArray->getFunctionType()->getParamType(0)),
@@ -204,207 +254,48 @@ static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
   Builder.CreateCall(PipeInitArray, CallArgs);
 }
 
-static bool replaceGlobalChannels(Module &M, Type *PipeTy,
-                                  ValueToValueStableMap &VMap,
-                                  RuntimeService &RTS) {
-  bool Changed = false;
-  Function *GlobalCtor = nullptr;
-  SmallVector<GlobalVariable *, 16> WorkList;
-  llvm::transform(M.globals(), std::back_inserter(WorkList),
-                  [](auto &GV) { return &GV; });
-  for (auto *ChannelGV : WorkList) {
-    if (!isGlobalPipe(ChannelGV))
-      continue;
+static void initGlobalPipes(Module &M, RuntimeService &RTS,
+                            SetVector<GlobalVariable *> &GlobalPipes) {
+  Function *GlobalCtor = createPipeGlobalCtor(M);
+  SmallVector<GlobalVariable *, 2> DepthIgnoredGVs;
+  for (GlobalVariable *GV : GlobalPipes) {
+    auto ChannelMD = GlobalVariableMetadataAPI(GV);
+    if (!ChannelMD.PipeDepth.hasValue() &&
+        SYCLChannelDepthEmulationMode == ChannelDepthMode::Default)
+      DepthIgnoredGVs.push_back(GV);
 
-    if (!GlobalCtor)
-      GlobalCtor = createPipeGlobalCtor(M);
-
-    ChannelPipeMD MD =
-        getChannelPipeMetadata(ChannelGV, SYCLChannelDepthEmulationMode);
-    GlobalVariable *PipeGV = nullptr;
-    if (auto *GVArrTy = dyn_cast<ArrayType>(ChannelGV->getValueType())) {
-      SmallVector<size_t, 8> Dimensions;
-      getArrayTypeDimensions(GVArrTy, Dimensions);
-
-      PipeGV = createGlobalPipeArray(
-          M, PipeTy, Dimensions, Twine(ChannelGV->getName()) + PipeGVSuffix);
+    ChannelPipeMD MD = getChannelPipeMetadata(GV);
+    if (isa<ArrayType>(GV->getValueType())) {
       Function *PipeInitFunc = importFunctionDecl(
           &M, RTS.findFunctionInBuiltinModules(
                   MD.Protocol < 0 ? "__pipe_init_array_fpga"
                                   : "__pipe_init_array_ext_fpga"));
-      initializeGlobalPipeArray(PipeGV, MD, GlobalCtor, PipeInitFunc);
+      initializeGlobalPipeArray(GV, MD, GlobalCtor, PipeInitFunc);
     } else {
-      PipeGV = createGlobalPipeScalar(
-          M, PipeTy, Twine(ChannelGV->getName()) + PipeGVSuffix);
       Function *PipeInitFunc =
           importFunctionDecl(&M, RTS.findFunctionInBuiltinModules(
                                      MD.Protocol < 0 ? "__pipe_init_fpga"
                                                      : "__pipe_init_ext_fpga"));
-      initializeGlobalPipeScalar(PipeGV, MD, GlobalCtor, PipeInitFunc);
-    }
-
-    auto ChannelMD = GlobalVariableMetadataAPI(ChannelGV);
-    PipeGV->setMetadata(
-        ChannelMD.PipePacketSize.getID(),
-        ChannelGV->getMetadata(ChannelMD.PipePacketSize.getID()));
-    PipeGV->setMetadata(
-        ChannelMD.PipePacketAlign.getID(),
-        ChannelGV->getMetadata(ChannelMD.PipePacketAlign.getID()));
-    PipeGV->setMetadata(ChannelMD.PipeDepth.getID(),
-                        ChannelGV->getMetadata(ChannelMD.PipeDepth.getID()));
-    PipeGV->setMetadata(ChannelMD.PipeIO.getID(),
-                        ChannelGV->getMetadata(ChannelMD.PipeIO.getID()));
-    if (ChannelMD.DepthIsIgnored.hasValue()) {
-      PipeGV->setMetadata(
-          ChannelMD.DepthIsIgnored.getID(),
-          ChannelGV->getMetadata(ChannelMD.DepthIsIgnored.getID()));
-    }
-    PipeGV->setMetadata(ChannelMD.PipeProtocol.getID(),
-                        ChannelGV->getMetadata(ChannelMD.PipeProtocol.getID()));
-
-    VMap[ChannelGV] = PipeGV;
-
-    // ChannelGV is replaced with PipeGV. We set ChannelGV linkage to internal
-    // so that it is eliminated later by globaldce pass.
-    ChannelGV->setLinkage(GlobalValue::InternalLinkage);
-
-    Changed = true;
-  }
-
-  return Changed;
-}
-
-static Value *createPipeUserStub(Value *ChannelUser, Value *Pipe) {
-  Type *PipeTy;
-  if (auto *GV = dyn_cast<GlobalVariable>(Pipe)) {
-    PipeTy = GV->getValueType();
-    if (isa<LoadInst>(ChannelUser) || isa<StoreInst>(ChannelUser)) {
-      if (auto *ArrTy = dyn_cast<ArrayType>(PipeTy)) {
-        PipeTy = ArrTy->getElementType();
-        if (!isa<ArrayType>(getLoadStoreType(ChannelUser))) {
-          while (auto *ATy = dyn_cast<ArrayType>(PipeTy))
-            PipeTy = ATy->getElementType();
-        }
-      }
-    }
-  } else if (auto *AI = dyn_cast<AllocaInst>(Pipe)) {
-    PipeTy = AI->getAllocatedType();
-  } else if (auto *GEPOp = dyn_cast<GEPOperator>(Pipe)) {
-    PipeTy = GEPOp->getResultElementType();
-  } else {
-    PipeTy = Pipe->getType();
-  }
-  Value *UndefPipe;
-  if (isa<PHINode>(ChannelUser) || isa<SelectInst>(ChannelUser) ||
-      isa<StoreInst>(ChannelUser))
-    UndefPipe = UndefValue::get(PipeTy);
-  else
-    UndefPipe = UndefValue::get(
-        PointerType::get(PipeTy, Pipe->getType()->getPointerAddressSpace()));
-  LLVM_DEBUG(dbgs() << "createPipeUserStub, ChannelUser: " << *ChannelUser
-                    << ", Pipe: " << *Pipe << ", PipeTy: " << *PipeTy
-                    << ", UndefPipe: " << *UndefPipe << "\n");
-
-  // isa<GEPOperator> returns true for instances of GetElementPtrInst class,
-  // so there is an ugly if here
-  if (isa<GEPOperator>(ChannelUser) && !isa<GetElementPtrInst>(ChannelUser)) {
-    auto *GEPOp = cast<GEPOperator>(ChannelUser);
-    SmallVector<Value *, 8> IdxList(GEPOp->idx_begin(), GEPOp->idx_end());
-
-    ConstantFolder Folder;
-    return Folder.FoldGEP(PipeTy, cast<Constant>(Pipe), IdxList);
-  }
-
-  // Temporary constant PtrToInt operator that uses channels may be created in
-  // InstCombine pass. It has no users now, but processing of this case is added
-  // for the future.
-  if (isa<Constant>(ChannelUser)) {
-    auto *CE = cast<ConstantExpr>(ChannelUser);
-    assert(CE->getOpcode() == Instruction::PtrToInt &&
-           "Unexpected constant value with channel variable");
-
-    ConstantFolder Folder;
-    return Folder.CreatePtrToInt(cast<Constant>(Pipe), CE->getType());
-  }
-
-  auto *ChannelInst = cast<Instruction>(ChannelUser);
-  IRBuilder<> Builder(ChannelInst);
-
-  if (auto *Alloca = dyn_cast<AllocaInst>(ChannelInst))
-    return Builder.CreateAlloca(PipeTy, Alloca->getType()->getAddressSpace(),
-                                Alloca->getArraySize(),
-                                "pipe." + Alloca->getName());
-
-  if (auto *Store = dyn_cast<StoreInst>(ChannelInst)) {
-    Value *DestPtr = UndefValue::get(PointerType::getUnqual(PipeTy));
-    auto *NewStore = Builder.CreateAlignedStore(
-        UndefPipe, DestPtr, Store->getAlign(), Store->isVolatile());
-    NewStore->setOrdering(Store->getOrdering());
-    NewStore->setSyncScopeID(Store->getSyncScopeID());
-    return NewStore;
-  }
-
-  if (auto *GEP = dyn_cast<GetElementPtrInst>(ChannelInst)) {
-    SmallVector<Value *, 8> IdxList(GEP->idx_begin(), GEP->idx_end());
-    return Builder.CreateGEP(PipeTy, UndefPipe, IdxList,
-                             ChannelInst->getName());
-  }
-
-  if (auto *Load = dyn_cast<LoadInst>(ChannelInst))
-    return Builder.CreateLoad(PipeTy, UndefPipe, Load->isVolatile(),
-                              Load->getName());
-
-  if (auto *Select = dyn_cast<SelectInst>(ChannelInst))
-    return Builder.CreateSelect(Select->getCondition(), UndefPipe, UndefPipe,
-                                ChannelInst->getName());
-
-  if (auto *Phi = dyn_cast<PHINode>(ChannelInst)) {
-    auto *NewPhi = Builder.CreatePHI(PipeTy, Phi->getNumIncomingValues(),
-                                     ChannelInst->getName());
-    for (auto *BB : Phi->blocks())
-      NewPhi->addIncoming(UndefPipe, BB);
-
-    return NewPhi;
-  }
-
-  llvm_unreachable("Unsupported instruction.");
-}
-
-static CallInst *createCallInstStub(CallInst *Call, Function *Func,
-                                    Type *ChannelTy, Type *PipeTy) {
-  auto *UndefPipe = UndefValue::get(PipeTy);
-  SmallVector<Value *, 8> Args;
-  KernelInternalMetadataAPI KIMD(Func);
-  if (KIMD.ArgTypeNullValList.hasValue()) {
-    for (const auto &[Idx, Arg] : llvm::enumerate(Call->args())) {
-      auto *TETy = dyn_cast<TargetExtType>(
-          KIMD.ArgTypeNullValList.getItem(Idx)->getType());
-      if (TETy && TETy->getName() == "spirv.Channel")
-        Args.push_back(UndefPipe);
-      else
-        Args.push_back(Arg);
-    }
-  } else {
-    for (auto &Arg : Call->args()) {
-      if (Arg->getType() == ChannelTy) {
-        Args.push_back(UndefPipe);
-      } else {
-        Args.push_back(Arg);
-      }
+      initializeGlobalPipeScalar(GV, MD, GlobalCtor, PipeInitFunc);
     }
   }
 
-  CallInst *Result = CallInst::Create(Func, Args, "", Call);
-  Result->setAttributes(Call->getAttributes());
-  Result->setDebugLoc(Call->getDebugLoc());
-  LLVM_DEBUG(dbgs() << "createCallInstStub, Call: " << *Call
-                    << ", New Call: " << *Result << "\n");
-  return Result;
+  if (!DepthIgnoredGVs.empty()) {
+    std::string NameList;
+    raw_string_ostream OS(NameList);
+    for (auto *GV : DepthIgnoredGVs)
+      OS << "\n - " << GV->getName().str();
+    M.getContext().diagnose(OptimizationWarningDiagInfo(
+        Twine("The default channel depths in the emulation flow will be "
+              "different from the hardware flow depth (0) to speed up "
+              "emulation. The following channels are affected:") +
+        NameList));
+  }
 }
 
 static Value *getPacketPtr(Module &M, CallInst *ChannelCall,
                            ChannelKind CK, AllocaMapType &AllocaMap) {
-  auto DL = ChannelCall->getModule()->getDataLayout();
+  auto DL = M.getDataLayout();
 
   auto *TargetFn = ChannelCall->getFunction();
   auto AllocaInsertionPt =
@@ -482,13 +373,11 @@ static Value *getPacketPtr(Module &M, CallInst *ChannelCall,
   auto *Packet = ChannelCall->getArgOperand(1);
   if (isa<PointerType>(Packet->getType())) {
     // Struct is passed by pointer anyway
-    [[maybe_unused]] Type *EltTy;
+    [[maybe_unused]] Type *EltTy = nullptr;
     if (auto *AI = dyn_cast<AllocaInst>(Packet))
       EltTy = AI->getAllocatedType();
-    else
-      EltTy = cast<PointerType>(Packet->getType())
-                  ->getNonOpaquePointerElementType();
-    assert(EltTy->isStructTy() && "Expected a pointer to a struct type.");
+    assert(EltTy && EltTy->isStructTy() &&
+           "Expected a pointer to a struct type.");
     return Packet;
   }
 
@@ -510,8 +399,7 @@ static void replaceChannelCallResult(CallInst *ChannelCall, ChannelKind CK,
   if (auto *AI = dyn_cast<AllocaInst>(PipePacketPtr))
     PipePacketPtrValueTy = AI->getAllocatedType();
   else
-    PipePacketPtrValueTy =
-        PipePacketPtr->getType()->getNonOpaquePointerElementType();
+    assert(false && "unable to get pipe value type");
 
   if (!CK.Blocking) {
     // Channel and pipe built-ins have different (inverted) meaning for success
@@ -562,7 +450,7 @@ static void replaceChannelCallResult(CallInst *ChannelCall, ChannelKind CK,
 }
 
 static void replaceChannelBuiltinCall(Module &M, CallInst *ChannelCall,
-                                      Value *GlobalPipe, Value *Pipe,
+                                      GlobalVariable *GlobalPipe, Value *Pipe,
                                       AllocaMapType &AllocaMap,
                                       RuntimeService &RTS) {
   assert(GlobalPipe && "Failed to find corresponding global pipe");
@@ -583,13 +471,11 @@ static void replaceChannelBuiltinCall(Module &M, CallInst *ChannelCall,
   Function *Builtin = getPipeBuiltin(M, RTS, PK);
   FunctionType *FTy = Builtin->getFunctionType();
 
-  auto PipeMD = GlobalVariableMetadataAPI(cast<GlobalVariable>(GlobalPipe));
+  auto PipeMD = GlobalVariableMetadataAPI(GlobalPipe);
 
   IRBuilder<> Builder(ChannelCall);
   Value *Args[] = {
-      // %opencl.pipe_rw_t to %opencl.pipe_ro_t/%opencl.pipe_wo_t
-      Builder.CreatePointerCast(Pipe, FTy->getParamType(0)),
-      Builder.CreatePointerCast(PacketPtr, FTy->getParamType(1)),
+      Pipe, Builder.CreatePointerCast(PacketPtr, FTy->getParamType(1)),
       ConstantInt::get(FTy->getParamType(2), PipeMD.PipePacketSize.get()),
       ConstantInt::get(FTy->getParamType(3), PipeMD.PipePacketAlign.get())};
 
@@ -602,46 +488,7 @@ static bool isChannelBuiltinCall(CallInst *Call) {
   Function *CalledFunction = Call->getCalledFunction();
   assert(CalledFunction && "Indirect function call?");
 
-  if (ChannelKind Kind = getChannelKind(CalledFunction->getName()))
-    return true;
-
-  return false;
-}
-
-static Function *createUserFunctionStub(CallInst *Call, Type *ChannelTy,
-                                        Type *PipeTy) {
-  Function *ExistingF = Call->getCalledFunction();
-  assert(ExistingF && "Indirect function call?");
-
-  FunctionType *ExistingFTy = ExistingF->getFunctionType();
-  SmallVector<Type *, 4> ArgTys(ExistingFTy->param_begin(),
-                                ExistingFTy->param_end());
-  for (auto &ArgTy : ArgTys)
-    if (ArgTy == ChannelTy)
-      ArgTy = PipeTy;
-
-  FunctionType *NewFTy = FunctionType::get(ExistingFTy->getReturnType(), ArgTys,
-                                           ExistingFTy->isVarArg());
-  Function *Replacement =
-      Function::Create(NewFTy, ExistingF->getLinkage(),
-                       "pipe." + ExistingF->getName(), ExistingF->getParent());
-  ValueToValueMapTy VMap;
-  auto *ExistFArgIt = ExistingF->arg_begin();
-  auto *RArgIt = Replacement->arg_begin();
-  auto *RArgItE = Replacement->arg_end();
-  for (; RArgIt != RArgItE; ++RArgIt, ++ExistFArgIt) {
-    VMap[&*ExistFArgIt] = &*RArgIt;
-    RArgIt->takeName(&*ExistFArgIt);
-  }
-
-  SmallVector<ReturnInst *, 4> Returns;
-  CloneFunctionInto(Replacement, ExistingF, VMap,
-                    CloneFunctionChangeType::LocalChangesOnly, Returns, "");
-  assert(Replacement && "CloneFunctionInfo failed");
-
-  ExistingF->deleteBody();
-
-  return Replacement;
+  return getChannelKind(CalledFunction->getName());
 }
 
 static Argument *getFunctionArg(Function *F, const unsigned ArgNo) {
@@ -649,193 +496,120 @@ static Argument *getFunctionArg(Function *F, const unsigned ArgNo) {
   return F->arg_begin() + ArgNo;
 }
 
-static void replaceLocalChannelUses(Function *UserFunc, Type *PipeTy,
-                                    const unsigned ArgNo,
-                                    ::ValueToValueMap &VMap,
-                                    SmallPtrSetImpl<Instruction *> &ToDelete,
+static void replaceLocalChannelUses(Function *UserFunc, const unsigned ArgNo,
+                                    SmallPtrSetImpl<Value *> &Visited,
                                     WorkListType &WorkList) {
   Argument *Arg = getFunctionArg(UserFunc, ArgNo);
-  assert(Arg->getType() == PipeTy && "No appropriate function argument found");
 
   // It is possible that replaceLocalChannelUses will be called several times
   // for the same UserFunc and ArgNo, e.g. user-defined function were called
   // several times
   //
   // It is enough to replace argument only once
-  if (VMap.count(Arg))
+  if (!Visited.insert(Arg).second)
     return;
 
   for (auto *ArgUser : Arg->users()) {
     if (auto *Store = dyn_cast<StoreInst>(ArgUser)) {
       Value *POperand = Store->getPointerOperand();
       assert(isa<AllocaInst>(POperand) && "Expected alloca for argument");
-      // Let's do an initial replacement of alloca
-      auto *&PipeUser = VMap[POperand];
-      if (!PipeUser) {
-        PipeUser = createPipeUserStub(POperand, Arg);
-        WorkList.push(std::make_pair(POperand, PipeUser));
+      WorkList.push(POperand);
+    }
+  }
+
+  WorkList.push(Arg);
+}
+
+/// Clean-up channel built-ins declarations.
+static void removeChannelBuiltinDecl(Module &M) {
+  for (auto &F : make_early_inc_range(M)) {
+    if (!F.isDeclaration())
+      continue;
+    ChannelKind Kind = getChannelKind(F.getName());
+    if (!Kind)
+      continue;
+    if (!F.use_empty()) {
+      // Remove users of channel built-in in non-kernel function that isn't used
+      // by any kernel.
+      FuncSet Root;
+      Root.insert(&F);
+      FuncSet UserFuncs;
+      LoopUtils::fillFuncUsersSet(Root, UserFuncs);
+      for ([[maybe_unused]] auto *K : getKernels(M))
+        assert(!UserFuncs.contains(K) &&
+               "Channel built-in is still used by kernel");
+      for (User *U : make_early_inc_range(F.users())) {
+        auto *UI = cast<Instruction>(U);
+        if (Kind.Access == ChannelKind::READ)
+          UI->replaceAllUsesWith(UndefValue::get(UI->getType()));
+        UI->eraseFromParent();
       }
-      ToDelete.insert(Store);
+      assert(F.use_empty() && "Channel built-in still has use");
     }
-  }
-
-  WorkList.push(std::make_pair(Arg, Arg));
-  VMap[Arg] = Arg;
-}
-
-static void findUsesToDelete(Function *F, SetVector<Function *> &UsesToDelete) {
-  for (User *U : F->users()) {
-    if (Instruction *Inst = dyn_cast<Instruction>(U)) {
-      if (!Inst->getFunction()->use_empty())
-        findUsesToDelete(Inst->getFunction(), UsesToDelete);
-      UsesToDelete.insert(Inst->getFunction());
-    }
+    F.eraseFromParent();
   }
 }
 
-static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
-                    ::ValueToValueMap &VMap) {
-  for (auto *I : ToDelete) {
-    if (!I->use_empty()) {
-      assert(isa<CallInst>(I) && "Expected that only calls to user functions "
-                                 "still has users");
-      I->replaceAllUsesWith(VMap[I]);
-    }
-
-    I->eraseFromParent();
-
-    // Need to erase the instruction from VMap to avoid flaky failures since it
-    // might be polluted after it's deleted.
-    VMap.erase(I);
-  }
-
-  SetVector <Function *> UsesToDelete;
-  for (const auto &It : VMap) {
-    if (Function *F = dyn_cast<Function>(It.first)) {
-      Function *R = cast<Function>(It.second);
-      findUsesToDelete(F, UsesToDelete);
-      R->takeName(F);
-      UsesToDelete.insert(F);
-    }
-  }
-
-  for (Function *F : UsesToDelete)
-    F->eraseFromParent();
-
-  // remove channel built-ins declarations
-  SmallVector<Function *, 8> FToDelete;
-  for (auto &F : M)
-    if (F.isDeclaration() && getChannelKind(F.getName()))
-      FToDelete.push_back(&F);
-
-  for (auto &F : FToDelete) {
-    assert(F->use_empty() && "Users of channel built-in are still exists");
-    F->eraseFromParent();
-  }
-}
-
-static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
-                                     ValueToValueStableMap &GlobalVMap,
-                                     RuntimeService &RTS) {
-  ::ValueToValueMap VMap;
-  SmallPtrSet<Instruction *, 32> ToDelete;
+static void replaceGlobalPipeUses(Module &M, RuntimeService &RTS,
+                                  SetVector<GlobalVariable *> &GlobalPipes) {
   // See comments about WorkListType typedef for explanations
   WorkListType WorkList;
+  for (auto *GV : GlobalPipes)
+    WorkList.push(GV);
+  SmallPtrSet<Value *, 32> Visited;
   // This map is used to cache temporary alloca instuctions used by pipe
   // built-ins
   AllocaMapType AllocaMap;
-
-  for (const auto &KV : GlobalVMap)
-    WorkList.push(std::make_pair(KV.first, KV.second));
-
-  Value *GlobalPipe = nullptr;
+  GlobalVariable *GlobalPipe = nullptr;
 
   while (!WorkList.empty()) {
-    Value *Channel = WorkList.top().first;
-    Value *Pipe = WorkList.top().second;
-    if (auto *I = dyn_cast<Instruction>(Channel))
-      cast<Instruction>(Pipe)->copyMetadata(*I);
+    Value *Pipe = WorkList.top();
     WorkList.pop();
 
-    if (GlobalVMap.count(Channel))
-      GlobalPipe = Pipe;
+    if (auto *GV = dyn_cast<GlobalVariable>(Pipe);
+        GV && GlobalPipes.contains(GV))
+      GlobalPipe = GV;
 
-    for (const auto &U : Channel->uses()) {
+    for (const auto &U : make_early_inc_range(Pipe->uses())) {
       auto OpNo = U.getOperandNo();
-      Value *ChannelUser = U.getUser();
+      User *Usr = U.getUser();
 
-      if (CallInst *Call = dyn_cast<CallInst>(ChannelUser)) {
-        ToDelete.insert(Call);
+      if (CallInst *Call = dyn_cast<CallInst>(Usr)) {
         if (isChannelBuiltinCall(Call)) {
           replaceChannelBuiltinCall(M, Call, GlobalPipe, Pipe, AllocaMap, RTS);
+          Call->eraseFromParent();
         } else {
           // handle calls to user-functions here
-          assert(Call->getCalledFunction() && "Indirect function call?");
-          Value *&FuncReplacementIt = VMap[Call->getCalledFunction()];
-          // FuncReplacementIt must be used only to save result of
-          // createUserFunctionStub. Further usages may result in segfaults due
-          // to invalid value of FuncReplacement. This may occur if VMap is
-          // re-allocated: all references to it's keys is going to be
-          // invalidated.
-          Value *FuncReplacement = FuncReplacementIt;
-          if (!FuncReplacement)
-            FuncReplacement = FuncReplacementIt =
-                createUserFunctionStub(Call, ChannelTy, Pipe->getType());
-
-          replaceLocalChannelUses(cast<Function>(FuncReplacement),
-                                  Pipe->getType(), OpNo, VMap, ToDelete,
-                                  WorkList);
-
-          Value *&CallInstReplacement = VMap[Call];
-          if (!CallInstReplacement)
-            CallInstReplacement =
-                createCallInstStub(Call, cast<Function>(FuncReplacement),
-                                   ChannelTy, Pipe->getType());
-
-          cast<User>(CallInstReplacement)->setOperand(OpNo, Pipe);
+          Function *Callee = Call->getCalledFunction();
+          assert(Callee && "Indirect function call?");
+          replaceLocalChannelUses(Callee, OpNo, Visited, WorkList);
         }
         continue;
       }
 
-      auto *&PipeUser = VMap[ChannelUser];
-      if (!PipeUser) {
-        PipeUser = createPipeUserStub(ChannelUser, Pipe);
-        WorkList.push(std::make_pair(ChannelUser, PipeUser));
-      }
-
-      // isa<GEPOperator> returns true for instances of GetElementPtrInst class,
-      // so there is an ugly if here
-      if ((!isa<GEPOperator>(PipeUser) || isa<GetElementPtrInst>(PipeUser)) &&
-          !isa<Constant>(PipeUser))
-        cast<User>(PipeUser)->setOperand(OpNo, Pipe);
+      if (Visited.insert(Usr).second)
+        WorkList.push(Usr);
     }
   }
 
-  cleanup(M, ToDelete, VMap);
+  removeChannelBuiltinDecl(M);
 }
 
 PreservedAnalyses
 ChannelPipeTransformationPass::run(Module &M, ModuleAnalysisManager &MAM) {
   RuntimeService &RTS =
       MAM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
-  if (llvm::none_of(M.globals(), [](auto &GV) { return isGlobalPipe(&GV); }))
+  SetVector<GlobalVariable *> GlobalPipes;
+  llvm::for_each(M.globals(), [&](GlobalVariable &GV) {
+    if (isGlobalPipe(&GV))
+      GlobalPipes.insert(&GV);
+  });
+  if (GlobalPipes.empty())
     return PreservedAnalyses::all();
 
-  auto *ChannelValueTy = getStructByName("opencl.channel_t", &M);
-  if (!ChannelValueTy)
-    ChannelValueTy = StructType::create(M.getContext(), "opencl.channel_t");
-  // TODO ChannelTy is not needed for opaque pointer.
-  auto *ChannelTy = PointerType::get(ChannelValueTy, ADDRESS_SPACE_GLOBAL);
-  auto *PipeTyName = "opencl.pipe_rw_t";
-  auto *PipeValueTy = StructType::getTypeByName(M.getContext(), PipeTyName);
-  if (!PipeValueTy)
-    PipeValueTy = StructType::create(M.getContext(), PipeTyName);
-  auto *PipeTy = PointerType::get(PipeValueTy, ADDRESS_SPACE_GLOBAL);
+  replaceGlobalPipeUses(M, RTS, GlobalPipes);
 
-  ValueToValueStableMap GlobalVMap;
-  if (!replaceGlobalChannels(M, PipeTy, GlobalVMap, RTS))
-    return PreservedAnalyses::all();
-  replaceGlobalChannelUses(M, ChannelTy, GlobalVMap, RTS);
+  initGlobalPipes(M, RTS, GlobalPipes);
 
   return PreservedAnalyses::none();
 }

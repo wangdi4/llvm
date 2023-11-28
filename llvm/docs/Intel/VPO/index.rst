@@ -13,7 +13,10 @@ VPO Vectorizer
    VPlanHCFGBuilder/index
    SIMDLaneEvolution/index
    Predication/index
+   ScalVecAnalysis/index
+   LoadCoalescing
    Misc/index
+   SOAShapes
 
 Note
 ====

@@ -52,9 +52,9 @@ attributes #1 = { convergent norecurse nounwind "correctly-rounded-divide-sqrt-f
 !13 = !{i32 7}
 !14 = !{i32 8}
 !15 = !{i32 10}
-!16 = !{i32 addrspace(1)* null}
+!16 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-36: WARNING: Instruction with empty DebugLoc in function test {{.*}}
-; DEBUGIFY-COUNT-36: WARNING: Instruction with empty DebugLoc in function _ZGVeN16u_test {{.*}}
+; DEBUGIFY-COUNT-40: WARNING: Instruction with empty DebugLoc in function test {{.*}}
+; DEBUGIFY-COUNT-42: WARNING: Instruction with empty DebugLoc in function _ZGVeN16u_test {{.*}}
 ; DEBUGIFY-NOT: WARNING

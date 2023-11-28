@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,16 +15,15 @@
 #include "OpenCLProgramConfiguration.h"
 #include "SATestException.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
-
-#define DEBUG_TYPE "OpenCLProgramConfiguration"
-#include "llvm/Support/Debug.h"
-
 #include <sstream>
 #include <stdlib.h>
 #include <string>
+
+#define DEBUG_TYPE "OpenCLProgramConfiguration"
 
 using namespace std;
 

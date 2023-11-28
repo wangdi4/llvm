@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -34,7 +34,6 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/ADT/iterator_range.h"
@@ -91,6 +90,8 @@
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
 #endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_WP.h"
 #endif // INTEL_CUSTOMIZATION
@@ -128,6 +129,13 @@ static cl::opt<int> ColdCCRelFreq(
         "Maximum block frequency, expressed as a percentage of caller's "
         "entry frequency, for a call site to be considered cold for enabling"
         "coldcc"));
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned> MaxGlobalTrivialUsageChainLength(
+    "max-global-trivial-usage-chain-length", cl::Hidden, cl::init(8),
+    cl::desc("Maximum length of instruction chain to analyze for trivial "
+             "global usage optimization."));
+#endif // INTEL_CUSTOMIZATION
 
 /// Is this global variable possibly used by a leak checker as a root?  If so,
 /// we might not really want to eliminate the stores to it.
@@ -418,7 +426,7 @@ static bool collectSRATypes(DenseMap<uint64_t, GlobalPart> &Parts,
       }
 
       // Scalable types not currently supported.
-      if (isa<ScalableVectorType>(Ty))
+      if (Ty->isScalableTy())
         return false;
 
       auto IsStored = [](Value *V, Constant *Initializer) {
@@ -958,25 +966,7 @@ OptimizeGlobalAddressOfAllocation(GlobalVariable *GV, CallInst *CI,
   }
 
   // Update users of the allocation to use the new global instead.
-  BitCastInst *TheBC = nullptr;
-  while (!CI->use_empty()) {
-    Instruction *User = cast<Instruction>(CI->user_back());
-    if (BitCastInst *BCI = dyn_cast<BitCastInst>(User)) {
-      if (BCI->getType() == NewGV->getType()) {
-        BCI->replaceAllUsesWith(NewGV);
-        BCI->eraseFromParent();
-      } else {
-        BCI->setOperand(0, NewGV);
-      }
-    } else {
-      if (!TheBC)
-        TheBC = new BitCastInst(NewGV, CI->getType(), "newgv", CI);
-      User->replaceUsesOfWith(CI, TheBC);
-    }
-  }
-
-  SmallSetVector<Constant *, 1> RepValues;
-  RepValues.insert(NewGV);
+  CI->replaceAllUsesWith(NewGV);
 
   // If there is a comparison against null, we will insert a global bool to
   // keep track of whether the global was initialized yet or not.
@@ -1008,9 +998,7 @@ OptimizeGlobalAddressOfAllocation(GlobalVariable *GV, CallInst *CI,
       Use &LoadUse = *LI->use_begin();
       ICmpInst *ICI = dyn_cast<ICmpInst>(LoadUse.getUser());
       if (!ICI) {
-        auto *CE = ConstantExpr::getBitCast(NewGV, LI->getType());
-        RepValues.insert(CE);
-        LoadUse.set(CE);
+        LoadUse.set(NewGV);
         continue;
       }
 
@@ -1056,8 +1044,7 @@ OptimizeGlobalAddressOfAllocation(GlobalVariable *GV, CallInst *CI,
   // To further other optimizations, loop over all users of NewGV and try to
   // constant prop them.  This will promote GEP instructions with constant
   // indices into GEP constant-exprs, which will allow global-opt to hack on it.
-  for (auto *CE : RepValues)
-    ConstantPropUsersOf(CE, DL, TLI);
+  ConstantPropUsersOf(NewGV, DL, TLI);
 
   return NewGV;
 }
@@ -1174,20 +1161,6 @@ optimizeOnceStoredGlobal(GlobalVariable *GV, Value *StoredOnceVal,
           nullptr /* F */,
           GV->getInitializer()->getType()->getPointerAddressSpace())) {
     if (Constant *SOVC = dyn_cast<Constant>(StoredOnceVal)) {
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-      if (GV->getInitializer()->getType() != SOVC->getType())
-#if INTEL_CUSTOMIZATION
-      {
-        if (SOVC->getType()->isIntegerTy())
-          SOVC =
-              ConstantExpr::getIntToPtr(SOVC, GV->getInitializer()->getType());
-        else
-#endif // INTEL_CUSTOMIZATION
-        SOVC = ConstantExpr::getBitCast(SOVC, GV->getInitializer()->getType());
-#if INTEL_CUSTOMIZATION
-      }
-#endif // INTEL_CUSTOMIZATION
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       // Optimize away any trapping uses of the loaded value.
       if (OptimizeAwayTrappingUsesOfLoads(GV, SOVC, DL, GetTLI))
         return true;
@@ -1588,13 +1561,11 @@ safeToReplaceGlobalWithStoredOnceValue(GlobalValue *GV, Value *StoredOnceVal,
   // the store instruction of GV.
   Function *SingleSIFunction = SingleSI->getFunction();
   BasicBlock *EntryBB = &SingleSIFunction->getEntryBlock();
-  StringRef FName = SingleSIFunction->getName();                  //INTEL
-#if INTEL_CUSTOMIZATION
+  StringRef FName = SingleSIFunction->getName();
   if (SingleSIFunction->hasMetadata("llvm.acd.clone"))
     FName = FName.take_front(FName.find('.'));
-#endif // INTEL_CUSTOMIZATION
   // Check if store instruction of GV is in first BB of "main".
-  if (FName != "main" || SingleSI->getParent() != EntryBB)        // INTEL
+  if (FName != "main" || SingleSI->getParent() != EntryBB)
     return false;
   // Prove that there are no uses of GV before the store instruction
   // of GV.
@@ -1727,6 +1698,138 @@ static bool tryToReplaceGlobalWithMSVCStdout(
   }
   return true;
 }
+
+// A trivial load for a global variable is a load from global variable, that
+// all instructions following the def-use chains of the load is not a terminator
+// (i.e. we can analyze this usage purely through data dependencies), and is
+// side-effect free (or is a store to the global itself).
+// If all usages of a global are either a trivial load or a store, we can remove
+// the global, as well as all instructions involved only in its usages.
+//
+// This routine can optimize the following pattern:
+// ; @g is not used outside of @trivial_load_store_chain
+// define void @trivial_load_store_chain() {
+//   %1 = load i32, ptr @g
+//   %2 = add i32, %1, 1
+//   store i32 %2, ptr @g
+//   ret void
+// }
+// It also works in cases like below, where multiple globals are loaded,
+// assuming all usages of these globals follow similar patterns:
+//   %1 = load i32, ptr @g
+//   %2 = load i32, ptr @h
+//   %3 = add i32, %1, %2
+//   store i32 %3, ptr @g
+// However currently it doesn't work if stores to multiple globals are
+// present. That's because GlobalOpt handles globals one by one and we don't
+// know whether stores to globals other than the current one can be
+// optimized.
+static bool optimizeIfAllUsagesAreTrivial(
+    GlobalVariable *GV,
+    function_ref<TargetTransformInfo &(Function &)> GetTTI) {
+  DenseSet<Instruction *> Visited;
+  SmallVector<Instruction *, 8> Worklist;
+
+  // We don't optimize globals involved in code fragments that're too complex.
+  // To implement the throttling, a union-find structure is used to store
+  // "clusters" of instructions. Two instructions are in the same cluster, if
+  // they use values that are potentially derived from the same load instruction
+  // of a global.
+  // LLVM EquivalenceClasses doesn't store size of each class, which happens to
+  // be exactly what we need here. We store them externally in a map.
+  EquivalenceClasses<Instruction *> Clusters;
+  DenseMap<Instruction *, unsigned> ClusterSizes;
+
+  // Ensure every user of the GV is either a load of the GV or a store into it.
+  // Meanwhile populate the initial values of relevant data structures.
+  for (User *U : GV->users()) {
+    auto *I = dyn_cast<Instruction>(U);
+    if (!I)
+      return false;
+    if (!GetTTI(*I->getFunction())
+             .isAdvancedOptEnabled(
+                 TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2))
+      return false;
+    if (auto *Load = dyn_cast<LoadInst>(I)) {
+      Worklist.push_back(Load);
+      Clusters.insert(Load);
+      ClusterSizes[Load] = 1;
+      continue;
+    }
+    auto *Store = dyn_cast<StoreInst>(I);
+    // The algorithm below won't find simple stores like "store i32 0, ptr @g".
+    // But in the last step, we need to remove the GV as well as all related
+    // instructions, including the stores. So here we also add these stores to
+    // simplify the code.
+    if (Store && Store->getPointerOperand() == GV) {
+      Visited.insert(Store);
+      Clusters.insert(Store);
+      ClusterSizes[Store] = 1;
+      continue;
+    }
+    return false;
+  }
+
+  // Walk the def-use chain to make sure all uses are safe to remove.
+  while (!Worklist.empty()) {
+    auto *I = Worklist.pop_back_val();
+
+    if (!Visited.insert(I).second)
+      continue;
+
+    for (User *U : I->users()) {
+      auto *UserI = dyn_cast<Instruction>(U);
+      if (!UserI)
+        return false;
+      // A terminator indicates some control flow depends on the global. This is
+      // harder to analyze. Bail out.
+      if (UserI->isTerminator())
+        return false;
+      // Bail out if we find any instruction with side effects
+      // But stores to the GV itself are okay
+      auto *Store = dyn_cast<StoreInst>(UserI);
+      if (!(Store && Store->getPointerOperand() == GV) &&
+          UserI->mayHaveSideEffects())
+        return false;
+
+      // Put the user instruction and the defining instruction into the same
+      // cluster (if it's not already the case). If the merged cluster has too
+      // many instructions, bail out.
+      // Most of the time, the user instruction is not visited yet and is not in
+      // Clusters, in this case a new cluster with only 1 instruction is created
+      // first.
+      // It's also possible that the user is already involved in another cluster
+      // (it's using multiple loads of the same global). The two clusters are
+      // simply merged.
+      if (Clusters.findValue(UserI) == Clusters.end()) {
+        Clusters.insert(UserI);
+        ClusterSizes[UserI] = 1;
+      }
+      if (!Clusters.isEquivalent(UserI, I)) {
+        unsigned NewSize = ClusterSizes[Clusters.getLeaderValue(UserI)] +
+                           ClusterSizes[Clusters.getLeaderValue(I)];
+        if (NewSize > MaxGlobalTrivialUsageChainLength)
+          return false;
+        Clusters.unionSets(I, UserI);
+        ClusterSizes[Clusters.getLeaderValue(I)] = NewSize;
+      }
+
+      Worklist.push_back(UserI);
+    }
+  }
+
+  // If the checks above are all okay, we can safely remove the GV and all
+  // instructions related to it.
+  for (auto *I : Visited)
+    I->dropAllReferences();
+  for (auto *I : Visited)
+    I->eraseFromParent();
+
+  assert(GV->use_empty() &&
+         "All uses of GlobalVariable should be identified and removed by now");
+  GV->eraseFromParent();
+  return true;
+}
 #endif // INTEL_CUSTOMIZATION
 
 // For a global variable with one store, if the store dominates any loads,
@@ -1792,7 +1895,7 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
   if (!GS.HasMultipleAccessingFunctions &&
       GS.AccessingFunction &&
       GV->getValueType()->isSingleValueType() &&
-      GV->getType()->getAddressSpace() == 0 &&
+      GV->getType()->getAddressSpace() == DL.getAllocaAddrSpace() &&
       !GV->isExternallyInitialized() &&
       GS.AccessingFunction->doesNotRecurse() &&
       !GS.AccessingFunction->callsFunctionThatReturnsTwice() && // INTEL
@@ -1903,7 +2006,7 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
             GV->getAddressSpace());
         NGV->takeName(GV);
         NGV->copyAttributesFrom(GV);
-        GV->replaceAllUsesWith(ConstantExpr::getBitCast(NGV, GV->getType()));
+        GV->replaceAllUsesWith(NGV);
         GV->eraseFromParent();
         GV = NGV;
       }
@@ -1984,6 +2087,11 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  if (optimizeIfAllUsagesAreTrivial(GV, GetTTI))
+    return true;
+#endif // INTEL_CUSTOMIZATION
+
   return Changed;
 }
 
@@ -1995,7 +2103,7 @@ processGlobal(GlobalValue &GV,
               function_ref<TargetLibraryInfo &(Function &)> GetTLI,
               WholeProgramInfo *WPInfo,  // INTEL
               function_ref<DominatorTree &(Function &)> LookupDomTree) {
-  if (GV.getName().startswith("llvm."))
+  if (GV.getName().starts_with("llvm."))
     return false;
 
   GlobalStatus GS;
@@ -2061,11 +2169,14 @@ static void RemoveAttribute(Function *F, Attribute::AttrKind A) {
 /// idea here is that we don't want to mess with the convention if the user
 /// explicitly requested something with performance implications like coldcc,
 /// GHC, or anyregcc.
-static bool hasChangeableCC(Function *F) {
+static bool hasChangeableCCImpl(Function *F) {
   CallingConv::ID CC = F->getCallingConv();
 
   // FIXME: Is it worth transforming x86_stdcallcc and x86_fastcallcc?
   if (CC != CallingConv::C && CC != CallingConv::X86_ThisCall)
+    return false;
+
+  if (F->isVarArg())
     return false;
 
   // FIXME: Change CC for the whole chain of musttail calls when possible.
@@ -2087,7 +2198,16 @@ static bool hasChangeableCC(Function *F) {
     if (BB.getTerminatingMustTailCall())
       return false;
 
-  return true;
+  return !F->hasAddressTaken();
+}
+
+using ChangeableCCCacheTy = SmallDenseMap<Function *, bool, 8>;
+static bool hasChangeableCC(Function *F,
+                            ChangeableCCCacheTy &ChangeableCCCache) {
+  auto Res = ChangeableCCCache.try_emplace(F, false);
+  if (Res.second)
+    Res.first->second = hasChangeableCCImpl(F);
+  return Res.first->second;
 }
 
 /// Return true if the block containing the call site has a BlockFrequency of
@@ -2141,7 +2261,8 @@ static void changeCallSitesToColdCC(Function *F) {
 // coldcc calling convention.
 static bool
 hasOnlyColdCalls(Function &F,
-                 function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
+                 function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+                 ChangeableCCCacheTy &ChangeableCCCache) {
   for (BasicBlock &BB : F) {
     for (Instruction &I : BB) {
       if (CallInst *CI = dyn_cast<CallInst>(&I)) {
@@ -2160,8 +2281,7 @@ hasOnlyColdCalls(Function &F,
         if (!CalledFn->hasLocalLinkage())
           return false;
         // Check if it's valid to use coldcc calling convention.
-        if (!hasChangeableCC(CalledFn) || CalledFn->isVarArg() ||
-            CalledFn->hasAddressTaken())
+        if (!hasChangeableCC(CalledFn, ChangeableCCCache))
           return false;
         BlockFrequencyInfo &CallerBFI = GetBFI(F);
         if (!isColdCallSite(*CI, CallerBFI))
@@ -2233,12 +2353,9 @@ static void RemovePreallocated(Function *F) {
     CB->eraseFromParent();
 
     Builder.SetInsertPoint(PreallocatedSetup);
-    auto *StackSave =
-        Builder.CreateCall(Intrinsic::getDeclaration(M, Intrinsic::stacksave));
-
+    auto *StackSave = Builder.CreateStackSave();
     Builder.SetInsertPoint(NewCB->getNextNonDebugInstruction());
-    Builder.CreateCall(Intrinsic::getDeclaration(M, Intrinsic::stackrestore),
-                       StackSave);
+    Builder.CreateStackRestore(StackSave);
 
     // Replace @llvm.call.preallocated.arg() with alloca.
     // Cannot modify users() while iterating over it, so make a copy.
@@ -2265,10 +2382,8 @@ static void RemovePreallocated(Function *F) {
         Builder.SetInsertPoint(InsertBefore);
         auto *Alloca =
             Builder.CreateAlloca(ArgType, AddressSpace, nullptr, "paarg");
-        auto *BitCast = Builder.CreateBitCast(
-            Alloca, Type::getInt8PtrTy(M->getContext()), UseCall->getName());
-        ArgAllocas[AllocArgIndex] = BitCast;
-        AllocaReplacement = BitCast;
+        ArgAllocas[AllocArgIndex] = Alloca;
+        AllocaReplacement = Alloca;
       }
 
       UseCall->replaceAllUsesWith(AllocaReplacement);
@@ -2291,9 +2406,10 @@ OptimizeFunctions(Module &M,
 
   bool Changed = false;
 
+  ChangeableCCCacheTy ChangeableCCCache;
   std::vector<Function *> AllCallsCold;
   for (Function &F : llvm::make_early_inc_range(M))
-    if (hasOnlyColdCalls(F, GetBFI))
+    if (hasOnlyColdCalls(F, GetBFI, ChangeableCCCache))
       AllCallsCold.push_back(&F);
 
   // Optimize functions.
@@ -2355,7 +2471,7 @@ OptimizeFunctions(Module &M,
       continue;
     }
 
-    if (hasChangeableCC(&F) && !F.isVarArg() && !F.hasAddressTaken()) {
+    if (hasChangeableCC(&F, ChangeableCCCache)) {
       NumInternalFunc++;
       TargetTransformInfo &TTI = GetTTI(F);
       // Change the calling convention to coldcc if either stress testing is
@@ -2365,6 +2481,7 @@ OptimizeFunctions(Module &M,
       if (EnableColdCCStressTest ||
           (TTI.useColdCCForColdCall(F) &&
            isValidCandidateForColdCC(F, GetBFI, AllCallsCold))) {
+        ChangeableCCCache.erase(&F);
         F.setCallingConv(CallingConv::Cold);
         changeCallSitesToColdCC(&F);
         Changed = true;
@@ -2372,7 +2489,7 @@ OptimizeFunctions(Module &M,
       }
     }
 
-    if (hasChangeableCC(&F) && !F.isVarArg() && !F.hasAddressTaken()) {
+    if (hasChangeableCC(&F, ChangeableCCCache)) {
       // If this function has a calling convention worth changing, is not a
       // varargs function, and is only called directly, promote it to use the
       // Fast calling convention.
@@ -2478,19 +2595,18 @@ static void setUsedInitializer(GlobalVariable &V,
   const auto *VEPT = cast<PointerType>(VAT->getArrayElementType());
 
   // Type of pointer to the array of pointers.
-  PointerType *Int8PtrTy =
-      Type::getInt8PtrTy(V.getContext(), VEPT->getAddressSpace());
+  PointerType *PtrTy =
+      PointerType::get(V.getContext(), VEPT->getAddressSpace());
 
   SmallVector<Constant *, 8> UsedArray;
   for (GlobalValue *GV : Init) {
-    Constant *Cast =
-        ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV, Int8PtrTy);
+    Constant *Cast = ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV, PtrTy);
     UsedArray.push_back(Cast);
   }
 
   // Sort to get deterministic order.
   array_pod_sort(UsedArray.begin(), UsedArray.end(), compareNames);
-  ArrayType *ATy = ArrayType::get(Int8PtrTy, UsedArray.size());
+  ArrayType *ATy = ArrayType::get(PtrTy, UsedArray.size());
 
   Module *M = V.getParent();
   V.removeFromParent();
@@ -2668,7 +2784,7 @@ OptimizeGlobalAliases(Module &M,
     if (!hasUsesToReplace(J, Used, RenameTarget))
       continue;
 
-    J.replaceAllUsesWith(ConstantExpr::getBitCast(Aliasee, J.getType()));
+    J.replaceAllUsesWith(Aliasee);
     ++NumAliasesResolved;
     Changed = true;
 

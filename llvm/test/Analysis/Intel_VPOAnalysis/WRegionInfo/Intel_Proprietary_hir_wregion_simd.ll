@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
 ;
-; RUN: opt -opaque-pointers=1 -passes="hir-vplan-vec,print<hir-framework>,print<vpo-wrncollection>,require<vpo-wrninfo>" %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-vplan-vec,print<hir-framework>,print<vpo-wrncollection>,require<vpo-wrninfo>" %s 2>&1 | FileCheck %s
 
 ; WARNING!!!
 ; WARNING!!!      ** CONTAINS INTEL IP **

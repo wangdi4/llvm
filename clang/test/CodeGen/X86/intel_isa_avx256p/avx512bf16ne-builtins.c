@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_avx256p
-// RUN: %clang_cc1 -ffreestanding -flax-vector-conversions=none %s -triple=x86_64-unknown-unknown -target-feature +avx256p -emit-llvm -opaque-pointers -o - -Wall -Werror | FileCheck %s
+// RUN: %clang_cc1 -ffreestanding -flax-vector-conversions=none %s -triple=x86_64-unknown-unknown -target-feature +avx256p -emit-llvm -o - -Wall -Werror | FileCheck %s
 
 #include <immintrin.h>
 

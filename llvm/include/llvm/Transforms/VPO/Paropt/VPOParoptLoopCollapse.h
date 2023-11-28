@@ -32,4 +32,4 @@ public:
 };
 } // end namespace llvm
 #endif  // LLVM_TRANSFORMS_VPO_PAROPT_LOOP_COLLAPSE_H
-#endif  // INTEL_COLLAB
+#endif // INTEL_COLLAB

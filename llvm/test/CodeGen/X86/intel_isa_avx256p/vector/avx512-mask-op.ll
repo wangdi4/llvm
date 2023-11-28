@@ -173,12 +173,10 @@ define void @store_v1i1(<1 x i1> %c , ptr %ptr) {
 define void @store_v128i1_constant(ptr %R) {
 ; CHECK-LABEL: store_v128i1_constant:
 ; CHECK:       ## %bb.0: ## %entry
-; CHECK-NEXT:    movabsq $-4611686310485172227, %rax ## encoding: [0x48,0xb8,0xfd,0xdf,0xff,0xff,0xbb,0xff,0xff,0xbf]
-; CHECK-NEXT:    ## imm = 0xBFFFFFBBFFFFDFFD
-; CHECK-NEXT:    movq %rax, 8(%rdi) ## encoding: [0x48,0x89,0x47,0x08]
-; CHECK-NEXT:    movabsq $-2305843576149381123, %rax ## encoding: [0x48,0xb8,0xfd,0xef,0xff,0xff,0x7b,0xff,0xff,0xdf]
-; CHECK-NEXT:    ## imm = 0xDFFFFF7BFFFFEFFD
-; CHECK-NEXT:    movq %rax, (%rdi) ## encoding: [0x48,0x89,0x07]
+; CHECK-NEXT:    vmovaps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0 ## EVEX TO VEX Compression xmm0 = [4294963197,3758096251,4294959101,3221225403]
+; CHECK-NEXT:    ## encoding: [0xc5,0xf8,0x28,0x05,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vmovaps %xmm0, (%rdi) ## EVEX TO VEX Compression encoding: [0xc5,0xf8,0x29,0x07]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
 ;
 ; X86-LABEL: store_v128i1_constant:

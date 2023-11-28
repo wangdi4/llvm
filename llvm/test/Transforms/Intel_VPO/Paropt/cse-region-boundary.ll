@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -passes="early-cse" -S %s | FileCheck %s
+; RUN: opt -passes="early-cse" -S %s | FileCheck %s
 
 ; There are 2 calls to hypot() before the OpenMP region, inside it, and after.
 ; We want to see the duplicate call in each "area" removed, but we don't want

@@ -1,6 +1,6 @@
 //=------------------------ UpdateCallAttrs.cpp -*- C++ -*-------------------=//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -37,7 +37,8 @@ static bool updateTIDBuiltinUserFuncAttrs(Module &M) {
   bool Changed = false;
   using namespace CompilationUtils;
   FuncSet Kernels = getAllKernels(M);
-  std::string TIDNames[] = {mangledGetGID(), mangledGetLID()};
+  std::string TIDNames[] = {mangledGetGID(), mangledGetLID(),
+                            mangledGetSubGroupLocalId()};
   for (const auto &TIDName : TIDNames) {
     Function *TIDFunc = M.getFunction(TIDName);
     if (!TIDFunc)

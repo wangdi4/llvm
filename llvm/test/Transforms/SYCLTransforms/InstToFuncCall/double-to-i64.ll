@@ -15,4 +15,4 @@ define void @sample_test(double %x, ptr %y) nounwind !kernel_arg_base_type !0 !a
 ; DEBUGIFY-NOT: WARNING
 
 !0 = !{!"double", !"long*"}
-!1 = !{double 0.000000e+0, i64* null}
+!1 = !{double 0.000000e+0, ptr null}

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,11 +12,10 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <assert.h>
-#include <cl_sys_info.h>
-
-#include "Context.h"
 #include "build_event.h"
+#include "Context.h"
+#include "cl_sys_info.h"
+#include <assert.h>
 
 using namespace Intel::OpenCL::Framework;
 

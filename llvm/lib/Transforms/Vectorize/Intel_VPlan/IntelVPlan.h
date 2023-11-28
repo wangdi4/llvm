@@ -3,7 +3,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2021-2023 Intel Corporation
+ * Copyright (C) 2021 Intel Corporation
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -39,6 +39,9 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
 
+#include "HIR/IntelVPlanInstructionDataHIR.h"
+#include "HIR/IntelVPlanValueTrackingHIR.h"
+#include "HIR/ScalarEvolutionHIR.h"
 #include "IntelVPAssumptionCache.h"
 #include "IntelVPBasicBlock.h"
 #include "IntelVPLoopAnalysis.h"
@@ -50,9 +53,7 @@
 #include "IntelVPlanScalVecAnalysis.h"
 #include "IntelVPlanValue.h"
 #include "IntelVPlanValueTracking.h"
-#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
-#include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
-#include "VPlanHIR/IntelVPlanValueTrackingHIR.h"
+#include "LLVM/ScalarEvolutionLLVM.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallSet.h"
@@ -113,9 +114,9 @@ class HLLoop;
 namespace vpo {
 class SyncDependenceAnalysis;
 class VPValue;
-class VPOCodeGen;
+class CodeGenLLVM;
 class VPOCodeGenHIR;
-class VPOVectorizationLegality;
+class LegalityLLVM;
 class VPDominatorTree;
 class VPPostDominatorTree;
 // To be later declared as a friend
@@ -132,8 +133,8 @@ class VPlanScalarPeel;
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 // Class names mapping to minimize the diff:
-#define InnerLoopVectorizer VPOCodeGen
-#define LoopVectorizationLegality VPOVectorizationLegality
+#define InnerLoopVectorizer CodeGenLLVM
+#define LoopVectorizationLegality LegalityLLVM
 
 struct TripCountInfo;
 
@@ -409,7 +410,7 @@ class VPInstruction : public VPUser,
   friend class VPlanValueTrackingLLVM;
   friend class VPlanVLSAnalysis;
   friend class VPlanVerifier;
-  friend class VPOCodeGen;
+  friend class CodeGenLLVM;
   friend class VPCloneUtils;
   friend class VPValueMapper;
   friend class VPLoopEntityList;
@@ -511,16 +512,7 @@ class VPInstruction : public VPUser,
         if (!InstTy)
           return FlagsKind::UnknownOperatorFlags;
 
-        while (ArrayType *ArrTy = dyn_cast<ArrayType>(InstTy))
-          InstTy = ArrTy->getElementType();
-
-        // Instructions that return StructType with a unique element type can be
-        // treated as FPMathOperator based on the elment type.
-        if (auto *StructTy = dyn_cast<StructType>(InstTy))
-          if (StructTy->hasIdenticalElementTypes())
-            InstTy = StructTy->getElementType(0);
-
-        if (InstTy->isFPOrFPVectorTy())
+        if (isOrUsesFPTy(InstTy))
           return FlagsKind::VPFastMathFlags;
 
         return FlagsKind::UnknownOperatorFlags;
@@ -734,6 +726,10 @@ public:
                        // loop body.
     EarlyExitLane,     // Identify the first lane that takes an early-exit from
                        // loop.
+    EarlyExitID, // Compute the final value of exit ID at the merged exit block
+                 // of an early-exit loop.
+    SelectValOrLane, // Custom select operation to choose between given VPValue
+                     // and first/last vector lane.
   };
 
 private:
@@ -1576,12 +1572,6 @@ public:
     addOperand(Ptr);
     for (const auto &Idx : IdxList)
       addOperand(Idx);
-    assert(cast<PointerType>(getOperand(0)->getType()->getScalarType())
-               ->isOpaqueOrPointeeTypeMatches(SourceElementType) &&
-           "SourceElemenType doesn't match non-opaque pointer base!");
-    assert(cast<PointerType>(getType()->getScalarType())
-               ->isOpaqueOrPointeeTypeMatches(ResultElementType) &&
-           "ResultElementType doesn't match non-opaque result ponter!");
   }
 
   /// Setter and getter functions for InBounds.
@@ -1593,15 +1583,6 @@ public:
 
   Type *getSourceElementType() const { return SourceElementType; }
   Type *getResultElementType() const { return ResultElementType; }
-
-  /// Check if pointer operand is opaque.
-  ///
-  /// Temporary helper method to reduce boilerplate code. We should delete it
-  /// after transition to opaque ptrs is finished.
-  bool isOpaque() const {
-    return cast<PointerType>(getPointerOperand()->getType()->getScalarType())
-        ->isOpaque();
-  }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
@@ -2326,9 +2307,9 @@ public:
     if (getUnderlyingCallInst() == nullptr)
       return;
 
-    // DoNotWiden is used for kernel uniform calls and for uniform calls without
-    // side-effects today i.e. the property is not VF-dependent. Hence it need
-    // not be reset here.
+    // DoNotWiden is used for kernel uniform calls, prefetch, and for uniform
+    // calls without side-effects today i.e. the property is not VF-dependent.
+    // Hence it need not be reset here.
     if (VecScenario == CallVecScenarios::DoNotWiden)
       return;
 
@@ -2796,11 +2777,16 @@ private:
 // prefer scalar calculations in the loop body or extraction from the final
 // vector.
 class VPInductionFinal : public VPInstruction {
+  // Friendship is needed to access private method that sets operands for
+  // extract version.
+  friend class VPTransformEarlyExitLoop;
+
 public:
-  /// Constructor to extract last lane (for */div).
-  VPInductionFinal(VPValue *InducVec)
+  /// Constructor for extract version (for */div and early-exit loops).
+  VPInductionFinal(VPValue *InducVec, unsigned Opcode)
       : VPInstruction(VPInstruction::InductionFinal, InducVec->getType(),
-                      {InducVec}) {}
+                      {InducVec}),
+        BinOpcode(Opcode), IsExtractVersion(true) {}
 
   /// Constructor to calculate using close-form (start+step*rounded_tc). The
   /// rounded trip count is known at code generation.
@@ -2811,24 +2797,33 @@ public:
 
   /// Return operand that corresponds to the reducing value.
   VPValue *getInductionOperand() const {
-    assert(getNumOperands() == 1 && "Incorrect operand request");
+    assert(IsExtractVersion && "Incorrect operand request");
     return getOperand(0);
+  }
+
+  /// Return operand that corresponds to lane to extract from the final vector.
+  /// nullptr if there is no lane operand (assume last lane in such cases).
+  VPValue *getLaneForExtract() const {
+    assert(IsExtractVersion && "Incorrect operand request");
+    return getNumOperands() == 2 ? getOperand(1) : nullptr;
   }
 
   /// Return operand that corresponds to the start value.
   VPValue *getInitOperand() const {
-    assert(getNumOperands() == 2 && "Incorrect operand request");
+    assert(!IsExtractVersion && "Incorrect operand request");
     return getOperand(0);
   }
 
   /// Return operand that corresponds to the step value.
   VPValue *getStepOperand() const {
-    assert(getNumOperands() == 2 && "Incorrect operand request");
+    assert(!IsExtractVersion && "Incorrect operand request");
     return getOperand(1);
   }
 
   bool isLastValPreIncrement() const { return LastValPreIncrement; }
   void setLastValPreIncrement(bool V) { LastValPreIncrement = V; }
+
+  bool isExtractVersion() const { return IsExtractVersion; };
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
@@ -2853,19 +2848,35 @@ public:
 protected:
   // Clones VPInductionFinal.
   virtual VPInductionFinal *cloneImpl() const final {
-    if (getNumOperands() == 1)
-      return new VPInductionFinal(getInductionOperand());
-    else if (getNumOperands() == 2)
-      return new VPInductionFinal(getInitOperand(), getStepOperand(),
-                                  getBinOpcode());
-    else
-      llvm_unreachable("Too many operands.");
+    VPInductionFinal *NewFin = nullptr;
+    if (IsExtractVersion) {
+      NewFin = new VPInductionFinal(getInductionOperand(), getBinOpcode());
+      if (getNumOperands() == 2)
+        NewFin->addOperand(getLaneForExtract());
+
+    } else {
+      NewFin = new VPInductionFinal(getInitOperand(), getStepOperand(),
+                                    getBinOpcode());
+    }
+
+    return NewFin;
   }
 
 private:
+  // Convert induction-final to extract version by adding new operands.
+  void setExtractOperands(VPValue *ValToExtract, VPValue *Lane) {
+    assert(!IsExtractVersion && "Incorrect operand request");
+    removeAllOperands();
+    addOperand(ValToExtract);
+    addOperand(Lane);
+    IsExtractVersion = true;
+  }
+
   // Tracks if induction's last value is computed before increment.
   bool LastValPreIncrement = false;
   unsigned BinOpcode = VPInduction::UnknownOpcode;
+  // Tracks if finalization is done by extracting element from final vector.
+  bool IsExtractVersion = false;
 };
 
 // VPInstruction for reduction initialization.
@@ -5266,12 +5277,77 @@ public:
   }
 };
 
+// Instruction to compute final value of exit ID at the merged exit block of an
+// early-exit loop. The exit ID values are set by mergeLoopExits and we need the
+// appropriate value at the exit block to divert control flow.
+class VPEarlyExitID final : public VPInstruction {
+public:
+  VPEarlyExitID(VPValue *ExitIDPhiOrBlend, VPValue *ExitLane)
+      : VPInstruction(VPInstruction::EarlyExitID, ExitIDPhiOrBlend->getType(),
+                      {ExitIDPhiOrBlend, ExitLane}) {}
+
+  // Getters for operands
+  VPValue *getExitIDPhiOrBlend() const { return getOperand(0); }
+  VPValue *getEarlyExitLane() const { return getOperand(1); }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::EarlyExitID;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPEarlyExitID *cloneImpl() const override {
+    return new VPEarlyExitID(getExitIDPhiOrBlend(), getEarlyExitLane());
+  }
+};
+
+// Custom select operation to choose between given VPValue and first/last vector
+// lane during codegen. Depending on the first operand value select either
+// second operand or a constant which is equal to 0 if useFirstLane() is true or
+// (VF-1) otherwise. The instruction is needed as we can't encode VF in VPlan.
+class VPSelectValOrLane : public VPInstruction {
+public:
+  VPSelectValOrLane(VPCmpInst *Cond, VPEarlyExitLane *Val, bool UseFirstLane)
+      : VPInstruction(VPInstruction::SelectValOrLane, Val->getType(),
+                      {Cond, Val}),
+        UseFirstLane(UseFirstLane) {}
+
+  VPValue *getCond() const { return getOperand(0); }
+  VPValue *getVal() const { return getOperand(1); }
+  bool useFirstLane() const { return UseFirstLane; }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::SelectValOrLane;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPSelectValOrLane *cloneImpl() const override {
+    return new VPSelectValOrLane(cast<VPCmpInst>(getCond()),
+                                 cast<VPEarlyExitLane>(getVal()),
+                                 useFirstLane());
+  }
+
+private:
+  bool UseFirstLane;
+};
+
+// Vector function variant kind.
+enum class VPVectorVariantKind { None, Masked, NonMasked };
+
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost.
 class VPlan {
   friend class VPlanPrinter;
   friend class VPLiveInOutCreator;
+  friend class VPlanVerifierTestBase;
 
 public:
 
@@ -5562,6 +5638,10 @@ public:
   void setPrintingEnabled(bool V) { PrintingEnabled = V;}
   bool isPrintingEnabled() const { return PrintingEnabled;}
 
+  /// Set/get which vector function variant the VPlan represents.
+  void setVecFuncVariant(VPVectorVariantKind V) { VecFuncVariant = V; }
+  VPVectorVariantKind getVecFuncVariant() const { return VecFuncVariant; }
+
 private:
   void addLiveInValue(VPLiveInValue *V) {
     assert(V->getMergeId() == LiveInValues.size() &&
@@ -5620,6 +5700,9 @@ private:
 
   /// Set to false when printing is not enabled, e.g. by -filter-print-funcs.
   bool PrintingEnabled = true;
+
+  /// Which vector function variant the VPlan represents.
+  VPVectorVariantKind VecFuncVariant = VPVectorVariantKind::None;
 
   /// Nesting level of outermost loop being vectorized. VPlan transformations
   /// may generated additional loops and we cannot exceed the maximum
@@ -5686,7 +5769,7 @@ public:
   void computeDA();
 
   VPlanDivergenceAnalysis *getVPlanDA() const {
-    return cast<VPlanDivergenceAnalysis>(VPlanDA.get());
+    return cast_or_null<VPlanDivergenceAnalysis>(VPlanDA.get());
   }
 
   /// Methods for supporting type inquiry through isa, cast, and

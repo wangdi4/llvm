@@ -27,8 +27,10 @@ set(BACKEND_TEST_TYPE_LINK_LIBS
   CLElfLib
   CacheBinaryHandler
   LLVMBinaryFormat
+  LLVMDebugInfoBTF
   LLVMDebugInfoDWARF
   LLVMDebugInfoTraceBack
+  LLVMInstrumentation
   LLVMIntel_Debug
   LLVMMC
   LLVMMCDisassembler
@@ -95,3 +97,5 @@ add_ocl_unittest_artifacts(
 
 add_dependencies(${TARGET_NAME} OCLSamplePlugin
                  ${OCL_RT_TEST_DEPS} ${TEST_BC_FILES})
+
+link_target_with_tbb_library(${TARGET_NAME})

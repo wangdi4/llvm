@@ -143,7 +143,6 @@ void BackEndTests_Plugins::CreateTestEvent() {
 
   // load pre created bitcode buffer in correct format - with kernels
   std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
-  ASSERT_TRUE(pBackendWrapper.get());
   std::vector<char> program;
   pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS,
                                           program);
@@ -164,7 +163,6 @@ void BackEndTests_Plugins::CreateTestEvent(
     Intel::OpenCL::PluginManager *pManager) {
   // load pre created bitcode buffer in correct format - with kernels
   std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
-  ASSERT_TRUE(pBackendWrapper.get());
   std::vector<char> program;
   pBackendWrapper->CreateProgramContainer(get_exe_dir() + FILE_BC_WITH_KERNELS,
                                           program);

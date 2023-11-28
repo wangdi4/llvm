@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_dspv1
-// RUN: %clang_cc1 -no-opaque-pointers %s -flax-vector-conversions=none -ffreestanding -triple=i686-unknown-unknown -target-feature +dspv1 \
+// RUN: %clang_cc1 %s -flax-vector-conversions=none -ffreestanding -triple=i686-unknown-unknown -target-feature +dspv1 \
 // RUN: -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu-statement-expression | FileCheck %s
 
 #include <immintrin.h>
@@ -85,13 +85,13 @@ __m128i test_mm_dsp_punpckdq_epi32(__m128i __A, __m128i __B) {
 
 __m128i test_mm_dsp_pmasklddqu_epi8(__m128i __A, const __m128i * __B) {
   // CHECK-LABEL: @test_mm_dsp_pmasklddqu_epi8(
-  // CHECK: call <16 x i8> @llvm.x86.dvpmasklddqu(<16 x i8> %{{.*}}, i8* %{{.*}})
+  // CHECK: call <16 x i8> @llvm.x86.dvpmasklddqu(<16 x i8> %{{.*}}, ptr %{{.*}})
   return _mm_dsp_pmasklddqu_epi8(__A, __B);
 }
 
 void test_mm_dsp_pmaskstdqu_epi8(__m128i * __A, __m128i __B, __m128i __C) {
   // CHECK-LABEL: @test_mm_dsp_pmaskstdqu_epi8(
-  // CHECK: call void @llvm.x86.dvpmaskstdqu(i8* %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}})
+  // CHECK: call void @llvm.x86.dvpmaskstdqu(ptr %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}})
   _mm_dsp_pmaskstdqu_epi8(__A, __B, __C);
 }
 

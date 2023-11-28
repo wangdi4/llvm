@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2023 Intel Corporation
+# Modifications, Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -21,8 +21,8 @@
 
 include(CheckCXXSourceCompiles)
 
-set(GCC_MIN 7.1)
-set(GCC_SOFT_ERROR 7.1)
+set(GCC_MIN 7.4)
+set(GCC_SOFT_ERROR 7.4)
 set(CLANG_MIN 5.0)
 set(CLANG_SOFT_ERROR 5.0)
 set(APPLECLANG_MIN 10.0)

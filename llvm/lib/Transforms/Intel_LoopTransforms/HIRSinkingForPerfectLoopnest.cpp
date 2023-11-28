@@ -1,7 +1,7 @@
 //===- HIRSinkingForPerfectLoopnest.cpp Implements SinkingForPerfectLoopnest
 // class -===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined

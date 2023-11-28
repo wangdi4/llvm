@@ -1,8 +1,8 @@
 ; Checks that VPlan does not make inconsistent debug info like this:
 ;	mismatched subprogram between llvm.dbg.value variable and !dbg attachment
-;	  call void @llvm.dbg.value(metadata float addrspace(1)* %0, metadata !5, metadata !DIExpression()), !dbg !1
+;	  call void @llvm.dbg.value(metadata ptr addrspace(1) %0, metadata !5, metadata !DIExpression()), !dbg !1
 ;	label %vector.body
-;	void (float addrspace(1)*, %A*, %A*, %A*, float addrspace(1)*, %A*, %A*, %A*, float addrspace(1)*, %A*, %A*, %A*)* @_ZGVdN8uuuuuuuuuuuu_TS10SimpleVaddIfE
+;	void (ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr)* @_ZGVdN8uuuuuuuuuuuu_TS10SimpleVaddIfE
 ;	!5 = !DILocalVariable(name: "Ptr", arg: 2, scope: !6)
 ;	!6 = distinct !DISubprogram(name: "__init", scope: null, spFlags: DISPFlagDefinition, unit: !3)
 ;	!1 = !DILocation(line: 0, scope: !2)
@@ -11,9 +11,9 @@
 
 ; TODO: VPValue-based CG cannot preserve debug info since they are not represented in VPlan.
 ; Check JIRA : CMPLRLLVM-9901
-; RUN: opt -S -opaque-pointers=0 -passes=vplan-vec < %s | FileCheck %s
+; RUN: opt -S -passes=vplan-vec < %s | FileCheck %s
 ; REQUIRES: asserts
-; CHECK: call void @llvm.dbg.value(metadata float addrspace(1)* {{.*}}, metadata ![[BR_LOC1:[0-9]+]], metadata !DIExpression()), !dbg ![[BR_LOC2:[0-9]+]]
+; CHECK: call void @llvm.dbg.value(metadata ptr addrspace(1) {{.*}}, metadata ![[BR_LOC1:[0-9]+]], metadata !DIExpression()), !dbg ![[BR_LOC2:[0-9]+]]
 ; CHECK: ![[BR_LOC1]] = !DILocalVariable(name: "Ptr", arg: 2, scope: ![[BR_LOC:[0-9]+]])
 ; CHECK: ![[BR_LOC]] = distinct !DISubprogram(name: "__init",
 ; CHECK: ![[BR_LOC2]] = !DILocation(line: 0, scope: ![[BR_LOC]])
@@ -24,12 +24,12 @@ target triple = "x86_64-pc-linux"
 %"A" = type { %"B" }
 %"B" = type { [1 x i64] }
 
-declare void @_ZTS10SimpleVaddIiE(i32 addrspace(1)*, %"A"*, %"A"*, %"A"*, i32 addrspace(1)*, %"A"*, %"A"*, %"A"*, i32 addrspace(1)*, %"A"*, %"A"*, %"A"*) local_unnamed_addr #0
+declare void @_ZTS10SimpleVaddIiE(ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr) local_unnamed_addr #0
 
 ; Function Attrs: nounwind readnone speculatable
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
-declare void @_ZTS10SimpleVaddIfE(float addrspace(1)*, %"A"*, %"A"*, %"A"*, float addrspace(1)*, %"A"*, %"A"*, %"A"*, float addrspace(1)*, %"A"*, %"A"*, %"A"*) local_unnamed_addr #2
+declare void @_ZTS10SimpleVaddIfE(ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr) local_unnamed_addr #2
 
 ; Function Attrs: readnone
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #3
@@ -37,24 +37,24 @@ declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #3
 ; Function Attrs: nounwind readnone speculatable
 declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 
-declare [7 x i64] @WG.boundaries._ZTS10SimpleVaddIiE(i32 addrspace(1)*, %"A"*, %"A"*, %"A"*, i32 addrspace(1)*, %"A"*, %"A"*, %"A"*, i32 addrspace(1)*, %"A"*, %"A"*, %"A"*)
+declare [7 x i64] @WG.boundaries._ZTS10SimpleVaddIiE(ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr)
 
 declare i64 @_Z14get_local_sizej(i32)
 
 declare i64 @get_base_global_id.(i32)
 
-declare [7 x i64] @WG.boundaries._ZTS10SimpleVaddIfE(float addrspace(1)*, %"A"*, %"A"*, %"A"*, float addrspace(1)*, %"A"*, %"A"*, %"A"*, float addrspace(1)*, %"A"*, %"A"*, %"A"*)
+declare [7 x i64] @WG.boundaries._ZTS10SimpleVaddIfE(ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr)
 
-define void @_ZGVdN8uuuuuuuuuuuu_TS10SimpleVaddIfE(float addrspace(1)*, %"A"*, %"A"*, %"A"*, float addrspace(1)*, %"A"*, %"A"*, %"A"*, float addrspace(1)*, %"A"*, %"A"*, %"A"*) local_unnamed_addr #2 {
+define void @_ZGVdN8uuuuuuuuuuuu_TS10SimpleVaddIfE(ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr) local_unnamed_addr #2 {
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %12
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM"(float addrspace(1)* %0, %"A"* %1, %"A"* %2, %"A"* %3, float addrspace(1)* %4, %"A"* %5, %"A"* %6, %"A"* %7, float addrspace(1)* %8, %"A"* %9, %"A"* %10, %"A"* %11) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM"(ptr addrspace(1) %0, ptr %1, ptr %2, ptr %3, ptr addrspace(1) %4, ptr %5, ptr %6, ptr %7, ptr addrspace(1) %8, ptr %9, ptr %10, ptr %11) ]
   br label %simd.loop, !dbg !1550
 
 simd.loop:                                        ; preds = %simd.loop, %simd.begin.region
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop ]
-  call void @llvm.dbg.value(metadata float addrspace(1)* %0, metadata !1551, metadata !DIExpression()), !dbg !1561
+  call void @llvm.dbg.value(metadata ptr addrspace(1) %0, metadata !1551, metadata !DIExpression()), !dbg !1561
   %indvar = add nuw i32 %index, 1
   br i1 false, label %simd.loop, label %simd.end.region, !llvm.loop !1563
 
@@ -69,7 +69,7 @@ declare token @llvm.directive.region.entry() #4
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #4
 
-declare void @_ZGVdN8uuuuuuuuuuuu_TS10SimpleVaddIiE(i32 addrspace(1)*, %"A"*, %"A"*, %"A"*, i32 addrspace(1)*, %"A"*, %"A"*, %"A"*, i32 addrspace(1)*, %"A"*, %"A"*, %"A"*) local_unnamed_addr #0
+declare void @_ZGVdN8uuuuuuuuuuuu_TS10SimpleVaddIiE(ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr, ptr addrspace(1), ptr, ptr, ptr) local_unnamed_addr #0
 
 attributes #0 = { "vector-variants"="_ZGVdN8uuuuuuuuuuuu__ZTS10SimpleVaddIiE" }
 attributes #1 = { nounwind readnone speculatable }

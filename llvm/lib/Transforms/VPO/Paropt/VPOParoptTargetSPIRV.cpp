@@ -268,7 +268,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         // must be declared as 64-bit integers.
         Type *ArgTy = Type::getInt64Ty(C);
         ParamsTy.push_back(ArgTy);
-        ArgSize = DL.getTypeStoreSize(ArgTy).getFixedSize();
+        ArgSize = DL.getTypeStoreSize(ArgTy).getFixedValue();
         KernelArgInfo.emplace_back(false, ArgSize);
       } else {
 #if INTEL_CUSTOMIZATION
@@ -333,7 +333,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
       // A non-pointer argument may appear as a result of scalar
       // FIRSTPRIVATE.
       ParamsTy.push_back(*ArgTyI);
-      ArgSize = DL.getTypeStoreSize(*ArgTyI).getFixedSize();
+      ArgSize = DL.getTypeStoreSize(*ArgTyI).getFixedValue();
       KernelArgInfo.emplace_back(false, ArgSize);
     }
     ByValLimit -= std::min(ByValLimit, ArgSize);
@@ -350,6 +350,10 @@ Function *VPOParoptTransform::finalizeKernelFunction(
   NFn->copyAttributesFrom(Fn);
   NFn->setCallingConv(CallingConv::SPIR_KERNEL);
   NFn->addFnAttr("target.declare", "true");
+
+  // Also add the "kernel" attribute, which is used by the OpenMPOpt pass to
+  // identify OpenMP Offload kernels that can be optimized.
+  NFn->addFnAttr("kernel");
 
   Fn->getParent()->getFunctionList().insert(Fn->getIterator(), NFn);
   NFn->takeName(Fn);
@@ -430,6 +434,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
   if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
     SimdWidth = 1;
     NFn->setMetadata("omp_simd_kernel", MDNode::get(NFn->getContext(), {}));
+    NFn->setMetadata("sycl_explicit_simd", MDNode::get(NFn->getContext(), {}));
   }
 
   if (SimdWidth > 0) {
@@ -999,11 +1004,21 @@ void VPOParoptTransform::guardSideEffectStatements(WRegionNode *W,
     //       used for the target region.
     IRBuilder<> Builder(KernelEntryDir);
     auto *ZeroConst = Constant::getNullValue(GeneralUtils::getSizeTTy(F));
-    Value *LocalId = nullptr;
     Value *MasterCheckPredicate = nullptr;
 
     for (unsigned Dim = 0; Dim < 3; ++Dim) {
-      LocalId = VPOParoptUtils::genLocalIdCall(Dim, KernelEntryDir);
+      CallInst *const LocalId =
+          VPOParoptUtils::genLocalIdCall(Dim, KernelEntryDir);
+
+      // At this point in device compilation we shouldn't get adverse effects by
+      // allowing code motioning of these function calls, so the function can be
+      // marked with the relevant attributes for later optimizations.
+      Function *const LocalIdCallee = LocalId->getCalledFunction();
+      LocalIdCallee->setDoesNotAccessMemory();
+      LocalIdCallee->setDoesNotThrow();
+      LocalIdCallee->setNoSync();
+      LocalIdCallee->setWillReturn();
+
       Value *Predicate = Builder.CreateICmpEQ(LocalId, ZeroConst);
 
       if (!MasterCheckPredicate) {

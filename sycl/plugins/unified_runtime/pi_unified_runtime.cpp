@@ -1,10 +1,10 @@
-//===--- pi_unified_runtime.cpp - Unified Runtime PI Plugin  -----------==//
+//===--- pi_unified_runtime.cpp - Unified Runtime PI Plugin  ---------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-//===------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 
 #include <cstring>
 
@@ -17,29 +17,6 @@ static void DieUnsupported() {
   die("Unified Runtime: functionality is not supported");
 }
 
-// Need to define the symbol for urProgramBuildExp, urProgramCompileExp & ur
-// ProgramLinkExp for compile, currently unsupported
-UR_APIEXPORT ur_result_t UR_APICALL urProgramBuildExp(ur_context_handle_t,
-                                                      ur_program_handle_t,
-                                                      uint32_t,
-                                                      ur_device_handle_t *,
-                                                      const char *) {
-  return UR_RESULT_ERROR_UNSUPPORTED_FEATURE;
-}
-
-UR_APIEXPORT ur_result_t UR_APICALL urProgramCompileExp(ur_context_handle_t,
-                                                        ur_program_handle_t,
-                                                        uint32_t,
-                                                        ur_device_handle_t *,
-                                                        const char *) {
-  return UR_RESULT_ERROR_UNSUPPORTED_FEATURE;
-}
-
-UR_APIEXPORT ur_result_t UR_APICALL urProgramLinkExp(
-    ur_context_handle_t, uint32_t, const ur_program_handle_t *, uint32_t,
-    ur_device_handle_t *, const char *, ur_program_handle_t *) {
-  return UR_RESULT_ERROR_UNSUPPORTED_FEATURE;
-}
 // Adapters may be released by piTearDown being called, or the global dtors
 // being called first. Handle releasing the adapters exactly once.
 static void releaseAdapters(std::vector<ur_adapter_handle_t> &Vec) {
@@ -1169,7 +1146,6 @@ __SYCL_EXPORT pi_result piextPeerAccessGetInfo(
 
 __SYCL_EXPORT pi_result piTearDown(void *) {
   releaseAdapters(Adapters.Vec);
-  urTearDown(nullptr);
   return PI_SUCCESS;
 }
 

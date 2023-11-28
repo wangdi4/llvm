@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,20 +12,18 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "NEATALU.h"
+#include "ALUTest.h"
 #include "BufferContainerList.h"
 #include "DGHelper.h"
 #include "DataGenerator.h"
-
 #include "FloatOperations.h"
-#include "NEATALU.h"
+#include "NEATALUUtils.h"
 #include "NEATValue.h"
 #include "NEATVector.h"
 #include "RefALU.h"
 #include "gtest_wrapper.h"
 #include <fstream>
-
-#include "ALUTest.h"
-#include "NEATALUUtils.h"
 
 using namespace Validation;
 

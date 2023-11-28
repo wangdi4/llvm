@@ -1,17 +1,17 @@
 ; This code wasn't compiled from OpenCL C source.
 ; ----------------------------------------------------
-; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s
+
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-@ch1 = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
-@ch2 = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
+@ch1 = addrspace(1) global ptr addrspace(1) null, align 8, !packet_size !0, !packet_align !0
+@ch2 = addrspace(1) global ptr addrspace(1) null, align 8, !packet_size !0, !packet_align !0
 
-; CHECK: @[[PIPE1:.*]] = addrspace(1) global ptr addrspace(1)
-; CHECK: @[[PIPE2:.*]] = addrspace(1) global ptr addrspace(1)
+; CHECK: @[[PIPE1:.*]] = addrspace(1) global ptr addrspace(1) null, align 8,
+; CHECK: @[[PIPE2:.*]] = addrspace(1) global ptr addrspace(1) null, align 8,
 
 ; CHECK: %[[PIPE1VAL:.*]] = load ptr addrspace(1){{.*}} @[[PIPE1]]
 ; CHECK: %[[PIPE2VAL:.*]] = load ptr addrspace(1){{.*}} @[[PIPE2]]

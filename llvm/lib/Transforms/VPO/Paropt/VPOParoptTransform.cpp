@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -99,7 +99,7 @@
 #endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 #include <algorithm>
 #include <numeric>
@@ -119,7 +119,7 @@ bool llvm::vpo::UseOmpRegionsInLoopoptFlag;
 static cl::opt<bool, true> UseOmpRegionsInLoopopt(
     "loopopt-use-omp-region", cl::desc("Handle OpenMP directives in LoopOpt"),
     cl::Hidden, cl::location(UseOmpRegionsInLoopoptFlag), cl::init(false));
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned> IgnoreRegionsStartingWith(
     "vpo-paropt-ignore-regions-starting-with", cl::Hidden, cl::init(0),
@@ -150,6 +150,14 @@ static cl::opt<bool> AllowDistributeDimension(
      cl::Hidden, cl::init(true),
      cl::desc("Allow using separate ND-range dimension "
               "for OpenMP distribute."));
+
+static cl::opt<bool> NontemporalLoadsOnly(
+    "omp-simd-nontemporal-loads-only", cl::Hidden, cl::init(false),
+    cl::desc("Makes omp simd nontemporal only apply to loads"));
+
+static cl::opt<bool> NontemporalStoresOnly(
+    "omp-simd-nontemporal-stores-only", cl::Hidden, cl::init(false),
+    cl::desc("Makes omp simd nontemporal only apply to stores"));
 
 namespace {
 enum class OCLLoopProcessingKind { NonStridedLWS, NonStridedGWS, Strided };
@@ -205,16 +213,19 @@ static cl::opt<bool> UseFastRedAtomic("vpo-paropt-fast-reduction-atomic",
                                       cl::Hidden, cl::init(true),
                                       cl::desc("Allow to use atomic reduction "
                                                "within fast reduction."));
-static cl::opt<uint32_t> FastReductionCtrl("vpo-paropt-fast-reduction-ctrl",
-                                           cl::Hidden, cl::init(0x3),
-                                           cl::desc("Control option for fast "
-                                                    "reduction. Bit 0(default "
-                                                    "on): Scalar variables are"
-                                                    " used directly in "
-                                                    "reduction code. Bit 1("
-                                                    "default on): similar with"
-                                                    " bit 0, but for array "
-                                                    "reduction."));
+static cl::opt<uint32_t>
+    FastReductionCtrl("vpo-paropt-fast-reduction-ctrl", cl::Hidden,
+                      cl::init(0x3),
+                      cl::desc("Control option for fast "
+                               "reduction. Bit 0(default "
+                               "on): Scalar variables are"
+                               " used directly in "
+                               "reduction code. Bit 1("
+                               "default on): similar with"
+                               " bit 0, but for array "
+                               "reduction. Bit 2(default"
+                               "off): similar with bit 0,"
+                               "but for non-POD variables"));
 cl::opt<bool> AtomicFreeReduction("vpo-paropt-atomic-free-reduction",
                                   cl::Hidden, cl::init(true),
                                   cl::desc("Enable atomic-free GPU reduction"));
@@ -1713,7 +1724,7 @@ bool VPOParoptTransform::paroptTransforms() {
   // Loop Opt Report framework (under -qopt-report).
   LoopInfo *ORLinfo = nullptr;
   Loop *ORLoop = nullptr;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   IdentTy = VPOParoptUtils::getIdentStructType(F);
 
@@ -1807,7 +1818,7 @@ bool VPOParoptTransform::paroptTransforms() {
     NeedTID = false;
     NeedBID = false;
   }
-#endif  // INTEL_FEATURE_CSA
+#endif // INTEL_FEATURE_CSA
 
   // Early preprocessing for outlined work regions that regularizes loops
   // and generates aliasing information. This need to be done early before
@@ -1854,7 +1865,7 @@ bool VPOParoptTransform::paroptTransforms() {
       }
       W->resetBBSet();
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   // LoopCollapse and Prepare passes work with the clauses related to
   // ND-range partitioning (OFFLOAD_NDRANGE, OFFLOAD_KNOWN_NDRANGE) which
@@ -1865,6 +1876,18 @@ bool VPOParoptTransform::paroptTransforms() {
   // pass.
   if (!DisableOffload && ((Mode & ParPrepare) || isModeOmpNoFECollapse()))
     OffloadEntries = VPOParoptUtils::loadOffloadMetadata(*F->getParent());
+
+#if INTEL_CUSTOMIZATION
+  // Fusion+Collapse transformation needs an info about the
+  // loops already having 'collapse' clause to pick
+  // the fusion candidates, so we have to collect that info here
+  SmallPtrSet<WRegionNode *, 1> HaveCollapse;
+  if (Mode & FuseCollapse) {
+    for (auto *W : WRegionList)
+      if (W->canHaveCollapse() && W->getCollapse())
+        HaveCollapse.insert(W);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if ((Mode & OmpPar) && (Mode & ParTrans) && !DisableOffload) {
     if (isTargetSPIRV())
@@ -1948,29 +1971,33 @@ bool VPOParoptTransform::paroptTransforms() {
         }
       RemoveDirectives = true;
     } else
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     if (ignoreRegion(W->getNumber())) {
+#if INTEL_CUSTOMIZATION
+      ORBuilder(*W, WRegionList)
+          .addRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::OpenMPConstructUserIgnored, W->getNumber(),
+                     W->getName());
+#endif // INTEL_CUSTOMIZATION
       Function *F = W->getEntryDirective()->getFunction();
       OptimizationRemark R("openmp", "Ignored", W->getEntryDirective());
       R << ("construct " + Twine(W->getNumber()) + " (" + W->getName() +
-            ") ignored on user's direction")
+            ") ignored at user's direction")
                .str();
       F->getContext().diagnose(R);
       RemoveDirectives = true;
     } else if (((Mode & OmpPar) && (Mode & ParTrans)) && DT &&
                !DT->isReachableFromEntry(W->getEntryBBlock())) {
+#if INTEL_CUSTOMIZATION
+      ORBuilder(*W, WRegionList)
+          .addRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::OpenMPConstructUnreachable, W->getName());
+#endif // INTEL_CUSTOMIZATION
       OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
       R << ore::NV("Construct", W->getName())
         << " construct is unreachable from function entry";
       ORE.emit(R);
-      RemoveDirectives = true;
-    } else if ((W->getIsOmpLoopTransform() ||
-                W->getIsOmpLoop() && !W->getIsSections()) &&
-               W->getWRNLoopInfo().getLoop() == nullptr) {
-      // The WRN is a loop-type construct, but the loop is missing, most likely
-      // because it has been optimized away. We skip the code transforms for
-      // this WRN, and simply remove its directives.
       RemoveDirectives = true;
     } else if (hasOffloadCompilation() && !isa<WRNTargetNode>(W) &&
                !WRegionUtils::hasParentTarget(W)) {
@@ -1981,11 +2008,18 @@ bool VPOParoptTransform::paroptTransforms() {
                         << ") is ignored in target compilation.\n");
       RemoveDirectives = true;
     } else {
-      if (isModeOmpNoFECollapse() &&
-          W->canHaveCollapse()) {
+      if (isModeOmpNoFECollapse() && W->canHaveCollapse() &&
+          !isLoopOptimizedAway(W)) {
         Changed |= collapseOmpLoops(W);
         RemoveDirectives = false;
       }
+#if INTEL_CUSTOMIZATION
+      else if ((Mode & FuseCollapse) && W->canHaveCollapse() &&
+               !isLoopOptimizedAway(W)) {
+        Changed |= fuseAndCollapseOmpLoops(W, HaveCollapse);
+        RemoveDirectives = false;
+      }
+#endif // INTEL_CUSTOMIZATION
 
       switch (W->getWRegionKindID()) {
 
@@ -2020,8 +2054,8 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= clearLaunderIntrinBeforeRegion(W);
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
           bool SkipTargetCodeGenForParallelRegion =
               isTargetSPIRV() && isFunctionOpenMPTargetDeclare();
           if (SkipTargetCodeGenForParallelRegion)
@@ -2078,6 +2112,7 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           if (isLoopOptimizedAway(W)) {
+            Changed |= genBarrierForEmptyLoop(W, isTargetSPIRV());
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
             if (isTargetCSA() && !W->getIsParSections() && W->getIsParLoop())
@@ -2124,8 +2159,8 @@ bool VPOParoptTransform::paroptTransforms() {
               llvm_unreachable("Unexpected work region kind");
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
           // Ignore parallel-for/sections constructs in declare-target functions
           bool SkipTargetCodeGenForParallelRegion =
@@ -2180,7 +2215,7 @@ bool VPOParoptTransform::paroptTransforms() {
                                  OptRemarkID::OpenMPOutlinedEnclosedParLoop);
                }
             }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
             Instruction *InsertLastIterCheckBefore = nullptr;
             Instruction *OMPLBForLinearClosedForm = nullptr;
@@ -2565,11 +2600,16 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= fixupKnownNDRange(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          bool SkipTargetCodeGenForParallelRegion =
+              isTargetSPIRV() && isFunctionOpenMPTargetDeclare();
           if (isTargetSPIRV())
             Changed |= propagateKnownNDRange(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
           if (isLoopOptimizedAway(W)) {
+            if (WRegionUtils::needsImplicitBarrier(W) &&
+                !SkipTargetCodeGenForParallelRegion)
+               Changed |= genBarrierForEmptyLoop(W, isTargetSPIRV());
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
             if (isTargetCSA() && !W->getIsSections() && W->getIsOmpLoop())
@@ -2606,8 +2646,8 @@ bool VPOParoptTransform::paroptTransforms() {
               llvm_unreachable("Unexpected work region kind");
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
           // Ignore Parallel-for/sections constructs in declare-target functions
           bool SkipTargetCodeGenForRegion =
@@ -2662,7 +2702,7 @@ bool VPOParoptTransform::paroptTransforms() {
                     .addRemark(OptReportVerbosity::Low,
                                OptRemarkID::OpenMPWorkSharingLoop);
             }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
             Changed |= setInsertionPtForVlaAllocas(W);
             AllocaInst *IsLastVal = nullptr;
@@ -2714,8 +2754,8 @@ bool VPOParoptTransform::paroptTransforms() {
             RemoveDirectives = true;
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
           if (isTargetSPIRV())
             Changed |= removeCompilerGeneratedFences(W);
 
@@ -2747,8 +2787,8 @@ bool VPOParoptTransform::paroptTransforms() {
             RemoveDirectives = true;
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
           if (isTargetSPIRV())
             Changed |= removeCompilerGeneratedFences(W);
           Changed |= genMaskedThreadCode(W, isTargetSPIRV());
@@ -2766,8 +2806,8 @@ bool VPOParoptTransform::paroptTransforms() {
             RemoveDirectives = true;
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
           Changed |= genCriticalCode(cast<WRNCriticalNode>(W));
           RemoveDirectives = true;
         }
@@ -2824,8 +2864,8 @@ bool VPOParoptTransform::paroptTransforms() {
             RemoveDirectives = true;
             break;
           }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
           if (isTargetSPIRV())
             Changed |= removeCompilerGeneratedFences(W);
           Changed |= genBarrier(W, true, isTargetSPIRV());
@@ -2928,10 +2968,20 @@ bool VPOParoptTransform::paroptTransforms() {
     // Emit opt-report remarks for handled/ignored constructs.
     if (RemoveDirectives || HandledWithoutRemovingDirectives) {
       if (Changed) {
+#if INTEL_CUSTOMIZATION
+        ORBuilder(*W, WRegionList)
+            .addRemark(OptReportVerbosity::High,
+                       OptRemarkID::OpenMPConstructTransformed, W->getName());
+#endif // INTEL_CUSTOMIZATION
         OptimizationRemark R("openmp", "Region", W->getEntryDirective());
         R << ore::NV("Construct", W->getName()) << " construct transformed";
         ORE.emit(R);
       } else {
+#if INTEL_CUSTOMIZATION
+        ORBuilder(*W, WRegionList)
+            .addRemark(OptReportVerbosity::High,
+                       OptRemarkID::OpenMPConstructIgnored, W->getName());
+#endif // INTEL_CUSTOMIZATION
         OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
         R << ore::NV("Construct", W->getName()) << " construct ignored";
         ORE.emit(R);
@@ -2942,7 +2992,7 @@ bool VPOParoptTransform::paroptTransforms() {
     // Move all opt-report metadata to the function because after transform
     // phase most of work regions will be removed, and for the remaining ones
     // no passes are expected to add any opt-report remarks.
-    if ((Mode & OmpPar) && (Mode & ParTrans))
+    if (RemoveDirectives || ((Mode & OmpPar) && (Mode & ParTrans)))
       if (ORBuilder(*W, WRegionList).getOptReport())
         ORBuilder(*W, WRegionList).preserveLostOptReport();
 
@@ -2959,8 +3009,8 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   if (!isTargetCSA())
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
       RegionsNeedingDummyBranchInsertion.insert(W);
 
     if (Changed) { // Code transformations happened for this WRN
@@ -4269,43 +4319,145 @@ void VPOParoptTransform::genAtomicFreeReductionGlobalFini(
 
   // Making the new loop use reduction buffer, using its existing
   // GEP by group_id but omitting that GEP
+  //
+  // IR expected at this point (scalar item):
+  //   UseParallelReduction = false:
+  //   -----------------------------
+  //     %1 = call spir_func i64 @_Z12get_group_idj(i32 0)
+  //     %team.buf.baseptr = getelementptr inbounds i32,
+  //       ptr addrspace(1) @red_buf, i64 %1
+  //     %2 = addrspacecast ptr addrspace(1) %team.buf.baseptr
+  //       to ptr addrspace(4)
+  //     ...
+  //   atomic.free.red.global.update.header:
+  //     %idx.phi = phi i64 [ 0, %team.red.buffers.ready ],              <--- i
+  //                        [ %23, %atomic.free.red.global.update.latch ]
+  //     %red.sum.phi =
+  //        phi i32 [ %init, %team.red.buffers.ready ],
+  //                [ %22, %atomic.free.red.global.update.latch ]
+  //     %18 = call spir_func i64 @_Z14get_num_groupsj(i32 0)
+  //     %19 = icmp uge i64 %idx.phi, %18
+  //     br i1 %19,
+  //        label %atomic.free.red.global.update.store,
+  //        label %atomic.free.red.global.update.body
+  //
+  //   atomic.free.red.global.update.body:
+  //     %20 = load i32, ptr addrspace(4) %2, align 4  <- replacing this ptr:
+  //                                                      red_buf[group_id] =>
+  //                                                      red_buf[idx.phi]  (*)
+  //     %21 = add i32 %red.sum.phi, %20
+  //     br label %item.exit
+  //
+  //   item.exit:
+  //     br label %atomic.free.red.global.update.latch
+  //   ----------------------------
+  //   UseParallelReduction = true:
+  //   ----------------------------
+  //     %1 = call spir_func i64 @_Z12get_group_idj(i32 0)
+  //     %team.buf.baseptr = getelementptr inbounds i32,
+  //       ptr addrspace(1) @red_buf, i64 %1
+  //     %2 = addrspacecast ptr addrspace(1) %team.buf.baseptr
+  //       to ptr addrspace(4)
+  //    ...
+  //   atomic.free.red.global.pretree.header:
+  //     %teams.idx.phi = phi i64                                 <--- arr_off
+  //        [ 0, %counter_check ],
+  //        [ %29, %atomic.free.red.global.update.pretree.latch ]
+  //     %red.sum.phi = phi i32
+  //        [ %init, %counter_check ],
+  //        [ %31, %atomic.free.red.global.update.pretree.latch ]
+  //     %11 = call spir_func i64 @_Z14get_local_sizej(i32 0)
+  //     %12 = call spir_func i64 @_Z14get_num_groupsj(i32 0)
+  //     %13 = icmp uge i64 %teams.idx.phi, %12
+  //     %14 = call spir_func i64 @_Z12get_local_idj(i32 0)
+  //     %15 = add i64 %teams.idx.phi, %14
+  //     %16 = getelementptr i32, ptr addrspace(1) @red_buf, i64 %15
+  //     br i1 %13, label %atomic.free.red.global.update.store,
+  //                label %atomic.free.red.global.update.header
+  //
+  //   atomic.free.red.global.update.header:
+  //     %idx.phi = phi i64                                       <--- tree_off
+  //        [ 1, %atomic.free.red.global.pretree.header ],
+  //        [ %28, %atomic.free.red.global.update.latch ]
+  //     %17 = icmp uge i64 %idx.phi, %11
+  //     br i1 %17, label %atomic.free.red.global.update.pretree.latch,
+  //                label %atomic.free.red.global.update.tree.check
+  //
+  //   atomic.free.red.global.update.tree.check:
+  //     ...
+  //     br i1 %27, label %atomic.free.red.global.update.latch,
+  //                label %atomic.free.red.global.update.body
+  //
+  //   atomic.free.red.global.update.body:  <--- inserting combiner of     (**)
+  //     br label %item.exit                 red_buf[local_id+arr_off] and
+  //                                         red_buf[local_id+arr_off+tree_off]
+  //
+  //   item.exit:
+  //     br label %atomic.free.red.global.update.latch
+  //
+  //   atomic.free.red.global.update.latch:
+  //     %28 = shl i64 %idx.phi, 1
+  //     call spir_func void @_Z22__spirv_ControlBarrieriii
+  //     br label %atomic.free.red.global.update.header
+  //
+  //   atomic.free.red.global.update.pretree.latch:
+  //     %29 = add i64 %teams.idx.phi, %11
+  //     %30 = load i32, ptr addrspace(4) %2, align 4   <- replacing this ptr:
+  //                                                       red_buf[group_id] =>
+  //                                                       red_buf[arr_off] (*)
+  //     %31 = add i32 %red.sum.phi, %30
+  //     br label %atomic.free.red.global.pretree.header
+
   if (auto *GepToSkip =
           dyn_cast<GetElementPtrInst>(PtrInitToReplace->stripPointerCasts())) {
     auto *InsertPt =
         (UseParallelReduction ? HeaderBB : InnerHeaderBB)->getTerminator();
     Builder.SetInsertPoint(InsertPt);
     auto *GepPtr = GepToSkip->getPointerOperand();
+    // Step (*)
+    //
     // each loop iteration ptr for the element currently being processed is:
     // scalar:
     //  serial update: red_buf+idx_phi
     //  parallel update: red_buf+local_id(0)
     // array section: red_buf+idx_phi
-    Value *Idx = IdxPhi;
-    if (UseParallelReduction)
-      Idx = VPOParoptUtils::genLocalIdCall(0, InsertPt);
+    Value *Idx = UseParallelReduction ? TeamsIdxPhi : IdxPhi;
 
-    if (UseParallelReduction)
-      Idx = Builder.CreateAdd(Idx, TeamsIdxPhi);
     // NOTE: with UseParallelReduction==true this gep is invariant to the loop,
     // but here we rely on device compiler to run LICM to not overcomplicate
     // this code
+    if (UseParallelReduction) {
+      auto *ThreadIdx = VPOParoptUtils::genLocalIdCall(0, InsertPt);
+      Idx = Builder.CreateAdd(Idx, ThreadIdx);
+    }
     auto *GlobalGep =
         Builder.CreateGEP(GepToSkip->getSourceElementType(), GepPtr, Idx);
     // TODO: consider cloning the exisitng addrspacecast
     if (IsArrayOrArraySection || IsUDR)
       GlobalGep = Builder.CreatePointerBitCastOrAddrSpaceCast(
           GlobalGep, PointerType::get(RedElemType, AddrSpace));
-    if (PtrUseToFix)
-      PtrUseToFix->replaceUsesOfWith(PtrInitToReplace, GlobalGep);
-    else
-      Combiner->setLocalValueLoc(GlobalGep);
 
+    if (PtrUseToFix) {
+      PtrUseToFix->replaceUsesOfWith(PtrInitToReplace, GlobalGep);
+    } else {
+      if (UseParallelReduction) {
+        // A pointer to current arr_off result, ie red_buf[arr_off]
+        auto *ResultGep = Builder.CreateGEP(GepToSkip->getSourceElementType(),
+                                            GepPtr, TeamsIdxPhi);
+        Combiner->setLocalValueLoc(ResultGep);
+      } else {
+        Combiner->setLocalValueLoc(GlobalGep);
+      }
+    }
+
+    // Step (**)
+    //
     // For parallel update loop there's no phi because in a tree pattern
     // everything needs to be spilled back to the buffer in the end of each
     // iteration, i.e.
-    //  red_buf[local_id(0)] = red_op(red_buf[local_id(0)],
-    //  red_buf[local_id(0)+tree_offset]);
-    // performs a store to red_buf[local_id(0)] in the end.
+    //  red_buf[local_id(0)+arr_off] = red_op(red_buf[local_id(0)+arr_off],
+    //  red_buf[local_id(0)+arr_off+tree_offset]);
+    // performs a store to red_buf[local_id(0)+arr_off] in the end.
     if (UseParallelReduction) {
       Builder.SetInsertPoint(InnerHeaderBB->getTerminator());
       auto *LocalOffGep = Builder.CreateGEP(GepToSkip->getSourceElementType(),
@@ -4813,9 +4965,6 @@ ReductionCriticalSectionKind VPOParoptTransform::genReductionScalarFini(
     Builder.SetInsertPoint(&NewBB->back());
   }
 
-  ReductionVar = VPOParoptUtils::genZeroOffsetArrsecReductionItemCastIfNeeded(
-      RedI, W, ReductionVar, DT);
-
   auto HandleByRefArg = [&ReductionVar](Instruction *InsertPt) {
     auto *LI = dyn_cast<LoadInst>(ReductionVar);
     assert(LI && "Expected a load from byref variable");
@@ -4973,12 +5122,8 @@ ReductionCriticalSectionKind VPOParoptTransform::genReductionFini(
   Value *NewV = RedI->getNew();
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
-  if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV) {
-    OldV = (OldV->getType()->isOpaquePointerTy())
-               ? Builder.CreateLoad(getDefaultPointerType(), OldV)
-               : Builder.CreateLoad(
-                     OldV->getType()->getNonOpaquePointerElementType(), OldV);
-  }
+  if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
+    OldV = Builder.CreateLoad(getDefaultPointerType(), OldV);
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector())
@@ -5159,7 +5304,7 @@ ReductionCriticalSectionKind VPOParoptTransform::genRedAggregateInitOrFini(
     BodyBB->setName((IsInit ? "red.init.body" : "red.update.body") + BBNameSuffix);
 
     if (AtomicFreeRedGlobalSerialUpdateInfos.count(W) &&
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         !RedI->getIsF90DopeVector() &&
 #endif // INTEL_CUSTOMIZATION
         !IsInit) {
@@ -5291,7 +5436,7 @@ ReductionCriticalSectionKind VPOParoptTransform::genRedAggregateInitOrFini(
     // Can't split a block with a terminator only, need some dummy instruction
     auto *FakeBr = Builder.CreateBr(DoneBB);
     auto *ThruBB = SplitBlock(BodyBB, FakeBr, DT, LI);
-    DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager); 
+    DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
     SplitBlockAndInsertIfThen(MTT, Combiner->getCopyoutInstr(), false, nullptr,
                               &DTU, LI, ThruBB);
     Builder.SetInsertPoint(FakeBr);
@@ -5890,11 +6035,7 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
       IRBuilder<> Builder(InsertPt);
       // For by-refs, do a pointer dereference to reach the actual operand.
       if (RedI->getIsByRef())
-        OldV =
-            (OldV->getType()->isOpaquePointerTy())
-                ? Builder.CreateLoad(getDefaultPointerType(), OldV)
-                : Builder.CreateLoad(
-                      OldV->getType()->getNonOpaquePointerElementType(), OldV);
+        OldV = Builder.CreateLoad(getDefaultPointerType(), OldV);
     }
   }
 
@@ -5915,9 +6056,6 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   }
 
   if (IsUDR) {
-    OldV = VPOParoptUtils::genZeroOffsetArrsecReductionItemCastIfNeeded(
-        RedI, W, OldV, DT);
-
     genReductionUdrInit(RedI, OldV, NewV, AllocaTy, Builder);
     return;
   }
@@ -5948,27 +6086,89 @@ BasicBlock *VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
   // update code at the exit block of the loop.
   if (HonorZTT && W->getIsOmpLoop())
     if (BasicBlock *ZttBlock = W->getWRNLoopInfo().getZTTBB()) {
-      // FIXME: some prior transformations (e.g. reduction-via-critical
-      //        for SPIR-V target) may introduce non-linear code outside
-      //        the ZTT and before the exit block, so the loop below
-      //        may not find the right block always.
-      while (std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
-        ExitBlock = *pred_begin(ExitBlock);
-      assert(std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
-             "Expect two predecessors for the omp loop region exit.");
-      auto PI = pred_begin(ExitBlock);
-      auto Pred1 = *PI++;
-      auto Pred2 = *PI++;
+      // The goal is to identify a target block, which has the ZTT block
+      // and loop exit as its predecessors.
 
-      BasicBlock *LoopExitBB = nullptr;
-      if (Pred1 == ZttBlock && Pred2 != ZttBlock)
-        LoopExitBB = Pred2;
-      else if (Pred2 == ZttBlock && Pred1 != ZttBlock)
-        LoopExitBB = Pred1;
-      else
-        llvm_unreachable("createEmptyPrivFiniBB: unsupported exit block");
+      // Certain previous transformations (e.g., the reduction-via-critical for
+      // SPIR-V targets) may generate non-linear code outside of the ZTT and
+      // prior to the exit block. This can result in a backward search from the
+      // exit block not always identifying the correct block. To address this, a
+      // top-down approach is implemented that inspects the successors of ZTT
+      // block.
 
-      return SplitBlock(LoopExitBB, LoopExitBB->getTerminator(), DT, LI);
+      // There are three cases:
+      //
+      //   (1)    |
+      //       ZTT block -------+
+      //          |             |
+      //         ...            |
+      //          |             |
+      //   loop region exit     |
+      //          |             |
+      //    target block <------+
+      //          |
+      //         ...
+      //          |
+      //   WRegion exit
+      //          |
+      //
+      // In case 1, both top-down and bottom-up can find the target block.
+
+      //   (2)    |
+      //       ZTT block -------+
+      //          |             |
+      //         ...            |
+      //          |             |
+      //   loop region exit     |
+      //          |             |
+      //    target block <------+
+      //          |
+      //         ...
+      //
+      //   WRegion exit
+      //          |
+      //
+      // In case 2, there is no path between WRegion exit and target block.
+      // Only top-down approach can find the target block.
+
+      //   (3)    |
+      //       ZTT block
+      //          |
+      //         ...
+      //          |
+      //   loop region exit
+      //          |
+      //         ...
+      //
+      //   WRegion exit
+      //          |
+      //
+      // In case 3, the top-down approach recognizes that the target block
+      // doesn't exist due to the ZTT block not having exactly two successors.
+      // The empty privatization block will be insert to WRegion exit.
+
+      for (succ_iterator SI = succ_begin(ZttBlock), SE = succ_end(ZttBlock);
+           SI != SE; SI++) {
+        BasicBlock *BB = *SI;
+        pred_iterator PI = pred_begin(BB), PE = pred_end(BB);
+        if (std::distance(PI, PE) == 2) {
+          auto Pred1 = *PI++;
+          auto Pred2 = *PI++;
+
+          BasicBlock *LoopExitBB = nullptr;
+          if (Pred1 == ZttBlock && Pred2 != ZttBlock)
+            LoopExitBB = Pred2;
+          else if (Pred2 == ZttBlock && Pred1 != ZttBlock)
+            LoopExitBB = Pred1;
+          else
+            llvm_unreachable("createEmptyPrivFiniBB: unsupported exit block");
+
+          return SplitBlock(LoopExitBB, LoopExitBB->getTerminator(), DT, LI);
+        }
+      }
+      // It's possible that even with the existence of a ZTT block, there
+      // might not be a corresponding target block. In such scenarios, the
+      // insertion point will default to the WRegion's exit block.
     }
 
   BasicBlock *PrivExitBB =
@@ -5994,6 +6194,10 @@ bool VPOParoptTransform::isArrayReduction(ReductionItem *I) {
     return true;
 
   return false;
+}
+
+bool VPOParoptTransform::isNonPodReduction(ReductionItem *I) {
+  return I->getConstructor() != nullptr || I->getDestructor() != nullptr;
 }
 
 // Determine if we want to generate fast reduction code and which method will
@@ -6136,7 +6340,7 @@ RDECL VPOParoptTransform::genFastRedCallback(WRegionNode *W,
   LLVMContext &C = F->getContext();
   Module *M = F->getParent();
 
-  Type *FastRedParams[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C)};
+  Type *FastRedParams[] = {PointerType::getUnqual(C), PointerType::getUnqual(C)};
   FunctionType *FastRedFnTy =
       FunctionType::get(Type::getVoidTy(C), FastRedParams, false);
   // Create callback function for tree reduce
@@ -6531,11 +6735,7 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
-    Dst = (Dst->getType()->isOpaquePointerTy())
-              ? Dst = Builder.CreateLoad(getDefaultPointerType(), Dst)
-              : Dst = Builder.CreateLoad(
-                    Dst->getType()->getNonOpaquePointerElementType(), Dst);
-
+    Dst = Builder.CreateLoad(getDefaultPointerType(), Dst);
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector()) {
     // Allocate space for the pointee array, and initialize the dope vector in
@@ -6557,6 +6757,12 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
       (AllocaTy->isArrayTy() || NumElements)) {
     genFastRedAggregateCopy(RedI, Src, Dst, InsertPt, DT,
                             NoNeedToOffsetOrDerefOldV);
+    return;
+  }
+
+  if (isNonPodReduction(RedI)) {
+    ConstantInt *ValueOne = Builder.getInt32(1);
+    genCopyByAddr(RedI, Dst, Src, InsertPt, nullptr, false, ValueOne);
     return;
   }
 
@@ -6684,12 +6890,12 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
   ReductionClause &RedClause = W->getRed();
 
-  for (ReductionItem *RedI : RedClause.items()) {
-    if (RedI->getIsTask()) {
-      std::string ErrorMsg = "Task reduction-modifier on a reduction clause is "
-                             "currently not supported\n";
-      F->getContext().diagnose(DiagnosticInfoUnsupported(*F, ErrorMsg));
-    }
+  bool GenTaskReductionCalls = llvm::any_of(
+      RedClause.items(), [](ReductionItem *RedI) { return RedI->getIsTask(); });
+
+  if (GenTaskReductionCalls) {
+    Instruction *InsertPt = EntryBB->getTerminator();
+    genTaskRedModifierInit(W, InsertPt);
   }
 
   if (!RedClause.empty()) {
@@ -6928,6 +7134,10 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
              "genReductionCode: Unexpected reduction variable");
 */
 
+      // For simd inscan reductions, vectorizer will handle privatizations
+      if (isa<WRNVecLoopNode>(W) && RedI->getIsInscan())
+        continue;
+
       // For SPIRV target, if an alloca is created with non-constant size, the
       // insertion point returned from getInsertionPtForAllocas() may appear
       // above the size's defintion point. getInsertPtForAllocas cannot handle
@@ -6948,7 +7158,9 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
       bool UseRecForScalar = ((FastReductionCtrl & 0x1) == 0);
       bool UseRecForArray = ((FastReductionCtrl & 0x2) == 0);
-      bool UseRec = ((!isArrayReduction(RedI) && UseRecForScalar) ||
+      bool UseRecForNonPod = ((FastReductionCtrl & 0x4) == 0);
+      bool UseRec = ((isNonPodReduction(RedI) && UseRecForNonPod) ||
+                     (!isArrayReduction(RedI) && UseRecForScalar) ||
                      (isArrayReduction(RedI) && UseRecForArray));
       Value *GlobalBufToReplaceWith = nullptr;
       if (FastReductionEnabled && UseRec) {
@@ -7023,15 +7235,18 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
           !RedI->getIsArraySection())
         RedI->setNew(GlobalBufToReplaceWith);
 
-      if ((FastReductionEnabled) && !UseRec) {
+      BasicBlock *PrevBB = nullptr;
+      if ((FastReductionEnabled && !UseRec) || GenTaskReductionCalls) {
+        PrevBB = RedUpdateEntryBB->getSinglePredecessor();
+        SplitBlock(PrevBB, cast<Instruction>(PrevBB->begin()), DT, LI);
+      }
+
+      if (FastReductionEnabled && !UseRec) {
         BasicBlock *RecInitEntryBB = createEmptyPrivInitBB(W);
         // Generate private variable (RecInst) used by fast reduction callback
         Value *RecInst = genFastRedPrivateVariable(
             RedI, ItemIndex++, FastRedStructTy, FastRedInst,
             RecInitEntryBB->getTerminator());
-        BasicBlock *PrevBB = RedUpdateEntryBB->getSinglePredecessor();
-        SplitBlock(PrevBB, cast<Instruction>(PrevBB->begin()), DT, LI);
-
         // And copy private reduction variable (NewRedInst) to private variable
         // (RecInst)
         RedI->setNew(RecInst);
@@ -7039,6 +7254,12 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
             getClauseItemReplacementValue(RedI, PrevBB->getTerminator());
         genFastRedCopy(RedI, ReplacementVal, NewRedInst,
                        PrevBB->getTerminator(), DT);
+      }
+
+      if (GenTaskReductionCalls) {
+        VPOParoptUtils::genKmpcTaskRedModifierFini(W, IdentTy, TidPtrHolder,
+                                                   &PrevBB->front());
+        GenTaskReductionCalls = false;
       }
 
       BasicBlock *BeginBB = nullptr; // (1)
@@ -7346,13 +7567,8 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
 #if INTEL_CUSTOMIZATION
     // For dope vectors we need to add base pointer users to the work list.
     if (NtmpItem->getIsF90DopeVector()) {
-      assert((Val->getType()->isOpaquePointerTy() ||
-              cast<PointerType>(Val->getType())
-                  ->getNonOpaquePointerElementType()
-                  ->isStructTy()) &&
-             "pointer to struct is expected");
-      for (auto *U : Val->users())
-        if (auto *GEP = dyn_cast<GEPOperator>(U))
+      for (auto *U : Val->users()) {
+        if (auto *GEP = dyn_cast<GEPOperator>(U)) {
           if (GEP->hasAllZeroIndices())
             for (auto *U : GEP->users())
               if (auto *Load = dyn_cast<LoadInst>(U)) {
@@ -7360,6 +7576,11 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
                        "dope vector base should have pointer type");
                 growWorkList(Load);
               }
+        } else if (auto *Load = dyn_cast<LoadInst>(U)) {
+          if (Load->getType()->isPointerTy())
+            growWorkList(Load);
+        }
+      }
     } else
 #endif // INTEL_CUSTOMIZATION
     if (NtmpItem->getIsPointerToPointer()) {
@@ -7375,8 +7596,9 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
 
       // Check if the nontemporal address is passed as a pointer argument to a
       // store or load instruction.
-      if ((isa<StoreInst>(Usr) && U->getOperandNo() == 1) ||
-          isa<LoadInst>(Usr)) {
+      if ((!NontemporalLoadsOnly && isa<StoreInst>(Usr) &&
+           U->getOperandNo() == 1) ||
+          (!NontemporalStoresOnly && isa<LoadInst>(Usr))) {
         // Attach !nontemporal metadata to the instruction.
         Instruction *Mrf = cast<Instruction>(Usr);
         if (!NtmpMD) {
@@ -7423,11 +7645,7 @@ Value *VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
   IRBuilder<> Builder(InsertBefore);
 
   if (ArraySectionBaseIsPointer) {
-    Type *BeginAddrTy = BeginAddr->getType();
-    Type *BeginAddrPointeeTy =
-        BeginAddrTy->isOpaquePointerTy()
-            ? getDefaultPointerType()
-            : BeginAddrTy->getNonOpaquePointerElementType();
+    Type *BeginAddrPointeeTy = getDefaultPointerType();
     BeginAddr = Builder.CreateLoad(BeginAddrPointeeTy, BeginAddr,
                                    BeginAddr->getName() + ".load"); //    (1)
   }
@@ -7601,124 +7819,7 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
   if (ArraySectionDims.empty())
     return;
 
-  assert(!Orig->getType()->isOpaquePointerTy() &&
-         "Opaque pointer operands should have typed clauses.");
-
-  if (isa<WRNVecLoopNode>(W) &&
-      ArrSecInfo.isArraySectionWithVariableLengthOrOffset()) {
-    assert(W->getVlaAllocaInsertPt() &&
-           "SIMD constructs with variable size array section should have Vla "
-           "Alloca Insertion point set.");
-    InsertPt = W->getVlaAllocaInsertPt();
-  }
-  IRBuilder<> Builder(InsertPt);
-
-  Type *CITy = Orig->getType();
-  Type *ElemTy = CITy->getNonOpaquePointerElementType();
-
-  if (IsByRef)
-    // Strip away one pointer for by-refs.
-    ElemTy = ElemTy->getNonOpaquePointerElementType();
-
-  bool BaseIsPointer = false;
-  if (isa<PointerType>(ElemTy)) {
-    // It is possible to have an array section on a pointer. Examples:
-    //
-    // int *yptr, (*yarrptr)[10];
-    // reduction(+:yptr[1:4], yarrptr[1][2:5])
-    //
-    // In these cases, the IR will have the type of the operands as `**`:
-    //
-    // "...REDUCTION.ADD:ARRSECT"(i32** @yptr, 1, 1, 4, 1)
-    // "...REDUCTION.ADD:ARRSECT"([10 x i32]** @yarrptr, 2, 1, 1, 1, 2, 5, 1)
-    //
-    // In these cases, the we need to get the pointee type one extra time to
-    // reach the base element type (i32 for yptr) or the array type ([10 x i32]
-    // for yarrptr).
-    BaseIsPointer = true;
-    ElemTy = ElemTy->getNonOpaquePointerElementType();
-  }
-
-  // At this point, ElemTy is the base element type for 1D array sections. For
-  // sections with 2 or more dimensions, it should have the underlying array
-  // type. If so, we need to extract the size of each dimension of that array.
-  // We do that next. At the end of the following loop, ArrayDims should have
-  // the size of each dimension of the underlying array from higher to lower.
-  // For example, it should contain {3, 4, 5} for `[3 x [4 x [5 x i32]]]`. We
-  // will use this to compute the offset in terms of an equivalent 1D array.
-  Type *CurElementTy = ElemTy;
-  SmallVector<uint64_t, 4> ArrayDims;
-  while (auto *ArrayTy = dyn_cast<ArrayType>(CurElementTy)) {
-    ArrayDims.push_back(ArrayTy->getNumElements());
-    CurElementTy = ArrayTy->getElementType();
-  }
-
-  // This is the number to be multiplied to a dimension's lower bound during
-  // offset computation.
-  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
-  const unsigned PtrSz = DL.getPointerSizeInBits();
-
-  uint64_t ArraySizeTillDim = 1;
-  Value *ArrSecSize = Builder.getIntN(PtrSz, 1);
-  Value *ArrSecOff = Builder.getIntN(PtrSz, 0);
-  const int NumDims = ArraySectionDims.size();
-
-  // We go through the array section dims in the reverse order to go from lower
-  // to higher dimensions. For example, in case of:
-  //
-  //   int (*zarrptr)[3][4][5];
-  //   #pragma omp for reduction (+:zarrptr[3][1][2:2][1:3]).
-  //
-  // Array section size is a simple multiplication of the size of each
-  // dimension, ie. 3*2*1*1 = 6. The offset and element type are computed in the
-  // loop below. At the beginning of each iteration, the values will look like
-  // this (note that `BaseIsPointer` is true for this case):
-  //
-  //  I | LB | ArraySizeTillDim | ArrSecOff | ArrayDims | ElemTy
-  // ---+----+------------------+-----------+-----------+-----------------------
-  //  3 | 1  | 1                | 0         | {3,4,5}   | [3 x [4 x [5 x i32 ]]]
-  //  2 | 2  | 5                | 1         | {3,4}     | [4 x [5 x i32 ]]
-  //  1 | 1  | 20               | 11        | {3}       | [5 x i32 ]
-  //  0 | 3  | 60               | 31        | {}        | i32
-  // --------+------------------+-----------+-----------+-----------------------
-  // final   | 60               | 221       | {}        | i32
-  //
-  for (int I = NumDims - 1; I >= 0; --I) {
-    auto const &Dim = ArraySectionDims[I];
-
-    Value *DimLB = std::get<0>(Dim);
-    Value *SectionDimSize = std::get<1>(Dim);
-
-    ConstantInt *ArraySizeTillDimVal = Builder.getIntN(PtrSz, ArraySizeTillDim);
-
-    Value *SizeXLB = Builder.CreateMul(ArraySizeTillDimVal, DimLB);
-    ArrSecOff = Builder.CreateAdd(SizeXLB, ArrSecOff, "offset");
-
-    ArrSecSize = Builder.CreateMul(ArrSecSize, SectionDimSize, "size");
-
-    if (I == 0 && BaseIsPointer)
-      continue; // If `BaseIsPointer`, getElmentType() has already been called
-                // once, so we skip it in the last iteration.
-
-    assert(!ArrayDims.empty() &&
-           "Unexpected: Is the array section non-contiguous?");
-
-    ArraySizeTillDim *= ArrayDims.pop_back_val();
-    ElemTy = cast<ArrayType>(ElemTy)->getElementType();
-  }
-
-  // TODO: This assert needs to be updated when UDR support is added.
-  assert(!isa<PointerType>(ElemTy) && !isa<ArrayType>(ElemTy) &&
-         "Unexpected array section element type.");
-
-  ArrSecInfo.setSize(ArrSecSize);
-  ArrSecInfo.setOffset(ArrSecOff);
-  ArrSecInfo.setElementType(ElemTy);
-  ArrSecInfo.setBaseIsPointer(BaseIsPointer);
-
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Operand '";
-             Orig->printAsOperand(dbgs()); dbgs() << "':: ";
-             ArrSecInfo.print(dbgs(), false); dbgs() << "\n");
+  llvm_unreachable("Expected typed clauses for opaque pointer array sections.");
 }
 
 Value *
@@ -7806,9 +7907,7 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
     //        we will probably have to deal with it sometime.
     Type *OrigArrayType = Orig->getType();
     if (RedI.getIsByRef())
-      OrigArrayType = OrigArrayType->isOpaquePointerTy()
-                          ? getDefaultPointerType()
-                          : OrigArrayType->getNonOpaquePointerElementType();
+      OrigArrayType = getDefaultPointerType();
     return Builder.CreateBitCast(NewMinusOffset, OrigArrayType,
                                  NewMinusOffset->getName());
   }
@@ -7921,9 +8020,8 @@ static DIScope *FindDebugScopeForRegion(WRegionNode *W) {
 
 // Generate debug information describing the mapping from PrivValue to the
 // privatized NewPrivValue.
-static void genPrivatizationDebug(WRegionNode *W,
-                                  Value *PrivValue,
-                                  Value *NewPrivValue) {
+void VPOParoptTransform::genPrivatizationDebug(WRegionNode *W, Value *PrivValue,
+                                               Value *NewPrivValue) {
   Module *M = W->getEntryBBlock()->getModule();
   const bool AllowUnresolved = false;
   DICompileUnit *CU = nullptr;
@@ -7992,8 +8090,11 @@ static void genPrivatizationDebug(WRegionNode *W,
       // should not be observable by debugger.
       if (auto *GepBaseGV = dyn_cast_or_null<GlobalVariable>(
               NewPrivValue->stripInBoundsOffsets()))
-        if (GepBaseGV->hasAttribute(
-                VPOParoptAtomicFreeReduction::GlobalBufferAttr))
+        if (std::find_if(
+                AtomicFreeRedGlobalBufs.begin(), AtomicFreeRedGlobalBufs.end(),
+                [&GepBaseGV](std::pair<ReductionItem *, GlobalVariable *> &P) {
+                  return P.second == GepBaseGV;
+                }) != AtomicFreeRedGlobalBufs.end())
           GV = GepBaseGV;
     }
 
@@ -8503,13 +8604,9 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
     Value *Add = nullptr;
     if (isa<PointerType>(LinearTy)) {
       Type *PointeeType = nullptr;
-      if (LinearI->getIsTyped() && LinearI->getIsPointerToPointer()) {
-        PointeeType = LinearI->getPointeeElementTypeFromIR();
-      } else {
-        assert(!LinearTy->isOpaquePointerTy() &&
-               "Need TYPED PTR_TO_PTR IR for opaque pointer type.");
-        PointeeType = LinearTy->getNonOpaquePointerElementType();
-      }
+      assert((LinearI->getIsTyped() && LinearI->getIsPointerToPointer()) &&
+             "Need TYPED PTR_TO_PTR IR for opaqueptr linter items.");
+      PointeeType = LinearI->getPointeeElementTypeFromIR();
       Add = InitBuilder.CreateInBoundsGEP(PointeeType, LinearStart, Mul);
     } else {
       Type *MulTy = Mul->getType();
@@ -8964,7 +9061,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(
               ValueTySize.isScalable())
             return std::make_tuple(nullptr, nullptr);
 
-          uint64_t ValueSize = ValueTySize.getFixedSize();
+          uint64_t ValueSize = ValueTySize.getFixedValue();
           // ValueTySize.getFixedSize() returns 0 for array-types like [1 x i8],
           // so the non-zero check on ValueSize below causes null to be returned
           // for them for non-typed clauses.
@@ -9315,9 +9412,13 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
 
   // Destructors for reduction
   if (W->canHaveReduction())
-    for (ReductionItem *RI : W->getRed().items())
+    for (ReductionItem *RI : W->getRed().items()) {
+      // SIMD inscan reductions are not handled by Paropt
+      if (isa<WRNVecLoopNode>(W) && RI->getIsInscan())
+        continue;
       genPrivatizationInitOrFini(RI, RI->getDestructor(), FK_Dtor, RI->getNew(),
                                  nullptr, InsertBeforePt, DT);
+    }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDestructorCode\n");
   W->resetBBSet(); // CFG changed; clear BBSet
@@ -9621,7 +9722,7 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
 //
 #if INTEL_CUSTOMIZATION
 // Also attach loop-level llvm.loop.vectorize.ivdep_loop metadata here.
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 bool VPOParoptTransform::genParallelAccessMetadata(WRegionNode *W) {
   if (!W->getIsOmpLoop() || W->getIsSections() || isa<WRNDistributeNode>(W))
     return false;
@@ -9662,7 +9763,7 @@ bool VPOParoptTransform::genParallelAccessMetadata(WRegionNode *W) {
     addStringMetadataToLoop(L, "llvm.loop.vectorize.ivdep_loop");
     Modified = true;
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   // Add access group metadata to all memory r/w instructions in the loop.
   MDNode *AG = nullptr;
@@ -9808,8 +9909,8 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   Value *NormUB = nullptr;
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   if (Index < W->getWRNLoopInfo().getNormUBSize()) {
 #if INTEL_CUSTOMIZATION
@@ -9818,8 +9919,8 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
       NormUB = W->getWRNLoopInfo().getNormUB(Index);
       LoopEssentialValues.push_back(std::make_pair(NormUB, true));
     } else {
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     // Create a local copy of the normalized upper bound.
     //
     // Promoting the normalized upper bound to a register may cause
@@ -9907,8 +10008,8 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   }
 
   for (auto &P : LoopEssentialValues) {
@@ -9933,8 +10034,8 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
       // For CSA UB does not need to be allocated as omp loops are not outlined.
       if (V == NormUB && (!AI || !isAllocaPromotable(AI)))
         continue;
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
       assert(AI && "Trying mem-to-reg for not an AllocaInst.");
       Allocas.push_back(AI);
     }
@@ -9955,7 +10056,10 @@ bool VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   }
   const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
   const SimplifyQuery SQ = {DL, TLI, DT, AC};
-  LoopRotation(L, LI, TTI, AC, DT, SE, nullptr, SQ, true, unsigned(-1), true);
+  if (!L->isRotatedForm()) {
+    LLVM_DEBUG(dbgs() << "Loop is not rotated, calling LoopRotation\n");
+    LoopRotation(L, LI, TTI, AC, DT, SE, nullptr, SQ, true, unsigned(-1), true);
+  }
   // Critical edges splitting for loop nests done during loop rotation
   // may produce PHI nodes that we'd better optimize right away,
   // otherwise they will prevent IV recognition in
@@ -10017,6 +10121,16 @@ bool VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   // for a Loop.
   W->getWRNLoopInfo().setZTTBB(ZTTBB, Index);
   return true;
+}
+
+// Insert kmpc_barrier for loops that are optimized away.
+bool VPOParoptTransform::genBarrierForEmptyLoop(WRegionNode *W,
+                                                bool IsTargetSPIRV) {
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  Instruction *InsertPt = EntryBB->getFirstNonPHI();
+  return VPOParoptUtils::genKmpcBarrier(W, TidPtrHolder, InsertPt, IdentTy,
+                                        /*IsExplicit*/ false,
+                                        IsTargetSPIRV) != nullptr;
 }
 
 // Check if loop is optimized away and print remark.
@@ -10218,7 +10332,7 @@ VPOParoptTransform::getPrivatizationAllocaAddrSpace(const WRegionNode *W,
     // at module level/using maps.
     return vpo::ADDRESS_SPACE_PRIVATE;
 
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   // FIXME: it's workaround for NONPOD array, and the address space is set to
   // private. It will be removed after global VLA is supported for SPIR-V
   // target. And genArrayLength should be updated to support global VLA too.
@@ -10593,15 +10707,12 @@ bool VPOParoptTransform::insertStackSaveRestore(WRegionNode *W) {
 
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
-  Module *M = EntryBB->getModule();
 
   IRBuilder<> Builder(EntryBB->getFirstNonPHI());
-  auto *StackSave =
-      Builder.CreateCall(Intrinsic::getDeclaration(M, Intrinsic::stacksave));
+  auto *StackSave = Builder.CreateStackSave();
 
   Builder.SetInsertPoint(ExitBB->getTerminator());
-  Builder.CreateCall(Intrinsic::getDeclaration(M, Intrinsic::stackrestore),
-                     StackSave);
+  Builder.CreateStackRestore(StackSave);
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Inserted stacksave'" << *StackSave
                     << "'.\n");
   return true;
@@ -11974,7 +12085,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   // Finally, nuke the original extracted function.
   NewF->eraseFromParent();
 
-  // If Proc_Bind clause is set to Master, Close or Spread, Generate
+  // If Proc_Bind clause is set to Primary, Close or Spread, Generate
   // __kmpc_push_proc_bind(LOC, TID, i32 policy) and insert it before
   // __kmpc_fork_call.
   if (W->getIsPar()) {
@@ -13266,7 +13377,7 @@ bool VPOParoptTransform::clearCancellationPointAllocasFromIR(WRegionNode *W) {
     // Remove the cancellation point alloca from the `region.entry` directive.
     //    region.entry(..., null, ...)                                  ; (2)
     RegionEntry->replaceUsesOfWith(
-        CPAlloca, ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+        CPAlloca, ConstantPointerNull::get(PointerType::getUnqual(C)));
 
     // Next, we delete (1), (3), and any other users of CPAlloca. Now, CPStore
     // may have been removed by some dead-code elimination optimization. e.g.
@@ -13767,7 +13878,8 @@ void VPOParoptTransform::resetValueInOmpClauseGeneric(WRegionNode *W,
     Instruction *UI = IfUses.pop_back_val();
     if (VPOAnalysisUtils::isOpenMPDirective(UI)) {
       LLVMContext &C = F->getContext();
-      UI->replaceUsesOfWith(V, ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+      UI->replaceUsesOfWith(
+          V, ConstantPointerNull::get(PointerType::getUnqual(C)));
       break;
     }
   }
@@ -14114,7 +14226,7 @@ void VPOParoptTransform::improveAliasForOutlinedFunc(WRegionNode *W) {
   VPOUtils::genAliasSet(ArrayRef(W->bbset_begin(), W->bbset_end()), AA,
                         &(F->getParent()->getDataLayout()));
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 template <typename Range>
 static bool removeFirstFence(Range &&R, AtomicOrdering AO) {
@@ -14255,7 +14367,7 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W,
       if (ClauseInfo.getIsTyped() ||
 #if INTEL_CUSTOMIZATION
           ClauseInfo.getIsF90NonPod() ||
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
           ClauseInfo.getIsNonPod()) {
         // For TYPED and NONPOD cases, only the first argument is the var.
         // Don't include the other clause args in the LIVEIN.
@@ -14654,7 +14766,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     CollapsedCompletely =
         static_cast<int>(Nest.getNestDepth()) == W->getCollapse();
     SetNDRange = isDefaultNDRangeLoopTripcountNeeded(W, CollapsedCompletely);
-    HoistCombinedUBBeforeTarget = SetNDRange;
+    HoistCombinedUBBeforeTarget = HoistCombinedUBBeforeTarget && SetNDRange;
   }
 
   if (SkipCollapsing) {
@@ -14703,50 +14815,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     LLVM_DEBUG(dbgs() << "\n" << __FUNCTION__ << ": processing loop #" <<
                Idx << "\n");
 
-    auto *L = W->getWRNLoopInfo().getLoop(Idx);
-    auto *Header = L->getHeader();
-    assert(Header && Header->hasNPredecessors(2) && "Invalid loop header.");
-
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": header block: " <<
-               Header->getName() << "\n");
-
-    BasicBlock *AssignmentBB = nullptr;
-    for (auto *BB : predecessors(Header)) {
-      if (!L->contains(BB)) {
-        assert(!AssignmentBB &&
-               "Neither predecessor of the header belongs to the Loop.");
-        AssignmentBB = BB;
-      }
-    }
-
-    assert(AssignmentBB &&
-           "Both predecessors of the header belong to the Loop.");
-
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": IV assignment block: " <<
-               AssignmentBB->getName() << "\n");
-
-    // Look for an instruction storing into IV.
-    Value *IVPtrDef = W->getWRNLoopInfo().getNormIV(Idx);
-    StoreInst *StoreToIV = nullptr;
-    for (auto I = AssignmentBB->rbegin(), IE = AssignmentBB->rend();
-         I != IE; ++I)
-      if (auto *SI = dyn_cast<StoreInst>(&*I))
-        if (SI->getPointerOperand() == IVPtrDef) {
-          StoreToIV = SI;
-          break;
-        }
-
-    assert(StoreToIV && "Cannot find store to IV.");
-
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": IV assignment store: " <<
-               *StoreToIV << "\n");
-
-    // The store's operand must be a load from LB.
-    LoadInst *LoadFromLB = dyn_cast<LoadInst>(StoreToIV->getOperand(0));
-    assert(LoadFromLB && "Value stored into IV is not a load.");
-
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": IV assignment value: " <<
-               *LoadFromLB << "\n");
+    LoadInst *LoadFromLB = VPOParoptUtils::getLoadFromLB(W, Idx);
 
     LBPtrDefs.push_back(std::make_pair<Value *, Type *>(
         LoadFromLB->getPointerOperand(), LoadFromLB->getType()));
@@ -15266,7 +15335,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     // markup for target and teams.
     bool MarkLBUBWILocal = isTargetSPIRV() &&
         (isa<WRNTeamsNode>(P) || isa<WRNTargetNode>(P));
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     std::string FPString;
     if (P->canHaveFirstprivate())
       FPString = VPOAnalysisUtils::getTypedClauseString(QUAL_OMP_FIRSTPRIVATE);
@@ -15288,7 +15357,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
         // Target and teams do support [FIRST]PRIVATE.
         if (MarkLBUBWILocal)
           ClauseString += ".WILOCAL";
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
         EntryCI = VPOUtils::addOperandBundlesInCall(
             EntryCI,
             {{ClauseString, {NewLBPtrDef, CombinedUBTypeV, NumElemsOne}},
@@ -15298,7 +15367,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
 #if INTEL_CUSTOMIZATION
       if (MarkLBUBWILocal)
         FPString += ".WILOCAL";
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
       EntryCI = VPOUtils::addOperandBundlesInCall(
           EntryCI, {{FPString, {NewLBPtrDef, CombinedUBTypeV, NumElemsOne}},
                     {FPString, {NewUBPtrDef, CombinedUBTypeV, NumElemsOne}}});
@@ -15488,7 +15557,7 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   // will result in too long serial sequence of updates.
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-10535, CMPLRLLVM-10704, CMPLRLLVM-11080.
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   if (W->canHaveReduction() && !W->getRed().items().empty())
     return true;
 

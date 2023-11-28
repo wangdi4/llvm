@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -33,9 +33,9 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
-#include "llvm/IR/IRBuilder.h"           // INTEL
+#include "llvm/IR/IRBuilder.h" // INTEL
 #include "llvm/Support/CheckedArithmetic.h"
-#include <optional>
+#include <optional> // INTEL
 
 namespace llvm {
 class TargetLibraryInfo;
@@ -328,8 +328,8 @@ struct VFShape {
 
     return {EC, Parameters};
   }
-  /// Validation check on the Parameters in the VFShape,
 #if INTEL_CUSTOMIZATION
+  /// Validation check on the Parameters in the VFShape,
   /// with an added parameter that controls whether to accept variable-strided
   /// params which point to themselves. This is necessary to allow certain
   /// vector variants that we generate during call vec decisions.
@@ -437,6 +437,25 @@ public:
       break;
     }
     return false;
+  }
+
+  // Return CPU name which is baseline for a vector variant ABI.
+  StringRef getBaseCPU() const {
+    switch (ISA) {
+    case VFISAKind::SSE:
+      return "x86-64";
+    case VFISAKind::AVX:
+      return "corei7-avx";
+    case VFISAKind::AVX2:
+      return "core-avx2";
+    case VFISAKind::AVX512:
+      return "skylake-avx512";
+    case VFISAKind::SVE:
+    case VFISAKind::AdvancedSIMD:
+    case VFISAKind::LLVM:
+    case VFISAKind::Unknown:
+      return StringRef();
+    }
   }
 
 private:
@@ -612,27 +631,6 @@ bool hasPackedMask(const VFInfo &V);
 Type *getPackedMaskArgumentTy(LLVMContext &C, unsigned MaskSize);
 
 #endif // INTEL_CUSTOMIZATION
-
-/// This routine mangles the given VectorName according to the LangRef
-/// specification for vector-function-abi-variant attribute and is specific to
-/// the TLI mappings. It is the responsibility of the caller to make sure that
-/// this is only used if all parameters in the vector function are vector type.
-/// This returned string holds scalar-to-vector mapping:
-///    _ZGV<isa><mask><vlen><vparams>_<scalarname>(<vectorname>)
-///
-/// where:
-///
-/// <isa> = "_LLVM_"
-/// <mask> = "M" if masked, "N" if no mask.
-/// <vlen> = Number of concurrent lanes, stored in the `VectorizationFactor`
-///          field of the `VecDesc` struct. If the number of lanes is scalable
-///          then 'x' is printed instead.
-/// <vparams> = "v", as many as are the numArgs.
-/// <scalarname> = the name of the scalar function.
-/// <vectorname> = the name of the vector function.
-std::string mangleTLIVectorName(StringRef VectorName, StringRef ScalarName,
-                                unsigned numArgs, ElementCount VF,
-                                bool Masked = false);
 
 /// Retrieve the `VFParamKind` from a string token.
 VFParamKind getVFParamKindFromString(const StringRef Token);
@@ -1023,7 +1021,7 @@ void buildVectorVariantLogicalSignature(
 
   if (Variant.isMasked()) {
     assert(MaskEltType && "Mask type not provided for masked variant");
-    Type *MaskType = getWidenedType(MaskEltType, VF);
+    Type *MaskType = getWidenedType(MaskEltType, VF, true /*Promote i1*/);
     LogicalArgTypes.push_back(MaskType);
   }
 
@@ -1065,10 +1063,12 @@ Value *getOrInsertVectorVariantFunction(FunctionType *&FTy, Function &OrigF,
 /// This function will insert functions for library calls, intrinsics.
 /// The call site instruction is not strictly required here. It is
 /// used only for OpenCL read/write channel functions.
-Function *getOrInsertVectorLibFunction(
-  Function *OrigF, unsigned VL, ArrayRef<Type *> ArgTys,
-  TargetLibraryInfo *TLI, Intrinsic::ID ID, bool Masked,
-  const CallInst *Call = nullptr);
+Function *getOrInsertVectorLibFunction(Function *OrigF, unsigned VL,
+                                       ArrayRef<Type *> ArgTys,
+                                       TargetLibraryInfo *TLI,
+                                       const TargetTransformInfo *TTI,
+                                       Intrinsic::ID ID, bool Masked,
+                                       const CallInst *Call = nullptr);
 
 /// Update \p CI call to use calling convention from a \p Callee.
 void setCallCallingConvention(CallInst *CI, Value *Callee);
@@ -1289,6 +1289,10 @@ SmallVector<int, 64> createVectorInterleaveMask(unsigned VF, unsigned NumVecs,
 ///     <(3, 4, 5), (12, 13, 14), (21, 22, 23), (30, 31, 32)>.
 SmallVector<int, 64> createVectorStrideMask(unsigned Start, unsigned Stride,
                                             unsigned VF, unsigned VecWidth);
+
+/// Return true if given Type \p Ty is a FP type or uses FP type. Arrays and
+/// identical element-type Structs are accounted for in this utility.
+bool isOrUsesFPTy(Type *Ty);
 #endif // INTEL_CUSTOMIZATION
 
 /// Create a sequential shuffle mask.
@@ -1398,7 +1402,7 @@ public:
       return false;
 
     // Skip if there is already a member with the same index.
-    if (Members.find(Key) != Members.end())
+    if (Members.contains(Key))
       return false;
 
     if (Key > LargestKey) {

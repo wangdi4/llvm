@@ -62,8 +62,8 @@ loop4:
   %k.iv.next = getelementptr i8, ptr %k.iv, i64 -16
   %condloop = icmp eq i64 %iv.next, 0
   br i1 %condloop, label %ifmerge, label %loop4
-; CHECK: edge loop4 -> ifmerge probability is 0x015c9883 / 0x80000000 = 1.06%
-; CHECK: edge loop4 -> loop4 probability is 0x7ea3677d / 0x80000000 = 98.94% [HOT edge]
+; CHECK: edge loop4 -> ifmerge probability is 0x00af3ade / 0x80000000 = 0.53%
+; CHECK: edge loop4 -> loop4 probability is 0x7f50c522 / 0x80000000 = 99.47% [HOT edge]
 
 ifmerge:
   %result4.final = phi <4 x double> [ %result3, %loop4.preheader ], [ %result4, %loop4 ]

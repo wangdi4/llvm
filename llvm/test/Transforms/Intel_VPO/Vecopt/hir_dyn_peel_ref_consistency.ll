@@ -6,6 +6,17 @@
 ; subsequent call to try to widen the ref crashes in findMaxTempBlobLevel as
 ; the ref was not consistent.
 ;
+; HIR before vectorization:
+; BEGIN REGION { }
+;       %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+;
+;       + DO i1 = 0, 399, 1   <DO_LOOP>
+;       |   (%lp)[i1 + %n1] = i1;
+;       + END LOOP
+;
+;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
+; END REGION
+
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        [[DOTVEC0:%.*]] = ptrtoint.<4 x ptr>.<4 x i64>(&((<4 x ptr>)([[LP0:%.*]])[%n1]))
 ; CHECK-NEXT:        [[DOTVEC10:%.*]] = [[DOTVEC0]]  /u  8
@@ -49,7 +60,7 @@
 ; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:        [[LOOP_UB0:%.*]] = [[ADJ_TC160]]  -  1
 
-; CHECK:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB0]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB0]], 4   <DO_LOOP> <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 100> <auto-vectorized> <nounroll> <novectorize> <max_trip_count = 100>
 ; CHECK-NEXT:        |   (<4 x i64>*)([[LP0]])[i1 + %n1] = i1 + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:        + END LOOP
 

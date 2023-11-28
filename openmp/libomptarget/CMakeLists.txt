@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2022 Intel Corporation
+# Modifications, Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -111,6 +111,10 @@ set(OMPT_TARGET_DEFAULT FALSE)
 if ((LIBOMP_HAVE_OMPT_SUPPORT) AND (LIBOMP_OMPT_SUPPORT) AND (NOT WIN32))
   set (OMPT_TARGET_DEFAULT TRUE)
 endif()
+if(INTEL_CUSTOMIZATION)
+# We do not access LIBOMP area, so just enable OMPT support
+set(OMPT_TARGET_DEFAULT TRUE)
+endif(INTEL_CUSTOMIZATION)
 set(LIBOMPTARGET_OMPT_SUPPORT ${OMPT_TARGET_DEFAULT} CACHE BOOL "OMPT-target-support?")
 if ((OMPT_TARGET_DEFAULT) AND (LIBOMPTARGET_OMPT_SUPPORT))
   add_definitions(-DOMPT_SUPPORT=1)
@@ -130,11 +134,19 @@ if(INTEL_CUSTOMIZATION)
   else()
     message(STATUS "Not building Unified Runtime plugin")
   endif()
+  # Define pythonize_bool if undefined.
+  if(NOT COMMAND pythonize_bool)
+    macro(pythonize_bool var)
+      if (${var})
+        set(${var} True)
+      else()
+        set(${var} False)
+      endif()
+    endmacro()
+  endif()
 endif(INTEL_CUSTOMIZATION)
 
-if (NOT INTEL_CUSTOMIZATION)
 pythonize_bool(LIBOMPTARGET_OMPT_SUPPORT)
-endif(NOT INTEL_CUSTOMIZATION)
 
 # Check if this build supports the GPU libc.
 set(LIBC_GPU_SUPPORT FALSE)
@@ -142,9 +154,13 @@ if("libc" IN_LIST LLVM_ENABLE_RUNTIMES AND (LIBC_GPU_BUILD OR
                                             LIBC_GPU_ARCHITECTURES))
   set(LIBC_GPU_SUPPORT TRUE)
 endif()
+
 set(LIBOMPTARGET_GPU_LIBC_SUPPORT ${LIBC_GPU_SUPPORT} CACHE BOOL
     "Libomptarget support for the GPU libc")
+if(INTEL_CUSTOMIZATION)
+else(INTEL_CUSTOMIZATION)
 pythonize_bool(LIBOMPTARGET_GPU_LIBC_SUPPORT)
+endif(INTEL_CUSTOMIZATION) # INTEL
 
 set(LIBOMPTARGET_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 message(STATUS "OpenMP tools dir in libomptarget: ${LIBOMP_OMP_TOOLS_INCLUDE_DIR}")
@@ -286,7 +302,7 @@ add_subdirectory(deviceRTLs)
 else(INTEL_CUSTOMIZATION)
 add_subdirectory(plugins-nextgen)
 add_subdirectory(DeviceRTL)
-endif(INTEL_CUSTOMIZATION)
+endif(INTEL_CUSTOMIZATION) # INTEL
 add_subdirectory(tools)
 
 # Add tests.

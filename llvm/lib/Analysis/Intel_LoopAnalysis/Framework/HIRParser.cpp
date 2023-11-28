@@ -1,6 +1,6 @@
 //===----- HIRParser.cpp - Parses SCEVs into CanonExprs -------------------===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1563,7 +1563,10 @@ int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV,
 
 void HIRParser::parseConstOrDenom(const SCEVConstant *ConstSCEV, CanonExpr *CE,
                                   bool IsDenom) {
-  int64_t Const = getSCEVConstantValue(ConstSCEV, !IsDenom);
+  // Int1 const values should be considered unsigned to avoid incorrect
+  // sign propagation.
+  bool IsSigned = !IsDenom && !ConstSCEV->getType()->isIntegerTy(1);
+  int64_t Const = getSCEVConstantValue(ConstSCEV, IsSigned);
 
   if (IsDenom) {
     assert((CE->getDenominator() == 1) &&
@@ -1644,9 +1647,9 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
   return Symbase;
 }
 
-unsigned HIRParser::processInstBlob(const Instruction *Inst,
-                                    const Instruction *BaseInst,
-                                    unsigned Symbase) {
+unsigned HIRParser::processInstDefOrUse(const Instruction *Inst,
+                                        const Instruction *BaseInst,
+                                        unsigned Symbase) {
 
   // Inst and BaseInst are different in these cases-
   // 1) Inst is an SCC inst. In this case BaseInst is the outermost loop header
@@ -1816,7 +1819,7 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
   }
 
   if (auto Inst = dyn_cast<Instruction>(Temp)) {
-    DefLevel = processInstBlob(Inst, cast<Instruction>(BaseTemp), Symbase);
+    DefLevel = processInstDefOrUse(Inst, cast<Instruction>(BaseTemp), Symbase);
   } else {
     // Mark non-instruction blobs as livein to region and parent loops.
     CurRegion->addLiveInTemp(Symbase, Temp);
@@ -1869,7 +1872,7 @@ bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
     int64_t OpMultiplier;
     BlobTy NewOp;
 
-    if (!breakConstantMultiplierCommutativeBlob(Op, &OpMultiplier, &NewOp)) {
+    if (!breakConstantMultiplierAddOrMulBlob(Op, &OpMultiplier, &NewOp)) {
       Ops.push_back(Op);
       continue;
     }
@@ -1899,10 +1902,10 @@ bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
   return true;
 }
 
-bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
-                                                       int64_t *Multiplier,
-                                                       BlobTy *NewBlob,
-                                                       bool IsTop) {
+bool HIRParser::breakConstantMultiplierAddOrMulBlob(BlobTy Blob,
+                                                    int64_t *Multiplier,
+                                                    BlobTy *NewBlob,
+                                                    bool IsTop) {
 
   if (auto *Const = dyn_cast<SCEVConstant>(Blob)) {
     if (!IsTop) {
@@ -1918,9 +1921,9 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
     return breakConstantMultiplierMulBlob(MulBlob, Multiplier, NewBlob);
   }
 
-  auto *CommutativeBlob = dyn_cast<SCEVCommutativeExpr>(Blob);
+  auto *AddBlob = dyn_cast<SCEVAddExpr>(Blob);
 
-  if (!CommutativeBlob) {
+  if (!AddBlob) {
     return false;
   }
 
@@ -1931,14 +1934,14 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
   SmallVector<BlobTy, 4> Ops;
   SmallVector<int64_t, 4> OpMultipliers;
 
-  for (auto I : CommutativeBlob->operands()) {
+  for (auto I : AddBlob->operands()) {
 
     BlobTy Op = I;
 
     BlobTy NewOp;
     int64_t OpMultiplier;
 
-    if (!breakConstantMultiplierCommutativeBlob(Op, &OpMultiplier, &NewOp) ||
+    if (!breakConstantMultiplierAddOrMulBlob(Op, &OpMultiplier, &NewOp) ||
         (OpMultiplier == LONG_MIN)) {
       return false;
     }
@@ -1966,35 +1969,13 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
       auto *UnusedMultiplier = ScopedSE.getConstant(
           Ops[I]->getType(), OpMultipliers[I] / LocalMultiplier, true);
 
-      auto *CommutativeOp = dyn_cast<SCEVCommutativeExpr>(Ops[I]);
-
-      Ops[I] = ScopedSE.getMulExpr(
-          Ops[I], UnusedMultiplier,
-          CommutativeOp ? CommutativeOp->getNoWrapFlags() : SCEV::FlagAnyWrap);
+      Ops[I] = ScopedSE.getMulExpr(Ops[I], UnusedMultiplier);
     }
   }
 
   *Multiplier = LocalMultiplier;
 
-  switch (CommutativeBlob->getSCEVType()) {
-  case scAddExpr:
-    *NewBlob = ScopedSE.getAddExpr(Ops, CommutativeBlob->getNoWrapFlags());
-    break;
-  case scUMaxExpr:
-    *NewBlob = ScopedSE.getUMaxExpr(Ops);
-    break;
-  case scSMaxExpr:
-    *NewBlob = ScopedSE.getSMaxExpr(Ops);
-    break;
-  case scUMinExpr:
-    *NewBlob = ScopedSE.getUMinExpr(Ops);
-    break;
-  case scSMinExpr:
-    *NewBlob = ScopedSE.getSMinExpr(Ops);
-    break;
-  default:
-    llvm_unreachable("Unexpected scev type!");
-  }
+  *NewBlob = ScopedSE.getAddExpr(Ops);
 
   return true;
 }
@@ -2002,7 +1983,7 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
 void HIRParser::breakConstantMultiplierBlob(BlobTy Blob, int64_t *Multiplier,
                                             BlobTy *NewBlob) {
 
-  if (breakConstantMultiplierCommutativeBlob(Blob, Multiplier, NewBlob, true)) {
+  if (breakConstantMultiplierAddOrMulBlob(Blob, Multiplier, NewBlob, true)) {
     return;
   }
 
@@ -2111,9 +2092,31 @@ bool HIRParser::parseAddRec(const SCEVAddRecExpr *RecSCEV, CanonExpr *CE,
       std::unique_ptr<CanonExpr> NewCE(getCanonExprUtils().createExtCanonExpr(
           CE->getSrcType(), CE->getDestType(), CE->isSExt()));
 
-      if (!parseRecursive(NewSC, NewCE.get(), Level, false, true, true) ||
-          !CanonExprUtils::add(CE, NewCE.get())) {
+      if (!parseRecursive(NewSC, NewCE.get(), Level, false, true, true)) {
         return parseBlob(RecSCEV, CE, Level, 0, IndicateFailure);
+      }
+
+      int64_t Denom = CE->getDenominator();
+
+      // Temporarily set the denominator to 1 for the add operation below
+      // because we want to merge NewCE into CE's numerator. Merge operation is
+      // not an add operation in the mathematical sense. For example, if CE =
+      // (n/4) and NewCE = 2, we want resulting CE = (n+2)/4 but if we call
+      // add() with the denominator set to 4, it will result in CE = (n + 2 *
+      // 4)/4 = (n + 8)/4.
+      if (Denom != 1) {
+        CE->setDenominator(1);
+      }
+
+      if (!CanonExprUtils::add(CE, NewCE.get())) {
+        CE->setDenominator(Denom);
+        return parseBlob(RecSCEV, CE, Level, 0, IndicateFailure);
+      }
+
+      if (Denom != 1) {
+        CE->setDenominator(Denom);
+        // Need to simplify if both numerator and denominator are const.
+        CE->simplify(true, false);
       }
 
     } else {
@@ -3157,6 +3160,77 @@ const Value *HIRParser::traceSingleOperandPhis(const Value *Val) const {
   return ScalarSA.traceSingleOperandPhis(Val, CurRegion->getIRRegion());
 }
 
+const Value *HIRParser::getZeroIndexGEPOrOrigPtr(const Value *Ptr,
+                                                 Type *ResultElemTy) const {
+  Type *PtrElemTy = nullptr;
+
+  if (auto *Global = dyn_cast<GlobalVariable>(Ptr)) {
+    PtrElemTy = Global->getValueType();
+
+  } else if (auto *Alloca = dyn_cast<AllocaInst>(Ptr)) {
+    PtrElemTy = Alloca->getAllocatedType();
+
+  } else if (auto *Phi = dyn_cast<PHINode>(Ptr)) {
+    if (!RI.isHeaderPhi(Phi))
+      return Ptr;
+
+    PtrElemTy = RI.findPhiElementType(Phi);
+
+    if (!PtrElemTy)
+      return Ptr;
+
+  } else if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
+    PtrElemTy = GEP->getResultElementType();
+
+  } else {
+    return Ptr;
+  }
+
+  // GEP is not necessary as there is no type mismatch.
+  if (PtrElemTy == ResultElemTy) {
+    return Ptr;
+  }
+
+  auto *ElemTy = PtrElemTy;
+
+  Type *OffsetTy = getDataLayout().getIndexType(Ptr->getType());
+
+  SmallVector<Value *, 4> IdxList;
+  // Initial index for pointer type.
+  IdxList.push_back((Constant::getNullValue(OffsetTy)));
+
+  // Recreate GEPInst with zero indices representing indexing into the
+  // Ptr's element type until we hit ResultElemTy.
+  while (ElemTy != ResultElemTy) {
+
+    if (auto *STy = dyn_cast<StructType>(ElemTy)) {
+
+      if (STy->isEmptyTy())
+        break;
+
+      IdxList.push_back(
+          Constant::getNullValue(Type::getInt32Ty(ElemTy->getContext())));
+      ElemTy = STy->getElementType(0);
+
+    } else if (auto *ArrTy = dyn_cast<ArrayType>(ElemTy)) {
+      IdxList.push_back((Constant::getNullValue(OffsetTy)));
+      ElemTy = ArrTy->getElementType();
+
+    } else {
+      break;
+    }
+  }
+
+  if (ElemTy != ResultElemTy)
+    return Ptr;
+
+  auto *ZeroIndexGEP = GetElementPtrInst::CreateInBounds(
+      PtrElemTy, const_cast<Value *>(Ptr), IdxList);
+  ZeroIndexGEPInsts.push_back(ZeroIndexGEP);
+
+  return ZeroIndexGEP;
+}
+
 class DimInfo {
   Type *Ty = nullptr;
   Type *ElemTy = nullptr;
@@ -3324,21 +3398,32 @@ public:
   iterator begin() const { return Dimensions.begin(); }
   iterator end() const { return Dimensions.end(); }
 
+  // Returns constant extent information for dimension \p DimNum which was
+  // specified explicitly in the IR. This is stored in the DimInfo itself.
+  // Returns 0 if no information is available.
+  unsigned getIRSpecifiedExtent(unsigned DimNum) const {
+    assert(DimNum >= getMinRank() && DimNum <= getMaxRank() && "Invalid rank");
+
+    auto &CurDim = getDim(DimNum);
+
+    return CurDim.getExtent();
+  }
+
   // Returns constant extent information for dimension \p DimNum by either
-  // getting it irectly from the dimension if available for by dividing stride
+  // getting it directly from the dimension if available or by dividing stride
   // of next dimension by this one.
   //
   // Returns 0 if no information is available.
   unsigned getExtent(unsigned DimNum) const {
     assert(DimNum >= getMinRank() && DimNum <= getMaxRank() && "Invalid rank");
 
-    auto &CurDim = getDim(DimNum);
-
-    unsigned Extent = CurDim.getExtent();
+    unsigned Extent = getIRSpecifiedExtent(DimNum);
 
     if (Extent) {
       return Extent;
     }
+
+    auto &CurDim = getDim(DimNum);
 
     auto *CurStride = dyn_cast<ConstantInt>(CurDim.getStride());
 
@@ -3469,7 +3554,8 @@ HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
   setBase(GEPOp);
 
   while (const GEPOrSubsOperator *NextGEPOp = dyn_cast<GEPOrSubsOperator>(
-             Parser.traceSingleOperandPhis(GEPOp->getPointerOperand()))) {
+             Parser.traceSingleOperandPhis(Parser.getZeroIndexGEPOrOrigPtr(
+                 GEPOp->getPointerOperand(), getBasePtrElementType(GEPOp))))) {
 
     if (!Parser.isValidGEPOp(NextGEPOp)) {
       break;
@@ -3777,7 +3863,15 @@ bool HIRParser::GEPChain::isCompatible(
     // can happen across subroutines.
     if ((CurArrDimExtent != 0) && (NextArrDimExtent != 0) &&
         (CurArrDimExtent != NextArrDimExtent)) {
-      return false;
+
+      bool MismatchInSpecifiedExtent =
+          (CurArr.getIRSpecifiedExtent(Rank) != 0 &&
+           NextArr.getIRSpecifiedExtent(Rank) != 0);
+      // If the extent was specified in IR, we should pick up the smaller extent
+      // instead of giving up. This can happen when the caller passes a slice of
+      // the array to the callee and then callee gets inlined into caller.
+      if (!MismatchInSpecifiedExtent)
+        return false;
     }
   }
 
@@ -3878,14 +3972,13 @@ bool HIRParser::GEPChain::extend(const HIRParser &Parser,
       CurDim.setElementType(NextDim.getElementType());
       CurDim.setStride(NextDim.getStride());
 
-      // Assume FE provides extent one time per memref
-      assert(!CurDim.getExtent() || !NextDim.getExtent() ||
-             CurDim.getExtent() == NextDim.getExtent() &&
-                 "Extent metadata mistmatch!");
+      unsigned CurDimExtent = CurDim.getExtent();
+      unsigned NextDimExtent = NextDim.getExtent();
 
-      // Use extent metadata for the incoming DimInfo
-      if (!CurDim.getExtent() && NextDim.getExtent()) {
-        CurDim.setExtent(NextDim.getExtent());
+      // Use smaller extent info if there is a mismatch as array slices can be
+      // passed from caller to callee.
+      if (!CurDimExtent || (NextDimExtent && (NextDimExtent < CurDimExtent))) {
+        CurDim.setExtent(NextDimExtent);
       }
 
       // Reset exact flag if either of two dims are not exact.
@@ -4068,6 +4161,11 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal, Type *ResultElemTy,
   auto GEPOp = dyn_cast<GEPOrSubsOperator>(PhiInitVal);
 
   if (!GEPOp) {
+    GEPOp = dyn_cast<GEPOrSubsOperator>(
+        getZeroIndexGEPOrOrigPtr(PhiInitVal, ResultElemTy));
+  }
+
+  if (!GEPOp) {
     return PhiInitVal;
   }
 
@@ -4091,7 +4189,8 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal, Type *ResultElemTy,
 
 RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                            const GEPOrSubsOperator *GEPOp,
-                                           unsigned Level) {
+                                           unsigned Level,
+                                           Type *LoadOrStoreTy) {
   const PHINode *CurBasePhi = BasePhi;
   const Value *BaseVal = nullptr;
   bool IsInBounds = false;
@@ -4147,6 +4246,14 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
         if (RecSCEV->isAffine()) {
           IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level, &ElemTy);
           BaseVal = getValidPhiBaseVal(PhiInitVal, ElemTy, &InitGEPOp);
+
+          // Recover zero index GEP between a load/store and AddRec phi.
+          // We check whether CurBasePhi is the same as the incoming BasePhi
+          // (true for first iteration of this do-while loop) as LoadOrStoreTy
+          // is only applicable to the incoming phi.
+          if (!GEPOp && LoadOrStoreTy && (CurBasePhi == BasePhi))
+            GEPOp = dyn_cast<GEPOrSubsOperator>(
+                getZeroIndexGEPOrOrigPtr(CurBasePhi, LoadOrStoreTy));
         }
       }
     }
@@ -4217,19 +4324,6 @@ static void setSelfRefElementTypeAndStride(RegDDRef *Ref, Type *ElementTy) {
   // type passed in by the caller (i32) because any element type works with
   // opaque ptrs.
   //
-  // But for non opaque ptrs, we need to set matching element type (i64) to the
-  // base ptr type (i64*) otherwise some of the existing utilities will assert
-  // on mismatched type. Hence, we extract the element type from the base ptr
-  // itself.
-  if (Ref->getBitCastDestVecOrElemType()) {
-    auto *BaseCETy = Ref->getBaseCE()->getDestType()->getScalarType();
-    auto *PtrBaseCETy = cast<PointerType>(BaseCETy);
-
-    if (!PtrBaseCETy->isOpaque()) {
-      ElementTy = BaseCETy->getNonOpaquePointerElementType();
-    }
-  }
-
   Ref->setBasePtrElementType(ElementTy);
 
   // We cannot set stride for non-sized types.
@@ -4243,7 +4337,8 @@ static void setSelfRefElementTypeAndStride(RegDDRef *Ref, Type *ElementTy) {
 }
 
 RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
-                                                 unsigned Level) {
+                                                 unsigned Level,
+                                                 Type *LoadOrStoreTy) {
 
   auto Ref = getDDRefUtils().createRegDDRef(0);
   auto GEPTy = GEPVal->getType();
@@ -4254,6 +4349,16 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
   auto BaseCE = parse(GEPVal, Level);
   Ref->setBaseCE(BaseCE);
 
+  Type *ElementTy = nullptr;
+
+  // Set element type when we can unambigously do so based on type of base ptr.
+  if (auto *Global = dyn_cast<GlobalVariable>(GEPVal)) {
+    ElementTy = Global->getValueType();
+
+  } else if (auto *Alloca = dyn_cast<AllocaInst>(GEPVal)) {
+    ElementTy = Alloca->getAllocatedType();
+  }
+
   // Create Index of zero.
   auto IndexCE = getCanonExprUtils().createCanonExpr(OffsetTy);
 
@@ -4262,18 +4367,53 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
   // Single element is always in bounds.
   Ref->setInBounds(true);
 
-  // Set element type when we can unambigously do so based on type of base ptr.
-  if (auto *Global = dyn_cast<GlobalVariable>(GEPVal)) {
-    setSelfRefElementTypeAndStride(Ref, Global->getValueType());
-  } else if (auto *Alloca = dyn_cast<AllocaInst>(GEPVal)) {
-    setSelfRefElementTypeAndStride(Ref, Alloca->getAllocatedType());
+  if (ElementTy) {
+    setSelfRefElementTypeAndStride(Ref, ElementTy);
+
+    // Add extra 0 dims/offsets to Ref if its element type is known.
+    // We restrict this logic to load and store refs. It may be incorrect to
+    // add dims/offsets to addressOf refs as we do not know whether the
+    // intention is to pass the address of the entire object or its sub-type.
+    if (LoadOrStoreTy) {
+      uint64_t ElementSize = 0;
+      uint64_t LoadOrStoreSize =
+          getCanonExprUtils().getTypeSizeInBytes(LoadOrStoreTy);
+
+      auto *ArrTy = dyn_cast<ArrayType>(ElementTy);
+      auto *STy = dyn_cast<StructType>(ElementTy);
+
+      // Keep adding zero dims/offsets until we hit an element type which is
+      // the same as the load/store type or whose size is less than the
+      // load/store type.
+      while (
+          (ArrTy || STy) &&
+          (ElementSize = getCanonExprUtils().getTypeSizeInBytes(ElementTy)) &&
+          (ElementSize > LoadOrStoreSize ||
+           (ElementSize == LoadOrStoreSize && ElementTy != LoadOrStoreTy))) {
+        if (STy) {
+          SmallVector<unsigned, 2> Offsets(Ref->getTrailingStructOffsets(1));
+
+          Offsets.push_back(0);
+          Ref->setTrailingStructOffsets(1, Offsets);
+
+          ElementTy = STy->getElementType(0);
+
+        } else {
+          Ref->addDimension(IndexCE->clone());
+          ElementTy = ArrTy->getElementType();
+        }
+
+        STy = dyn_cast<StructType>(ElementTy);
+        ArrTy = dyn_cast<ArrayType>(ElementTy);
+      }
+    }
   }
 
   return Ref;
 }
 
 RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
-                                    bool IsUse) {
+                                    bool IsUse, Type *LoadOrStoreTy) {
   const PHINode *BasePhi = nullptr;
   const Value *OrigGEPVal = GEPVal;
   RegDDRef *Ref = nullptr;
@@ -4281,8 +4421,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   // Incoming IR may be bitcasting the GEP before loading/storing into it. If so
   // we store the type of the GEP in BaseCE src type and the eventual load/store
   // type is stored in BitCastDestVecOrElemTy.
-  Type *DestTy = GEPVal->getType();
-  bool HasDestTy = false;
 
   clearTempBlobLevelMap();
 
@@ -4302,7 +4440,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
       break;
     }
 
-    HasDestTy = true;
     GEPVal = Opnd;
   }
 
@@ -4323,15 +4460,11 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   }
 
   if (BasePhi && RI.isHeaderPhi(BasePhi)) {
-    Ref = createPhiBaseGEPDDRef(BasePhi, GEPOp, Level);
+    Ref = createPhiBaseGEPDDRef(BasePhi, GEPOp, Level, LoadOrStoreTy);
   } else if (GEPOp) {
     Ref = createRegularGEPDDRef(GEPOp, Level);
   } else {
-    Ref = createSingleElementGEPDDRef(GEPVal, Level);
-  }
-
-  if (HasDestTy && !cast<PointerType>(DestTy)->isOpaque()) {
-    Ref->setBitCastDestVecOrElemType(DestTy->getNonOpaquePointerElementType());
+    Ref = createSingleElementGEPDDRef(GEPVal, Level, LoadOrStoreTy);
   }
 
   populateBlobDDRefs(Ref, Level);
@@ -4427,8 +4560,17 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
     populateBlobDDRefs(Ref, Level);
   }
 
-  if (IsLval && !IsSelfBlob && hasLvalRvalBlobMismatch(LvalInst, Ref)) {
-    Ref->makeSelfBlob(true);
+  if (IsLval && !IsSelfBlob) {
+    // We may never create a blob for a non-selfblob lval. In that case, loop
+    // livein/liveout processing for it will be skipped in the parse() function
+    // above. So we do the processing here.
+    auto *Inst = cast<Instruction>(Val);
+    auto *BaseInst = cast<Instruction>(ScalarSA.getBaseScalar(Symbase));
+    processInstDefOrUse(Inst, BaseInst, Symbase);
+
+    if (hasLvalRvalBlobMismatch(LvalInst, Ref)) {
+      Ref->makeSelfBlob(true);
+    }
   }
 
   populateRequiredSymbases(Ref);
@@ -4457,9 +4599,9 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   auto OpTy = OpVal->getType();
 
   if (auto LInst = dyn_cast<LoadInst>(Inst)) {
-    Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
-
     auto *LoadTy = LInst->getType();
+
+    Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true, LoadTy);
 
     if (!Ref->getBasePtrElementType()) {
       // We can assign the load type to self-refs: (%p)[0]
@@ -4488,12 +4630,6 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
     Ref = createGEPDDRef(OpVal, Level, true);
     Ref->setAddressOf(true);
 
-    // This condition is comparing two pointer types so it can only be true for
-    // non-opaque pointers.
-    if (Ref->getDestType() != OpTy) {
-      Ref->setBitCastDestVecOrElemType(OpTy->getNonOpaquePointerElementType());
-    }
-
     assert((Ref->isSelfGEPRef(true) || Ref->getBasePtrElementType()) &&
            "Base element type not assigned to ref!");
 
@@ -4509,9 +4645,9 @@ RegDDRef *HIRParser::createLvalDDRef(HLInst *HInst, unsigned Level) {
   auto *Inst = HInst->getLLVMInstruction();
 
   if (auto SInst = dyn_cast<StoreInst>(Inst)) {
-    Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
-
     auto *StoreValTy = SInst->getValueOperand()->getType();
+
+    Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true, StoreValTy);
 
     if (!Ref->getBasePtrElementType()) {
       // We can assign the store type to self-refs: (%p)[0]
@@ -4749,11 +4885,10 @@ HLLoop *HIRParser::getNextLexicalLoop(HLNode *Node) {
   HLNode *NextNode = Node;
 
   do {
-    NextNode = &*std::next(NextNode->getIterator());
-  } while (!isa<HLLoop>(NextNode) &&
-           !HLNodeUtils::isLexicalLastChildOfParent(NextNode));
+    NextNode = NextNode->getNextNodeWithoutUsingTopSortNum();
+  } while (NextNode && !isa<HLLoop>(NextNode));
 
-  return dyn_cast<HLLoop>(NextNode);
+  return dyn_cast_or_null<HLLoop>(NextNode);
 }
 
 bool HIRParser::processBlockLoopBeginDirective(HLInst *HInst) {
@@ -5042,6 +5177,11 @@ void HIRParser::run() {
   }
 
   LF.eraseStoredLoopLabelsAndBottomTests();
+
+  // Erase dummy zero-index GEP insts that were created during parsing.
+  for (auto *ZeroGEPInst : ZeroIndexGEPInsts) {
+    ZeroGEPInst->deleteValue();
+  }
 
   IsReady = true;
 }

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,8 +15,7 @@
 #ifndef DEBUGINFO_UTILS_H
 #define DEBUGINFO_UTILS_H
 
-#include <llvm/IR/DebugInfo.h>
-
+#include "llvm/IR/DebugInfo.h"
 #include <string>
 
 namespace debugservermessages {

@@ -1,6 +1,6 @@
 //===----  Intel_AutoCPUClone.cpp - Intel Automatic CPU Dispatch ---------===//
 //
-// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -29,11 +29,37 @@ using namespace llvm;
 
 #define DEBUG_TYPE "auto-cpu-clone"
 
-// Internal option to control whether to multi-version select functions.
+// The control options for ACD multi-versioning defined below offer precise
+// management of function multi-versioning. These options establish a specific
+// priority hierarchy among them.
+// cost-model-based < acd-enable-all < acd-disable-all < acd-force-funcs <
+// < acd-force-no-funcs
+
+// Option enables ACD multi-versioning for all functions regardless of
+// cost-model decision.
 static cl::opt<bool>
-    DisableSelectiveMultiVersioning("disable-selective-mv", cl::init(false),
-                                    cl::ReallyHidden,
-                                    cl::desc("Disable multi-versioning of select functions"));
+    ACDEnableAll("acd-enable-all", cl::init(false), cl::ReallyHidden,
+                 cl::desc("Enable multi-versioning for all functions"));
+
+// Option disables ACD multi-versioning for all functions regardless of
+// cost-model decision.
+static cl::opt<bool>
+    ACDDisableAll("acd-disable-all", cl::init(false), cl::ReallyHidden,
+                  cl::desc("Disable multi-versioning for all functions"));
+
+// Option enables ACD multi-versioning for specific functions regardless of
+// cost-model decision.
+static cl::list<std::string> ForceACDFunctions(
+    "acd-force-funcs", cl::CommaSeparated,
+    cl::desc("Functions to always consider for auto cpu multi-versioning"),
+    cl::value_desc("func1,func2,func3,..."), cl::Hidden);
+
+// Option disables ACD multi-versioning for specific functions regardless of
+// cost-model decision.
+static cl::list<std::string> ForceNoACDFunctions(
+    "acd-force-no-funcs", cl::CommaSeparated,
+    cl::desc("Functions to always disable for auto cpu multi-versioning"),
+    cl::value_desc("func1,func2,func3,..."), cl::Hidden);
 
 // Internal option to control whether to multi-version functions per the
 // targets specified in llvm.vec.auto.cpu.dispatch metadata. Added specifically
@@ -141,7 +167,7 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
   }
 
   std::string DispatchPtrName = OrigName + ".ptr";
-  Type *DispatchPtrType = Fn.getFunctionType()->getPointerTo();
+  Type *DispatchPtrType = PointerType::getUnqual(M->getContext());
   DispatchPtr =
       new GlobalVariable(*M, DispatchPtrType, false, GlobalValue::InternalLinkage,
                          Constant::getNullValue(DispatchPtrType), DispatchPtrName);
@@ -266,16 +292,26 @@ CollectMVCandidates(Module &M, SetVector<Function *> &MVCandidates,
   for (Function &Fn : M) {
     if (Fn.isDeclaration() || MVFunctionsCallableFromLoops.contains(&Fn))
       continue;
-    // If selective multiversioning is enabled, multi-version only the
+    if (!ForceNoACDFunctions.empty() && Fn.hasName() &&
+        is_contained(ForceNoACDFunctions, Fn.getName()))
+      continue;
+    if (!ForceACDFunctions.empty() && Fn.hasName() &&
+        is_contained(ForceACDFunctions, Fn.getName())) {
+      MVCandidates.insert(&Fn);
+      continue;
+    }
+    if (ACDDisableAll)
+      continue;
+    if (ACDEnableAll) {
+      MVCandidates.insert(&Fn);
+      continue;
+    }
+    // Cost-model based multi-versioning is done only for
     //   1) functions that carry Attribute::Hot,
     //   2) functions that contain hot code per available profile data,
     //   3) functions that contain non-annotation like intrinsics,
     //   4) functions that contain loops, or
     //   5) functions that are callable from loop bodies.
-    if (DisableSelectiveMultiVersioning) {
-      MVCandidates.insert(&Fn);
-      continue;
-    }
     // Collect functions that carry Attribute::Hot.
     if (Fn.hasFnAttribute(Attribute::Hot) ||
         // Collect functions that contain hot code per available profile data.
@@ -398,12 +434,9 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
     for (const MDOperand &TargetInfoIt : TargetsMD->operands()) {
       StringRef TargetCpu = cast<MDString>(TargetInfoIt.get())->getString();
-
-      auto TargetCpuSuffix = X86::getCPUDispatchMangling(TargetCpu);
-      // Skip target if not recognized by llvm/TargetParser/X86TargetParser.def
-      assert(TargetCpuSuffix != '\0' && "A target is not recognized!");
-      if (TargetCpuSuffix == '\0')
+      if (!X86::getCPUDispatchSupported(TargetCpu))
         continue;
+      auto TargetCpuSuffix = X86::getCPUDispatchMangling(TargetCpu);
 
       ValueToValueMapTy VMap;
       Function *New = CloneFunction(Fn, VMap);
@@ -413,6 +446,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
       SmallVector<StringRef, 64> NewFeatures;
       OldFeatures.split(NewFeatures, ",", -1, false);
+
+      NewFeatures.erase(
+          remove_if(NewFeatures, [](StringRef Str) { return Str[0] == '-'; }),
+          NewFeatures.end());
 
       // Drop leading "+".
       transform(NewFeatures, NewFeatures.begin(),
@@ -618,9 +655,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
         // the generic, i.e. the .A clone, from the module later in the
         // pass pipeline.
         if (GenerateVectorVariants && VFInfo::isVectorVariant(Fn->getName())) {
-          if (isa<ReturnInst>(Inst))
-            IFUse.set(Constant::getNullValue(Fn->getType()->getPointerTo()));
-          else if (auto *Store = dyn_cast<StoreInst>(Inst))
+          if (isa<ReturnInst>(Inst)) {
+            auto PTy = PointerType::getUnqual(M.getContext());
+            IFUse.set(Constant::getNullValue(PTy));
+          } else if (auto *Store = dyn_cast<StoreInst>(Inst))
             Store->eraseFromParent();
         }
         continue;

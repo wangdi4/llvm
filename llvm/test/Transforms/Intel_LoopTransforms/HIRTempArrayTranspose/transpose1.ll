@@ -28,7 +28,7 @@
 ;         END REGION
 
 ; CHECK:  BEGIN REGION { modified }
-; CHECK:        %call6 = @llvm.stacksave();
+; CHECK:        %call6 = @llvm.stacksave.p0();
 ; CHECK:        %TranspTmpArr = alloca 4 * (sext.i32.i64(%arg1) * sext.i32.i64(%arg2));
 ; CHECK:        + DO i1 = 0, sext.i32.i64(%arg1) + -1, 1
 ; CHECK:        |   + DO i2 = 0, sext.i32.i64(%arg2) + -1, 1
@@ -55,7 +55,7 @@
 ; CHECK:        |   |   (%arg5)[sext.i32.i64(%arg1) * i1 + i2] = %load91 + -1 * ((%load84 * %load88) + %load98) + (%arg2 * %load88) + %phi96;
 ; CHECK:        |   + END LOOP
 ; CHECK:        + END LOOP
-; CHECK:        @llvm.stackrestore(&((%call6)[0]));
+; CHECK:        @llvm.stackrestore.p0(&((%call6)[0]));
 ; CHECK:  END REGION
 
 
@@ -73,14 +73,14 @@ target triple = "x86_64-unknown-linux-gnu"
 @global.5 = external hidden unnamed_addr constant [49 x i8], align 1
 
 ; Function Attrs: norecurse uwtable
-define hidden fastcc void @snork(i32 noundef %arg, i32 noundef %arg1, i32 noundef %arg2, i32* noalias nocapture noundef readonly %arg3, i32* noalias nocapture noundef readonly %arg4, i32* noalias nocapture noundef %arg5, %struct.eggs.8* noalias nocapture noundef readonly byval(%struct.eggs.8) align 8 %arg6) unnamed_addr #0 personality i8* bitcast (i32 (...)* @pluto to i8*) {
+define hidden fastcc void @snork(i32 noundef %arg, i32 noundef %arg1, i32 noundef %arg2, ptr noalias nocapture noundef readonly %arg3, ptr noalias nocapture noundef readonly %arg4, ptr noalias nocapture noundef %arg5, %struct.eggs.8* noalias nocapture noundef readonly byval(%struct.eggs.8) align 8 %arg6) unnamed_addr #0 personality ptr bitcast (i32 (...)* @pluto to ptr) {
 bb:
   %sext = sext i32 %arg1 to i64
   %icmp = icmp slt i32 %arg1, 0
   br i1 %icmp, label %bb7, label %bb8
 
 bb7:                                              ; preds = %bb
-  tail call void @_ZSt20__throw_length_errorPKc(i8* noundef getelementptr inbounds ([49 x i8], [49 x i8]* @global.5, i64 0, i64 0)) #5
+  tail call void @_ZSt20__throw_length_errorPKc(ptr noundef getelementptr inbounds ([49 x i8], ptr @global.5, i64 0, i64 0)) #5
   unreachable
 
 bb8:                                              ; preds = %bb
@@ -89,19 +89,19 @@ bb8:                                              ; preds = %bb
 
 bb10:                                             ; preds = %bb8
   %shl = shl nuw nsw i64 %sext, 2
-  %call = tail call noalias noundef nonnull i8* @_Znwm(i64 noundef %shl) #6
-  %bitcast = bitcast i8* %call to i32*
-  tail call void @llvm.memset.p0i8.i64(i8* nonnull align 4 %call, i8 0, i64 %shl, i1 false), !tbaa !6
+  %call = tail call noalias noundef nonnull ptr @_Znwm(i64 noundef %shl) #6
+  %bitcast = bitcast ptr %call to ptr
+  tail call void @llvm.memset.p0.i64(ptr nonnull align 4 %call, i8 0, i64 %shl, i1 false), !tbaa !6
   br label %bb11
 
 bb11:                                             ; preds = %bb10, %bb8
-  %phi = phi i32* [ %bitcast, %bb10 ], [ null, %bb8 ]
+  %phi = phi ptr [ %bitcast, %bb10 ], [ null, %bb8 ]
   %sext12 = sext i32 %arg to i64
   %icmp13 = icmp slt i32 %arg, 0
   br i1 %icmp13, label %bb14, label %bb16
 
 bb14:                                             ; preds = %bb11
-  invoke void @_ZSt20__throw_length_errorPKc(i8* noundef getelementptr inbounds ([49 x i8], [49 x i8]* @global.5, i64 0, i64 0)) #5
+  invoke void @_ZSt20__throw_length_errorPKc(ptr noundef getelementptr inbounds ([49 x i8], ptr @global.5, i64 0, i64 0)) #5
           to label %bb15 unwind label %bb65
 
 bb15:                                             ; preds = %bb14
@@ -113,12 +113,12 @@ bb16:                                             ; preds = %bb11
 
 bb18:                                             ; preds = %bb16
   %shl19 = shl nuw nsw i64 %sext12, 2
-  %invoke = invoke noalias noundef nonnull i8* @_Znwm(i64 noundef %shl19) #6
+  %invoke = invoke noalias noundef nonnull ptr @_Znwm(i64 noundef %shl19) #6
           to label %bb20 unwind label %bb65
 
 bb20:                                             ; preds = %bb18
-  %bitcast21 = bitcast i8* %invoke to i32*
-  tail call void @llvm.memset.p0i8.i64(i8* nonnull align 4 %invoke, i8 0, i64 %shl19, i1 false), !tbaa !6
+  %bitcast21 = bitcast ptr %invoke to ptr
+  tail call void @llvm.memset.p0.i64(ptr nonnull align 4 %invoke, i8 0, i64 %shl19, i1 false), !tbaa !6
   %icmp22 = icmp sgt i32 %arg2, 0
   br i1 %icmp22, label %bb24, label %bb23
 
@@ -131,8 +131,8 @@ bb24:                                             ; preds = %bb20
 
 bb25:                                             ; preds = %bb34, %bb24
   %phi26 = phi i64 [ 0, %bb24 ], [ %add36, %bb34 ]
-  %getelementptr = getelementptr inbounds i32, i32* %bitcast21, i64 %phi26, !intel-tbaa !6
-  store i32 0, i32* %getelementptr, align 4, !tbaa !6
+  %getelementptr = getelementptr inbounds i32, ptr %bitcast21, i64 %phi26, !intel-tbaa !6
+  store i32 0, ptr %getelementptr, align 4, !tbaa !6
   %mul = mul nuw nsw i64 %phi26, %zext
   br label %bb27
 
@@ -140,8 +140,8 @@ bb27:                                             ; preds = %bb27, %bb25
   %phi28 = phi i32 [ 0, %bb25 ], [ %add31, %bb27 ]
   %phi29 = phi i64 [ 0, %bb25 ], [ %add32, %bb27 ]
   %add = add nuw nsw i64 %phi29, %mul
-  %getelementptr30 = getelementptr inbounds i32, i32* %arg3, i64 %add
-  %load = load i32, i32* %getelementptr30, align 4, !tbaa !6
+  %getelementptr30 = getelementptr inbounds i32, ptr %arg3, i64 %add
+  %load = load i32, ptr %getelementptr30, align 4, !tbaa !6
   %add31 = add nsw i32 %phi28, %load
   %add32 = add nuw nsw i64 %phi29, 1
   %icmp33 = icmp eq i64 %add32, %zext
@@ -149,7 +149,7 @@ bb27:                                             ; preds = %bb27, %bb25
 
 bb34:                                             ; preds = %bb27
   %phi35 = phi i32 [ %add31, %bb27 ]
-  store i32 %phi35, i32* %getelementptr, align 4, !tbaa !6
+  store i32 %phi35, ptr %getelementptr, align 4, !tbaa !6
   %add36 = add nuw nsw i64 %phi26, 1
   %icmp37 = icmp eq i64 %add36, %sext12
   br i1 %icmp37, label %bb38, label %bb25, !llvm.loop !12
@@ -161,7 +161,7 @@ bb39:                                             ; preds = %bb69
   br label %bb40
 
 bb40:                                             ; preds = %bb39, %bb38, %bb16
-  %phi41 = phi i32* [ null, %bb16 ], [ %bitcast21, %bb38 ], [ %bitcast21, %bb39 ]
+  %phi41 = phi ptr [ null, %bb16 ], [ %bitcast21, %bb38 ], [ %bitcast21, %bb39 ]
   %icmp42 = icmp sgt i32 %arg1, 0
   br i1 %icmp42, label %bb43, label %bb128
 
@@ -178,8 +178,8 @@ bb46:                                             ; preds = %bb43
 
 bb48:                                             ; preds = %bb61, %bb46
   %phi49 = phi i64 [ 0, %bb46 ], [ %add63, %bb61 ]
-  %getelementptr50 = getelementptr inbounds i32, i32* %phi, i64 %phi49, !intel-tbaa !6
-  store i32 0, i32* %getelementptr50, align 4, !tbaa !6
+  %getelementptr50 = getelementptr inbounds i32, ptr %phi, i64 %phi49, !intel-tbaa !6
+  store i32 0, ptr %getelementptr50, align 4, !tbaa !6
   br label %bb51
 
 bb51:                                             ; preds = %bb51, %bb48
@@ -187,8 +187,8 @@ bb51:                                             ; preds = %bb51, %bb48
   %phi53 = phi i64 [ 0, %bb48 ], [ %add59, %bb51 ]
   %mul54 = mul nsw i64 %phi53, %sext
   %add55 = add nsw i64 %mul54, %phi49
-  %getelementptr56 = getelementptr inbounds i32, i32* %arg4, i64 %add55
-  %load57 = load i32, i32* %getelementptr56, align 4, !tbaa !6
+  %getelementptr56 = getelementptr inbounds i32, ptr %arg4, i64 %add55
+  %load57 = load i32, ptr %getelementptr56, align 4, !tbaa !6
   %add58 = add nsw i32 %phi52, %load57
   %add59 = add nuw nsw i64 %phi53, 1
   %icmp60 = icmp eq i64 %add59, %zext47
@@ -196,26 +196,26 @@ bb51:                                             ; preds = %bb51, %bb48
 
 bb61:                                             ; preds = %bb51
   %phi62 = phi i32 [ %add58, %bb51 ]
-  store i32 %phi62, i32* %getelementptr50, align 4, !tbaa !6
+  store i32 %phi62, ptr %getelementptr50, align 4, !tbaa !6
   %add63 = add nuw nsw i64 %phi49, 1
   %icmp64 = icmp eq i64 %add63, %sext
   br i1 %icmp64, label %bb74, label %bb48, !llvm.loop !14
 
 bb65:                                             ; preds = %bb18, %bb14
-  %landingpad = landingpad { i8*, i32 }
+  %landingpad = landingpad { ptr, i32 }
           cleanup
-  %icmp66 = icmp eq i32* %phi, null
+  %icmp66 = icmp eq ptr %phi, null
   br i1 %icmp66, label %bb138, label %bb67
 
 bb67:                                             ; preds = %bb65
-  %bitcast68 = bitcast i32* %phi to i8*
-  tail call void @_ZdlPv(i8* noundef nonnull %bitcast68) #7
+  %bitcast68 = bitcast ptr %phi to ptr
+  tail call void @_ZdlPv(ptr noundef nonnull %bitcast68) #7
   br label %bb138
 
 bb69:                                             ; preds = %bb69, %bb23
   %phi70 = phi i64 [ %add72, %bb69 ], [ 0, %bb23 ]
-  %getelementptr71 = getelementptr inbounds i32, i32* %bitcast21, i64 %phi70, !intel-tbaa !6
-  store i32 0, i32* %getelementptr71, align 4, !tbaa !6
+  %getelementptr71 = getelementptr inbounds i32, ptr %bitcast21, i64 %phi70, !intel-tbaa !6
+  store i32 0, ptr %getelementptr71, align 4, !tbaa !6
   %add72 = add nuw nsw i64 %phi70, 1
   %icmp73 = icmp eq i64 %add72, %sext12
   br i1 %icmp73, label %bb39, label %bb69, !llvm.loop !12
@@ -237,17 +237,17 @@ bb79:                                             ; preds = %bb120, %bb77
   %phi80 = phi i64 [ 0, %bb77 ], [ %add121, %bb120 ]
   %mul81 = mul nsw i64 %phi80, %sext
   %mul82 = mul nsw i64 %phi80, %sext78
-  %getelementptr83 = getelementptr inbounds i32, i32* %phi41, i64 %phi80, !intel-tbaa !6
-  %load84 = load i32, i32* %getelementptr83, align 4, !tbaa !6
+  %getelementptr83 = getelementptr inbounds i32, ptr %phi41, i64 %phi80, !intel-tbaa !6
+  %load84 = load i32, ptr %getelementptr83, align 4, !tbaa !6
   br label %bb85
 
 bb85:                                             ; preds = %bb95, %bb79
   %phi86 = phi i64 [ 0, %bb79 ], [ %add104, %bb95 ]
   %getelementptr87 = getelementptr inbounds %struct.eggs.8, %struct.eggs.8* %arg6, i64 0, i32 0, i64 %phi86, !intel-tbaa !15
-  %load88 = load i32, i32* %getelementptr87, align 4, !tbaa !15
+  %load88 = load i32, ptr %getelementptr87, align 4, !tbaa !15
   %add89 = add nsw i64 %phi86, %mul81
-  %getelementptr90 = getelementptr inbounds i32, i32* %arg5, i64 %add89
-  %load91 = load i32, i32* %getelementptr90, align 4, !tbaa !6
+  %getelementptr90 = getelementptr inbounds i32, ptr %arg5, i64 %add89
+  %load91 = load i32, ptr %getelementptr90, align 4, !tbaa !6
   br i1 %icmp44, label %bb92, label %bb95
 
 bb92:                                             ; preds = %bb85
@@ -259,15 +259,15 @@ bb93:                                             ; preds = %bb106
 
 bb95:                                             ; preds = %bb93, %bb85
   %phi96 = phi i32 [ %load91, %bb85 ], [ %phi94, %bb93 ]
-  %getelementptr97 = getelementptr inbounds i32, i32* %phi, i64 %phi86, !intel-tbaa !6
-  %load98 = load i32, i32* %getelementptr97, align 4, !tbaa !6
+  %getelementptr97 = getelementptr inbounds i32, ptr %phi, i64 %phi86, !intel-tbaa !6
+  %load98 = load i32, ptr %getelementptr97, align 4, !tbaa !6
   %mul99 = mul i32 %load84, %load88
   %mul100 = mul i32 %load88, %arg2
   %add101 = add i32 %mul99, %load98
   %add102 = add i32 %mul100, %load91
   %add103 = add i32 %add102, %phi96
   %sub = sub i32 %add103, %add101
-  store i32 %sub, i32* %getelementptr90, align 4, !tbaa !6
+  store i32 %sub, ptr %getelementptr90, align 4, !tbaa !6
   %add104 = add nuw nsw i64 %phi86, 1
   %icmp105 = icmp eq i64 %add104, %sext
   br i1 %icmp105, label %bb120, label %bb85, !llvm.loop !18
@@ -276,12 +276,12 @@ bb106:                                            ; preds = %bb106, %bb92
   %phi107 = phi i64 [ %add118, %bb106 ], [ 0, %bb92 ]
   %phi108 = phi i32 [ %add117, %bb106 ], [ %load91, %bb92 ]
   %add109 = add nsw i64 %phi107, %mul82
-  %getelementptr110 = getelementptr inbounds i32, i32* %arg3, i64 %add109
-  %load111 = load i32, i32* %getelementptr110, align 4, !tbaa !6
+  %getelementptr110 = getelementptr inbounds i32, ptr %arg3, i64 %add109
+  %load111 = load i32, ptr %getelementptr110, align 4, !tbaa !6
   %mul112 = mul nsw i64 %phi107, %sext
   %add113 = add nsw i64 %mul112, %phi86
-  %getelementptr114 = getelementptr inbounds i32, i32* %arg4, i64 %add113
-  %load115 = load i32, i32* %getelementptr114, align 4, !tbaa !6
+  %getelementptr114 = getelementptr inbounds i32, ptr %arg4, i64 %add113
+  %load115 = load i32, ptr %getelementptr114, align 4, !tbaa !6
   %mul116 = mul nsw i32 %load115, %load111
   %add117 = add nsw i32 %mul116, %phi108
   %add118 = add nuw nsw i64 %phi107, 1
@@ -295,53 +295,53 @@ bb120:                                            ; preds = %bb95
 
 bb123:                                            ; preds = %bb123, %bb45
   %phi124 = phi i64 [ %add126, %bb123 ], [ 0, %bb45 ]
-  %getelementptr125 = getelementptr inbounds i32, i32* %phi, i64 %phi124, !intel-tbaa !6
-  store i32 0, i32* %getelementptr125, align 4, !tbaa !6
+  %getelementptr125 = getelementptr inbounds i32, ptr %phi, i64 %phi124, !intel-tbaa !6
+  store i32 0, ptr %getelementptr125, align 4, !tbaa !6
   %add126 = add nuw nsw i64 %phi124, 1
   %icmp127 = icmp eq i64 %add126, %sext
   br i1 %icmp127, label %bb75, label %bb123, !llvm.loop !14
 
 bb128:                                            ; preds = %bb76, %bb40
-  %icmp129 = icmp eq i32* %phi41, null
+  %icmp129 = icmp eq ptr %phi41, null
   br i1 %icmp129, label %bb133, label %bb131
 
 bb130:                                            ; preds = %bb120
   br label %bb131
 
 bb131:                                            ; preds = %bb130, %bb128
-  %bitcast132 = bitcast i32* %phi41 to i8*
-  tail call void @_ZdlPv(i8* noundef nonnull %bitcast132) #7
+  %bitcast132 = bitcast ptr %phi41 to ptr
+  tail call void @_ZdlPv(ptr noundef nonnull %bitcast132) #7
   br label %bb133
 
 bb133:                                            ; preds = %bb131, %bb128
-  %icmp134 = icmp eq i32* %phi, null
+  %icmp134 = icmp eq ptr %phi, null
   br i1 %icmp134, label %bb137, label %bb135
 
 bb135:                                            ; preds = %bb133
-  %bitcast136 = bitcast i32* %phi to i8*
-  tail call void @_ZdlPv(i8* noundef nonnull %bitcast136) #7
+  %bitcast136 = bitcast ptr %phi to ptr
+  tail call void @_ZdlPv(ptr noundef nonnull %bitcast136) #7
   br label %bb137
 
 bb137:                                            ; preds = %bb135, %bb133
   ret void
 
 bb138:                                            ; preds = %bb67, %bb65
-  resume { i8*, i32 } %landingpad
+  resume { ptr, i32 } %landingpad
 }
 
 declare dso_local i32 @pluto(...)
 
 ; Function Attrs: nofree noreturn
-declare dso_local void @_ZSt20__throw_length_errorPKc(i8* noundef) local_unnamed_addr #1
+declare dso_local void @_ZSt20__throw_length_errorPKc(ptr noundef) local_unnamed_addr #1
 
 ; Function Attrs: nobuiltin allocsize(0)
-declare dso_local noundef nonnull i8* @_Znwm(i64 noundef) local_unnamed_addr #2
+declare dso_local noundef nonnull ptr @_Znwm(i64 noundef) local_unnamed_addr #2
 
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #3
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #3
 
 ; Function Attrs: nobuiltin nounwind
-declare dso_local void @_ZdlPv(i8* noundef) local_unnamed_addr #4
+declare dso_local void @_ZdlPv(ptr noundef) local_unnamed_addr #4
 
 attributes #0 = { norecurse uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 attributes #1 = { nofree noreturn "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="full" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }

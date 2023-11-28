@@ -1,6 +1,6 @@
 //===---------------- Intel_InlineReportEmitter.h - Inline Report  ----------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -27,6 +27,7 @@ class InlineReportEmitterPass : public PassInfoMixin<InlineReportEmitterPass> {
   bool PrepareForLTO = false;
 
 public:
+  static bool isRequired() { return true; }
   InlineReportEmitterPass(unsigned OL = 0, unsigned SL = 0,
                           bool PrepForLTO = false)
       : OptLevel(OL), SizeLevel(SL), PrepareForLTO(PrepForLTO) {}

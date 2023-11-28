@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -230,6 +230,17 @@ unsigned TargetTransformInfo::getInliningThresholdMultiplier() const {
 }
 
 unsigned
+TargetTransformInfo::getInliningCostBenefitAnalysisSavingsMultiplier() const {
+  return TTIImpl->getInliningCostBenefitAnalysisSavingsMultiplier();
+}
+
+unsigned
+TargetTransformInfo::getInliningCostBenefitAnalysisProfitableMultiplier()
+    const {
+  return TTIImpl->getInliningCostBenefitAnalysisProfitableMultiplier();
+}
+
+unsigned
 TargetTransformInfo::adjustInliningThreshold(const CallBase *CB) const {
   return TTIImpl->adjustInliningThreshold(CB);
 }
@@ -388,16 +399,16 @@ void TargetTransformInfo::getUnrollingPreferences(
   return TTIImpl->getUnrollingPreferences(L, SE, UP, ORE);
 }
 
+#if INTEL_CUSTOMIZATION
 unsigned
 TargetTransformInfo::getLoopRotationDefaultThreshold(bool OptForSize) const {
   return TTIImpl->getLoopRotationDefaultThreshold(OptForSize);
 }
 
-#if INTEL_CUSTOMIZATION
 bool TargetTransformInfo::needsStructuredCFG() const {
   return TTIImpl->needsStructuredCFG();
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 void TargetTransformInfo::getPeelingPreferences(Loop *L, ScalarEvolution &SE,
                                                 PeelingPreferences &PP) const {
@@ -862,7 +873,7 @@ TargetTransformInfo::getOperandInfo(const Value *V) {
         else if (CI->getValue().isNegatedPowerOf2())
           OpProps = OP_NegatedPowerOf2;
       }
-#endif
+#endif // INTEL_CUSTOMIZATION
     } else if (const auto *CDS = dyn_cast<ConstantDataSequential>(V)) {
       bool AllPow2 = true, AllNegPow2 = true;
       for (unsigned I = 0, E = CDS->getNumElements(); I != E; ++I) {
@@ -1053,8 +1064,8 @@ InstructionCost TargetTransformInfo::getGatherScatterOpCost(
     const Instruction *I, // INTEL
     bool UndefPassThru) const { // INTEL
   InstructionCost Cost = TTIImpl->getGatherScatterOpCost(
-      Opcode, DataTy, Ptr, VariableMask, Alignment, CostKind, I,
-      UndefPassThru); // INTEL
+      Opcode, DataTy, Ptr, VariableMask, Alignment, CostKind, I, // INTEL
+      UndefPassThru);                                            // INTEL
   assert(Cost >= 0 && "TTI should not produce negative costs!");
   return Cost;
 }
@@ -1284,6 +1295,13 @@ void TargetTransformInfo::getMemcpyLoopResidualLoweringType(
 bool TargetTransformInfo::areInlineCompatible(const Function *Caller,
                                               const Function *Callee) const {
   return TTIImpl->areInlineCompatible(Caller, Callee);
+}
+
+unsigned
+TargetTransformInfo::getInlineCallPenalty(const Function *F,
+                                          const CallBase &Call,
+                                          unsigned DefaultCallPenalty) const {
+  return TTIImpl->getInlineCallPenalty(F, Call, DefaultCallPenalty);
 }
 
 bool TargetTransformInfo::areTypesABICompatible(

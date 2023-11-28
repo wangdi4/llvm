@@ -1,7 +1,7 @@
 // INTEL_COLLAB
 
 //RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp -fopenmp-version=51 \
-//RUN:   -opaque-pointers -std=c++14 -fexceptions -fcxx-exceptions -verify  \
+//RUN:   -std=c++14 -fexceptions -fcxx-exceptions -verify  \
 //RUN:   -Wno-source-uses-openmp -Wno-openmp-clauses -fopenmp-late-outline \
 //RUN:   -x c++  -emit-llvm -o - %s | FileCheck %s --check-prefix=CHECK
 
@@ -30,7 +30,7 @@ struct SomeKernel {
 // CHECK-NEXT:    [[TARGETDEV:%.*]] = getelementptr inbounds %struct.SomeKernel, ptr [[THIS1]]
 // CHECK:          "DIR.OMP.PARALLEL"()
 // CHECK-SAME:     "QUAL.OMP.DEFAULT.PRIVATE"()
-// CHECK-SAME:     "QUAL.OMP.PRIVATE"(ptr [[TARGETDEV]]
+// CHECK-SAME:     "QUAL.OMP.PRIVATE:TYPED"(ptr [[TARGETDEV]]
 // CHECK:          "DIR.OMP.END.PARALLEL"()
 void use_template() {
   SomeKernel aKern;
@@ -42,7 +42,7 @@ void use_template() {
 // CHECK-NEXT:    [[A:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    "DIR.OMP.PARALLEL"()
 // CHECK-SAME:    "QUAL.OMP.DEFAULT.PRIVATE"()
-// CHECK-SAME:    "QUAL.OMP.PRIVATE"(ptr [[A]]
+// CHECK-SAME:    "QUAL.OMP.PRIVATE:TYPED"(ptr [[A]]
 // CHECK:         "DIR.OMP.END.PARALLEL"()
 // CHECK-NEXT:    ret void
 //

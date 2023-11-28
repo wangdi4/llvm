@@ -67,6 +67,15 @@ endif()
 
 set(LLVM_INTEL_JIT_LIBS ${LLVM_PTHREAD_LIB} ${LLVM_INTEL_JIT_LIBS})
 
+if(INTEL_CUSTOMIZATION)
+  # JIRA: CMPLRLLVM-51249
+  # Suppress unwanted warning: [[]] attributes are a C2x extension
+  set(NO_C2X_EXTENSIONS_WARNING_FLAG " -Wno-c2x-extensions ")
+  check_c_compiler_flag(${NO_C2X_EXTENSIONS_WARNING_FLAG} HAS_NO_C2X_EXTENSIONS_WARNING_FLAG)
+  if(HAS_NO_C2X_EXTENSIONS_WARNING_FLAG)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NO_C2X_EXTENSIONS_WARNING_FLAG} ")
+  endif()
+endif(INTEL_CUSTOMIZATION)
 
 add_llvm_component_library(LLVMIntelJITEvents
   IntelJITEventListener.cpp

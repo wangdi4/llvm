@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(vpo-cfg-simplify)' -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,function(vpo-cfg-simplify)' -S %s | FileCheck %s
 
 ; Test src:
 ;
@@ -155,7 +155,7 @@ attributes #2 = { nounwind }
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2, !3, !4, !5, !6, !7}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang based Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)", isOptimized: false, flags: " --intel --intel-config /path/to/ws/deploy/linux_debug/bin/icx.cfg -O0 -fiopenmp -fopenmp-version=51 -emit-llvm -S -Xclang -disable-llvm-optzns -Xclang -opaque-pointers -Xclang -fopenmp-typed-clauses cfg_cleanup_after_paropt.c -g -o temp.ll -fveclib=SVML -fheinous-gnu-extensions", runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None)
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang based Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)", isOptimized: false, flags: " --intel --intel-config /path/to/ws/deploy/linux_debug/bin/icx.cfg -O0 -fiopenmp -fopenmp-version=51 -emit-llvm -S -Xclang -disable-llvm-optzns -Xclang -fopenmp-typed-clauses cfg_cleanup_after_paropt.c -g -o temp.ll -fveclib=SVML -fheinous-gnu-extensions", runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None)
 !1 = !DIFile(filename: "cfg_cleanup_after_paropt.c", directory: "/path/to")
 !2 = !{i32 7, !"Dwarf Version", i32 4}
 !3 = !{i32 2, !"Debug Info Version", i32 3}

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,14 +15,14 @@
 #ifndef __DATA_GENERATOR_H__
 #define __DATA_GENERATOR_H__
 
-#include <BufferContainerList.h>
-#include <Exception.h>
-#include <IDataReader.h>
-#include <dxfloat.h>
+#include "BufferContainerList.h"
+#include "Exception.h"
+#include "IDataReader.h"
+#include "dxfloat.h"
+#include "llvm/Support/DataTypes.h"
 #include <iostream>
 #include <limits>
 #include <list>
-#include <llvm/Support/DataTypes.h>
 #include <time.h>
 
 namespace Validation {

@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2023 Intel Corporation
+# Modifications, Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -53,6 +53,21 @@ string(TOUPPER "${LLVM_ENABLE_LTO}" uppercase_LLVM_ENABLE_LTO)
 # The following only works with the Ninja generator in CMake >= 3.0.
 set(LLVM_PARALLEL_COMPILE_JOBS "" CACHE STRING
   "Define the maximum number of concurrent compilation jobs (Ninja only).")
+if(LLVM_RAM_PER_COMPILE_JOB OR LLVM_RAM_PER_LINK_JOB)
+  cmake_host_system_information(RESULT available_physical_memory QUERY AVAILABLE_PHYSICAL_MEMORY)
+  cmake_host_system_information(RESULT number_of_logical_cores QUERY NUMBER_OF_LOGICAL_CORES)
+endif()
+if(LLVM_RAM_PER_COMPILE_JOB)
+  math(EXPR jobs_with_sufficient_memory "${available_physical_memory} / ${LLVM_RAM_PER_COMPILE_JOB}" OUTPUT_FORMAT DECIMAL)
+  if (jobs_with_sufficient_memory LESS 1)
+    set(jobs_with_sufficient_memory 1)
+  endif()
+  if (jobs_with_sufficient_memory LESS number_of_logical_cores)
+    set(LLVM_PARALLEL_COMPILE_JOBS "${jobs_with_sufficient_memory}")
+  else()
+    set(LLVM_PARALLEL_COMPILE_JOBS "${number_of_logical_cores}")
+  endif()
+endif()
 if(LLVM_PARALLEL_COMPILE_JOBS)
   if(NOT CMAKE_GENERATOR MATCHES "Ninja")
     message(WARNING "Job pooling is only available with Ninja generators.")
@@ -64,6 +79,17 @@ endif()
 
 set(LLVM_PARALLEL_LINK_JOBS "" CACHE STRING
   "Define the maximum number of concurrent link jobs (Ninja only).")
+if(LLVM_RAM_PER_LINK_JOB)
+  math(EXPR jobs_with_sufficient_memory "${available_physical_memory} / ${LLVM_RAM_PER_LINK_JOB}" OUTPUT_FORMAT DECIMAL)
+  if (jobs_with_sufficient_memory LESS 1)
+    set(jobs_with_sufficient_memory 1)
+  endif()
+  if (jobs_with_sufficient_memory LESS number_of_logical_cores)
+    set(LLVM_PARALLEL_LINK_JOBS "${jobs_with_sufficient_memory}")
+  else()
+    set(LLVM_PARALLEL_LINK_JOBS "${number_of_logical_cores}")
+  endif()
+endif()
 if(CMAKE_GENERATOR MATCHES "Ninja")
   if(NOT LLVM_PARALLEL_LINK_JOBS AND uppercase_LLVM_ENABLE_LTO STREQUAL "THIN")
     message(STATUS "ThinLTO provides its own parallel linking - limiting parallel link jobs to 2.")
@@ -102,8 +128,13 @@ if( LLVM_ENABLE_ASSERTIONS )
   endif()
   # Enable assertions in libstdc++.
   add_compile_definitions(_GLIBCXX_ASSERTIONS)
-  # Enable assertions in libc++.
-  add_compile_definitions(_LIBCPP_ENABLE_ASSERTIONS)
+  # Cautiously enable the extensive hardening mode in libc++.
+  if((DEFINED LIBCXX_HARDENING_MODE) AND
+     (NOT LIBCXX_HARDENING_MODE STREQUAL "extensive"))
+    message(WARNING "LLVM_ENABLE_ASSERTIONS implies LIBCXX_HARDENING_MODE \"extensive\" but is overriden from command line with value \"${LIBCXX_HARDENING_MODE}\".")
+  else()
+    set(LIBCXX_HARDENING_MODE "extensive")
+  endif()
 endif()
 
 if(LLVM_ENABLE_EXPENSIVE_CHECKS)
@@ -124,6 +155,10 @@ if(LLVM_ENABLE_EXPENSIVE_CHECKS)
   else()
     add_compile_definitions(_GLIBCXX_ASSERTIONS)
   endif()
+endif()
+
+if(LLVM_EXPERIMENTAL_DEBUGINFO_ITERATORS)
+  add_compile_definitions(EXPERIMENTAL_DEBUGINFO_ITERATORS)
 endif()
 
 if (LLVM_ENABLE_STRICT_FIXED_SIZE_VECTORS)
@@ -414,7 +449,10 @@ if( LLVM_USE_LINKER )
     CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS)
   check_cxx_source_compiles("int main() { return 0; }" CXX_SUPPORTS_CUSTOM_LINKER)
   if ( NOT CXX_SUPPORTS_CUSTOM_LINKER )
-    message(FATAL_ERROR "Host compiler does not support '-fuse-ld=${LLVM_USE_LINKER}'")
+    message(FATAL_ERROR "Host compiler does not support '-fuse-ld=${LLVM_USE_LINKER}'. "
+                        "Please make sure that '${LLVM_USE_LINKER}' is installed and "
+                        "that your host compiler can compile a simple program when "
+                        "given the option '-fuse-ld=${LLVM_USE_LINKER}'.")
   endif()
 endif()
 
@@ -546,7 +584,7 @@ if(MSVC)
   # value (1 MB) which is not enough for us in tasks such as parsing recursive
   # C++ templates in Clang.
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:10000000")
-elseif(MINGW) # FIXME: Also cygwin?
+elseif(MINGW OR CYGWIN)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,16777216")
 
   # Pass -mbig-obj to mingw gas to avoid COFF 2**16 section limit.
@@ -558,7 +596,6 @@ endif()
 option(LLVM_ENABLE_WARNINGS "Enable compiler warnings." ON)
 
 if( MSVC )
-  include(ChooseMSVCCRT)
 
   # Add definitions that make MSVC much less annoying.
   add_compile_definitions(
@@ -889,6 +926,11 @@ if (LLVM_ENABLE_WARNINGS AND (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL))
   add_flag_if_supported("-Wno-unused-command-line-argument" NO_UNUSED_COMMAND_LINE_ARGUMENT)
 #endif // INTEL_CUSTOMIZATION
 
+  # Disable -Wnonnull for GCC warning as it is emitting a lot of false positives.
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    append("-Wno-nonnull" CMAKE_CXX_FLAGS)
+  endif()
+
   # Disable -Wclass-memaccess, a C++-only warning from GCC 8 that fires on
   # LLVM's ADT classes.
   check_cxx_compiler_flag("-Wclass-memaccess" CXX_SUPPORTS_CLASS_MEMACCESS_FLAG)
@@ -1075,7 +1117,7 @@ if(LLVM_USE_SANITIZER)
       endif()
       # Prepare ASAN runtime if needed
       if (LLVM_USE_SANITIZER MATCHES ".*Address.*")
-        if (${LLVM_USE_CRT_${uppercase_CMAKE_BUILD_TYPE}} MATCHES "^(MT|MTd)$")
+        if (${CMAKE_MSVC_RUNTIME_LIBRARY} MATCHES "^(MultiThreaded|MultiThreadedDebug)$")
           append("/wholearchive:clang_rt.asan-${arch}.lib /wholearchive:clang_rt.asan_cxx-${arch}.lib"
             CMAKE_EXE_LINKER_FLAGS)
           append("/wholearchive:clang_rt.asan_dll_thunk-${arch}.lib"
@@ -1129,7 +1171,7 @@ if (LLVM_USE_SPLIT_DWARF AND
   # Limit to clang and gcc so far. Add compilers supporting this option.
   if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM" OR        # INTEL
       CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    add_compile_options(-gsplit-dwarf)
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-gsplit-dwarf>)
     include(LLVMCheckLinkerFlag)
     llvm_check_linker_flag(CXX "-Wl,--gdb-index" LINKER_SUPPORTS_GDB_INDEX)
     append_if(LINKER_SUPPORTS_GDB_INDEX "-Wl,--gdb-index"
@@ -1293,6 +1335,7 @@ if(LLVM_PROFDATA_FILE AND EXISTS ${LLVM_PROFDATA_FILE})
 endif()
 
 option(LLVM_BUILD_INSTRUMENTED_COVERAGE "Build LLVM and tools with Code Coverage instrumentation" Off)
+option(LLVM_INDIVIDUAL_TEST_COVERAGE "Emit individual coverage file for each test case." OFF)
 mark_as_advanced(LLVM_BUILD_INSTRUMENTED_COVERAGE)
 append_if(LLVM_BUILD_INSTRUMENTED_COVERAGE "-fprofile-instr-generate=\"${LLVM_PROFILE_FILE_PATTERN}\" -fcoverage-mapping"
   CMAKE_CXX_FLAGS

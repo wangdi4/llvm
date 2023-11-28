@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -200,6 +200,9 @@ bool AlignmentFromAssumptionsPass::extractAlignmentInfo(CallInst *I,
   if (!isa<SCEVConstant>(AlignSCEV))
     // Added to suppress a crash because consumer doesn't expect non-constant
     // alignments in the assume bundle.  TODO: Consider generalizing caller.
+    return false;
+  if (!cast<SCEVConstant>(AlignSCEV)->getAPInt().isPowerOf2())
+    // Only power of two alignments are supported.
     return false;
   if (AlignOB.Inputs.size() == 3)
     OffSCEV = SE->getSCEV(AlignOB.Inputs[2].get());

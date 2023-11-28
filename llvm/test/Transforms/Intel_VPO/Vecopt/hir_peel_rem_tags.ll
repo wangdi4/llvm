@@ -3,11 +3,11 @@
 ; LIT test to check emission of peel/remainder loop tags during vectorization.
 ;
 ; CHECK: DO i1 = 0, %peel.ub, 1   <DO_LOOP>  {{.*}} <vector-peel>
-; CHECK: DO i1 = %ub.tmp, %loop.ub, 4   <DO_LOOP> <auto-vectorized>
+; CHECK: DO i1 = %ub.tmp, %loop.ub, 4   <DO_LOOP> {{.*}} <auto-vectorized>
 ; CHECK: DO i1 = %lb.tmp, 1023, 1   <DO_LOOP> {{.*}} <vector-remainder>
 ;
-; VECCHECK: DO i1 = 0, %loop.ub, 4 <DO_LOOP> <vector-peel>
-; VECCHECK: DO i1 = 3, %loop.ub13, 8   <DO_LOOP> <auto-vectorized>
+; VECCHECK: DO i1 = 0, %loop.ub, 4 <DO_LOOP> {{.*}} <vector-peel>
+; VECCHECK: DO i1 = 3, %loop.ub13, 8   <DO_LOOP> {{.*}} <auto-vectorized>
 ; VECCHECK: DO i1 = {{.*}}, {{.*}}, 2  <DO_LOOP> {{.*}} <vector-remainder>
 ; VECCHECK: DO i1 = {{.*}}, 1023, 1  <DO_LOOP> {{.*}} <vector-remainder>
 ;

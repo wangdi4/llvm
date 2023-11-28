@@ -649,6 +649,22 @@ template <> void LeafRecordImpl<DimConLURecord>::map(IO &IO) {
   IO.mapRequired("Rank", Record.Rank);
   IO.mapRequired("Bounds", Record.Bounds);
 }
+
+template <> void LeafRecordImpl<RefSymRecord>::map(IO &IO) {
+  IO.mapRequired("Sym", Record.Sym);
+}
+
+template <> void LeafRecordImpl<DimVarURecord>::map(IO &IO) {
+  IO.mapRequired("IndexType", Record.IndexType);
+  IO.mapRequired("Rank", Record.Rank);
+  IO.mapRequired("Bounds", Record.Bounds);
+}
+
+template <> void LeafRecordImpl<DimVarLURecord>::map(IO &IO) {
+  IO.mapRequired("IndexType", Record.IndexType);
+  IO.mapRequired("Rank", Record.Rank);
+  IO.mapRequired("Bounds", Record.Bounds);
+}
 #endif //INTEL_CUSTOMIZATION
 
 template <> void MemberRecordImpl<OneMethodRecord>::map(IO &IO) {
@@ -822,7 +838,7 @@ std::vector<LeafRecord>
 llvm::CodeViewYAML::fromDebugT(ArrayRef<uint8_t> DebugTorP,
                                StringRef SectionName) {
   ExitOnError Err("Invalid " + std::string(SectionName) + " section!");
-  BinaryStreamReader Reader(DebugTorP, support::little);
+  BinaryStreamReader Reader(DebugTorP, llvm::endianness::little);
   CVTypeArray Types;
   uint32_t Magic;
 
@@ -851,7 +867,7 @@ ArrayRef<uint8_t> llvm::CodeViewYAML::toDebugT(ArrayRef<LeafRecord> Leafs,
   }
   uint8_t *ResultBuffer = Alloc.Allocate<uint8_t>(Size);
   MutableArrayRef<uint8_t> Output(ResultBuffer, Size);
-  BinaryStreamWriter Writer(Output, support::little);
+  BinaryStreamWriter Writer(Output, llvm::endianness::little);
   ExitOnError Err("Error writing type record to " + std::string(SectionName) +
                   " section");
   Err(Writer.writeInteger<uint32_t>(COFF::DEBUG_SECTION_MAGIC));

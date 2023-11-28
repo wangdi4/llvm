@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -106,7 +106,7 @@ public:
   PMDataManager *getAsPMDataManager() override { return this; }
   Pass *getAsPass() override { return this; }
 
-#if !INTEL_PRODUCT_RELEASE
+#if !INTEL_PRODUCT_RELEASE // INTEL
   // Print passes managed by this manager
   void dumpPassStructure(unsigned Offset) override {
     errs().indent(Offset*2) << "Call Graph SCC Pass Manager\n";
@@ -116,7 +116,7 @@ public:
       dumpLastUses(P, Offset+1);
     }
   }
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !INTEL_PRODUCT_RELEASE // INTEL
 
   Pass *getContainedPass(unsigned N) {
     assert(N < PassVector.size() && "Pass number out of range!");
@@ -197,9 +197,9 @@ bool CGPassManager::RunPassOnSCC(Pass *P, CallGraphSCC &CurSCC,
   // Run pass P on all functions in the current SCC.
   for (CallGraphNode *CGN : CurSCC) {
     if (Function *F = CGN->getFunction()) {
-#if !INTEL_PRODUCT_RELEASE
+#if !INTEL_PRODUCT_RELEASE // INTEL
       dumpPassInfo(P, EXECUTION_MSG, ON_FUNCTION_MSG, F->getName());
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !INTEL_PRODUCT_RELEASE // INTEL
       {
         TimeRegion PassTimer(getPassTimer(FPP));
         Changed |= FPP->runOnFunction(*F);
@@ -480,13 +480,13 @@ bool CGPassManager::RunAllPassesOnSCC(CallGraphSCC &CurSCC, CallGraph &CG,
       }
       OS.flush();
   #endif
-#if !INTEL_PRODUCT_RELEASE
+#if !INTEL_PRODUCT_RELEASE // INTEL
       dumpPassInfo(P, EXECUTION_MSG, ON_CG_MSG, Functions);
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !INTEL_PRODUCT_RELEASE // INTEL
     }
-#if !INTEL_PRODUCT_RELEASE
+#if !INTEL_PRODUCT_RELEASE // INTEL
     dumpRequiredSet(P);
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !INTEL_PRODUCT_RELEASE // INTEL
 
     initializeAnalysisImpl(P);
 
@@ -508,11 +508,11 @@ bool CGPassManager::RunAllPassesOnSCC(CallGraphSCC &CurSCC, CallGraph &CG,
     }
 #endif
 
-#if !INTEL_PRODUCT_RELEASE
+#if !INTEL_PRODUCT_RELEASE // INTEL
     if (LocalChanged)
       dumpPassInfo(P, MODIFICATION_MSG, ON_CG_MSG, "");
     dumpPreservedSet(P);
-#endif // !INTEL_PRODUCT_RELEASE
+#endif // !INTEL_PRODUCT_RELEASE // INTEL
 
     verifyPreservedAnalysis(P);
     if (LocalChanged)

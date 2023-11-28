@@ -1,4 +1,5 @@
 //===-- X86InstrFMA3Info.cpp - X86 FMA3 Instruction Information -----------===//
+// INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
 //
@@ -13,6 +14,8 @@
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
 // License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -149,7 +152,6 @@ static const X86InstrFMA3Group RoundGroups[] = {
   FMA3GROUP_PACKED_AVX512_ROUND(VFNMSUB, rb, 0)
   FMA3GROUP_SCALAR_AVX512_ROUND(VFNMSUB, rb, X86InstrFMA3Group::Intrinsic)
 };
-
 
 static void verifyTables() {
 #ifndef NDEBUG

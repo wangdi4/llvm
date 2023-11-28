@@ -1,6 +1,6 @@
 //===- CoerceTypes.cpp - CoerceTypes pass C++ -*--------------------------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -94,7 +94,9 @@ bool CoerceTypesPass::runOnFunction(Function *F) {
       Changed = true;
       Type *ArgMemTy = Arg.getParamByValType();
       uint64_t MemSize = PDataLayout->getTypeAllocSize(ArgMemTy);
-      ValueMap[Arg.getArgNo()] = {Arg.getParamAlign()->value(), MemSize};
+      // If alignment isn't available for the arg, set to default of 1 byte.
+      ValueMap[Arg.getArgNo()] = {Arg.getParamAlign().valueOrOne().value(),
+                                  MemSize};
       TP = {Arg.getType(), nullptr};
     }
     Changed |= (Arg.getType() != TP.first);
@@ -513,12 +515,16 @@ void CoerceTypesPass::copyAttributesAndArgNames(
   Function::arg_iterator NewArgI = NewF->arg_begin();
   size_t I = 0;
   // Collect attributes and name new arguments
+  bool ByValRemoved = false;
   for (const auto &NewArgTypePair : NewArgTypePairs) {
     if (NewArgTypePair.first == OldArgI->getType()) {
       assert(!NewArgTypePair.second && "Unexpected second type");
-      if (OldAttrList.hasParamAttr(I, Attribute::ByVal))
+      if (OldAttrList.hasParamAttr(I, Attribute::ByVal)) {
         OldAttrList =
             OldAttrList.removeParamAttributes(PModule->getContext(), I);
+        if (NewF->getName().startswith("__intel_indirect_call"))
+          ByValRemoved = true;
+      }
       ArgAttrs.push_back(
           OldAttrList.getAttributes(I + AttributeList::FirstArgIndex));
       NewArgI->setName(OldArgI->getName());
@@ -551,6 +557,19 @@ void CoerceTypesPass::copyAttributesAndArgNames(
   AttributeList NewAttrs =
       AttributeList::get(PModule->getContext(), FuncAttrs, RetAttrs, ArgAttrs);
   NewF->setAttributes(NewAttrs);
+  // Since this pass removes byval attributes from __intel_indirect_call_xxx
+  // args but not from the args of the indirect call itself, this can lead to
+  // inconsistencies which won't prevent SGSizeCollectorIndirect from adding
+  // "vector-variant" attributes for these calls. Since these calls cannot yet
+  // be vectorized, we need to ensure that any such calls retain byval
+  // attribute history so that "vector-variants" attributes are not added and
+  // vectorization can be prevented. In other words, the indirect call still
+  // has the byval attribute but the call to __intel_indirect_call_xxx doesn't
+  // and this leads to problems when we add "vector-variants" attributes later
+  // in SGSizeCollectorIndirect.
+  if (ByValRemoved) {
+    NewF->addFnAttr("ByValRemoved");
+  }
 }
 
 void CoerceTypesPass::moveFunctionBody(Function *OldF, Function *NewF,
@@ -593,8 +612,8 @@ void CoerceTypesPass::moveFunctionBody(Function *OldF, Function *NewF,
                           << PDataLayout->getAllocaAddrSpace() << " to "
                           << OldArgT->getAddressSpace() << "\n");
         return Builder.CreateAddrSpaceCast(
-            AllocaRes, PointerType::getWithSamePointeeType(
-                           OldArgT, OldArgT->getAddressSpace()));
+            AllocaRes, PointerType::get(OldArgT->getContext(),
+                                        OldArgT->getAddressSpace()));
       }
       return AllocaRes;
     }();

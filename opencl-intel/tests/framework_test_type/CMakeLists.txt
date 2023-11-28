@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2022 Intel Corporation
+# Copyright (C) 2012 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -28,6 +28,9 @@ check_cxx_compiler_flag("${nowarning_flags}" CXX_SUPPORTS_FLAGS)
 if(CXX_SUPPORTS_FLAGS)
   set_source_files_properties(${nowarning_source_files} PROPERTIES COMPILE_FLAGS "${nowarning_flags}")
 endif()
+
+set_source_files_properties(cpu_bind_test.cpp PROPERTIES
+                            INCLUDE_DIRECTORIES ${HWLOC_INCLUDE_DIR})
 
 include_directories(
   ${OCL_SOURCE_DIR}/framework/export ${OCL_SOURCE_DIR}/framework/Tracing

@@ -3,7 +3,7 @@
 
 ; REQUIRES: asserts
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert" -print-after=hir-vec-dir-insert -vplan-enable-early-exit-loops -debug-only=parvec-analysis -disable-output 2>&1 | FileCheck %s
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-optreport-emitter" -vplan-enable-early-exit-loops -hir-enable-parvec-diag -disable-output 2>&1 | FileCheck %s --check-prefix=OPTRPT
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-cg,simplifycfg,intel-ir-optreport-emitter" -vplan-enable-early-exit-loops -hir-enable-parvec-diag -disable-output 2>&1 | FileCheck %s --check-prefix=OPTRPT
 
 ; CHECK: EarlyExitVecSafety: Multiple early exits is not supported.
 

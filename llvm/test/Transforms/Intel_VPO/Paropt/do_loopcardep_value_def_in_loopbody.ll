@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes="vpo-paropt" -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes="vpo-paropt" -S %s | FileCheck %s
 
 ; This test checks if the dispatch header takes care of loop carried dependence of temporaries.
 ; The temporary here is defined in the loop body, and used in a PHI in the loop header with an

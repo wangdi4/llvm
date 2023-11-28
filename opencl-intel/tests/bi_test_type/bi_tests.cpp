@@ -1,10 +1,9 @@
-#include <map>
-#include <string>
-
 #include "bi_tests.h"
 #include "cl_env.h"
 #include "common_utils.h"
 #include "options.hpp"
+#include <map>
+#include <string>
 
 cl_device_type gDeviceType = CL_DEVICE_TYPE_CPU;
 

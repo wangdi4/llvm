@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -68,7 +68,7 @@ public:
   AAResults *AA = nullptr;
   AssumptionCache *AC = nullptr;
   GCFunctionInfo *GFI = nullptr;
-  CodeGenOpt::Level OptLevel;
+  CodeGenOptLevel OptLevel;
   const TargetInstrInfo *TII;
   const TargetLowering *TLI;
   bool FastISelFailed;
@@ -79,7 +79,7 @@ public:
   std::unique_ptr<OptimizationRemarkEmitter> ORE;
 
   explicit SelectionDAGISel(char &ID, TargetMachine &tm,
-                            CodeGenOpt::Level OL = CodeGenOpt::Default);
+                            CodeGenOptLevel OL = CodeGenOptLevel::Default);
   ~SelectionDAGISel() override;
 
   const TargetLowering *getTargetLowering() const { return TLI; }
@@ -106,9 +106,10 @@ public:
   /// not match or is not implemented, return true.  The resultant operands
   /// (which will appear in the machine instruction) should be added to the
   /// OutOps vector.
-  virtual bool SelectInlineAsmMemoryOperand(const SDValue &Op,
-                                            unsigned ConstraintID,
-                                            std::vector<SDValue> &OutOps) {
+  virtual bool
+  SelectInlineAsmMemoryOperand(const SDValue &Op,
+                               InlineAsm::ConstraintCode ConstraintID,
+                               std::vector<SDValue> &OutOps) {
     return true;
   }
 
@@ -121,7 +122,7 @@ public:
   /// FIXME: This is a static member function because the MSP430/X86
   /// targets, which uses it during isel.  This could become a proper member.
   static bool IsLegalToFold(SDValue N, SDNode *U, SDNode *Root,
-                            CodeGenOpt::Level OptLevel,
+                            CodeGenOptLevel OptLevel,
                             bool IgnoreChains = false);
 
   static void InvalidateNodeId(SDNode *N);
@@ -145,6 +146,7 @@ public:
     OPC_CheckChild0Same, OPC_CheckChild1Same,
     OPC_CheckChild2Same, OPC_CheckChild3Same,
     OPC_CheckPatternPredicate,
+    OPC_CheckPatternPredicate2,
     OPC_CheckPredicate,
     OPC_CheckPredicateWithOperands,
     OPC_CheckOpcode,
@@ -350,6 +352,8 @@ private:
                                 SDLoc DL);
   void Select_STACKMAP(SDNode *N);
   void Select_PATCHPOINT(SDNode *N);
+
+  void Select_JUMP_TABLE_DEBUG_INFO(SDNode *N);
 
 private:
   void DoInstructionSelection();

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,11 +17,11 @@
 #include "IAbstractBackendFactory.h"
 #include "ProgramBuilder.h"
 #include "cl_dev_backend_api.h"
-#include "llvm/Support/Mutex.h"
 
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
+#include "llvm/Support/Mutex.h"
 
 namespace Intel {
 namespace OpenCL {

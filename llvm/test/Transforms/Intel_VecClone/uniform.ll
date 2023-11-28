@@ -1,6 +1,6 @@
 ; Check to make sure the initial parameter store of the uniform parameter is sunk into the loop.
 
-; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: <4 x i32> @_ZGVbN4u_foo(i32 %b)
 ; CHECK: simd.begin.region:
@@ -9,9 +9,9 @@
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 4
 ; CHECK-SAME: QUAL.OMP.UNIFORM
-; CHECK-SAME: i32* %alloca.b
+; CHECK-SAME: ptr %alloca.b
 ; CHECK-SAME: QUAL.OMP.PRIVATE
-; CHECK-SAME: i32* %b.addr
+; CHECK-SAME: ptr %b.addr
 ; CHECK: simd.loop.header:
 ; CHECK: store i32 %load.b
 
@@ -23,11 +23,11 @@ target triple = "x86_64-unknown-linux-gnu"
 define i32 @foo(i32 %b) #0 {
 entry:
   %b.addr = alloca i32, align 4
-  store i32 %b, i32* %b.addr, align 4
-  %0 = load i32, i32* %b.addr, align 4
+  store i32 %b, ptr %b.addr, align 4
+  %0 = load i32, ptr %b.addr, align 4
   %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* %b.addr, align 4
-  %1 = load i32, i32* %b.addr, align 4
+  store i32 %inc, ptr %b.addr, align 4
+  %1 = load i32, ptr %b.addr, align 4
   ret i32 %1
 }
 

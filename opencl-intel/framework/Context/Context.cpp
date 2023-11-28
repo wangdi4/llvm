@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,18 +12,17 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <algorithm>
-#include <assert.h>
-#include <limits.h>
-
 #include "Context.h"
 #include "Device.h"
 #include "MemoryAllocator/MemoryObject.h"
 #include "MemoryAllocator/MemoryObjectFactory.h"
+#include "cl_objects_map.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
 #include "cl_user_logger.h"
+#include "cl_utils.h"
 #include "context_module.h"
+#include "framework_proxy.h"
 #include "ocl_itt.h"
 #include "pipe.h"
 #include "program_builtin_kernels.h"
@@ -36,9 +35,10 @@
 #include "sampler.h"
 #include "svm_buffer.h"
 #include "usm_buffer.h"
-#include <cl_objects_map.h>
-#include <cl_utils.h>
-#include <framework_proxy.h>
+
+#include <algorithm>
+#include <assert.h>
+#include <limits.h>
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
@@ -110,34 +110,10 @@ Context::Context(const cl_context_properties *clProperties,
 
   assert((nullptr != ppDevices) && (uiNumDevices > 0));
   m_uiNumRootDevices = uiNumRootDevices;
-
   m_ppAllDevices = new SharedPtr<FissionableDevice>[uiNumDevices];
-  if (nullptr == m_ppAllDevices) {
-    *pclErr = CL_OUT_OF_HOST_MEMORY;
-    return;
-  }
   m_ppExplicitRootDevices = new SharedPtr<Device>[m_uiNumRootDevices];
-  if (nullptr == m_ppExplicitRootDevices) {
-    *pclErr = CL_OUT_OF_HOST_MEMORY;
-    delete[] m_ppAllDevices;
-    return;
-  }
-
   m_pDeviceIds = new cl_device_id[uiNumDevices];
-  if (nullptr == m_pDeviceIds) {
-    *pclErr = CL_OUT_OF_HOST_MEMORY;
-    delete[] m_ppAllDevices;
-    delete[] m_ppExplicitRootDevices;
-    return;
-  }
   m_pOriginalDeviceIds = new cl_device_id[uiNumDevices];
-  if (nullptr == m_pOriginalDeviceIds) {
-    *pclErr = CL_OUT_OF_HOST_MEMORY;
-    delete[] m_pDeviceIds;
-    delete[] m_ppAllDevices;
-    delete[] m_ppExplicitRootDevices;
-    return;
-  }
 
   cl_uint curRoot = 0;
   for (cl_uint ui = 0; ui < uiNumDevices; ++ui) {
@@ -172,9 +148,7 @@ Context::Context(const cl_context_properties *clProperties,
   m_pclContextProperties = nullptr;
   if (nullptr == clProperties) {
     m_pclContextProperties = new cl_context_properties[1];
-    if (nullptr != m_pclContextProperties) {
-      m_pclContextProperties[0] = 0;
-    }
+    m_pclContextProperties[0] = 0;
   } else {
     // count the number of properties;
     while (0 != clProperties[m_uiContextPropCount]) {
@@ -185,12 +159,9 @@ Context::Context(const cl_context_properties *clProperties,
     m_uiContextPropCount++; // last property = NULL;
     // allocate new buffer for context's properties
     m_pclContextProperties = new cl_context_properties[m_uiContextPropCount];
-    if (nullptr != m_pclContextProperties) {
-      MEMCPY_S(m_pclContextProperties,
-               m_uiContextPropCount * sizeof(cl_context_properties),
-               clProperties,
-               m_uiContextPropCount * sizeof(cl_context_properties));
-    }
+    MEMCPY_S(m_pclContextProperties,
+             m_uiContextPropCount * sizeof(cl_context_properties), clProperties,
+             m_uiContextPropCount * sizeof(cl_context_properties));
   }
 
   const OCLConfig *pOclConfig = FrameworkProxy::Instance()->GetOCLConfig();
@@ -535,11 +506,6 @@ cl_err_code Context::CreateProgramForLink(cl_uint IN uiNumDevices,
   // get devices
   SharedPtr<FissionableDevice> *ppDevices =
       new SharedPtr<FissionableDevice>[uiNumDevices];
-  if (nullptr == ppDevices) {
-    // can't allocate memory for devices
-    LOG_ERROR(TEXT("Can't allocated memory for devices"));
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   // check devices
   bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
@@ -587,9 +553,6 @@ cl_err_code Context::CompileProgram(
   if (0 < uiNumHeaders) {
     // This array will be freed by the program service
     ppHeaders = new SharedPtr<Program>[uiNumHeaders];
-    if (nullptr == ppHeaders) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
 
     for (unsigned int i = 0; i < uiNumHeaders; ++i) {
       ppHeaders[i] =
@@ -633,9 +596,6 @@ Context::LinkProgram(cl_program IN clProgram, cl_uint IN uiNumDevices,
   if (0 < uiNumBinaries) {
     // This array will be freed by the program service
     ppBinaries = new SharedPtr<Program>[uiNumBinaries];
-    if (nullptr == ppBinaries) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
 
     for (unsigned int i = 0; i < uiNumBinaries; ++i) {
       ppBinaries[i] =
@@ -780,11 +740,6 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices,
   // get devices
   SharedPtr<FissionableDevice> *ppDevices =
       new SharedPtr<FissionableDevice>[uiNumDevices];
-  if (nullptr == ppDevices) {
-    // can't allocate memory for devices
-    LOG_ERROR(TEXT("Can't allocated memory for devices"));
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   // check devices
   bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
@@ -859,11 +814,6 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(
   // get devices
   SharedPtr<FissionableDevice> *ppDevices =
       new SharedPtr<FissionableDevice>[uiNumDevices];
-  if (nullptr == ppDevices) {
-    // can't allocate memory for devices
-    LOG_ERROR(TEXT("Can't allocated memory for devices"));
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   // check devices
   bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
@@ -1568,11 +1518,9 @@ Intel::OpenCL::Utils::OclOsDependentEvent *Context::GetOSEvent() {
   bool exists = m_OsEventPool.TryPop(pOsEvent);
   if (!exists) {
     pOsEvent = new Intel::OpenCL::Utils::OclOsDependentEvent();
-    if (nullptr != pOsEvent) {
-      bool initOK = pOsEvent->Init();
-      (void)initOK;
-      assert(initOK && "OclEvent Failed to setup OS_DEPENDENT event");
-    }
+    bool initOK = pOsEvent->Init();
+    (void)initOK;
+    assert(initOK && "OclEvent Failed to setup OS_DEPENDENT event");
   }
 
   return pOsEvent;
@@ -1709,6 +1657,18 @@ cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel> &pKernel,
           pKernel->GetContext()->DoesSupportUsmSharedSystem()))
       return CL_INVALID_OPERATION;
     pKernel->SetUsmIndirectShared(CL_TRUE == *(const cl_bool *)pParamValue);
+    break;
+  }
+  case CL_KERNEL_EXEC_INFO_DISPATCH_TYPE_INTEL: {
+    if (szParamValueSize < sizeof(cl_kernel_exec_info_dispatch_type_intel))
+      return CL_INVALID_VALUE;
+    if (*(const cl_kernel_exec_info_dispatch_type_intel *)pParamValue !=
+            CL_KERNEL_EXEC_INFO_DISPATCH_TYPE_DEFAULT_INTEL &&
+        *(const cl_kernel_exec_info_dispatch_type_intel *)pParamValue !=
+            CL_KERNEL_EXEC_INFO_DISPATCH_TYPE_CONCURRENT_INTEL)
+      return CL_INVALID_OPERATION;
+    pKernel->SetDispatchType(
+        *(const cl_kernel_exec_info_dispatch_type_intel *)pParamValue);
     break;
   }
   default:

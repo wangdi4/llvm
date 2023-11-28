@@ -62,13 +62,6 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
     auto *ValTy = dyn_cast<PointerType>(GV->getValueType());
     if (!ValTy)
       continue;
-#if !ENABLE_OPAQUEPOINTER
-    if (!ValTy->isOpaque() &&
-        isa<PointerType>(ValTy->getNonOpaquePointerElementType()))
-      // TODO: for now analyze only pointer to non-pointer globals.
-      // TODO: OPAQUEPOINTER: remove this check
-      continue;
-#endif // !ENABLE_OPAQUEPOINTER
 
     if (ValTy->getAddressSpace() != FlatAddrSpace)
       continue;
@@ -158,7 +151,7 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
     }
 
     // The optimization is possible.
-    auto *NewValType = PointerType::getWithSamePointeeType(ValTy, NewAS);
+    auto *NewValType = PointerType::get(ValTy->getContext(), NewAS);
 
     // Create new global variable.
     Constant *Initializer = nullptr;
@@ -187,8 +180,7 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
       // we used stripPointerCasts() above to find the initial
       // pointer).
       auto *NewStoreVal = Builder.CreateAddrSpaceCast(
-          StoreVal,
-          PointerType::getWithSamePointeeType(StoreValTy, NewAS));
+          StoreVal, PointerType::get(StoreValTy->getContext(), NewAS));
       SI->replaceUsesOfWith(StoreVal, NewStoreVal);
       SI->replaceUsesOfWith(GV, NewGV);
     }
@@ -200,8 +192,7 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
       // Clone the load instruction.
       auto *NewLI = LI->clone();
       NewLI->replaceUsesOfWith(GV, NewGV);
-      NewLI->mutateType(
-          PointerType::getWithSamePointeeType(LoadValTy, NewAS));
+      NewLI->mutateType(PointerType::get(LoadValTy->getContext(), NewAS));
       NewLI->insertBefore(LI);
       // Cast the new load value to the original flat address space.
       // We could have called InferAddrSpaces() again to optimize

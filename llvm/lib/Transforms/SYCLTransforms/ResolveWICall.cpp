@@ -1,6 +1,6 @@
 //===- ResolveWICall.cpp - Resolve DPC++ kernel work-item call ------------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,6 +15,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/LocalBufferAnalysis.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include <algorithm>
@@ -23,17 +24,10 @@ using namespace llvm;
 
 #define DEBUG_TYPE "sycl-kernel-resolve-wi-call"
 
-// Add command line to specify work groups size as uniform.
-static cl::opt<bool> OptUniformWGSize(
-    "sycl-uniform-wg-size", cl::init(false), cl::Hidden,
-    cl::desc("The flag speficies work groups size as uniform"));
-
-extern bool EnableTLSGlobals;
-
 PreservedAnalyses ResolveWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
   CallGraph *CG = &AM.getResult<CallGraphAnalysis>(M);
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
-  if (!runImpl(M, IsUniformWG, UseTLSGlobals, IAInfo, CG))
+  if (!runImpl(M, IAInfo, CG))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<ImplicitArgsAnalysis>();
@@ -41,16 +35,15 @@ PreservedAnalyses ResolveWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
   return PA;
 }
 
-bool ResolveWICallPass::runImpl(Module &M, bool IsUniformWG, bool UseTLSGlobals,
-                                ImplicitArgsInfo *IAInfo, CallGraph *CG) {
+bool ResolveWICallPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo,
+                                CallGraph *CG) {
   this->M = &M;
   Ctx = &M.getContext();
   this->IAInfo = IAInfo;
   this->CG = CG;
 
   PrefetchDecl = false;
-  this->IsUniformWG = IsUniformWG | OptUniformWGSize;
-  this->UseTLSGlobals = UseTLSGlobals | EnableTLSGlobals;
+  HasTLSGlobals = CompilationUtils::hasTLSGlobals(M);
 
   // extended execution flags
   ExtExecDecls.clear();
@@ -65,6 +58,8 @@ bool ResolveWICallPass::runImpl(Module &M, bool IsUniformWG, bool UseTLSGlobals,
 
     if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&F))
       continue;
+
+    IsUniformWG = F.getFnAttribute("uniform-work-group-size").getValueAsBool();
 
     clearPerFunctionCache();
     runOnFunction(&F);
@@ -91,7 +86,7 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
   this->F = F;
   Value *SpecialBuf = nullptr;
   IRBuilder<> Builder(*Ctx);
-  if (UseTLSGlobals) {
+  if (HasTLSGlobals) {
     Builder.SetInsertPoint(dyn_cast<Instruction>(F->getEntryBlock().begin()));
     WorkInfo = createLoadForTLSGlobal(Builder, M,
                                       ImplicitArgsUtils::IA_WORK_GROUP_INFO);
@@ -536,8 +531,8 @@ void ResolveWICallPass::updatePrefetch(IRBuilder<> &Builder, CallInst *CI) {
   // prefetch builtin has OpenCL built-in scalar or vector data type.
   auto FDesc = NameMangleAPI::demangle(CI->getCalledFunction()->getName());
   Type *Ty = CompilationUtils::getLLVMTypeFromReflectionType(
-      *Ctx, reflection::cast<reflection::PointerType>(FDesc.Parameters[0].get())
-                ->getPointee());
+      *Ctx,
+      cast<reflection::PointerType>(FDesc.Parameters[0].get())->getPointee());
   assert(Ty && "invalid LLVM type from reflection::PointerType");
   unsigned EltSize = M->getDataLayout().getTypeAllocSize(Ty);
   Params.push_back(ConstantInt::get(IntegerType::get(*Ctx, SizeT), EltSize));
@@ -636,11 +631,11 @@ TInternalCallType ResolveWICallPass::getCallFunctionType(StringRef FuncName) {
 const int EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE =
     CompilationUtils::ADDRESS_SPACE_GLOBAL;
 Type *ResolveWICallPass::getQueueType() const {
-  return PointerType::getInt8PtrTy(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
+  return PointerType::get(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
 }
 
 Type *ResolveWICallPass::getClkEventType() const {
-  return PointerType::getInt8PtrTy(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
+  return PointerType::get(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
 }
 
 Type *ResolveWICallPass::getKernelEnqueueFlagsType() const {
@@ -648,7 +643,7 @@ Type *ResolveWICallPass::getKernelEnqueueFlagsType() const {
 }
 
 Type *ResolveWICallPass::getNDRangeType() const {
-  return PointerType::getInt8PtrTy(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
+  return PointerType::get(*Ctx, EXTEXEC_OPAQUE_TYPES_ADDRESS_SPACE);
 }
 
 Type *ResolveWICallPass::getBlockLocalMemType() const {
@@ -696,29 +691,8 @@ Value *ResolveWICallPass::updateEnqueueKernelFunction(
     // check it is pointer.
     if (!NewParamTy->isPointerTy())
       llvm_unreachable("Unsupported type of argument");
-    if (cast<PointerType>(NewParamTy)->isOpaque()) {
-      NewParam =
-          Builder.CreatePointerBitCastOrAddrSpaceCast(NewParam, ExpectedArgTy);
-      continue;
-    } else {
-      Type *PtrTy =
-          cast<PointerType>(NewParamTy)->getNonOpaquePointerElementType();
-      // pointer type is struct.
-      if (PtrTy->isStructTy()) {
-        *It = CastInst::CreatePointerCast(NewParam, ExpectedArgTy, "", CI);
-        continue;
-      }
-      // check pointer is to pointer.
-      if (!PtrTy->isPointerTy())
-        llvm_unreachable("Unsupported type of argument");
-      // double pointer points to structure.
-      Type *PPtrTy = cast<PointerType>(PtrTy)->getNonOpaquePointerElementType();
-      if (PPtrTy->isStructTy()) {
-        NewParam = CastInst::CreatePointerCast(NewParam, ExpectedArgTy, "", CI);
-        continue;
-      }
-      llvm_unreachable("Unsupported type of argument");
-    }
+    NewParam =
+        Builder.CreatePointerBitCastOrAddrSpaceCast(NewParam, ExpectedArgTy);
   }
   CallInst *NewCI = Builder.CreateCall(M->getFunction(FuncName), NewParams);
 
@@ -742,7 +716,7 @@ void ResolveWICallPass::clearPerFunctionCache() {
 
 Value *ResolveWICallPass::getOrCreateBlock2KernelMapper() {
   IRBuilder<> Builder(&*F->getEntryBlock().begin());
-  if (UseTLSGlobals)
+  if (HasTLSGlobals)
     Builder.SetInsertPoint(cast<Instruction>(WorkInfo)->getNextNode());
   if (!Block2KernelMapper)
     Block2KernelMapper = IAInfo->GenerateGetFromWorkInfo(
@@ -752,7 +726,7 @@ Value *ResolveWICallPass::getOrCreateBlock2KernelMapper() {
 
 Value *ResolveWICallPass::getOrCreateRuntimeInterface() {
   IRBuilder<> Builder(&*F->getEntryBlock().begin());
-  if (UseTLSGlobals)
+  if (HasTLSGlobals)
     Builder.SetInsertPoint(cast<Instruction>(WorkInfo)->getNextNode());
   if (!RuntimeInterface)
     RuntimeInterface = IAInfo->GenerateGetFromWorkInfo(

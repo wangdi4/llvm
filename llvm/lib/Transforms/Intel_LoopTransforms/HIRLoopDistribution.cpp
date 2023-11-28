@@ -1,6 +1,6 @@
 //===----- HIRLoopDistribution.cpp - Distribution of HIR loops  -----------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -16,6 +16,9 @@
 //
 
 #include "llvm/ADT/SCCIterator.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
@@ -25,7 +28,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
@@ -43,11 +45,10 @@ cl::opt<bool> DisableDist("disable-hir-loop-distribute",
                           cl::desc("Disable HIR Loop Distribution"), cl::Hidden,
                           cl::init(false));
 
-cl::opt<unsigned> MaxMemResourceToDistribute(
-    "hir-loop-distribute-max-mem",
-    cl::desc("Number of memory references to be placed into new distributed "
-             "loop chunks"),
-    cl::Hidden, cl::init(20));
+cl::opt<unsigned> MaxDistributedChunks(
+    "hir-loop-distribute-max-chunks",
+    cl::desc("Maximum number of chunks into which loop can be distributed."),
+    cl::Hidden, cl::init(8));
 
 cl::opt<unsigned> ScalarExpansionCost(
     "hir-loop-distribute-scex-cost",
@@ -55,11 +56,28 @@ cl::opt<unsigned> ScalarExpansionCost(
         "Number of mem operations in loop when to enable scalar expansion."),
     cl::Hidden, cl::init(20));
 
+cl::opt<unsigned> MaxScalarExpandedTemps(
+    "hir-loop-distribute-max-scalar-expanded-temps",
+    cl::desc("Maximum number of temps allowed to be scalar expanded."),
+    cl::Hidden, cl::init(7));
+
 cl::opt<bool> AlwaysStripmine(
     "hir-loop-distribute-always-stripmine",
     cl::desc(
         "Forces HIR Loop Distribution to always allow stripmine if possible."),
     cl::Hidden, cl::init(false));
+
+cl::opt<bool> SkipVectorizationProfitabilityCheck(
+    "hir-loop-distribute-skip-vectorization-profitability-check",
+    cl::desc("Skips checks to see whether a PiBlock is profitable for "
+             "vectorization."),
+    cl::Hidden, cl::init(false));
+
+cl::opt<unsigned> SubstantialComputationThreshold(
+    "hir-loop-distribute-substantial-computation-threshold",
+    cl::desc("Threshold for what classifies as substantial computation. It is "
+             "used to scale allowed scalar expanded temps."),
+    cl::Hidden, cl::init(25));
 
 const std::string DistributeLoopnestEnable =
     "intel.loop.distribute.loopnest.enable";
@@ -77,6 +95,54 @@ const OptRemarkID OptReportMsg[PragmaReturnCode::Last] = {
     OptRemarkID::DistribPragmaFailLoopNestTooLarge,
     //"Distribute point pragma not processed: Too many Distribute points"
     OptRemarkID::DistribPragmaFailExcessDistribPoints};
+
+const unsigned StripmineSize = 64;
+
+// Combines all DistPPNodes in all the PiBlocks inside PiBlockList into a single
+// vector. Then sorts the nodes in the vector based on top sort num.
+static void
+mergeAndSortPiBlocks(ArrayRef<PiBlockList> GroupsOfPiBlocks,
+                     SmallVectorImpl<MergedPiBlockTy> &MergedPiBlocks) {
+
+  for (auto &PList : GroupsOfPiBlocks) {
+    auto &MergedPiBlock = MergedPiBlocks.emplace_back();
+
+    for (auto *PiBlock : PList) {
+      for (auto *PPNode :
+           make_range(PiBlock->dist_node_begin(), PiBlock->dist_node_end())) {
+        MergedPiBlock.push_back(PPNode);
+      }
+    }
+
+    std::sort(MergedPiBlock.begin(), MergedPiBlock.end(),
+              [](DistPPNode *A, DistPPNode *B) {
+                return A->getNode()->getTopSortNum() <
+                       B->getNode()->getTopSortNum();
+              });
+  }
+}
+
+// Scale the threshold by some factor if vectorizable chunks have substantial
+// computation.
+unsigned HIRLoopDistribution::getScaledScalarExpandedTempThreshold() const {
+  unsigned ScaledThreshold = MaxScalarExpandedTemps;
+
+  for (auto &CVI : make_range(ChunkVecInfos.begin(), ChunkVecInfos.end())) {
+    if (!CVI.isLegal())
+      continue;
+
+    unsigned ComputationEstimate = (2 * CVI.NumCalls + CVI.NumFPOperations);
+
+    if (ComputationEstimate > (2 * SubstantialComputationThreshold)) {
+      ScaledThreshold = 3 * MaxScalarExpandedTemps;
+      break;
+    } else if (ComputationEstimate > SubstantialComputationThreshold) {
+      ScaledThreshold = 2 * MaxScalarExpandedTemps;
+    }
+  }
+
+  return ScaledThreshold;
+}
 
 bool HIRLoopDistribution::run() {
   if (DisableDist) {
@@ -110,6 +176,8 @@ bool HIRLoopDistribution::run() {
       continue;
     }
 
+    ChunkVecInfos.clear();
+
     if (Lp->hasDistributePoint()) {
       PragmaReturnCode RC = distributeLoopForDirective(Lp);
       if (RC != Last) {
@@ -126,6 +194,13 @@ bool HIRLoopDistribution::run() {
     SARA.computeSparseArrayReductionChains(Lp);
 
     if (DistCostModel == DistHeuristics::BreakMemRec) {
+
+      if (Lp->hasVectorizeDisablingPragma()) {
+        LLVM_DEBUG(dbgs() << "Skipping distribution for loop with "
+                             "vectorization disabling pragma.\n");
+        continue;
+      }
+
       CreateControlNodes = true;
 
       unsigned TotalMemOps = 0;
@@ -156,9 +231,6 @@ bool HIRLoopDistribution::run() {
       continue;
     }
 
-    LLVM_DEBUG_DDG(dbgs() << "DDG dump:\n");
-    LLVM_DEBUG_DDG(DDA.getGraph(Lp).dump());
-
     LLVM_DEBUG(dbgs() << "\nPiGraph dump:\n");
     LLVM_DEBUG(PG->dump());
     LLVM_DEBUG(dbgs() << "\n");
@@ -175,45 +247,37 @@ bool HIRLoopDistribution::run() {
       }
     }
 
-    SmallVector<PiBlockList, 8> NewOrdering;
-    findDistPoints(Lp, PG, NewOrdering);
+    SmallVector<PiBlockList, 8> DistChunks;
+    findDistPoints(Lp, PG, DistChunks);
 
-    LLVM_DEBUG(Analysis.dumpResult(););
+    if (DistChunks.size() > 1 && DistChunks.size() < MaxDistributedChunks) {
+      // Stripmine should be possible with extra setup, but not always needed.
+      // In rare cases we should bail out for max depth loopnests before doing
+      // the transformation below.
+      bool StripmineRequiresExtraSetup =
+          !Lp->canStripmine(StripmineSize, false /*AllowExplicitBoundInst*/);
+      if (StripmineRequiresExtraSetup &&
+          !Lp->canStripmine(StripmineSize, true /*AllowExplicitBoundInst*/)) {
+        LLVM_DEBUG(dbgs() << "\tStripmine failed for distribution\n";);
+        continue;
+      }
 
-    // Heuristic: if we cannot do normal stripmine and distribution is only
-    // splitting loops due to memref count with control flow, just give up as
-    // it's unlikely to help performance. Can override with AlwaysStripmine.
-    if (!AlwaysStripmine && PG->hasControlDependences() &&
-        Lp->isStripmineRequired(StripmineSize) &&
-        !Lp->canStripmine(StripmineSize) && Analysis.onlyForMemRefCount()) {
-      // Assume stripmine is required
-      LLVM_DEBUG(
-          dbgs() << "Distribution likely not profitable for control flow with "
-                    "special stripmine for default memref heuristic\n";);
-      continue;
-    }
-
-    // TODO: This is a workaround that should be removed (JR43683)
-    if (!AlwaysStripmine && Lp->isStripmineRequired(StripmineSize) &&
-        !Lp->canStripmine(StripmineSize) && Analysis.UserCall) {
-      continue;
-    }
-
-    // Stripmine should be possible with extra setup, but not always needed.
-    // In rare cases we should bail out for max depth loopnests before doing
-    // the transformation below.
-    bool StripmineRequiresExtraSetup = !Lp->canStripmine(StripmineSize, false);
-    if (StripmineRequiresExtraSetup && !Lp->canStripmine(StripmineSize, true)) {
-      LLVM_DEBUG(dbgs() << "\tStripmine failed for distribution\n";);
-      continue;
-    }
-
-    if (NewOrdering.size() > 1 && NewOrdering.size() < MaxDistributedLoop) {
       SmallVector<HLDDNodeList, 8> DistributedLoops;
+      SmallVector<MergedPiBlockTy, 6> MergedPiBlocks;
+
+      mergeAndSortPiBlocks(DistChunks, MergedPiBlocks);
 
       invalidateLoop(Lp);
 
-      processPiBlocksToHLNodes(PG, NewOrdering, DistributedLoops);
+      // Clone the loop before we modify it in processPiBlocksToHLNodes().
+      auto *BackupLp = Lp->clone();
+
+      // This function can change the HIR when there are control dependences but
+      // then we bailout of the transformation under some cases. To avoid
+      // stability issues, we clone the loop before modification and replace it
+      // with the cloned verison if we bail out. Ideally, we should bail out
+      // before modifying HIR.
+      processPiBlocksToHLNodes(PG, MergedPiBlocks, DistributedLoops);
 
       // Do scalar expansion analysis.
       ScalarExpansion SCEX(Lp, false, DistributedLoops);
@@ -224,17 +288,6 @@ bool HIRLoopDistribution::run() {
       //       "Inconsistent logic: scalar expansion is required while "
       //       "being not allowed");
 
-      // Bail out if exceed number of maximum temps allowed, but only if there
-      // were no control dependencies - in this case processPiBlocksToHLNodes()
-      // already made irreversible changes to HIR.
-      if (!PG->hasControlDependences() &&
-          SCEX.getNumTempsRequired() > MaxArrayTempsAllowed) {
-        LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
-                          << "Number of temps required for distribution exceed "
-                             "MaxArrayTempsAllowed\n");
-        continue;
-      }
-
       // Bail out if scalar expansion would introduce new dependencies that
       // require additional temps
       if (SCEX.hasBadCandidate()) {
@@ -242,6 +295,7 @@ bool HIRLoopDistribution::run() {
             dbgs()
             << "LOOP DISTRIBUTION: "
             << "Distribution disabled due to Scalar Expansion analysis\n");
+        HLNodeUtils::replace(Lp, BackupLp);
         continue;
       }
 
@@ -253,6 +307,7 @@ bool HIRLoopDistribution::run() {
           LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
                             << "Unable to do loop distribution for loopnest "
                                "formation without stripmining.\n");
+          HLNodeUtils::replace(Lp, BackupLp);
           continue;
         }
 
@@ -261,12 +316,73 @@ bool HIRLoopDistribution::run() {
                             << "Unable to do loop distribution for loopnest "
                                "formation without scalar expansion for "
                                "non-innermost loops.\n");
+          HLNodeUtils::replace(Lp, BackupLp);
           continue;
         }
       }
 
+      unsigned NumRequiredScalarExpandedTemps = SCEX.getNumTempsRequired();
+
+      unsigned ScalarExpandedTempThreshold =
+          getScaledScalarExpandedTempThreshold();
+
+      if (NumRequiredScalarExpandedTemps > ScalarExpandedTempThreshold) {
+        LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
+                          << "Number of temps required for distribution ("
+                          << NumRequiredScalarExpandedTemps
+                          << ") exceed MaxScalarExpandedTemps\n");
+        HLNodeUtils::replace(Lp, BackupLp);
+        continue;
+      }
+
+      // If we need to perform scalar expansion using stripmining, take into
+      // account the extra overhead by either skipping it for small trip count
+      // loops or performing trip count multiversioning. NOTE: This should be
+      // the last bailout check as we use the Backup loop in the multiversioning
+      // setup.
+      bool VersionedForSmallTC = false;
+      if (NumRequiredScalarExpandedTemps &&
+          Lp->isStripmineRequired(StripmineSize)) {
+        // Scale the trip count check based on number of required scalar
+        // expanded temps as a way to balance the cost against the benefit.
+        unsigned TripCountScalingFactor = 1;
+
+        if (NumRequiredScalarExpandedTemps > 2 * MaxScalarExpandedTemps) {
+          TripCountScalingFactor = 4;
+        } else if (NumRequiredScalarExpandedTemps > MaxScalarExpandedTemps) {
+          TripCountScalingFactor = 2;
+        }
+
+        unsigned TripCountThreshold = TripCountScalingFactor * StripmineSize;
+        if (Lp->hasLikelySmallTripCount(TripCountThreshold)) {
+          HLNodeUtils::replace(Lp, BackupLp);
+          LLVM_DEBUG(dbgs()
+                     << "LOOP DISTRIBUTION: Skipping distribution of likely "
+                        "small trip count loop using stripmining and "
+                        "scalar-expansion at it doesn't seem profitable\n");
+          continue;
+        }
+
+        if (!Lp->isConstTripLoop()) {
+          VersionedForSmallTC = true;
+          RegDDRef *TCRef = Lp->getTripCountDDRef();
+
+          auto *MVIf = Lp->getHLNodeUtils().createHLIf(
+              CmpInst::ICMP_UGT, TCRef,
+              Lp->getDDRefUtils().createConstDDRef(TCRef->getDestType(),
+                                                   TripCountThreshold));
+          Lp->extractPreheader();
+          HLNodeUtils::insertBefore(Lp, MVIf);
+          HLNodeUtils::moveAsFirstThenChild(MVIf, Lp);
+          HLNodeUtils::insertAsFirstElseChild(MVIf, BackupLp);
+          // Multiversioned v2
+          ORBuilder(*BackupLp).addOrigin(OptRemarkID::LoopMultiversioned, 2);
+        }
+      }
+
       distributeLoop(Lp, DistributedLoops, SCEX, ORBuilder,
-                     StripmineRequiresExtraSetup, false);
+                     StripmineRequiresExtraSetup, false /*ForDirective*/,
+                     VersionedForSmallTC);
 
       Modified = true;
     } else {
@@ -281,38 +397,25 @@ bool HIRLoopDistribution::run() {
 
 void HIRLoopDistribution::processPiBlocksToHLNodes(
     const std::unique_ptr<PiGraph> &PGraph,
-    ArrayRef<PiBlockList> GroupsOfPiBlocks,
+    ArrayRef<MergedPiBlockTy> MergedPiBlocks,
     SmallVectorImpl<HLDDNodeList> &DistributedLoops) {
 
-  // Maps (Original control statement, PiBlock list) -> Original or cloned HLIf.
-  SmallDenseMap<std::pair<HLIf *, const PiBlockList *>, HLIf *> ControlGuards;
+  // Maps (Original control statement, Merged Pi Block*) -> Original or cloned
+  // HLIf.
+  SmallDenseMap<std::pair<HLIf *, const MergedPiBlockTy *>, HLIf *>
+      ControlGuards;
 
   unsigned LoopNum = 0;
-  for (auto &PList : GroupsOfPiBlocks) {
+  for (auto &MergedPiBlock : MergedPiBlocks) {
+
     HLDDNodeList &CurLoopHLDDNodeList = DistributedLoops.emplace_back();
-
-    // Combine PiBlocks within single ordering group.
-    SmallVector<DistPPNode *, 32> MergedPiBlock;
-    for (auto *PiBlock : PList) {
-      for (auto *PPNode :
-           make_range(PiBlock->dist_node_begin(), PiBlock->dist_node_end())) {
-        MergedPiBlock.push_back(PPNode);
-      }
-    }
-
-    std::sort(MergedPiBlock.begin(), MergedPiBlock.end(),
-              [](DistPPNode *A, DistPPNode *B) {
-                return A->getNode()->getTopSortNum() <
-                       B->getNode()->getTopSortNum();
-              });
-
     for (auto *PPNode : MergedPiBlock) {
       HLNode *Node = PPNode->getNode();
 
       // Set the existing control node for the PList.
       if (PPNode->isControlNode()) {
         HLIf *ControlNode = cast<HLIf>(Node);
-        ControlGuards[{ControlNode, &PList}] = ControlNode;
+        ControlGuards[{ControlNode, &MergedPiBlock}] = ControlNode;
       }
 
       auto ControlDep = PGraph->getControlDependence(PPNode);
@@ -330,7 +433,7 @@ void HIRLoopDistribution::processPiBlocksToHLNodes(
         HLIf *OrigControlNode = cast<HLIf>(PiNode->getNode());
 
         // Try to get an existing node.
-        HLIf *&ControlNode = ControlGuards[{OrigControlNode, &PList}];
+        HLIf *&ControlNode = ControlGuards[{OrigControlNode, &MergedPiBlock}];
 
         // Do the cloning.
         if (!ControlNode) {
@@ -370,12 +473,16 @@ void HIRLoopDistribution::processPiBlocksToHLNodes(
         //
         // Do not move the node if it's already a child of the ControlNode.
         // It may happen if ControlNode is an original HLIf.
-        if (!ControlNode->isThenChild(Node)) {
+        if (!HLNodeUtils::contains(ControlNode, Node,
+                                   false /*IncludePrePostHdr*/,
+                                   true /*AvoidTopSortNum*/)) {
           HLNodeUtils::moveAsLastThenChild(ControlNode, Node);
         }
       } else {
         // Node should be placed under "false" branch of the control node.
-        if (!ControlNode->isElseChild(Node)) {
+        if (!HLNodeUtils::contains(ControlNode, Node,
+                                   false /*IncludePrePostHdr*/,
+                                   true /*AvoidTopSortNum*/)) {
           HLNodeUtils::moveAsLastElseChild(ControlNode, Node);
         }
       }
@@ -383,26 +490,6 @@ void HIRLoopDistribution::processPiBlocksToHLNodes(
 
     ++LoopNum;
   }
-}
-
-bool HIRLoopDistribution::piEdgeIsMemRecurrence(
-    const HLLoop *Lp, const PiGraphEdge &PiEdge) const {
-  for (auto &Edge :
-       make_range(PiEdge.getDDEdges().begin(), PiEdge.getDDEdges().end())) {
-    // Skip edges between terminals because we are looking for memory
-    // recurrences.
-    if (Edge->getSrc()->isTerminalRef()) {
-      continue;
-    }
-
-    // TODO: Use Edge->preventsVectorization(Lp->getNestingLevel())
-    //       Will require to adjust some LIT test.
-    if (Edge->getDVAtLevel(Lp->getNestingLevel()) & DVKind::LT) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 static void updateLiveInAllocaTemp(HLLoop *Loop, unsigned SB) {
@@ -521,12 +608,101 @@ ScalarExpansion::ScalarExpansion(HLLoop *Loop, bool HasDistributePoint,
   analyze(Chunks);
 }
 
+void ScalarExpansion::sortCandidatesByTopSortNum() {
+  std::sort(Candidates.begin(), Candidates.end(),
+            [&](Candidate &A, Candidate &B) {
+              return A.TmpDefs.front()->getHLDDNode()->getTopSortNum() <
+                     B.TmpDefs.front()->getHLDDNode()->getTopSortNum();
+            });
+}
+
+void ScalarExpansion::removeDependencies() {
+  bool Modified = false;
+
+  for (auto &Cand : Candidates) {
+
+    if (Cand.TmpDefs.size() == 1)
+      continue;
+
+    SmallSet<DDRef *, 8> DominatedDefs;
+
+    // Try to find Candidates with multiple defs in the DefChunk, where the
+    // later def postdominates a previous def. This means there is actually no
+    // dependence from the previous def because the 2nd def overrides it
+    // (similar to dead store). E.g.
+    //
+    //  DefChunk:
+    //  %tmp1 = 0;
+    //  %tmp2 = %tmp1  *  5;
+    //  %tmp1 = 1;
+    //
+    //  UseChunk:
+    //  ... = tmp2
+    //  ... = tmp1
+    //
+    // If we do not remove the dependence, t2 will be recomputable, yet the t1
+    // that will be available will be from wrong definition. In this case,
+    // because the 0 def has no dependence to the UseChunk, tmp2 should not be
+    // recomputable. Scalar Expansion candidates have 3 primary information
+    // pieces that we must remove per candidate, those being 1) the DefRef, 2)
+    // the UseRef, and 3) the Def/Use dependency.
+    for (auto DefIt = Cand.TmpDefs.begin(), End = std::prev(Cand.TmpDefs.end());
+         DefIt != End; ++DefIt) {
+
+      for (auto Next = std::next(DefIt); Next != Cand.TmpDefs.end(); ++Next) {
+        auto Node = (*DefIt)->getHLDDNode();
+        auto NextNode = (*Next)->getHLDDNode();
+        assert(Node->isAttached() && "Expect node to be attached to HIR!\n");
+
+        if (HLNodeUtils::strictlyPostDominates(NextNode, Node)) {
+          DominatedDefs.insert(*DefIt);
+          LLVM_DEBUG(dbgs() << "[SCEX] Found Dominated Def ["
+                            << NextNode->getNumber() << " >>> "
+                            << Node->getNumber() << "]\n";);
+          break;
+        }
+      }
+    }
+
+    Modified |= !DominatedDefs.empty();
+
+    if (DominatedDefs.empty())
+      break;
+
+    for (auto DefIt = Cand.TmpDefs.begin();
+         DefIt != std::prev(Cand.TmpDefs.end());) {
+      if (DominatedDefs.count(*DefIt)) {
+        DefIt = Cand.TmpDefs.erase(DefIt);
+      } else {
+        ++DefIt;
+      }
+    }
+
+    // Erase the dependencies connecting the uses to the dominated defs
+    for (auto &Use : Cand.TmpUses) {
+      DDRefList &DefVec = Cand.SCEXDefsForUse[Use.Ref];
+      llvm::erase_if(DefVec,
+                     [&](DDRef *Def) { return DominatedDefs.count(Def); });
+
+      if (DefVec.empty()) {
+        Cand.SCEXDefsForUse.erase(Use.Ref);
+      }
+    }
+  }
+
+  if (Modified)
+    sortCandidatesByTopSortNum();
+}
+
 bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
                                   const HLInst *&DepInst) {
   const HLInst *BlobNode = dyn_cast<HLInst>(RVal->getHLDDNode());
 
   for (int I = 0; I < 2; ++I) {
-    BlobNode = dyn_cast_or_null<HLInst>(BlobNode->getPrevNode());
+    // We could have cloned ifs and the nodes may be disconnected from HIR so we
+    // can't use getPrevNode() which relies on top sort number.
+    BlobNode =
+        dyn_cast_or_null<HLInst>(BlobNode->getPrevNodeWithoutUsingTopSortNum());
     if (!BlobNode) {
       return false;
     }
@@ -546,9 +722,9 @@ bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
   return false;
 }
 
-bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef,
-                                        unsigned ChunkIdx,
-                                        const SymbaseLoopSetTy &RecomputableSBs,
+bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef, bool AllowLoads,
+                                        unsigned UseChunkIdx,
+                                        const SymbaseLoopSetTy &ReusableSBs,
                                         const HLInst *&DepInst) {
   assert(TmpDef->isLval() && "TmpDef is expected to be LVal");
   unsigned Level = Loop->getNestingLevel();
@@ -557,7 +733,8 @@ bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef,
   auto CheckRVal = [&](const RegDDRef *RVal) -> bool {
     unsigned SB = RVal->getSymbase();
 
-    if (RVal->isMemRef() && ModifiedBases.test(RVal->getBasePtrBlobIndex())) {
+    if (RVal->isMemRef() &&
+        (!AllowLoads || ModifiedBases.test(RVal->getBasePtrBlobIndex()))) {
       return false;
     }
 
@@ -567,20 +744,20 @@ bool ScalarExpansion::isSafeToRecompute(const RegDDRef *TmpDef,
 
     if (RVal->isSelfBlob()) {
       // If SB relies on previous SCEX candidate, then check that it exists in
-      // RecomputableSBs
+      // ReusableSBs
       if (SymbaseToCandidatesMap.count(SB)) {
-        return RecomputableSBs.count({SB, ChunkIdx});
+        return ReusableSBs.count({SB, UseChunkIdx});
       }
 
       return (findDepInst(RVal, DepInst) &&
-              isSafeToRecompute(DepInst->getLvalDDRef(), ChunkIdx,
-                                RecomputableSBs, DepInst));
+              isSafeToRecompute(DepInst->getLvalDDRef(), AllowLoads,
+                                UseChunkIdx, ReusableSBs, DepInst));
     }
 
     for (auto &Blob : make_range(RVal->blob_begin(), RVal->blob_end())) {
       unsigned BlobSB = Blob->getSymbase();
       if (SymbaseToCandidatesMap.count(BlobSB) &&
-          RecomputableSBs.count({BlobSB, ChunkIdx})) {
+          ReusableSBs.count({BlobSB, UseChunkIdx})) {
         continue;
       }
 
@@ -655,6 +832,11 @@ static HLNode *getFirstSafeInsertionNode(HLNode *Node1, HLNode *Node2) {
     TargetNode = HLNodeUtils::getLexicalLowestCommonAncestor(Node1, Node2);
   } else {
     TargetNode = Node1->getParent();
+
+    // Skip HLSwitch parents as we don't distribute nodes inside them. The
+    // entire HLSwitch is treated as a single entity.
+    while (isa<HLSwitch>(TargetNode))
+      TargetNode = TargetNode->getParent();
   }
 
   // If the LCA or parent is a Loop we just return the first child
@@ -687,7 +869,7 @@ static HLNode *getFirstSafeInsertionNode(HLNode *Node1, HLNode *Node2) {
 // in earlier DefLoop. For performance we can load temp use inside if
 // when not liveout
 bool ScalarExpansion::shouldLoadUnconditionally(Candidate &Cand,
-                                                DDRef *TmpUse) {
+                                                DDRef *TmpUse) const {
   if (Cand.IsLiveOut) {
     return false;
   }
@@ -755,7 +937,12 @@ void ScalarExpansion::getInsertNodeForTmpDefsUses(Candidate &Cand) {
 // Compute SCEX temp load/store insertion points. Factor in any conditional
 // def/uses for all chunks.
 void ScalarExpansion::computeInsertNodes() {
-  SymbaseLoopSetTy RecomputableSBs;
+  // Contains the set of SBs that can be used by dependent temps to make the
+  // dependent temps recomputable.
+  SymbaseLoopSetTy ReusableSBs;
+
+  removeDependencies();
+
   for (auto &Cand : Candidates) {
     getInsertNodeForTmpDefsUses<true>(Cand);  // For Defs
     getInsertNodeForTmpDefsUses<false>(Cand); // For Uses
@@ -772,17 +959,17 @@ void ScalarExpansion::computeInsertNodes() {
       bool ConditionalUse = !isa<HLLoop>(UseInsertNode->getParent());
 
       // Illegal or already recomputed
-      if (RecomputableSBs.count({SB, UseChunkID})) {
+      if (ReusableSBs.count({SB, UseChunkID})) {
         continue;
       }
 
       const HLInst *DepInst = nullptr;
-      Cand.SafeToRecompute &=
-          isSafeToRecompute(TmpDef, UseChunkID, RecomputableSBs, DepInst);
+      Cand.SafeToRecompute &= isSafeToRecompute(
+          TmpDef, true /*AllowLoads*/, UseChunkID, ReusableSBs, DepInst);
 
-      // If Use is conditional, don't save for recompute set
+      // If Use is conditional, don't allow it to be reused
       if (!ConditionalUse) {
-        RecomputableSBs.insert({SB, UseChunkID});
+        ReusableSBs.insert({SB, UseChunkID});
       }
     }
   }
@@ -865,11 +1052,24 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
   SmallVector<Gatherer::VectorTy, 8> RefGroups;
   RefGroups.reserve(Chunks.size());
 
-  for (auto &HLNodeList : Chunks) {
+  // Set for tracking Chunk with Unsafe Call
+  SmallSet<unsigned, 4> UnsafeChunks;
+
+  for (const auto &HLNodeList : enumerate(Chunks)) {
     RefGroups.emplace_back();
     auto &CurGroup = RefGroups.back();
+    unsigned ChunkNum = HLNodeList.index();
 
-    for (HLDDNode *Node : HLNodeList) {
+    for (const HLDDNode *Node : HLNodeList.value()) {
+      // Mark chunks with unsafe calls
+      if (!UnsafeChunks.count(ChunkNum)) {
+        if (const auto *Inst = dyn_cast<HLInst>(Node)) {
+          if (Inst->isUnsafeSideEffectsCallInst()) {
+            UnsafeChunks.insert(ChunkNum);
+          }
+        }
+      }
+
       Gatherer::gather(Node, CurGroup);
     }
 
@@ -880,10 +1080,14 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
     });
   }
 
+  // 'I' represents defining chunk of temps.
   for (unsigned I = 0, E = RefGroups.size(); I < E - 1; ++I) {
-    SymbaseLoopSetTy RecomputableSBs;
-    for (DDRef *TmpDefDDRef : RefGroups[I]) {
+    // Contains the set of SBs that can be used by dependent temps to make the
+    // dependent temps recomputable.
+    SymbaseLoopSetTy ReusableSBs;
 
+    auto &DefChunkRefs = RefGroups[I];
+    for (DDRef *TmpDefDDRef : DefChunkRefs) {
       if (TmpDefDDRef->isRval()) {
         continue;
       }
@@ -903,7 +1107,9 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
 
       unsigned SB = TmpDefDDRef->getSymbase();
       RegDDRef *TmpDef = cast<RegDDRef>(TmpDefDDRef);
+      bool DefChunkUnsafe = !UnsafeChunks.count(I);
 
+      // 'J' represents using chunk of temps.
       for (unsigned J = I + 1; J < E; ++J) {
         bool TempRedefined = false;
 
@@ -937,16 +1143,15 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
           }
 
           // Tentatively check if recomputation is possible, assuming that
-          // previously scalar expanded temps are also available. We want to
-          // bail out for loopnest formation if stripmine is required, which
-          // recomputation avoids. Later we will check if the temp loads are
-          // conditional, in which we will not allow recomputation, but that
-          // logic requires modifying HIR.
+          // previously scalar expanded temps are also available. Bail out here
+          // for loopnest formation if stripmine is required, which
+          // recomputation avoids. Otherwise bail out in presence of any unsafe
+          // calls in previous chunk. Later check for conditional defs which we
+          // cannot legally recompute
           const HLInst *DepInst = nullptr;
-          Cand.SafeToRecompute &=
-              isSafeToRecompute(TmpDef, J, RecomputableSBs, DepInst);
-
-          RecomputableSBs.insert({SB, J});
+          Cand.SafeToRecompute &= isSafeToRecompute(TmpDef, DefChunkUnsafe, J,
+                                                    ReusableSBs, DepInst);
+          ReusableSBs.insert({SB, J});
 
           // Save TmpUse in chunk J, We will need to load or recompute this ref
           // from scalar expanded array, once per loop.
@@ -1099,14 +1304,17 @@ getPreheaderLoopIndex(HLLoop *Loop,
 void HIRLoopDistribution::distributeLoop(
     HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
     ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
-    bool StripmineRequiresExtraSetup, bool ForDirective) {
-  assert(DistributedLoops.size() < MaxDistributedLoop &&
+    bool StripmineRequiresExtraSetup, bool ForDirective,
+    bool VersionedForSmallTC) {
+  assert(DistributedLoops.size() < MaxDistributedChunks &&
          "Number of distributed chunks exceed threshold. Expected the caller "
          "to check before calling this function.");
 
   unsigned LoopCount = DistributedLoops.size();
   assert(LoopCount > 1 && "Invalid loop distribution");
-  std::array<HLLoop *, MaxDistributedLoop> NewLoops = {};
+  SmallVector<HLLoop *, 8> NewLoops;
+  NewLoops.resize(LoopCount);
+
   LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION : " << LoopCount
                     << " way distributed\n");
 
@@ -1162,7 +1370,7 @@ void HIRLoopDistribution::distributeLoop(
       }
     }
 
-    ORBuilder(*LoopNode).addOrigin("Distributed chunk%d",
+    ORBuilder(*LoopNode).addOrigin(OptRemarkID::LoopDistributionChunkNum,
                                    (int)CurLoopIndex + 1);
   }
 
@@ -1183,8 +1391,19 @@ void HIRLoopDistribution::distributeLoop(
     if (SCEX.isTempRequired() && Loop->isStripmineRequired(StripmineSize)) {
       HIRTransformUtils::stripmine(NewLoops[0], NewLoops[LoopCount - 1],
                                    StripmineSize, StripmineRequiresExtraSetup);
+
+      auto *StripMineLp = NewLoops[0]->getParentLoop();
+      if (VersionedForSmallTC) {
+        // Multiversioned v1
+        // The loop has been multiversioned for the small trip count
+        ORBuilder(*StripMineLp)
+            .addOrigin(OptRemarkID::LoopMultiversioned, 1)
+            .addRemark(OptReportVerbosity::Low,
+                       OptRemarkID::LoopMultiversionedSmallTripCount);
+      }
+
       // Loop stripmined by <StripmineSize>
-      ORBuilder(*NewLoops[0]->getParentLoop())
+      ORBuilder(*StripMineLp)
           .addOrigin(OptRemarkID::LoopStripMineFactor, StripmineSize);
     }
 
@@ -1390,7 +1609,7 @@ bool HIRLoopDistribution::loopIsCandidate(HLLoop *Lp) const {
   uint64_t TripCount;
   // Skip  some constant trip counts loops:  small, looks like copy stmt
   if (Lp->isConstTripLoop(&TripCount)) {
-    if (TripCount < 5 || HLR.getTotalLoopResource(Lp).getNumFPOps() == 0) {
+    if (TripCount < 5 || HLR.getTotalLoopResource(Lp).getNumMemOps() == 0) {
       return false;
     }
   }
@@ -1417,224 +1636,537 @@ bool HIRLoopDistribution::loopIsCandidate(HLLoop *Lp) const {
 
     // Why ruin perfection
     // Should we run distribution in perfect loopnest mode on innermost loops?
-
     if (!Lp->isInnermost() &&
         HLNodeUtils::isPerfectLoopNest(Lp, &InnermostLoop)) {
       return false;
     }
 
-    // For compile time consideration, throttle for
-    // more than 3 innermost loops or nesting level > 3
-    // Forming Perfect Loop Nest is primarily to enable interchange
-
     SmallVector<HLLoop *, 12> InnermostLPVector;
-
     HNU.gatherInnermostLoops(InnermostLPVector, const_cast<HLLoop *>(Lp));
     if (InnermostLPVector.size() > 2) {
       return false;
     }
+
     bool NonUnitStride = false;
-    for (auto &Loop : InnermostLPVector) {
-      if ((Loop->getNestingLevel() - Lp->getNestingLevel()) > 2) {
+
+    // For compile time consideration, throttle for
+    // more than 3 innermost loops or nesting level > 3
+    // Form loopnests for interchange when NonUnitStride refs present
+    for (auto &InnermostLp : InnermostLPVector) {
+      if ((InnermostLp->getNestingLevel() - Lp->getNestingLevel()) > 2) {
         return false;
       }
-      if (!NonUnitStride && HLNodeUtils::hasNonUnitStrideRefs(Loop)) {
+      if (!NonUnitStride && HLNodeUtils::hasNonUnitStrideRefs(InnermostLp)) {
         NonUnitStride = true;
       }
     }
-    if (!NonUnitStride) {
-      return false;
+
+    if (NonUnitStride) {
+      LLVM_DEBUG(dbgs() << "Detected Non-Unit Stride\n");
+      return true;
     }
+
+    // Try to enable vectorization for refs with different dimensions
+    // at different looplevels. Look for loops where ref dimensions
+    // correspond to the parent Loopnest level. E.g:
+    // DO i1
+    //   A[i1] = ...
+    //   DO i2
+    //     B[i1][i2] = ...
+    //   END DO
+    // END DO
+    MemRefGatherer::VectorTy MemRefs;
+    MemRefGatherer::gather(Lp, MemRefs);
+    SmallDenseMap<unsigned, unsigned> LoopDimMap;
+
+    for (auto *MemRef : MemRefs) {
+      if (MemRef->isNonLinear()) {
+        return false;
+      }
+
+      unsigned NumDims = MemRef->getNumDimensions();
+      unsigned LoopLevel = MemRef->getNodeLevel();
+      auto It = LoopDimMap.find(NumDims);
+      if (It == LoopDimMap.end()) {
+        LoopDimMap[NumDims] = LoopLevel;
+      } else if (LoopLevel != It->second) {
+        return false;
+      }
+    }
+
+    return LoopDimMap.size() > 1;
   }
 
   return true;
 }
 
-// Right now we are checking whether this PiBlock contains any sparse
-// array reduction instructions. Later we may want to modify to match more
-// patterns like in 435.gromacs
-bool containsSparseArrayReductions(PiBlock *SrcBlk,
-                                   HIRSparseArrayReductionAnalysis &SARA) {
-  for (auto NodeI = SrcBlk->nodes_begin(), E = SrcBlk->nodes_end(); NodeI != E;
-       ++NodeI) {
-    HLDDNode *Node = cast<HLDDNode>(*NodeI);
-    HLInst *Inst = dyn_cast<HLInst>(Node);
-    if (Inst && SARA.isSparseArrayReduction(Inst)) {
-      return true;
-    }
-  }
-  return false;
+// Returns true for a pattern like this-
+// %0 = B[i1];
+// %t = A[%0] + 5;
+// A[%0] = %t;
+//
+// This resembles a VConflict idiom which can be handled by vectorizer.
+// Exact checks are too complicated so we perform approximate checks.
+// Note that this is also a sparse array reduction. We don't need to
+// distribute loops with sparse array reductions if VConflict idiom is
+// supported.
+// The pattern detection is started with the store inst \p SInst.
+static bool isLikeVConflictIdiom(const HLInst *SInst, DDGraph &DDG) {
+  if (!isa<StoreInst>(SInst->getLLVMInstruction()))
+    return false;
+
+  auto *StoreRef = SInst->getLvalDDRef();
+  const BlobDDRef *SingleNonLinearBlobRef = nullptr;
+
+  // Multi-dimensional ref not supported by vectorizer.
+  if (!StoreRef->isNonLinear() || (StoreRef->getNumDimensions() > 1) ||
+      StoreRef->getBaseCE()->isNonLinear() ||
+      !(SingleNonLinearBlobRef = StoreRef->getSingleNonLinearBlobRef()))
+    return false;
+
+  auto *PrevInst = dyn_cast_or_null<HLInst>(SInst->getPrevNode());
+  if (!PrevInst)
+    return false;
+
+  auto *PrevLLVMInst = PrevInst->getLLVMInstruction();
+  if (!isa<BinaryOperator>(PrevLLVMInst))
+    return false;
+
+  if (!DDRefUtils::areEqual(StoreRef, PrevInst->getOperandDDRef(1)) &&
+      (!Instruction::isCommutative(PrevLLVMInst->getOpcode()) ||
+       !DDRefUtils::areEqual(StoreRef, PrevInst->getOperandDDRef(2))))
+    return false;
+
+  if (DDG.getNumIncomingEdges(SingleNonLinearBlobRef) != 1)
+    return false;
+
+  // Verify that the defining inst for the blob is a load inst and the symbase
+  // of the load is different than the store.
+  auto *SrcInst =
+      cast<HLInst>((*DDG.incoming_edges_begin(SingleNonLinearBlobRef))
+                       ->getSrc()
+                       ->getHLDDNode());
+
+  if (!isa<LoadInst>(SrcInst->getLLVMInstruction()))
+    return false;
+
+  if (StoreRef->getSymbase() == SrcInst->getRvalDDRef()->getSymbase())
+    return false;
+
+  LLVM_DEBUG(dbgs() << "Found VConflict like idiom:\n");
+  LLVM_DEBUG(SInst->dump());
+
+  return true;
 }
 
-// Check if current PiBlock has instructions which are not identified as
-// reductions but may prevent vectorization for this loop at \p LoopLevel.
-// Return true for PiBlocks we want to create a new loop for, false otherwise.
-bool preventsVectorization(PiBlock *Blk, DDGraph DDG, unsigned LoopLevel) {
-  // Ignore large blocks as they are expensive to analyze and unlikely
-  // to benefit distribution
-  if (Blk->size() > 5) {
-    return false;
+// Analyzes vectorization info for a PiBlock and populates info in \p CVI.
+struct VectorizationAnalyzer : public HLNodeVisitorBase {
+  const TargetLibraryInfo &TLI;
+  const TargetTransformInfo &TTI;
+  HIRSafeReductionAnalysis &SRA;
+  DDGraph &DDG;
+  const std::unique_ptr<PiGraph> &PGraph;
+  PiBlock *Blk;
+  const HLLoop *Lp;
+  unsigned LoopLevel;
+  ChunkVectorizationInfo &CVI;
+
+  VectorizationAnalyzer(const TargetLibraryInfo &TLI,
+                        const TargetTransformInfo &TTI,
+                        HIRSafeReductionAnalysis &SRA, DDGraph &DDG,
+                        const std::unique_ptr<PiGraph> &PGraph, PiBlock *Blk,
+                        const HLLoop *Lp, ChunkVectorizationInfo &CVI)
+      : TLI(TLI), TTI(TTI), SRA(SRA), DDG(DDG), PGraph(PGraph), Blk(Blk),
+        Lp(Lp), LoopLevel(Lp->getNestingLevel()), CVI(CVI) {}
+
+  void visit(HLInst *Inst) {
+
+    auto *LLVMInst = Inst->getLLVMInstruction();
+
+    if (Inst->isCallInst()) {
+      if (!Inst->isVectorizableCall(TLI)) {
+        CVI.IsLegal = false;
+        CVI.IsLegalAfterDistribution = false;
+        return;
+      } else {
+        ++CVI.NumCalls;
+      }
+    } else if (!isa<FCmpInst>(LLVMInst) && isa<FPMathOperator>(LLVMInst)) {
+      ++CVI.NumFPOperations;
+    } else if (isa<BinaryOperator>(LLVMInst)) {
+      ++CVI.NumIntOperations;
+    }
+
+    // Ignore VClonflict like stores when performing legality checks.
+    if (TTI.hasCDI() && isLikeVConflictIdiom(Inst, DDG))
+      CVI.HasVConflictIdioms = true;
+    else
+      visit(cast<HLDDNode>(Inst));
   }
 
-  for (auto NodeI = Blk->nodes_begin(), E = Blk->nodes_end(); NodeI != E;
-       ++NodeI) {
-    HLInst *HInst = dyn_cast<HLInst>(*NodeI);
+  void visit(HLDDNode *Node) {
+    auto *Inst = dyn_cast<HLInst>(Node);
 
-    // Looking for inst which vectorizer cannot handle like this:
-    // %ref = (cond) ? 0 : %ref  --- where %ref is a bad edge
-    if (HInst && isa<SelectInst>(HInst->getLLVMInstruction())) {
-      RegDDRef *LvalRef = HInst->getLvalDDRef();
-      for (auto *Edge : DDG.outgoing(LvalRef)) {
-        if (Edge->preventsVectorization(LoopLevel)) {
-          return true;
+    bool SkipRednCheck = false;
+
+    if (Inst) {
+      bool IsSingleStmtRedn = false;
+      bool HasUnsafeAlgebra = false;
+
+      bool IsReduction =
+          SRA.isSafeReduction(Inst, &IsSingleStmtRedn, &HasUnsafeAlgebra);
+
+      // Vectorizer does not handle reduction chain for selects or with unsafe
+      // algebra.
+      SkipRednCheck =
+          !IsReduction || HasUnsafeAlgebra ||
+          (isa<SelectInst>(Inst->getLLVMInstruction()) && !IsSingleStmtRedn);
+    }
+
+    for (auto *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+
+      if (Ref->isTerminalRef()) {
+        // The problem with accumulating statistics for HLIfs is that we don't
+        // know whether they will go into vectorizable or non-vectorizable
+        // chunks due to control dependence. Ignore them for now.
+        if (!Inst)
+          continue;
+
+        // Skip rval temps as checking outgoing edges out of lval temps is
+        // sufficient.
+        if (Ref->isRval()) {
+          if (Ref->isNonLinear())
+            CVI.NumIntOperations +=
+                Ref->getSingleCanonExpr()->getNumOperations();
+
+          continue;
         }
+
+        // Skip non-livein/reduction temps as they don't prevent vectorization.
+        if (!Lp->isLiveIn(Ref->getSymbase()))
+          continue;
+
+        unsigned RedOpcode = 0;
+        if (!SkipRednCheck && SRA.isReductionRef(Ref, RedOpcode)) {
+          CVI.HasSafeReductions = true;
+          continue;
+        }
+
+      } else if (Ref->isMemRef() && Inst) {
+
+        bool IsNegStride = false;
+        if (Ref->isUnitStride(LoopLevel, IsNegStride)) {
+          ++CVI.NumUnitStrideRefs;
+        } else if (!Ref->isStructurallyInvariantAtLevel(LoopLevel)) {
+          // We ignore structurally invariant refs. In real cases these should
+          // mostly be moved out of the loop unless they are inside
+          // conditions. The lit tests seem to have many memrefs of the form
+          // undef[0] which we want to avoid analyzing as non-unit stride refs.
+          // Note that if there were dependencies preventing this memref from
+          // being moved out of the loop, the chunk would likely not be
+          // vectorizable.
+          ++CVI.NumNonUnitStrideRefs;
+        }
+      }
+
+      for (auto *Edge : DDG.outgoing(Ref)) {
+        if (!Edge->preventsVectorization(LoopLevel))
+          continue;
+
+        LLVM_DEBUG(dbgs() << "Edge preventing vectorization: "; Edge->dump());
+        CVI.IsLegal = false;
+
+        bool BackwardEdgeConvertedToForwardEdge = false;
+        // Check if this Edge is one of the outgoing edges of PiBlock. If so,
+        // this PiBlock can become vectorizable after distribution as
+        // distribution can convert backward edge into forward edge.
+        for (auto *PiEdge : PGraph->outgoing(Blk)) {
+          for (auto *DDEdge : PiEdge->getDDEdges()) {
+            if (Edge == DDEdge) {
+              BackwardEdgeConvertedToForwardEdge = true;
+              break;
+            }
+          }
+        }
+
+        LLVM_DEBUG(dbgs() << "Can vectorize after distributing for edge: ");
+        LLVM_DEBUG(
+            dbgs() << (BackwardEdgeConvertedToForwardEdge ? "yes\n" : "no\n"));
+
+        CVI.IsLegalAfterDistribution = BackwardEdgeConvertedToForwardEdge;
       }
     }
   }
-  return false;
+
+  void visit(HLNode *) {}
+  void postVisit(HLNode *) {}
+
+  bool isDone() const { return !CVI.IsLegal && !CVI.IsLegalAfterDistribution; }
+
+  // Main function to trigger analysis;
+  void analyze();
+};
+
+// Checks if current PiBlock is legally vectorizable and collects statistics for
+// evaluating vectorization's profitability.
+void VectorizationAnalyzer::analyze() {
+
+  for (auto *DistPPNode :
+       make_range(Blk->dist_node_begin(), Blk->dist_node_end())) {
+
+    // Skip recursive traversal for control nodes as they are just if conditions
+    // by themselves. Inner nodes are in a separate pi block.
+    if (DistPPNode->isControlNode()) {
+      HLNodeUtils::visit<false>(*this, DistPPNode->getNode());
+    } else {
+      HLNodeUtils::visit(*this, DistPPNode->getNode());
+    }
+
+    if (isDone())
+      break;
+  }
 }
 
-void HIRLoopDistribution::breakPiBlockRecurrences(
+static bool isNotControlNode(PiBlock *Blk) {
+  return ((Blk->size() != 1) || !(*Blk->dist_node_begin())->isControlNode());
+}
+
+// The main algorithm is to iterate through the PiBlocks, check whether they are
+// vectorizable, and accumulate contiguous vectorizable and non-vectorizable
+// PiBlocks into one loop chunk. There are some further tricks to merge
+// non-profitable vectorizable chunks into non-vectorizable chunks to avoid
+// unnecessary distribution as well to combine non-contiguous non-vectorizable
+// chunks without any outgoing edges into one chunk at the end.
+//
+// TODO: Combine some chunks if the number of chunks exceed threshold so some
+// vectorization is still enabled.
+// TODO: Consider combining non-contiguous vectorizable chunks with no outgoing
+// deps at the end.
+void HIRLoopDistribution::breakPiBlocksToEnableVectorization(
     const HLLoop *Lp, std::unique_ptr<PiGraph> const &PGraph,
     SmallVectorImpl<PiBlockList> &DistPoints) {
 
-  Analysis.reset();
-
-  PiBlockList CurLoopPiBlkList;
-  // Walk through topsorted nodes of Pigraph, keeping in mind the fact that each
-  // of those nodes can legally form its own loop if the loops(distributed
-  // chunks) are ordered in same topsort order of nodes.
-  // Add the node to current loop. Look for outgoing edges that indicate
-  // recurrences. If none, continue on. Otherwise terminate the current loop,
-  // start a new one. Src and sink of recurrence will be in different loops,
-  // breaking the recurrence.
-  unsigned NumRefCounter = 0;
-  SmallVector<unsigned, 12> MemRefSBVector;
-
-  // To help vectorization we also split ranges of consecutive pi-blocks
-  // containing user calls, because loops with user calls are less likely to be
-  // vectorized.
-  bool UserCallSeen = false;
-  bool PrevUserCallSeen;
+  // If there is only one PiBlock we cannot legally perform distribution.
+  // Bail out early in this case.
+  if (PGraph->size() == 1) {
+    LLVM_DEBUG(dbgs() << "Skipping analysis of single PiBlock loop as "
+                         "distribution is not legal\n");
+    PiBlockList SingleBlockList;
+    SingleBlockList.push_back(*PGraph->node_begin());
+    DistPoints.emplace_back(SingleBlockList);
+    return;
+  }
 
   SRA.computeSafeReductionChains(Lp);
-  bool HasSparseArrayReductions = SARA.getNumSparseArrayReductionChains(Lp) > 0;
-  PiBlockList DistributedBlocks;
-
-  // Note: DDG was just computed in SARA
   DDGraph DDG = DDA.getGraph(Lp);
 
+  // This is the PiBlock list that will be added as the next chunk in
+  // DistPoints. It keeps getting updated as we iterate over the PiBlocks.
+  PiBlockList CurLoopPiBlkList;
+
+  // This is the list of non-vectorizable PiBlocks which don't have any outgoing
+  // dependencies. This means they can be added as the last distributed chunk if
+  // we do decide to distribute the loop. It keeps getting updated as we iterate
+  // over the PiBlocks.
+  PiBlockList NoOutgoingDepPiBlkList;
+
+  // This is the list of legally vectorizable contiguous PiBlocks which we have
+  // accumulated into a chunk while iterating over the PiBlocks. They will be
+  // analyzed for profitablity once we hit a non-vectorizable PiBlock during
+  // iteration. If they are profitable, we will create a separate chunk for
+  // them, otherwise they will be merged with the surrounding non-vectorizable
+  // PiBlocks.
+  PiBlockList VectorizablePiBlkList;
+
+  // Since we need to keep the size of DistPoints and ChunkVecInfos in sync, we
+  // maintain separate chunk info for PiBlocks in NoOutgoingDepPiBlkList. This
+  // will be pushed into ChunkVecInfos if we decide to create a separate chunk
+  // for NoOutgoingDepPiBlkList.
+  ChunkVectorizationInfo NoOutgoingDepVecInfo;
+
+  // This accumulates vectorization info for the PiBlocks currently in
+  // VectorizablePiBlkList. Once all vectorizable PiBlocks are collected for the
+  // current chunk, we use it to evaluate its profitability. It is merged into
+  // ChunkVecInfos when VectorizablePiBlkList is transferred to
+  // CurLoopPiBlkList.
+  ChunkVectorizationInfo VectorizableListVecInfo;
+
+  // Keeps track of whether we are currently dealing with vectorizable or
+  // non-vectorizable chunk. It is flipped while iterating PiBlocks indicating a
+  // transition from vectorizable to non-vectorizable chunk or vice-versa.
+  bool CurListIsVectorizable = true;
+
+  // Is set to true if we encountered a single legally vectorizable and
+  // profitable PiBlock.
+  bool FoundVectorizeablePiBlk = false;
+
+  // Helps in maintaining lexical order of chunks in a special case. May be we
+  // can do it in a better way?
+  bool FirstPiBlockHasNoOutgoingDep = false;
+
+  bool IsFirstPiBlock = true;
+  bool HasSparseArrayReductions = SARA.getNumSparseArrayReductionChains(Lp) > 0;
+
+  // Commits CurLoopPiBlkList into DistPoints.
   auto CommitCurrentBlockList = [&]() {
+    assert(!CurLoopPiBlkList.empty() && "Empty PiBlock list!");
     DistPoints.push_back(CurLoopPiBlkList);
     CurLoopPiBlkList.clear();
-    NumRefCounter = 0;
+    // Start vec info for new chunk.
+    ChunkVecInfos.emplace_back();
   };
 
-  // Get number of loads/stores, needed to decide if threshold is exceeded.
-  // Arrays with same SB, in general, have locality, and do not need to be
-  // added twice.  Will need some fine tuning later
+  // If we called into this function, we either encountered a PiBlock which is
+  // not legally vectorizable or we finished iterating over all the PiBlocks.
+  // Now we evaluate the profitablity of the accumulated vectorizable PiBlocks
+  // to decide whether we should create a new chunk for them or merge them into
+  // previous non-vectorizable PiBlocks.
+  auto ProcessVectorizablePiBlockList = [&]() {
+    if (!VectorizablePiBlkList.empty()) {
+      LLVM_DEBUG(dbgs() << "Analyzing previously collected vectorizable "
+                           "PiBlocks for profitability.\n");
+
+      LLVM_DEBUG(VectorizableListVecInfo.dump());
+
+      // Control node blocks are just HLIfs by themselves so they shouldn't be
+      // considered as a proper vectorizable PiBlock. They will be inserted
+      // along with the dependent nodes.
+      bool HasNonControlNode =
+          std::any_of(VectorizablePiBlkList.begin(),
+                      VectorizablePiBlkList.end(), isNotControlNode);
+
+      // Skip profitability check for loops with sparse reduction as it is known
+      // to have many non-linear refs.
+      if (HasNonControlNode &&
+          (SkipVectorizationProfitabilityCheck || HasSparseArrayReductions ||
+           VectorizableListVecInfo.isProfitable())) {
+        LLVM_DEBUG(
+            dbgs()
+            << "Starting new chunk for profitable vectorizable PiBlocks\n");
+        FoundVectorizeablePiBlk = true;
+
+        if (!CurLoopPiBlkList.empty())
+          CommitCurrentBlockList();
+
+      } else {
+        CurListIsVectorizable = false;
+        LLVM_DEBUG(dbgs() << "Appending non-profitable vectorizable PiBlocks "
+                             "to previous chunk\n");
+      }
+      CurLoopPiBlkList.append(VectorizablePiBlkList);
+      VectorizablePiBlkList.clear();
+      ChunkVecInfos.back().accumulate(VectorizableListVecInfo);
+      VectorizableListVecInfo.clear();
+    }
+  };
+
+  ChunkVecInfos.emplace_back();
 
   for (auto N = PGraph->node_begin(), E = PGraph->node_end(); N != E; ++N) {
-    PrevUserCallSeen = UserCallSeen;
-    UserCallSeen = false;
-
     PiBlock *SrcBlk = *N;
 
-    bool NoOutgoingDeps = PGraph->outgoing(SrcBlk).empty();
-    // If this current block has sparse array reduction instructions,
-    // we need to break the recurrence before this block so that sparse array
-    // reductions can be distributed into another separate loop.
-    if (HasSparseArrayReductions && !CurLoopPiBlkList.empty() &&
-        containsSparseArrayReductions(SrcBlk, SARA)) {
+    LLVM_DEBUG(dbgs() << "Analyzing PiBlock:\n");
+    LLVM_DEBUG(SrcBlk->dump(); dbgs() << "\n");
 
-      // If there is no outgoing dependencies from sparse array reduction block,
-      // we can combine such blocks at the end.
-      if (NoOutgoingDeps) {
-        Analysis.SAR = true;
-        DistributedBlocks.push_back(SrcBlk);
+    ChunkVectorizationInfo CurBlkVecInfo;
+    VectorizationAnalyzer VA(TLI, TTI, SRA, DDG, PGraph, SrcBlk, Lp,
+                             CurBlkVecInfo);
+    VA.analyze();
+
+    if (!CurBlkVecInfo.IsLegal) {
+      // Combine all non-vectorizable pi blocks with no outgoing dependence
+      if (PGraph->outgoing(SrcBlk).empty()) {
+        LLVM_DEBUG(dbgs() << "Appending non-vectorizable PiBlock without any "
+                             "output edges into a separate chunk\n");
+        FirstPiBlockHasNoOutgoingDep = IsFirstPiBlock;
+        NoOutgoingDepPiBlkList.push_back(SrcBlk);
+        NoOutgoingDepVecInfo.accumulate(CurBlkVecInfo);
         continue;
       }
-    }
 
-    if (preventsVectorization(SrcBlk, DDG, Lp->getNestingLevel())) {
-      if (NoOutgoingDeps) {
-        Analysis.PreventsVec = true;
-        DistributedBlocks.push_back(SrcBlk);
-        continue;
-      }
-    }
+      bool AddedToVectorizableList = false;
 
-    for (auto NodeI = SrcBlk->nodes_begin(), E = SrcBlk->nodes_end();
-         NodeI != E; ++NodeI) {
-      HLDDNode *Node = cast<HLDDNode>(*NodeI);
-
-      // Split blocks with user calls.
-      if (HLInst *Inst = dyn_cast<HLInst>(Node)) {
-        if (Inst->isCallInst() && !Inst->getIntrinCall()) {
-          UserCallSeen = true;
-        }
+      // If the curent PiBlock becomes vectorizable after distribution, it can
+      // be combined with previous vectorizable PiBlocks reducing distributed
+      // chunks and therefore loop overhead.
+      if (CurBlkVecInfo.IsLegalAfterDistribution && CurListIsVectorizable) {
+        AddedToVectorizableList = true;
+        LLVM_DEBUG(
+            dbgs() << "Appending to current chunk of vectorizable PiBlocks\n");
+        VectorizablePiBlkList.push_back(SrcBlk);
+        VectorizableListVecInfo.accumulate(CurBlkVecInfo);
       }
 
-      for (auto RefIt = Node->ddref_begin(), E = Node->ddref_end(); RefIt != E;
-           ++RefIt) {
-        const RegDDRef *Ref = *RefIt;
-        if (Ref->isMemRef()) {
-          unsigned SB = Ref->getSymbase();
-          if (std::find(MemRefSBVector.begin(), MemRefSBVector.end(), SB) !=
-              MemRefSBVector.end()) {
-            continue;
-          }
-          MemRefSBVector.push_back(SB);
-          if (Ref->isRval()) {
-            NumRefCounter++;
-          } else {
-            NumRefCounter += 2;
-          }
-        }
-      }
-    }
+      ProcessVectorizablePiBlockList();
 
-    // Split loops over blocks containing user calls.
-    if (!CurLoopPiBlkList.empty() && PrevUserCallSeen && !UserCallSeen) {
-      Analysis.UserCall = true;
-      CommitCurrentBlockList();
-    }
-
-    CurLoopPiBlkList.push_back(SrcBlk);
-
-    if (NumRefCounter >= MaxMemResourceToDistribute) {
-      Analysis.MemRef = true;
-      CommitCurrentBlockList();
-      continue;
-    }
-
-    for (auto *Edge : PGraph->outgoing(SrcBlk)) {
-      // TODO this is overly aggressive for at least two reasons.
-      // Case1: 3 block graph with 2 edges,
-      // 1->3, 2->3. This would create 3 loops, but 1 and 2 could have been
-      // combined. OTOH, if piblock 1 would form a non vectorizable loop and
-      // 2 doesnt, we would want them separate.
-      // Case2: 2 block graph, with single recurrence edge between the two
-      // Once split, the two loops are non vectorizable. If legality was
-      // the only concern, we can iterate over all dd edges indirectly by
-      // looking at distppedges whos src/sink are in piblock
-      if (piEdgeIsMemRecurrence(Lp, *Edge)) {
-        Analysis.Recurrence = true;
+      if (CurListIsVectorizable && !CurLoopPiBlkList.empty()) {
+        LLVM_DEBUG(
+            dbgs() << "Starting new chunk for non-vectorizable PiBlocks\n");
         CommitCurrentBlockList();
-        break;
       }
-      // TODO if sink blk is known to be non vectorizable and src blk(s) is
-      // vectorizble, we would want to split as well even if edge is not a
-      // recurrence
+
+      CurListIsVectorizable = false;
+
+      if (!AddedToVectorizableList) {
+        LLVM_DEBUG(
+            dbgs()
+            << "Appending to current chunk of non-vectorizable PiBlocks\n");
+        CurLoopPiBlkList.push_back(SrcBlk);
+        ChunkVecInfos.back().accumulate(CurBlkVecInfo);
+      }
+
+    } else {
+
+      VectorizablePiBlkList.push_back(SrcBlk);
+      VectorizableListVecInfo.accumulate(CurBlkVecInfo);
+      CurListIsVectorizable = true;
+      LLVM_DEBUG(
+          dbgs() << "Appending vectorizable PiBlock into special vectorizable "
+                    "list for later profitability determination.\n");
     }
+
+    IsFirstPiBlock = false;
   }
+
+  ProcessVectorizablePiBlockList();
+
+  // Append PiBlocks with no outgoing edges into the current list if no
+  // vectorizable PiBlocks were found so we don't distribute the loop.
+  if (!FoundVectorizeablePiBlk && !NoOutgoingDepPiBlkList.empty()) {
+    LLVM_DEBUG(
+        dbgs() << "Appending non-vectorizable chunk without any output edges "
+                  "into other non-vectorizable chunks to avoid distribution\n");
+    CurLoopPiBlkList.append(NoOutgoingDepPiBlkList);
+    ChunkVecInfos.back().accumulate(NoOutgoingDepVecInfo);
+    NoOutgoingDepPiBlkList.clear();
+  }
+
   if (!CurLoopPiBlkList.empty()) {
     DistPoints.push_back(CurLoopPiBlkList);
+  } else {
+    ChunkVecInfos.pop_back();
   }
 
-  if (!DistributedBlocks.empty()) {
-    DistPoints.push_back(DistributedBlocks);
+  if (!NoOutgoingDepPiBlkList.empty()) {
+    // If we found the lexically first PiBlock to have no outgoing edges, insert
+    // it at the beginning to try to preserve original order of nodes. Since
+    // interleaved PiBlocks might have been combined above, this is just a
+    // heuristic.
+    if (FirstPiBlockHasNoOutgoingDep) {
+      LLVM_DEBUG(dbgs() << "Creating first chunk for non-vectorizable PiBlocks "
+                           "without any output edges.\n");
+      DistPoints.insert(DistPoints.begin(), NoOutgoingDepPiBlkList);
+      ChunkVecInfos.insert(ChunkVecInfos.begin(), NoOutgoingDepVecInfo);
+    } else {
+      LLVM_DEBUG(dbgs() << "Creating last chunk for non-vectorizable PiBlocks "
+                           "without any output edges.\n");
+      DistPoints.push_back(NoOutgoingDepPiBlkList);
+      ChunkVecInfos.emplace_back(NoOutgoingDepVecInfo);
+    }
   }
+
+  assert(DistPoints.size() == ChunkVecInfos.size() &&
+         "Chunk vectorization info is out of sync with distributed points!");
 }
 
 void HIRLoopDistribution::findDistPoints(
@@ -1642,8 +2174,10 @@ void HIRLoopDistribution::findDistPoints(
     SmallVectorImpl<PiBlockList> &DistPoints) {
 
   if (DistCostModel == DistHeuristics::BreakMemRec) {
-    breakPiBlockRecurrences(Lp, PGraph, DistPoints);
+    breakPiBlocksToEnableVectorization(Lp, PGraph, DistPoints);
+    LLVM_DEBUG(dbgs() << "BreakMemRec: ";);
   } else if (DistCostModel == DistHeuristics::NestFormation) {
+    LLVM_DEBUG(dbgs() << "NestFormation: ";);
     if (!Lp->isInnermost()) {
       formPerfectLoopNests(PGraph, DistPoints);
     } else {
@@ -1718,7 +2252,7 @@ PragmaReturnCode HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
         if (HNode->isDistributePoint()) {
           HNode->setDistributePoint(false);
           DistLoopNum++;
-          if (DistLoopNum >= MaxDistributedLoop) {
+          if (DistLoopNum >= MaxDistributedChunks) {
             UnsupportedRC = TooManyDistributePoints;
             return;
           }
@@ -1752,7 +2286,8 @@ PragmaReturnCode HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
   ScalarExpansion SCEX(Lp, true, DistributedLoops);
   invalidateLoop(Lp);
   distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getORBuilder(),
-                 StripmineRequiresExtraSetup, true);
+                 StripmineRequiresExtraSetup, true /*ForDirective*/,
+                 false /*VersionedForSmallTC*/);
   return Success;
 }
 
@@ -1862,35 +2397,4 @@ void HIRLoopDistribution::invalidateLoop(loopopt::HLLoop *Loop) const {
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
       Loop);
   HIRInvalidationUtils::invalidateBody(Loop);
-}
-
-void HIRLoopDistributionLegacyPass::getAnalysisUsage(
-    llvm::AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  // Loop Statistics is not used by this pass directly but it used by
-  // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
-  // manager from freeing it.
-  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
-  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRSparseArrayReductionAnalysisWrapperPass>();
-}
-
-bool HIRLoopDistributionLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    return false;
-  }
-
-  return HIRLoopDistribution(
-             getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-             getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-             getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
-             getAnalysis<HIRSparseArrayReductionAnalysisWrapperPass>()
-                 .getHSAR(),
-             getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
-             getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(), DistCostModel)
-      .run();
 }

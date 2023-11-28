@@ -17,7 +17,6 @@ namespace llvm {
 namespace SYCLKernelMetadataAPI {
 
 struct GlobalVariableMetadataAPI {
-  typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> DepthIsIgnoredTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketSizeTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketAlignTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipeDepthTy;
@@ -25,12 +24,10 @@ struct GlobalVariableMetadataAPI {
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipeProtocolTy;
 
   GlobalVariableMetadataAPI(llvm::GlobalVariable *Global)
-      : DepthIsIgnored(Global, "depth_is_ignored"),
-        PipePacketSize(Global, "packet_size"),
+      : PipePacketSize(Global, "packet_size"),
         PipePacketAlign(Global, "packet_align"), PipeDepth(Global, "depth"),
         PipeIO(Global, "io"), PipeProtocol(Global, "protocol") {}
 
-  NamedMDValueAccessor<DepthIsIgnoredTy> DepthIsIgnored;
   NamedMDValueAccessor<PipePacketSizeTy> PipePacketSize;
   NamedMDValueAccessor<PipePacketAlignTy> PipePacketAlign;
   NamedMDValueAccessor<PipeDepthTy> PipeDepth;
@@ -42,11 +39,9 @@ struct FunctionMetadataAPI {
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> BoolTy;
 
   FunctionMetadataAPI(llvm::Function *Func)
-      : RecursiveCall(Func, "recursive_call"),
-        FpgaPipeDynamicAccess(Func, "fpga_pipe_dynamic_access") {}
+      : RecursiveCall(Func, "recursive_call") {}
 
   NamedMDValueAccessor<BoolTy> RecursiveCall;
-  NamedMDValueAccessor<BoolTy> FpgaPipeDynamicAccess;
 };
 
 struct KernelMetadataAPI {

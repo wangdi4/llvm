@@ -102,8 +102,8 @@ public:
   /// code object version times 100.
   enum CodeObjectVersionKind {
     COV_None,
-    COV_2 = 200,
-    COV_3 = 300,
+    COV_2 = 200, // Unsupported.
+    COV_3 = 300, // Unsupported.
     COV_4 = 400,
     COV_5 = 500,
   };
@@ -129,6 +129,10 @@ public:
   // code model.
   std::string CodeModel;
 
+  // The large data threshold used for certain code models on certain
+  // architectures.
+  uint64_t LargeDataThreshold;
+
   /// The version of the SDK which was used during the compilation.
   /// The option is used for two different purposes:
   /// * on darwin the version is propagated to LLVM where it's used
@@ -144,7 +148,7 @@ public:
   /// compilation.
   llvm::VersionTuple DarwinTargetVariantSDKVersion;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// If given, list of names of the target CPUs to multiversion code for
   std::vector<std::string> AutoCPUDispatchTargets;
   std::vector<std::string> AutoArchTargets;

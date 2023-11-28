@@ -1,5 +1,4 @@
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cg"  -force-hir-cg -hir-cost-model-throttling=0 -S 2>&1 | FileCheck %s
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cg" -opaque-pointers -force-hir-cg -hir-cost-model-throttling=0 -S 2>&1 | FileCheck %s
 
 ; Verify that we are able to parse indirect call using %25 as the function pointer.
 ; CHECK: UNKNOWN LOOP

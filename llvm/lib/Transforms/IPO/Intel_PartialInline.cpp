@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_PartialInline.cpp - Intel Partial Inlining      -*------===//
 //
-// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -141,7 +141,7 @@
 using namespace llvm;
 using namespace InlineReportTypes;
 
-#define DEBUG_TYPE "intel_partialinline"
+#define DEBUG_TYPE "intel-partialinline"
 
 // Limit the number of functions that will be partially inlined by this pass
 static cl::opt<unsigned> IntelPIMaxFuncs("intel-pi-max-funcs", cl::init(5),

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2023 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -119,114 +119,7 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy) {
       break;
     }
     case Type::PointerTyID: {
-      TypeDesc SubElemDesc(TPOINTER);
-      const PointerType *ptr = cast<PointerType>(structTy->getElementType(i));
-      switch (ptr->getNonOpaquePointerElementType()->getTypeID()) {
-      case Type::FloatTyID: {
-        SubElemDesc.SetSubTypeDesc(0, TFLOAT);
-        break;
-      }
-      case Type::DoubleTyID: {
-        SubElemDesc.SetSubTypeDesc(0, TDOUBLE);
-        break;
-      }
-      case Type::IntegerTyID: {
-        switch (
-            ptr->getNonOpaquePointerElementType()->getPrimitiveSizeInBits()) {
-        case 8: {
-          SubElemDesc.SetSubTypeDesc(0, TCHAR);
-          break;
-        }
-        case 16: {
-          SubElemDesc.SetSubTypeDesc(0, TSHORT);
-          break;
-        }
-        case 32: {
-          SubElemDesc.SetSubTypeDesc(0, TINT);
-          break;
-        }
-        case 64: {
-          SubElemDesc.SetSubTypeDesc(0, TLONG);
-          break;
-        }
-        default: {
-          throw Exception::ParserBadTypeException(
-              "[OpenCLKernelArgumentsParser::forParserStruct]bad type of "
-              "integer in pointer");
-          break;
-        }
-        }
-        break;
-      }
-
-      case Type::FixedVectorTyID:
-      case Type::ScalableVectorTyID: {
-        const FixedVectorType *vectorTy =
-            cast<FixedVectorType>(ptr->getNonOpaquePointerElementType());
-        std::size_t numOfElements = vectorTy->getNumElements();
-        TypeDesc VectorSubElemDesc(TVECTOR);
-        VectorSubElemDesc.SetNumberOfElements(numOfElements);
-        switch (vectorTy->getElementType()->getTypeID()) {
-        case Type::FloatTyID: {
-          VectorSubElemDesc.SetSubTypeDesc(0, TFLOAT);
-          break;
-        }
-        case Type::DoubleTyID: {
-          VectorSubElemDesc.SetSubTypeDesc(0, TDOUBLE);
-          break;
-        }
-        case Type::IntegerTyID: {
-          switch (vectorTy->getElementType()->getPrimitiveSizeInBits()) {
-          case 8: {
-            VectorSubElemDesc.SetSubTypeDesc(0, TCHAR);
-            break;
-          }
-          case 16: {
-            VectorSubElemDesc.SetSubTypeDesc(0, TSHORT);
-            break;
-          }
-          case 32: {
-            VectorSubElemDesc.SetSubTypeDesc(0, TINT);
-            break;
-          }
-          case 64: {
-            VectorSubElemDesc.SetSubTypeDesc(0, TLONG);
-            break;
-          }
-          default: {
-            throw Exception::ParserBadTypeException(
-                "[OpenCLKernelArgumentsParser::forParserStruct]bad type of "
-                "integer in vector in pointer");
-            break;
-          }
-          }
-          break;
-        }
-        default: {
-          throw Exception::ParserBadTypeException(
-              "[OpenCLKernelArgumentsParser::forParserStruct]bad type in "
-              "vector in pointer");
-          break;
-        }
-        }
-        SubElemDesc.SetSubTypeDesc(0, VectorSubElemDesc);
-        break;
-      }
-
-      case Type::StructTyID: {
-        TypeDesc StructDesc = forParserStruct(
-            cast<StructType>(ptr->getNonOpaquePointerElementType()));
-        SubElemDesc.SetSubTypeDesc(0, StructDesc);
-        break;
-      }
-      default: {
-        throw Exception::ParserBadTypeException(
-            "[OpenCLKernelArgumentsParser::forParserStruct]bad type in "
-            "pointer");
-        break;
-      }
-      }
-      ElemDesc.SetSubTypeDesc(i, SubElemDesc);
+      ElemDesc.SetSubTypeDesc(i, TPOINTER);
       break;
     }
     case Type::StructTyID: {

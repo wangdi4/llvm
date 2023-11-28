@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,23 +13,27 @@
 // License.
 
 #include "enqueue_commands.h"
+#include "Logger.h"
 #include "MemoryAllocator/MemoryObject.h"
 #include "PipeCommon.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
+#include "cl_sys_info.h"
 #include "cl_types.h"
 #include "command_queue.h"
 #include "context_module.h"
 #include "events_manager.h"
+#include "execution_module.h"
 #include "framework_proxy.h"
 #include "kernel.h"
 #include "ocl_event.h"
+#include "ocl_itt.h"
 #include "sampler.h"
 #include "svm_buffer.h"
 #include "usm_buffer.h"
-#include <Logger.h>
 
 // For debug
+#include <assert.h>
 #include <stdio.h>
 #if defined(_WIN32)
 #include <process.h>
@@ -37,10 +41,6 @@
 #else
 #include <malloc.h>
 #endif
-#include "cl_sys_info.h"
-#include "execution_module.h"
-#include "ocl_itt.h"
-#include <assert.h>
 
 #if defined(USE_ITT)
 #if defined(_M_X64)
@@ -136,7 +136,6 @@ void inline Command::DetachEventSharedPtr() {
 }
 
 void inline Command::UnregisterUSMFreeWaitEvent() {
-  std::lock_guard<std::mutex> lock(m_UsmPtrsMutex);
   for (auto usmPtr : m_UsmPtrs) {
     m_pContextModule->UnregisterUSMFreeWaitEvent(usmPtr,
                                                  this->GetEvent()->GetHandle());
@@ -370,12 +369,11 @@ void Command::GPA_InitCommand() {
       (pGPAData->bEnableContextTracing)) {
     m_pGpaCommand = nullptr;
     m_pGpaCommand = new ocl_gpa_command();
-    if (nullptr != m_pGpaCommand) {
-      // Create task name strings
-      const char *commandName = GPA_GetCommandName();
-      if (nullptr != commandName) {
-        m_pGpaCommand->m_strCmdName = __itt_string_handle_create(commandName);
-      }
+
+    // Create task name strings
+    const char *commandName = GPA_GetCommandName();
+    if (nullptr != commandName) {
+      m_pGpaCommand->m_strCmdName = __itt_string_handle_create(commandName);
     }
   }
 #endif // ITT
@@ -802,15 +800,10 @@ cl_err_code MapMemObjCommand::Init() {
       (pMemObj->IsSynchDataWithHostRequired(m_pMappedRegion, m_pHostDataPtr))) {
     m_pPostfixCommand = new PrePostFixRuntimeCommand(
         this, PrePostFixRuntimeCommand::POSTFIX_MODE, GetCommandQueue());
-
-    if (nullptr != m_pPostfixCommand) {
-      err = m_pPostfixCommand->Init();
-      if (CL_FAILED(err)) {
-        delete m_pPostfixCommand;
-        m_pPostfixCommand = nullptr;
-      }
-    } else {
-      err = CL_OUT_OF_HOST_MEMORY;
+    err = m_pPostfixCommand->Init();
+    if (CL_FAILED(err)) {
+      delete m_pPostfixCommand;
+      m_pPostfixCommand = nullptr;
     }
 
     if (nullptr == m_pPostfixCommand) {
@@ -1001,12 +994,6 @@ cl_err_code MapMemObjCommand::PostfixExecute() {
     SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "Sync Data Postfix - %s",
               GetCommandName());
     __itt_string_handle *pMarker = __itt_string_handle_create(pMarkerString);
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    // Start Sync Data GPA task
-    __itt_set_track(nullptr);
-#endif
-#endif // end INTEL_CUSTOMIZATION
     __itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
 
     // Add region metadata to the Sync Data task
@@ -1022,12 +1009,6 @@ cl_err_code MapMemObjCommand::PostfixExecute() {
 
 #if defined(USE_ITT)
   if ((nullptr != pGPAData) && (pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    // End Sync Data GPA task
-    __itt_set_track(nullptr);
-#endif
-#endif // end INTEL_CUSTOMIZATION
     __itt_task_end(pGPAData->pDeviceDomain);
 
     __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
@@ -1109,19 +1090,14 @@ cl_err_code UnmapMemObjectCommand::Init() {
     m_pPrefixCommand = new PrePostFixRuntimeCommand(
         this, PrePostFixRuntimeCommand::PREFIX_MODE, GetCommandQueue());
 
-    if (nullptr != m_pPrefixCommand) {
-      err = m_pPrefixCommand->Init();
-      if (CL_FAILED(err)) {
-        delete m_pPrefixCommand;
-        m_pPrefixCommand = nullptr;
-      }
-    } else {
-      err = CL_OUT_OF_HOST_MEMORY;
+    err = m_pPrefixCommand->Init();
+    if (CL_FAILED(err)) {
+      delete m_pPrefixCommand;
+      m_pPrefixCommand = nullptr;
     }
 
     if (nullptr == m_pPrefixCommand) {
       pMemObj->UndoMappedRegionInvalidation(m_pMappedRegion);
-
       assert(0);
       return err;
     }
@@ -1225,12 +1201,6 @@ cl_err_code UnmapMemObjectCommand::PrefixExecute() {
               GetCommandName());
     __itt_string_handle *pMarker = __itt_string_handle_create(pMarkerString);
 
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    // Start Sync Data GPA task
-    __itt_set_track(nullptr);
-#endif
-#endif // end INTEL_CUSTOMIZATION
     __itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
 
     // Add region metadata to the Sync Data task
@@ -1246,12 +1216,7 @@ cl_err_code UnmapMemObjectCommand::PrefixExecute() {
 
 #if defined(USE_ITT)
   if ((nullptr != pGPAData) && (pGPAData->bUseGPA)) {
-// End Sync Data GPA task
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // end INTEL_CUSTOMIZATION
+    // End Sync Data GPA task
     __itt_task_end(pGPAData->pDeviceDomain);
 
     __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
@@ -1356,21 +1321,13 @@ cl_err_code NativeKernelCommand::Init() {
     return CL_INVALID_KERNEL_ARGS;
   }
   char *pNewArgs = new char[m_szCbArgs];
-  if (nullptr == pNewArgs) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   // Now copy the whole buffer
   MEMCPY_S(pNewArgs, m_szCbArgs, m_pArgs, m_szCbArgs);
 
   size_t *ppNewArgsOffset = nullptr;
-  if (m_uNumMemObjects > 0) {
+  if (m_uNumMemObjects > 0)
     ppNewArgsOffset = new size_t[m_uNumMemObjects];
-    if (nullptr == ppNewArgsOffset) {
-      delete[] pNewArgs;
-      return CL_OUT_OF_HOST_MEMORY;
-    }
-  }
 
   cl_uint i;
   for (i = 0; i < m_uNumMemObjects; i++) {
@@ -1899,60 +1856,6 @@ cl_err_code NDRangeKernelCommand::CommandDone() {
 
   return CL_SUCCESS;
 }
-
-/******************************************************************
- *
- ******************************************************************/
-void NDRangeKernelCommand::GPA_WriteCommandMetadata() {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-  ocl_gpa_data *pGPAData = m_pCommandQueue->GetGPAData();
-
-  if ((nullptr != pGPAData) && (pGPAData->bUseGPA)) {
-    // Set custom track
-    __itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
-    __itt_metadata_add(pGPAData->pContextDomain, m_pGpaCommand->m_CmdId,
-                       pGPAData->pWorkDimensionHandle, __itt_metadata_u32, 1,
-                       &m_uiWorkDim);
-
-    GPA_WriteWorkMetadata(m_cpszGlobalWorkSize,
-                          pGPAData->pGlobalWorkSizeHandle);
-    GPA_WriteWorkMetadata(m_cpszLocalWorkSize, pGPAData->pLocalWorkSizeHandle);
-    GPA_WriteWorkMetadata(m_cpszGlobalWorkOffset,
-                          pGPAData->pGlobalWorkOffsetHandle);
-  }
-#endif // GPA
-#endif // end INTEL_CUSTOMIZATION
-}
-/******************************************************************
- *
- ******************************************************************/
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-void NDRangeKernelCommand::GPA_WriteWorkMetadata(
-    const size_t *pWorkMetadata, __itt_string_handle *keyStrHandle) const {
-  ocl_gpa_data *pGPAData = m_pCommandQueue->GetGPAData();
-
-  if ((nullptr != pGPAData) && (pGPAData->bUseGPA) &&
-      (pWorkMetadata != nullptr)) {
-    ocl_gpa_data *pGPAData = m_pCommandQueue->GetGPAData();
-
-    // Set custom track
-    __itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
-
-    // Make sure all metadata is 64 bit, and not platform dependant (size_t)
-    cl_ulong metaData64[MAX_WORK_DIM];
-    for (unsigned int i = 1; i < m_uiWorkDim; ++i) {
-      metaData64[i] = pWorkMetadata[i];
-    }
-
-    // Write Metadata to trace
-    __itt_metadata_add(pGPAData->pContextDomain, __itt_null, keyStrHandle,
-                       __itt_metadata_u64, m_uiWorkDim, metaData64);
-  }
-}
-#endif // GPA
-#endif // end INTEL_CUSTOMIZATION
 
 ReadHostPipeIntelFPGACommand::ReadHostPipeIntelFPGACommand(
     const SharedPtr<IOclCommandQueueBase> &cmdQueue, void *pDst, void *pipeBS,
@@ -2711,10 +2614,6 @@ cl_err_code MigrateSVMMemCommand::Init() {
   m_migrateCmdParams.memObjs =
       new IOCLDevMemoryObject *[m_migrateCmdParams.mem_num];
 
-  if (nullptr == m_migrateCmdParams.memObjs) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
-
   MemoryObject::MemObjUsage access =
       (0 !=
        (m_migrateCmdParams.flags & CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED))
@@ -2818,10 +2717,6 @@ cl_err_code MigrateMemObjCommand::Init() {
   // Allocate
   m_migrateCmdParams.memObjs =
       new IOCLDevMemoryObject *[m_migrateCmdParams.mem_num];
-
-  if (nullptr == m_migrateCmdParams.memObjs) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   MemoryObject::MemObjUsage access =
       (0 !=

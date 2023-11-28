@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 
@@ -18,50 +18,50 @@ void foo(int n) {
   _Complex double (&h)[10] = b;
   _Complex double *(&rr) = p;
 // CHECK: "DIR.OMP.PARALLEL"
-// CHECK: "QUAL.OMP.REDUCTION.ADD:CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED"
 #pragma omp parallel reduction(+: a)
   for(int i = 0 ; i <  10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD:CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED"
 #pragma omp parallel reduction(+: b)
   for(int i = 0 ; i <  10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.CMPLX.TYPED"
 #pragma omp parallel reduction(+: c[1:2])
   for(int i = 0 ; i <  10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.CMPLX.PTR_TO_PTR.TYPED"
 #pragma omp parallel reduction(+: d[1:2])
   for(int i = 0 ; i <  10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD:CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED"
 #pragma omp parallel reduction(+: e)
   for(int i = 0 ; i <  10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.CMPLX.TYPED"
 #pragma omp parallel reduction(+: f[1:2])
   for(int i = 0 ; i <  10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:TYPED"
 #pragma omp parallel reduction(+: g)
   for(int i = 0 ; i <  10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.CMPLX.PTR_TO_PTR.TYPED"
 #pragma omp parallel reduction(+: zp[0:1])
   for(int i = 0 ; i <  10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.CMPLX.TYPED"
 #pragma omp parallel reduction(+: zr)
   for(int i = 0 ; i <  10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.CMPLX.PTR_TO_PTR.TYPED"
 #pragma omp parallel reduction(+: zpr[0:1])
   for(int i = 0 ; i <  10 ; i++) {}
 
-// CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.CMPLX.PTR_TO_PTR.TYPED"
 #pragma omp parallel reduction(+:p[1:2])
   for(int i = 0 ; i < 10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.CMPLX.TYPED"
 #pragma omp parallel reduction(+:r)
   for(int i = 0 ; i < 10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.CMPLX.TYPED"
 #pragma omp parallel reduction(+:h)
   for(int i = 0 ; i < 10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.CMPLX.TYPED"
 #pragma omp parallel reduction(+:h[1:2])
   for(int i = 0 ; i < 10 ; i++) {}
-// CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.CMPLX"
+// CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.CMPLX.PTR_TO_PTR.TYPED"
 #pragma omp parallel reduction(+:rr[1:2])
   for(int i = 0 ; i < 10 ; i++) {}
 }

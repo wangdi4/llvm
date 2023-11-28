@@ -80,10 +80,10 @@ void MCTraceLine::encode(raw_ostream &OS, int32_t DeltaLine, uint32_t DeltaPC) {
     OS << static_cast<int8_t>(DeltaLine);
     break;
   case traceback::TB_TAG_LN2:
-    support::endian::write<int16_t>(OS, DeltaLine, support::little);
+    support::endian::write<int16_t>(OS, DeltaLine, endianness::little);
     break;
   case traceback::TB_TAG_LN4:
-    support::endian::write<int32_t>(OS, DeltaLine, support::little);
+    support::endian::write<int32_t>(OS, DeltaLine, endianness::little);
     break;
   }
 
@@ -97,10 +97,10 @@ void MCTraceLine::encode(raw_ostream &OS, int32_t DeltaLine, uint32_t DeltaPC) {
     OS << static_cast<uint8_t>(DeltaPC);
     break;
   case traceback::TB_TAG_PC2:
-    support::endian::write<uint16_t>(OS, DeltaPC, support::little);
+    support::endian::write<uint16_t>(OS, DeltaPC, endianness::little);
     break;
   case traceback::TB_TAG_PC4:
-    support::endian::write<uint32_t>(OS, DeltaPC, support::little);
+    support::endian::write<uint32_t>(OS, DeltaPC, endianness::little);
     break;
   }
 }

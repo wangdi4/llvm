@@ -12,14 +12,14 @@
 // NOTE:      add other RUN commands back into test.
 // NOTE:   3) Move INTEL_COLLAB markers back to the top and the bottom of
 // NOTE:      the source file.
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN: -triple x86_64-unknown-linux-gnu -fopenmp-version=51 %s | FileCheck %s
 
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
 // RUN: -triple x86_64-unknown-linux-gnu -fopenmp-version=51 \
 // RUN: -emit-pch %s -o %t
 
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
 // RUN: -triple x86_64-unknown-linux-gnu -fopenmp-version=51 \
 // RUN: -include-pch %t -emit-llvm %s -o - | FileCheck %s
 // expected-no-diagnostics

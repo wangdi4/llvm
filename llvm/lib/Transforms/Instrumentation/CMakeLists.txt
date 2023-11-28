@@ -35,6 +35,7 @@ add_llvm_component_library(LLVMInstrumentation
 # INTEL_FEATURE_MARKERCOUNT
   Intel_MarkerCountIntrinsicInserter.cpp
 # end INTEL_FEATURE_MARKERCOUNT
+  Intel_SPIEmitter.cpp
 # end INTEL_CUSTOMIZATION
   KCFI.cpp
   PGOInstrumentation.cpp

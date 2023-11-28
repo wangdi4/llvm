@@ -1,6 +1,6 @@
 //===-------- DTransOPOptBase.h - Base class for DTrans Transforms ---------==//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -59,8 +59,8 @@ class DTransTypeManager;
 //
 class DTransOPTypeRemapper : public ValueMapTypeRemapper {
 public:
-  DTransOPTypeRemapper(DTransTypeManager &TM, bool UsingOpaquePtrs)
-      : TM(TM), UsingOpaquePtrs(UsingOpaquePtrs), AllTypeMappingsAdded(false) {}
+  DTransOPTypeRemapper(DTransTypeManager &TM)
+      : TM(TM), AllTypeMappingsAdded(false) {}
 
   DTransOPTypeRemapper(const DTransOPTypeRemapper &) = delete;
   DTransOPTypeRemapper &operator=(const DTransOPTypeRemapper &) = delete;
@@ -125,11 +125,6 @@ private: // data
   // NOTE: The same object must be used by the safety analyzer and the
   // transformation.
   DTransTypeManager &TM;
-
-  // Indicates whether opaque pointers are being used. This affects whether or
-  // not to try to get a pointer element type from a llvm::PointerType object
-  // when computing replacement types.
-  bool UsingOpaquePtrs;
 
   // Mapping from original type to the replacement type.
   DenseMap<llvm::Type *, llvm::Type *> SrcTypeToNewType;
@@ -327,9 +322,6 @@ protected:
 
   // Optional string to precede names of dependent types that get renamed.
   std::string DepTypePrefix;
-
-  // 'true' if pointers are opaque.
-  bool UsingOpaquePtrs;
 
   // Collection of all the structure types.
   std::vector<DTransStructType *> KnownStructTypes;

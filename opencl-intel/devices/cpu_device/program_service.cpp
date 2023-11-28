@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -21,12 +21,11 @@
 
 #include "program_service.h"
 #include "backend_wrapper.h"
+#include "builtin_kernels.h"
+#include "cl_synch_objects.h"
+#include "cpu_dev_limits.h"
 #include "cpu_logger.h"
 #include "program_config.h"
-
-#include <builtin_kernels.h>
-#include <cl_synch_objects.h>
-#include <cpu_dev_limits.h>
 
 #include <assert.h>
 #include <limits.h>
@@ -218,11 +217,6 @@ cl_dev_err_code ProgramService::CreateProgram(size_t IN binSize,
 
   // Create new program
   TProgramEntry *pEntry = new TProgramEntry;
-  if (nullptr == pEntry) {
-    CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
-              TEXT("Cann't allocate program entry"));
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   pEntry->programType = PTCompiledProgram;
   pEntry->pProgram = nullptr;
@@ -261,11 +255,6 @@ ProgramService::CreateBuiltInKernelProgram(const char *IN szBuiltInNames,
   }
 
   TProgramEntry *pEntry = new TProgramEntry;
-  if (nullptr == pEntry) {
-    CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
-              TEXT("Failed to allocate new handle"));
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   pEntry->programType = PTBuiltInProgram;
   pEntry->pProgram = pProg;

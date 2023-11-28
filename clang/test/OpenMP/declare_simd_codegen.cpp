@@ -1,7 +1,9 @@
+// INTEL_CUSTOMIZATION
 // TODO for INTEL: Currently, INTEL does not support variable stride in VecClone
 // (INTEL CMPLRLLVM-22849) and alignment propagation (INTEL CMPLRLLVM-22928).
 // Once these features are implemented, -enable-vec-clone flag should
 // be removed.
+// end INTEL_CUSTOMIZATION
 
 // INTEL RUN: %clang_cc1 -verify -triple x86_64-apple-darwin10 -fopenmp -mllvm -enable-vec-clone=false -x c++ -emit-llvm %s -o - -femit-all-decls | FileCheck %s
 // INTEL RUN: %clang_cc1 -fopenmp -x c++ -triple x86_64-apple-darwin10 -mllvm -enable-vec-clone=false -emit-pch -o %t %s
@@ -220,7 +222,7 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: define {{.+}}@_Z4FiveiRsS_S_S_S_S_S_S_
 // CHECK-DAG: define {{.+}}@_Z3SixiPfRiRPicPcs
 
-// begin INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
 // Functions marked as simd functions now have attributes in the form
 // of a key/value pair similar to "vector-variants"="_ZGVbM4l8__Z5add_1Pf,
 // _ZGVbN4l8__Z5add_1Pf, ...". Previously, they appeared as separately

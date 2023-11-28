@@ -1,4 +1,19 @@
 //===--- opencl-c.h - OpenCL C language builtin function header -----------===//
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -8496,6 +8511,7 @@ half8 __ovld __cnfn sinpi(half8);
 half16 __ovld __cnfn sinpi(half16);
 #endif //cl_khr_fp16
 
+/* INTEL_CUSTOMIZATION */
 /**
  * Compute square root.
  */
@@ -8521,6 +8537,7 @@ half4 __ovld __cnfn sqrt(half4);
 half8 __ovld __cnfn sqrt(half8);
 half16 __ovld __cnfn sqrt(half16);
 #endif //cl_khr_fp16
+/* end INTEL_CUSTOMIZATION */
 
 /**
  * Compute tangent.
@@ -12394,11 +12411,13 @@ void __ovld vstorea_half16_rtn(double16, size_t, __private half *);
  * of memory operations to global memory. This can be
  * useful when work-items, for example, write to buffer or
  * image objects and then want to read the updated data.
+// INTEL_CUSTOMIZATION
  * CLK_CHANNEL_MEM_FENCE - The barrier function
  * will queue a memory fence to ensure correct ordering of
  * channel operations. For example one can use it with CLK_GLOBAL_MEM_FENCE,
  * so a call can't start until the global memory operation
  * is committed to the shared memory buffer.
+// end INTEL_CUSTOMIZATION
  */
 
 void __ovld __conv barrier(cl_mem_fence_flags);
@@ -12422,7 +12441,9 @@ void __ovld __conv work_group_barrier(cl_mem_fence_flags);
  * values:
  * CLK_LOCAL_MEM_FENCE
  * CLK_GLOBAL_MEM_FENCE.
+// INTEL_CUSTOMIZATION
  * CLK_CHANNEL_MEM_FENCE.
+// end INTEL_CUSTOMIZATION
  */
 void __ovld mem_fence(cl_mem_fence_flags);
 
@@ -12435,7 +12456,9 @@ void __ovld mem_fence(cl_mem_fence_flags);
  * values:
  * CLK_LOCAL_MEM_FENCE
  * CLK_GLOBAL_MEM_FENCE.
+// INTEL_CUSTOMIZATION
  * CLK_CHANNEL_MEM_FENCE.
+// end INTEL_CUSTOMIZATION
  */
 void __ovld read_mem_fence(cl_mem_fence_flags);
 
@@ -12448,7 +12471,9 @@ void __ovld read_mem_fence(cl_mem_fence_flags);
  * values:
  * CLK_LOCAL_MEM_FENCE
  * CLK_GLOBAL_MEM_FENCE.
+// INTEL_CUSTOMIZATION
  * CLK_CHANNEL_MEM_FENCE.
+// end INTEL_CUSTOMIZATION
  */
 void __ovld write_mem_fence(cl_mem_fence_flags);
 

@@ -2,7 +2,7 @@
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec' -disable-output -debug-only=LoopVectorizationPlanner -vplan-enable-masked-main-loop=0 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='vpo-directive-cleanup,print,hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -disable-output -debug-only=LoopVectorizationPlanner -vplan-force-vf=16 -vplan-enable-masked-main-loop=0 < %s 2>&1 | FileCheck %s --check-prefixes=NODIRCHECK,CHECK
 ; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -disable-output -intel-opt-report=high -vplan-enable-masked-main-loop=0 < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -disable-output -intel-opt-report=high -vplan-enable-masked-main-loop=0 < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI-HIR
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -disable-output -intel-opt-report=high -vplan-enable-masked-main-loop=0 < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI-HIR
 ;
 ; RUN: opt -passes='vplan-vec,print' -disable-output -debug-only=LoopVectorizationPlanner -vplan-enable-masked-main-loop=1 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK_MME
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec' -disable-output -debug-only=LoopVectorizationPlanner -vplan-enable-masked-main-loop=1 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK_MME

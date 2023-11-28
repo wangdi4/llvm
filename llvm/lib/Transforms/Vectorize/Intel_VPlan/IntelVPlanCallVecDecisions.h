@@ -1,6 +1,6 @@
 //===-- IntelVPlanCallVecDecisions.h ---------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -82,7 +82,7 @@ private:
   void getVectorVariantsForCallParameters(
       const VPCallInstruction *VPCall, bool Masked, int VF,
       SmallVectorImpl<bool> &ArgIsLinearPrivateMem,
-      SmallVectorImpl<VFInfo> &VFInfos);
+      SmallVectorImpl<VFInfo> &VFInfos, const TargetTransformInfo *TTI);
 
   VPlanVector &Plan;
 };

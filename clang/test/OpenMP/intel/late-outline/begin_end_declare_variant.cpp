@@ -1,10 +1,10 @@
 // INTEL_COLLAB
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+//RUN: %clang_cc1 -triple spir64 \
 //RUN:  -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fopenmp-is-device \

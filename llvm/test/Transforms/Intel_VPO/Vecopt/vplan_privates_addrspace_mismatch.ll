@@ -6,33 +6,31 @@
 
 ; RUN: opt %s -passes=vplan-vec -vplan-force-vf=2 -S | FileCheck %s
 
-define internal void @test_soa(i8** %arr) #3 {
+define internal void @test_soa(ptr %arr) #3 {
 ; CHECK-LABEL: @test_soa(
 ; CHECK-NEXT:  DIR.OMP.SIMD.4:
 ; CHECK-NEXT:    [[ZII_PRIV:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    [[ZII_PRIV_ASCAST:%.*]] = addrspacecast i32* [[ZII_PRIV]] to i32 addrspace(4)*
+; CHECK-NEXT:    [[ZII_PRIV_ASCAST:%.*]] = addrspacecast ptr [[ZII_PRIV]] to ptr addrspace(4)
 ; CHECK-NEXT:    [[ZII_PRIV_VEC:%.*]] = alloca <2 x i32>, align 8
-; CHECK-NEXT:    [[ZII_PRIV_VEC_BC:%.*]] = bitcast <2 x i32>* [[ZII_PRIV_VEC]] to i32*
-; CHECK-NEXT:    [[ZII_PRIV_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[ZII_PRIV_VEC_BC]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[ZII_PRIV_VEC_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x i32*> [[ZII_PRIV_VEC_BASE_ADDR]], i32 0
+; CHECK-NEXT:    [[ZII_PRIV_VEC_BASE_ADDR:%.*]] = getelementptr i32, ptr [[ZII_PRIV_VEC]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[ZII_PRIV_VEC_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[ZII_PRIV_VEC_BASE_ADDR]], i32 0
 
 ; CHECK:       VPlannedBB2:
-; CHECK:         [[ASCAST:%.*]] = addrspacecast i32* [[ZII_PRIV_VEC_BASE_ADDR_EXTRACT_0]] to i32 addrspace(4)*
+; CHECK:         [[ASCAST:%.*]] = addrspacecast ptr [[ZII_PRIV_VEC_BASE_ADDR_EXTRACT_0]] to ptr addrspace(4)
 
 ; CHECK:       vector.body:
-; CHECK:         [[BC:%.*]] = bitcast i32 addrspace(4)* [[ASCAST]] to <2 x i32> addrspace(4)*
-; CHECK:         store <2 x i32> [[VEC_PHI:%.*]], <2 x i32> addrspace(4)* [[BC]], align 4
+; CHECK:         store <2 x i32> [[VEC_PHI:%.*]], ptr addrspace(4) [[ASCAST]], align 4
 ;
 DIR.OMP.SIMD.4:
   %zii.priv = alloca i32, align 4
-  %zii.priv.ascast = addrspacecast i32* %zii.priv to i32 addrspace(4)*
+  %zii.priv.ascast = addrspacecast ptr %zii.priv to ptr addrspace(4)
   br label %omp.inner.for.body.lr.ph
 
 DIR.OMP.END.TASKLOOP.8.exitStub:                  ; preds = %DIR.OMP.SIMD.4, %DIR.OMP.END.SIMD.2
   ret void
 
 omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %zii.priv.ascast) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %zii.priv.ascast, i32 0, i32 1) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
@@ -40,7 +38,7 @@ DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i32 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.1 ]
-  store i32 %indvars.iv, i32 addrspace(4)* %zii.priv.ascast
+  store i32 %indvars.iv, ptr addrspace(4) %zii.priv.ascast
   %indvars.iv.next = add i32 %indvars.iv, 1
   %cmp = icmp ult i32 1024, %indvars.iv.next
   br i1 %cmp, label %omp.inner.for.cond.omp.loop.exit.split_crit_edge, label %omp.inner.for.body
@@ -58,37 +56,33 @@ define internal void @test_lifetime_intrins() #3 {
 ; CHECK-LABEL: @test_lifetime_intrins(
 ; CHECK-NEXT:  DIR.OMP.SIMD.4:
 ; CHECK-NEXT:    [[XTMP_ASCAST_PRIV:%.*]] = alloca float, align 4
-; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_ASCAST:%.*]] = addrspacecast float* [[XTMP_ASCAST_PRIV]] to float addrspace(4)*
+; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_ASCAST:%.*]] = addrspacecast ptr [[XTMP_ASCAST_PRIV]] to ptr addrspace(4)
 ; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_VEC:%.*]] = alloca <2 x float>, align 8
-; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_VEC_BC:%.*]] = bitcast <2 x float>* [[XTMP_ASCAST_PRIV_VEC]] to float*
-; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_VEC_BASE_ADDR:%.*]] = getelementptr float, float* [[XTMP_ASCAST_PRIV_VEC_BC]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_VEC_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x float*> [[XTMP_ASCAST_PRIV_VEC_BASE_ADDR]], i32 0
+; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_VEC_BASE_ADDR:%.*]] = getelementptr float, ptr [[XTMP_ASCAST_PRIV_VEC]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_VEC_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[XTMP_ASCAST_PRIV_VEC_BASE_ADDR]], i32 0
 
 ; CHECK:       VPlannedBB2:
-; CHECK:         [[ASCAST:%.*]] = addrspacecast float* [[XTMP_ASCAST_PRIV_VEC_BASE_ADDR_EXTRACT_0]] to float addrspace(4)*
+; CHECK:         [[ASCAST:%.*]] = addrspacecast ptr [[XTMP_ASCAST_PRIV_VEC_BASE_ADDR_EXTRACT_0]] to ptr addrspace(4)
 
 ; CHECK:       vector.body:
-; CHECK:         [[TMP0:%.*]] = bitcast float addrspace(4)* [[ASCAST]] to i8 addrspace(4)*
-; CHECK-NEXT:    [[TMP1:%.*]] = addrspacecast i8 addrspace(4)* [[TMP0]] to i8*
-; CHECK-NEXT:    [[BC:%.*]] = bitcast float addrspace(4)* [[ASCAST]] to <2 x float> addrspace(4)*
-; CHECK-NEXT:    store <2 x float> zeroinitializer, <2 x float> addrspace(4)* [[BC]], align 4
+; CHECK:    [[TMP1:%.*]] = addrspacecast ptr addrspace(4) [[ASCAST]] to ptr
+; CHECK-NEXT:    store <2 x float> zeroinitializer, ptr addrspace(4) [[ASCAST]], align 4
 ;
 DIR.OMP.SIMD.4:
   %xtmp.ascast.priv = alloca float, align 4
-  %xtmp.ascast.priv.ascast = addrspacecast float* %xtmp.ascast.priv to float addrspace(4)*
+  %xtmp.ascast.priv.ascast = addrspacecast ptr %xtmp.ascast.priv to ptr addrspace(4)
   br label %omp.inner.for.body.lr.ph
 
 omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.5
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(float addrspace(4)* %xtmp.ascast.priv.ascast, float 0.000000e+00, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %xtmp.ascast.priv.ascast, float 0.000000e+00, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body.lr.ph, %omp.inner.for.body
   %.omp.iv.ascast.local.021 = phi i32 [ 0, %omp.inner.for.body.lr.ph ], [ %add1, %omp.inner.for.body ]
-  %bc = bitcast float addrspace(4)* %xtmp.ascast.priv.ascast to i8 addrspace(4)*
-  %bc.ascast = addrspacecast i8 addrspace(4)* %bc to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %bc.ascast)
-  store float 0.000000e+00, float addrspace(4)* %xtmp.ascast.priv.ascast, align 4
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %bc.ascast)
+  %bc.ascast = addrspacecast ptr addrspace(4) %xtmp.ascast.priv.ascast to ptr
+  call void @llvm.lifetime.start.p0(i64 4, ptr %bc.ascast)
+  store float 0.000000e+00, ptr addrspace(4) %xtmp.ascast.priv.ascast, align 4
+  call void @llvm.lifetime.end.p0(i64 4, ptr %bc.ascast)
   %add1 = add nsw i32 %.omp.iv.ascast.local.021, 1
   %cmp = icmp ult i32 1024, %add1
   br i1 %cmp, label %omp.inner.for.cond.DIR.OMP.END.SIMD.7.loopexit_crit_edge, label %omp.inner.for.body
@@ -103,5 +97,5 @@ DIR.OMP.END.SIMD:
 
 declare token @llvm.directive.region.entry() nounwind
 declare void @llvm.directive.region.exit(token) nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture)
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture)
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture)

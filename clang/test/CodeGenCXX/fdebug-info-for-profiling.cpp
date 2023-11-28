@@ -18,7 +18,7 @@
 // INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -emit-llvm -fno-legacy-pass-manager -fdebug-pass-manager -O1 -fprofile-instrument-use-path=%t.profdata -fdebug-info-for-profiling %s -o - 2>&1 | FileCheck %s --check-prefix=DISCR
 // RUN: %clang_cc1 -emit-llvm -fno-legacy-pass-manager -fdebug-pass-manager -O1 -fdebug-info-for-profiling -fpseudo-probe-for-profiling %s -o - 2>&1 | FileCheck %s --check-prefix=PROBE
-// end NTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 
 // NODISCR-NOT: Running pass: AddDiscriminatorsPass
 // DISCR:       Running pass: AddDiscriminatorsPass on {{.*}}

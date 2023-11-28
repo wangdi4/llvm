@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -triple x86_64-linux-gnu -fintel-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s --check-prefixes=CHECK,LINUX
-// RUN: %clang_cc1 -triple x86_64-windows-pc -fintel-compatibility -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s --check-prefixes=CHECK,WINDOWS
+// RUN: %clang_cc1 -triple x86_64-linux-gnu -fintel-compatibility -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,LINUX
+// RUN: %clang_cc1 -triple x86_64-windows-pc -fintel-compatibility -fms-compatibility -emit-llvm -o - %s | FileCheck %s --check-prefixes=CHECK,WINDOWS
 
 #ifdef _WIN64
 #define ATTR(X) __declspec(X)
@@ -338,7 +338,7 @@ int GenericAndPentium(int i, double d);
 // LINUX: define weak_odr ptr @GenericAndPentium.resolver()
 // LINUX: ret ptr @GenericAndPentium.O
 // LINUX: ret ptr @GenericAndPentium.B
-// LINUX: ret {{.*}}@GenericAndPentium.A
+// LINUX-NOT: ret {{.*}}@GenericAndPentium.A
 // LINUX-NOT: call void @llvm.trap
 
 // WINDOWS: define weak_odr dso_local i32 @GenericAndPentium(i32 %0, double %1) comdat
@@ -346,7 +346,7 @@ int GenericAndPentium(int i, double d);
 // WINDOWS-NEXT: ret i32 %[[RET]]
 // WINDOWS: %[[RET:.+]] = musttail call i32 @GenericAndPentium.B(i32 %0, double %1)
 // WINDOWS-NEXT: ret i32 %[[RET]]
-// WINDOWS: call i32 @GenericAndPentium.A
+// WINDOWS-NOT: call i32 @GenericAndPentium.A
 // WINDOWS-NOT: call void @llvm.trap
 
 ATTR(cpu_dispatch(atom, pentium))
@@ -381,5 +381,5 @@ ATTR(cpu_specific(knl))
 void OrderDispatchUsageSpecific(void) {}
 
 // CHECK: attributes #[[S]] = {{.*}}"target-features"="+avx,+cmov,+crc32,+cx16,+cx8,+f16c,+fsgsbase,+fxsr,+mmx,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt"
-// CHECK: attributes #[[K]] = {{.*}}"target-features"="+adx,+aes,+avx,+avx2,+avx512cd,+avx512er,+avx512f,+avx512pf,+bmi,+bmi2,+cmov,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+prefetchwt1,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt"
+// CHECK: attributes #[[K]] = {{.*}}"target-features"="+adx,+aes,+avx,+avx2,+avx512cd,+avx512er,+avx512f,+avx512pf,+bmi,+bmi2,+cmov,+crc32,+cx16,+cx8,+evex512,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+prefetchwt1,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt"
 // CHECK: attributes #[[O]] = {{.*}}"target-features"="+cmov,+cx16,+cx8,+fxsr,+mmx,+movbe,+sahf,+sse,+sse2,+sse3,+ssse3,+x87"

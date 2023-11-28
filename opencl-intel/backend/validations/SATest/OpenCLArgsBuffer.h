@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,10 +15,9 @@
 #ifndef OPENCL_ARGS_BUFFER_H
 #define OPENCL_ARGS_BUFFER_H
 
+#include "CL/cl.h"
 #include "IBufferContainerList.h"
 #include "IRunResult.h"
-
-#include "CL/cl.h"
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
 #include "cl_types.h"

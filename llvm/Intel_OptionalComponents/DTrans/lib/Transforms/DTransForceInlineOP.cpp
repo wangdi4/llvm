@@ -1,7 +1,7 @@
 //=--- DTransForceInlineOP.cpp - Force inlining/noninlining for DTrans ---===//
 //=---------------- Opaque pointer friendly version -------------------------//
 //
-// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -110,10 +110,6 @@ bool DTransForceInlineOP::run(
         return false;
       };
 
-  // Only run this pass if we have opaque pointers
-  if (M.getContext().supportsTypedPointers())
-    return false;
-
   // Set up DTrans type manager and metdata reader
   DTransTypeManager TM(M.getContext());
   TypeMetadataReader MDReader(TM);
@@ -181,7 +177,7 @@ bool DTransForceInlineOP::run(
     if (!IsEmptyFunction(F))
       F->addFnAttr("noinline-dtrans");
 
-  SmallSet<Function *, 32> MemInitFuncs;
+  SmallSetVector<Function *, 32> MemInitFuncs;
   // Only SOAToAOS candidates are considered for MemInitTrimDown.
   for (auto *TI : SOAToAOSCandidates) {
     dtransOP::SOACandidateInfo MemInfo(MDReader);

@@ -1,6 +1,6 @@
 //===-------- HLNodeUtils.h - Utilities for HLNode class ---*- C++ -*------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -419,10 +419,18 @@ private:
   static const HLNode *getLexicalChildImpl(const HLNode *Parent,
                                            const HLNode *Node, bool First);
 
+  // Returns true if \p Node is first child of its parent. It could be the first
+  // child of any case for HLIf/HLSwitch.
+  // This implementation avoids using top sort numbers so it is more expensive
+  // in compile time. It is used by framework and some transformations operating
+  // on disconnected nodes.
+  static bool isLexicalFirstChildOfParent(const HLNode *Node);
+
   // Returns true if \p Node is last child of its parent. It could be the last
   // child of any case for HLIf/HLSwitch.
-  // This is used by framework so the implementation avoids using top sort
-  // numbers.
+  // This implementation avoids using top sort numbers so it is more expensive
+  // in compile time. It is used by framework and some transformations operating
+  // on disconnected nodes.
   static bool isLexicalLastChildOfParent(const HLNode *Node);
 
   /// Returns the outermost parent of Node1 which is safe to be used for
@@ -1361,6 +1369,11 @@ public:
                                      const HLNode *FirstNode,
                                      const HLNode *LastNode);
 
+  /// Returns true if \p Node is between \p NodeA and \p NodeB irrespective of
+  /// whether NodeA precedes NodeB or vice versa.
+  static bool isBetweenNodes(const HLNode *Node, const HLNode *NodeA,
+                             const HLNode *NodeB);
+
   /// Returns the first lexical child of the parent w.r.t Node. For example, if
   /// parent is a loop and Node lies in postexit, the function will return the
   /// first postexit node. If Node is null, it returns the absolute first/last
@@ -1420,8 +1433,12 @@ public:
 
   /// Returns true if Parent contains Node. IncludePrePostHdr indicates whether
   /// loop should be considered to contain preheader/postexit nodes.
+  /// If \p AvoidTopSortNum is true, instead of using top sort number, the
+  /// utility uses the slower method of traversing the parent chain to return
+  /// the result.
   static bool contains(const HLNode *Parent, const HLNode *Node,
-                       bool IncludePrePostHdr = false);
+                       bool IncludePrePostHdr = false,
+                       bool AvoidTopSortNum = false);
 
   /// Gathers the innermost loops across regions and stores them into the loop
   /// vector. If Node is not specified, it will search for all Regions

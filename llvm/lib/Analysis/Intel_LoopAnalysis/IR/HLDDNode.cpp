@@ -1,6 +1,6 @@
 //===--- HLDDNode.cpp - Implements the HLDDNode class ---------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -195,6 +195,8 @@ void HLDDNode::removeFakeDDRef(RegDDRef *Ref) {
 void HLDDNode::replaceOperandDDRef(RegDDRef *ExistingRef, RegDDRef *NewRef) {
   assert(ExistingRef && "ExistingRef is null!");
   assert(NewRef && "NewRef is null!");
+  assert((ExistingRef->getDestType() == NewRef->getDestType()) &&
+         "Mismatched operand type!");
   unsigned OpNum = 0;
 
   for (auto RefIt = op_ddref_begin(), EndIt = op_ddref_end(); RefIt != EndIt;

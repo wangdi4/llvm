@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -53,7 +53,7 @@
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/VPO/Intel_VPOParoptConfig.h"
 #include "llvm/Pass.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "VPOParopt"
 
@@ -71,7 +71,7 @@ INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 #if INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(VPOParoptConfigWrapper)
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -99,7 +99,7 @@ void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
 #if INTEL_CUSTOMIZATION
   AU.addRequired<OptReportOptionsPass>();
   AU.addRequired<VPOParoptConfigWrapper>();
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
@@ -130,11 +130,11 @@ bool VPOParopt::runOnModule(Module &M) {
   };
 
 #if INTEL_CUSTOMIZATION
-  ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
+  Impl.ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
   return Impl.runImpl(M, WRegionInfoGetter, OptLevel, getLimiter());
 #else
   return Impl.runImpl(M, WRegionInfoGetter);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 }
 
 PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
@@ -164,7 +164,7 @@ PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
   bool Changed = runImpl(M, WRegionInfoGetter, OptLevel);
 #else
   bool Changed = runImpl(M, WRegionInfoGetter);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -193,7 +193,8 @@ bool VPOParoptPass::runImpl(
 
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
 #if INTEL_CUSTOMIZATION
-  VPOParoptModuleTransform VP(M, Mode, DisableOffload, OptLevel, Limiter);
+  VPOParoptModuleTransform VP(M, Mode, DisableOffload, OptLevel, Limiter,
+                              ORVerbosity);
 #else
   VPOParoptModuleTransform VP(M, Mode, DisableOffload);
 #endif // INTEL_CUSTOMIZATION

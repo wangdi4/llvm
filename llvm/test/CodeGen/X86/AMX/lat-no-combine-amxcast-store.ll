@@ -10,16 +10,15 @@ define void @test() {
 ; CHECK:       scalar_if:
 ; CHECK-NEXT:    br i1 poison, label [[EXIT:%.*]], label [[DIM_1_PRE_HEAD_PREHEADER:%.*]]
 ; CHECK:       dim_1_pre_head.preheader:
-; CHECK-NEXT:    [[TMP2:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 8, i16 32, i8* poison, i64 64)
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <256 x i8>* [[TMP0]] to i8*
-; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 8, i16 32, i8* [[TMP3]], i64 32, x86_amx [[TMP2]])
-; CHECK-NEXT:    [[TMP4:%.*]] = load <256 x i8>, <256 x i8>* [[TMP0]], align 256
-; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 8, i16 32, i8* poison, i64 64, x86_amx [[TMP2]])
-; CHECK-NEXT:    store <256 x i8> [[TMP4]], <256 x i8>* [[TMP1]], align 256
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <256 x i8>* [[TMP1]] to i8*
-; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr i8, i8* [[TMP5]], i32 poison
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i8* [[TMP6]] to <1 x i8>*
-; CHECK-NEXT:    [[TMP8:%.*]] = load <1 x i8>, <1 x i8>* [[TMP7]], align 1
+; CHECK-NEXT:    [[TMP2:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 8, i16 32, ptr poison, i64 64)
+; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 8, i16 32, ptr [[TMP0]], i64 32, x86_amx [[TMP2]])
+; CHECK-NEXT:    [[TMP4:%.*]] = load <256 x i8>, ptr [[TMP0]], align 256
+; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 8, i16 32, ptr poison, i64 64, x86_amx [[TMP2]])
+; CHECK-NEXT:    store <256 x i8> [[TMP4]], ptr [[TMP1]], align 256
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast ptr [[TMP1]] to ptr
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr i8, ptr [[TMP5]], i32 poison
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast ptr [[TMP6]] to ptr
+; CHECK-NEXT:    [[TMP8:%.*]] = load <1 x i8>, ptr [[TMP7]], align 1
 ; CHECK-NEXT:    unreachable
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
@@ -32,14 +31,14 @@ scalar_if:                                        ; preds = %wrapper_entry
   br i1 poison, label %exit, label %dim_1_pre_head.preheader
 
 dim_1_pre_head.preheader:                         ; preds = %scalar_if
-  %1 = call x86_amx @llvm.x86.tileloadd64.internal(i16 8, i16 32, i8* poison, i64 64)
+  %1 = call x86_amx @llvm.x86.tileloadd64.internal(i16 8, i16 32, ptr poison, i64 64)
   %2 = call <256 x i8> @llvm.x86.cast.tile.to.vector.v256i8(x86_amx %1)
-  call void @llvm.x86.tilestored64.internal(i16 8, i16 32, i8* poison, i64 64, x86_amx %1)
-  store <256 x i8> %2, <256 x i8>* %0, align 256
-  %3 = bitcast <256 x i8>* %0 to i8*
-  %4 = getelementptr i8, i8* %3, i32 poison
-  %5 = bitcast i8* %4 to <1 x i8>*
-  %6 = load <1 x i8>, <1 x i8>* %5, align 1
+  call void @llvm.x86.tilestored64.internal(i16 8, i16 32, ptr poison, i64 64, x86_amx %1)
+  store <256 x i8> %2, ptr %0, align 256
+  %3 = bitcast ptr %0 to ptr
+  %4 = getelementptr i8, ptr %3, i32 poison
+  %5 = bitcast ptr %4 to ptr
+  %6 = load <1 x i8>, ptr %5, align 1
   unreachable
 
 exit:                                             ; preds = %scalar_if
@@ -47,7 +46,7 @@ exit:                                             ; preds = %scalar_if
 }
 
 
-declare x86_amx @llvm.x86.tileloadd64.internal(i16, i16, i8*, i64)
+declare x86_amx @llvm.x86.tileloadd64.internal(i16, i16, ptr, i64)
 declare <256 x i8> @llvm.x86.cast.tile.to.vector.v256i8(x86_amx)
 declare x86_amx @llvm.x86.cast.vector.to.tile.v256i8(<256 x i8>)
-declare void @llvm.x86.tilestored64.internal(i16, i16, i8*, i64, x86_amx)
+declare void @llvm.x86.tilestored64.internal(i16, i16, ptr, i64, x86_amx)

@@ -1,6 +1,6 @@
 //==- Intel_ResolveMatrixFill.cpp - Resolve matrix fill intrinsics -- C++ -*==//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -25,9 +25,7 @@ using namespace llvm;
 
 static Value *createFillZeroCall(unsigned Rows, unsigned Cols,
                                  FixedVectorType *MatrixType,
-                                 MetadataAsValue *Layout,
-                                 MetadataAsValue *Scope,
-                                 MetadataAsValue *Use,
+                                 MetadataAsValue *Scope, MetadataAsValue *Use,
                                  Instruction *InsertPoint) {
   IRBuilder<> B(InsertPoint);
   assert(MatrixType->getNumElements() == (Rows * Cols));
@@ -41,16 +39,14 @@ static Value *createFillZeroCall(unsigned Rows, unsigned Cols,
     Zero = ConstantFP::get(DataType, 0);
   Value *ZeroMat = B.CreateIntrinsic(
       Intrinsic::experimental_matrix_fill, {MatrixType, DataType},
-      {Zero, B.getInt32(Rows), B.getInt32(Cols), Layout, Scope, Use}, nullptr,
+      {Zero, B.getInt32(Rows), B.getInt32(Cols), Scope, Use}, nullptr,
       "mat.init");
   return ZeroMat;
 }
 
 static Value *createFillSliceLoop(Value *InitMatrix, unsigned Rows,
                                   unsigned Cols, Value *Data,
-                                  MetadataAsValue *Layout,
-                                  MetadataAsValue *Scope,
-                                  MetadataAsValue *Use,
+                                  MetadataAsValue *Scope, MetadataAsValue *Use,
                                   Instruction *InsertPoint) {
   IRBuilder<> B(InsertPoint);
   BasicBlock *OriginalBB = InsertPoint->getParent();
@@ -59,7 +55,7 @@ static Value *createFillSliceLoop(Value *InitMatrix, unsigned Rows,
   auto *ColVal = B.getInt32(Cols);
   Value *SliceLength = B.CreateIntrinsic(
       Intrinsic::experimental_matrix_wi_slice_length, {MatrixType},
-      {InitMatrix, RowVal, ColVal, Layout, Scope, Use}, nullptr, "slice.length");
+      {InitMatrix, RowVal, ColVal, Scope, Use}, nullptr, "slice.length");
   BasicBlock *LoopHeader =
       OriginalBB->splitBasicBlock(InsertPoint, "matrix.fill.slice.loop.header");
   BasicBlock *LoopBody =
@@ -81,8 +77,8 @@ static Value *createFillSliceLoop(Value *InitMatrix, unsigned Rows,
   B.SetInsertPoint(LoopBody->getTerminator());
   auto *UpdatedMatrix = B.CreateIntrinsic(
       Intrinsic::experimental_matrix_wi_slice_insertelement,
-      {MatrixType, I->getType()},
-      {Matrix, RowVal, ColVal, Data, I, Layout, Scope, Use}, nullptr, "mat.update");
+      {MatrixType, I->getType()}, {Matrix, RowVal, ColVal, Data, I, Scope, Use},
+      nullptr, "mat.update");
   auto *Inc = B.CreateAdd(I, ConstantInt::get(I->getType(), 1),
                           "element.index.inc", true);
   I->addIncoming(Inc, LoopBody);
@@ -106,35 +102,26 @@ static std::pair<bool, Value *> resolveMatrixFillCall(CallInst *CI) {
     IRBuilder<> Builder(CI);
     // Get load type info from intrinsics return type
     auto *ElemType = CI->getType()->getScalarType();
-    auto *PtrArgType = cast<PointerType>(Data->getType());
-    // The arg pointee type may mismatch with the returning element type.
-    // e.g. struct { i16 } vs. i16
-    // Create a bitcast in such case.
-    if (!PtrArgType->isOpaqueOrPointeeTypeMatches(ElemType))
-      Data = Builder.CreateBitCast(
-          Data, ElemType->getPointerTo(PtrArgType->getAddressSpace()));
     Data = Builder.CreateLoad(ElemType, Data, "loaded.fill.data");
   }
 
   // Extract row, col size of the matrix from the second, third args.
   unsigned Rows = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
   unsigned Cols = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
-  // Extract layout metadata from the fourth arg.
-  auto *Layout = cast<MetadataAsValue>(CI->getArgOperand(3));
-  // Extract scope metadata from the fifth arg.
-  auto *Scope = cast<MetadataAsValue>(CI->getArgOperand(4));
+  // Extract scope metadata from the fourth arg.
+  auto *Scope = cast<MetadataAsValue>(CI->getArgOperand(3));
   assert(cast<MDString>(Scope->getMetadata())
              ->getString()
              .equals("scope.subgroup") &&
          "Only supports subgroup scope for now");
-  auto *Use = cast<MetadataAsValue>(CI->getArgOperand(5));
+  auto *Use = cast<MetadataAsValue>(CI->getArgOperand(4));
 
   Changed = true;
   // Initialize the matrix with zeros.
   auto *Matrix = createFillZeroCall(
-      Rows, Cols, cast<FixedVectorType>(CI->getType()), Layout, Scope, Use, CI);
+      Rows, Cols, cast<FixedVectorType>(CI->getType()), Scope, Use, CI);
   // Fill the matrix with a loop of @llvm.experimental.wi.slice.insertelement
-  Matrix = createFillSliceLoop(Matrix, Rows, Cols, Data, Layout, Scope, Use, CI);
+  Matrix = createFillSliceLoop(Matrix, Rows, Cols, Data, Scope, Use, CI);
   return std::make_pair(Changed, Matrix);
 }
 

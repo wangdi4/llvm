@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.str = type { i32 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @_Z3fooPi(i32* nocapture readonly %k) local_unnamed_addr {
+define dso_local i32 @_Z3fooPi(ptr nocapture readonly %k) local_unnamed_addr {
 ;
 ; CHECK:  Function: _Z3fooPi
 ; CHECK:  BEGIN REGION { modified }
@@ -31,18 +31,18 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %k) local_unnamed_addr {
 ; CHECK-NEXT:        [[SERIAL_TEMP0:%.*]] = undef
 ; CHECK-NEXT:        [[_ZTS3STR_OMP_DEF_CONSTR0:%.*]] = @_ZTS3str.omp.def_constr(&((%struct.str*)([[PRIV_MEM0]])[0]))
 ; CHECK-NEXT:        [[SERIAL_TEMP0]] = insertelement [[SERIAL_TEMP0]],  [[_ZTS3STR_OMP_DEF_CONSTR0]],  0
-; CHECK-NEXT:        [[EXTRACT_1_0:%.*]] = extractelement &((<2 x %struct.str*>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
+; CHECK-NEXT:        [[EXTRACT_1_0:%.*]] = extractelement &((<2 x ptr>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
 ; CHECK-NEXT:        [[_ZTS3STR_OMP_DEF_CONSTR20:%.*]] = @_ZTS3str.omp.def_constr([[EXTRACT_1_0]])
 ; CHECK-NEXT:        [[SERIAL_TEMP0]] = insertelement [[SERIAL_TEMP0]],  [[_ZTS3STR_OMP_DEF_CONSTR20]],  1
 ; CHECK:        + DO i1 = 0, 9999, 2   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:        |   @foo(&((%struct.str*)([[PRIV_MEM0]])[0]))
-; CHECK-NEXT:        |   [[EXTRACT_1_40:%.*]] = extractelement &((<2 x %struct.str*>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
+; CHECK-NEXT:        |   [[EXTRACT_1_40:%.*]] = extractelement &((<2 x ptr>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
 ; CHECK-NEXT:        |   @foo([[EXTRACT_1_40]])
 ; CHECK-NEXT:        + END LOOP
-; CHECK:        [[EXTRACT_1_50:%.*]] = extractelement &((<2 x %struct.str*>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
+; CHECK:        [[EXTRACT_1_50:%.*]] = extractelement &((<2 x ptr>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
 ; CHECK-NEXT:        @_ZTS3str.omp.copy_assign([[X_LPRIV0]],  [[EXTRACT_1_50]])
 ; CHECK-NEXT:        @_ZTS3str.omp.destr(&((%struct.str*)([[PRIV_MEM0]])[0]))
-; CHECK-NEXT:        [[EXTRACT_1_60:%.*]] = extractelement &((<2 x %struct.str*>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
+; CHECK-NEXT:        [[EXTRACT_1_60:%.*]] = extractelement &((<2 x ptr>)([[PRIV_MEM_BC0]])[<i32 0, i32 1>]),  1
 ; CHECK-NEXT:        @_ZTS3str.omp.destr([[EXTRACT_1_60]])
 ; CHECK:             ret 0
 ; CHECK-NEXT:  END REGION
@@ -51,22 +51,22 @@ DIR.OMP.SIMD.118:
   %x.lpriv = alloca %struct.str, align 4
   %i.linear.iv = alloca i32, align 4
   %x = alloca %struct.str, align 4
-  %0 = bitcast %struct.str* %x to i8*
+  %0 = bitcast ptr %x to ptr
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.118
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(%struct.str* %x.lpriv, %struct.str zeroinitializer, i32 1, %struct.str* (%struct.str*)* @_ZTS3str.omp.def_constr, void (%struct.str*, %struct.str*)* @_ZTS3str.omp.copy_assign, void (%struct.str*)* @_ZTS3str.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(ptr %x.lpriv, %struct.str zeroinitializer, i32 1, ptr @_ZTS3str.omp.def_constr, ptr @_ZTS3str.omp.copy_assign, ptr @_ZTS3str.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %2 = bitcast i32* %i.linear.iv to i8*
-  %a = getelementptr inbounds %struct.str, %struct.str* %x.lpriv, i64 0, i32 0
-  %a.promoted = load i32, i32* %a, align 4
+  %2 = bitcast ptr %i.linear.iv to ptr
+  %a = getelementptr inbounds %struct.str, ptr %x.lpriv, i64 0, i32 0
+  %a.promoted = load i32, ptr %a, align 4
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  call void @foo(%struct.str* %x.lpriv) #0
+  call void @foo(ptr %x.lpriv) #0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 10000
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.219, label %omp.inner.for.body
@@ -76,7 +76,7 @@ DIR.OMP.END.SIMD.219:                             ; preds = %omp.inner.for.body
   ret i32 0
 }
 
-declare void @foo(%struct.str*)
+declare void @foo(ptr)
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
@@ -85,12 +85,12 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readnone uwtable willreturn
-declare %struct.str* @_ZTS3str.omp.def_constr(%struct.str* readnone returned %0)
+declare ptr @_ZTS3str.omp.def_constr(ptr readnone returned %0)
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable willreturn
-declare void @_ZTS3str.omp.copy_assign(%struct.str* nocapture %0, %struct.str* nocapture readonly %1)
+declare void @_ZTS3str.omp.copy_assign(ptr nocapture %0, ptr nocapture readonly %1)
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readnone uwtable willreturn
-declare void @_ZTS3str.omp.destr(%struct.str* nocapture %0)
+declare void @_ZTS3str.omp.destr(ptr nocapture %0)
 
 attributes #0 = { nounwind }

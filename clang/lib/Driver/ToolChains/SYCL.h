@@ -56,6 +56,13 @@ void constructLLVMForeachCommand(Compilation &C, const JobAction &JA,
                                  const InputInfo &Output, const Tool *T,
                                  StringRef Increment, StringRef Ext = "out",
                                  StringRef ParallelJobs = "");
+
+// Provides a vector of device library names that are associated with the
+// given triple and AOT information.
+SmallVector<std::string, 8> getDeviceLibraries(const Compilation &C,
+                                               const llvm::Triple &TargetTriple,
+                                               bool IsSpirvAOT);
+
 bool shouldDoPerObjectFileLinking(const Compilation &C);
 // Runs llvm-spirv to convert spirv to bc, llvm-link, which links multiple LLVM
 // bitcode. Converts generated bc back to spirv using llvm-spirv, wraps with
@@ -137,6 +144,7 @@ private:
 
 StringRef resolveGenDevice(StringRef DeviceName);
 SmallString<64> getGenDeviceMacro(StringRef DeviceName);
+StringRef getGenGRFFlag(StringRef GRFMode);
 
 // // Prefix for GPU specific targets used for -fsycl-targets
 constexpr char IntelGPU[] = "intel_gpu_";
@@ -196,7 +204,7 @@ public:
                             const llvm::Triple &Triple,
                             const llvm::opt::ArgList &Args,
                             llvm::opt::ArgStringList &CmdArgs,
-                            const JobAction &JA) const;
+                            const JobAction &JA, const ToolChain &HostTC) const;
   void TranslateBackendTargetArgs(Action::OffloadKind DeviceOffloadKind,
                                   const llvm::Triple &Triple,
                                   const llvm::opt::ArgList &Args,
@@ -220,15 +228,16 @@ public:
       return this->HostTC.isPICDefault();
     return false;
   }
+  llvm::codegenoptions::DebugInfoFormat getDefaultDebugFormat() const override {
+    if (this->IsSYCLNativeCPU ||
+        this->HostTC.getTriple().isWindowsMSVCEnvironment())
+      return this->HostTC.getDefaultDebugFormat();
+    return ToolChain::getDefaultDebugFormat();
+  }
   bool isPIEDefault(const llvm::opt::ArgList &Args) const override {
     return false;
   }
   bool isPICDefaultForced() const override { return false; }
-
-  virtual llvm::codegenoptions::DebugInfoFormat
-  getDefaultDebugFormat() const override {
-    return HostTC.getDefaultDebugFormat();
-  }
 
   void addClangWarningOptions(llvm::opt::ArgStringList &CC1Args) const override;
   CXXStdlibType GetCXXStdlibType(const llvm::opt::ArgList &Args) const override;
@@ -242,13 +251,13 @@ public:
       llvm::opt::ArgStringList &CC1Args) const override;
 
   const ToolChain &HostTC;
+  const bool IsSYCLNativeCPU;
 
 protected:
   Tool *buildBackendCompiler() const override;
   Tool *buildLinker() const override;
 
 private:
-  bool IsSYCLNativeCPU;
   void TranslateGPUTargetOpt(const llvm::opt::ArgList &Args,
                              llvm::opt::ArgStringList &CmdArgs,
                              llvm::opt::OptSpecifier Opt_EQ) const;
@@ -262,6 +271,14 @@ template <typename ArgListT> bool isSYCLNativeCPU(const ArgListT &Args) {
       return true;
   }
   return false;
+}
+
+inline bool isSYCLNativeCPU(const llvm::Triple HostT, const llvm::Triple DevT) {
+  return HostT == DevT;
+}
+
+inline bool isSYCLNativeCPU(const ToolChain &TC1, const ToolChain &TC2) {
+  return isSYCLNativeCPU(TC1.getTriple(), TC2.getTriple());
 }
 } // end namespace driver
 } // end namespace clang

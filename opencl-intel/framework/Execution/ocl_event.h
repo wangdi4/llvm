@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,12 +14,11 @@
 
 #pragma once
 
+#include "cl_framework.h"
+#include "cl_object.h"
+#include "event_observer.h"
 #include <atomic>
 #include <list>
-
-#include "cl_framework.h"
-#include "event_observer.h"
-#include <cl_object.h>
 
 namespace Intel {
 namespace OpenCL {

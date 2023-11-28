@@ -1,6 +1,6 @@
 //===- CanonExpr.cpp - Implements the CanonExpr class ---------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -29,6 +29,9 @@
 using namespace llvm;
 using namespace loopopt;
 
+CanonExpr::BlobIndexToCoeff::BlobIndexToCoeff()
+    : Index(InvalidBlobIndex), Coeff(0) {}
+
 CanonExpr::BlobIndexToCoeff::BlobIndexToCoeff(unsigned Indx, int64_t Coef)
     : Index(Indx), Coeff(Coef) {}
 
@@ -43,14 +46,11 @@ CanonExpr::CanonExpr(CanonExprUtils &CEU, Type *SrcType, Type *DestType,
 
   CEU.Objs.insert(this);
   setDenominator(Denom);
-
-  /// Start with size = capcity
-  IVCoeffs.resize(IVCoeffs.capacity(), BlobIndexToCoeff(InvalidBlobIndex, 0));
 }
 
 CanonExpr::CanonExpr(const CanonExpr &CE)
     : CEU(CE.CEU), SrcTy(CE.SrcTy), DestTy(CE.DestTy), IsSExt(CE.IsSExt),
-      DefinedAtLevel(CE.DefinedAtLevel), IVCoeffs(CE.IVCoeffs),
+      DefinedAtLevel(CE.DefinedAtLevel), IVCoeffs(std::move(CE.IVCoeffs)),
       BlobCoeffs(CE.BlobCoeffs), Const(CE.Const), Denominator(CE.Denominator),
       IsSignedDiv(CE.IsSignedDiv), DbgLoc(CE.DbgLoc) {
 
@@ -458,7 +458,7 @@ bool CanonExpr::isStandAloneIV(bool AllowConversion, unsigned *Level) const {
 
       // Save the StandAlone Level:
       if (Level) {
-        *Level = getFirstIVLevel();
+        *Level = getOutermostIVLevel();
       }
 
       return true;
@@ -468,12 +468,23 @@ bool CanonExpr::isStandAloneIV(bool AllowConversion, unsigned *Level) const {
   return false;
 }
 
-unsigned CanonExpr::getFirstIVLevel() const {
+unsigned CanonExpr::getOutermostIVLevel() const {
 
   // We know there is at least one IV with coeff != 0
   for (auto IV = iv_begin(), E = iv_end(); IV != E; ++IV) {
     if (getIVConstCoeff(IV) != 0) {
       return getLevel(IV);
+    }
+  }
+
+  return 0;
+}
+
+unsigned CanonExpr::getInnermostIVLevel() const {
+
+  for (auto IV = iv_rbegin(), E = iv_rend(); IV != E; ++IV) {
+    if (IV->Coeff != 0) {
+      return (E - IV);
     }
   }
 
@@ -586,14 +597,6 @@ bool CanonExpr::hasIVConstCoeff(const_iv_iterator ConstIVIter) const {
   return getIVConstCoeff(ConstIVIter);
 }
 
-void CanonExpr::resizeIVCoeffsToMax(unsigned Lvl) {
-  assert(CanonExpr::isValidLinearDefLevel(Lvl) && "Level is out of bounds!");
-
-  if (IVCoeffs.size() < Lvl) {
-    IVCoeffs.resize(MaxLoopNestLevel, BlobIndexToCoeff(InvalidBlobIndex, 0));
-  }
-}
-
 void CanonExpr::setIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff,
                               bool OverwriteIndex, bool OverwriteCoeff) {
 
@@ -601,8 +604,6 @@ void CanonExpr::setIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff,
   assert(
       ((Index == InvalidBlobIndex) || getBlobUtils().isBlobIndexValid(Index)) &&
       "Blob Index is invalid!");
-
-  resizeIVCoeffsToMax(Lvl);
 
   if (OverwriteIndex) {
     IVCoeffs[Lvl - 1].Index = Index;
@@ -645,8 +646,6 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
   assert(
       ((Index == InvalidBlobIndex) || getBlobUtils().isBlobIndexValid(Index)) &&
       "Blob Index is invalid!");
-
-  resizeIVCoeffsToMax(Lvl);
 
   // Nothing to add.
   if (!Coeff) {
@@ -1054,12 +1053,7 @@ void CanonExpr::clear() {
   DefinedAtLevel = 0;
 }
 
-void CanonExpr::clearIVs() {
-  // Assign zeros rather than clearing to keep the size same otherwise a
-  // reallocation will happen on the addition of the next IV to this CanonExpr.
-  // Refer to the logic in resizeIVCoeffsToMax().
-  IVCoeffs.assign(IVCoeffs.size(), BlobIndexToCoeff(InvalidBlobIndex, 0));
-}
+void CanonExpr::clearIVs() { IVCoeffs.fill(BlobIndexToCoeff()); }
 
 void CanonExpr::shift(unsigned Lvl, int64_t Val) {
 
@@ -1105,11 +1099,6 @@ void CanonExpr::promoteIVs(unsigned StartLevel) {
   assert(StartLevel < MaxLoopNestLevel &&
          "It's invalid to promote MaxLoopNestLevel");
   assert(isValidLoopLevel(StartLevel) && "Invalid StartLevel");
-
-  if (IVCoeffs.back().Coeff != 0) {
-    BlobIndexToCoeff IV = IVCoeffs.back();
-    IVCoeffs.push_back(IV);
-  }
 
   for (int I = IVCoeffs.size() - 1, E = StartLevel - 1; I > E; --I) {
     IVCoeffs[I] = IVCoeffs[I - 1];
@@ -1693,6 +1682,15 @@ void CanonExpr::verify(unsigned NestingLevel) const {
            " Defined at Level should be 0 for constant canonexpr!");
     assert(getDenominator() == 1 &&
            "Constant CEs should have unit denominator");
+
+    if (isa<PointerType>(SrcTy) && (numBlobs() == 1)) {
+      auto *UnknownBlob =
+          cast<SCEVUnknown>(getBlobUtils().getBlob(getSingleBlobIndex()));
+      (void)UnknownBlob;
+      assert(
+          !isa<ConstantPointerNull>(UnknownBlob->getValue()) &&
+          "Null value should not be represented as a blob in CE, but as '0'!");
+    }
 
     // Allow non simplified casts in HIR.
     // assert(!isTrunc() && !isSExt() && !isZExt() &&

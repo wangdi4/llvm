@@ -44,7 +44,7 @@ void OptReportStatsTracker::emitRemarks(VPlanOptReportBuilder &Builder,
   } // end of definition
 #define VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(VEC)                                    \
   for (auto &Itr : VEC) {                                                      \
-    Builder.addOrigin(Lp, static_cast<OptRemarkID>(Itr.Remark.getRemarkID())); \
+    Builder.addOrigin(Lp, Itr.Remark.getRemarkID());                           \
   } // end of definition
 #include "IntelVPlanOptrpt.inc"
 }
@@ -80,8 +80,7 @@ void OptReportStatsTracker::emitRemarks(OptReportBuilder &Builder, VPLoop *Lp,
   } // end of definition
 #define VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(VEC)                                    \
   for (auto &Itr : VEC) {                                                      \
-    Builder(*Lp, *VPLI)                                                        \
-        .addOrigin(static_cast<OptRemarkID>(Itr.Remark.getRemarkID()));        \
+    Builder(*Lp, *VPLI).addOrigin(Itr.Remark.getRemarkID());                   \
   } // end of definition
 #include "IntelVPlanOptrpt.inc"
 }

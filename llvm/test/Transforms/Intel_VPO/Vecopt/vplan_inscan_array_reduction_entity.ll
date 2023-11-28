@@ -61,7 +61,6 @@ define dso_local void @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] call i64 4 ptr [[VP_I_LINEAR_IV]] ptr @llvm.lifetime.start.p0 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] ptr [[VP_X_RED]] = allocate-priv [3 x i32], OrigAlign = 4 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] call i64 12 ptr [[VP_X_RED]] ptr @llvm.lifetime.start.p0 (SVAOpBits 0->F 1->F 2->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_X_RED_GEP:%.*]] = getelementptr inbounds [3 x i32], ptr [[VP_X_RED]] i64 0 i64 0 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD:%.*]] = load ptr [[I_LINEAR_IV0]] (SVAOpBits 0->F )
@@ -86,19 +85,18 @@ define dso_local void @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP0_1]] ptr [[VP_I_LINEAR_IV]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [8 x i32], ptr @A i64 0 i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP3:%.*]] = load ptr [[VP_ARRAYIDX]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX1:%.*]] = getelementptr inbounds [3 x i32], ptr [[VP_X_RED_GEP]] i64 0 i64 0 (SVAOpBits 0->F 1->F 2->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP4:%.*]] = load ptr [[VP_ARRAYIDX1]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP4:%.*]] = load ptr [[VP_X_RED]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_ADD2:%.*]] = add i32 [[VP4]] i32 [[VP3]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_ADD2]] ptr [[VP_ARRAYIDX1]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_ADD2]] ptr [[VP_X_RED]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds [3 x [8 x i32]], ptr @A i64 0 i64 1 i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F 2->F 3->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP5:%.*]] = load ptr [[VP_ARRAYIDX4]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds [3 x i32], ptr [[VP_X_RED_GEP]] i64 0 i64 1 (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds [3 x i32], ptr [[VP_X_RED]] i64 0 i64 1 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP6:%.*]] = load ptr [[VP_ARRAYIDX5]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_ADD6:%.*]] = add i32 [[VP6]] i32 [[VP5]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_ADD6]] ptr [[VP_ARRAYIDX5]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX8:%.*]] = getelementptr inbounds [3 x [8 x i32]], ptr @A i64 0 i64 2 i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F 2->F 3->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP7:%.*]] = load ptr [[VP_ARRAYIDX8]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX9:%.*]] = getelementptr inbounds [3 x i32], ptr [[VP_X_RED_GEP]] i64 0 i64 2 (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX9:%.*]] = getelementptr inbounds [3 x i32], ptr [[VP_X_RED]] i64 0 i64 2 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP8:%.*]] = load ptr [[VP_ARRAYIDX9]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_ADD10:%.*]] = add i32 [[VP8]] i32 [[VP7]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_ADD10]] ptr [[VP_ARRAYIDX9]] (SVAOpBits 0->V 1->F )
@@ -134,17 +132,16 @@ define dso_local void @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB12:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]]: # preds: [[BB11]]
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX11:%.*]] = getelementptr inbounds [3 x i32], ptr [[VP_X_RED_GEP]] i64 0 i64 0 (SVAOpBits 0->F 1->F 2->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP10:%.*]] = load ptr [[VP_ARRAYIDX11]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP10:%.*]] = load ptr [[VP_X_RED]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP11:%.*]] = load ptr [[VP_I_LINEAR_IV]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_IDXPROM12:%.*]] = sext i32 [[VP11]] to i64 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds [8 x i32], ptr @B i64 0 i64 [[VP_IDXPROM12]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP10]] ptr [[VP_ARRAYIDX13]] (SVAOpBits 0->V 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX14:%.*]] = getelementptr inbounds [3 x i32], ptr [[VP_X_RED_GEP]] i64 0 i64 1 (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX14:%.*]] = getelementptr inbounds [3 x i32], ptr [[VP_X_RED]] i64 0 i64 1 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP12:%.*]] = load ptr [[VP_ARRAYIDX14]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX16:%.*]] = getelementptr inbounds [3 x [8 x i32]], ptr @B i64 0 i64 1 i64 [[VP_IDXPROM12]] (SVAOpBits 0->F 1->F 2->F 3->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP12]] ptr [[VP_ARRAYIDX16]] (SVAOpBits 0->V 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX17:%.*]] = getelementptr inbounds [3 x i32], ptr [[VP_X_RED_GEP]] i64 0 i64 2 (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX17:%.*]] = getelementptr inbounds [3 x i32], ptr [[VP_X_RED]] i64 0 i64 2 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP13:%.*]] = load ptr [[VP_ARRAYIDX17]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX19:%.*]] = getelementptr inbounds [3 x [8 x i32]], ptr @B i64 0 i64 2 i64 [[VP_IDXPROM12]] (SVAOpBits 0->F 1->F 2->F 3->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP13]] ptr [[VP_ARRAYIDX19]] (SVAOpBits 0->V 1->F )
@@ -181,9 +178,8 @@ define dso_local void @_Z3foov() local_unnamed_addr {
 ;
 DIR.OMP.SIMD.1.split46.split:
   %x.red = alloca [3 x i32], align 4
-  %x.red.gep = getelementptr inbounds [3 x i32], ptr %x.red, i64 0, i64 0
   %i.linear.iv = alloca i32, align 4
-  store i32 0, ptr %x.red.gep, align 4
+  store i32 0, ptr %x.red, align 4
   %0 = getelementptr inbounds [3 x i32], ptr %x.red, i64 0, i64 1
   store i32 0, ptr %0, align 4
   %1 = getelementptr inbounds [3 x i32], ptr %x.red, i64 0, i64 2
@@ -191,7 +187,7 @@ DIR.OMP.SIMD.1.split46.split:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.1.split46.split
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr %x.red.gep, i32 0, i64 3, i64 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr %x.red, i32 0, i64 3, i64 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.5
 
 DIR.VPO.END.GUARD.MEM.MOTION.5:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.5100, %DIR.OMP.SIMD.1
@@ -199,7 +195,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.5:                   ; preds = %DIR.VPO.END.GUARD.M
   br label %DIR.VPO.GUARD.MEM.MOTION.1.split
 
 DIR.VPO.GUARD.MEM.MOTION.1.split:                 ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.5
-  %pre.scan.guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red.gep) ]
+  %pre.scan.guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.VPO.GUARD.MEM.MOTION.1
 
 DIR.VPO.GUARD.MEM.MOTION.1:                       ; preds = %DIR.VPO.GUARD.MEM.MOTION.1.split
@@ -207,19 +203,18 @@ DIR.VPO.GUARD.MEM.MOTION.1:                       ; preds = %DIR.VPO.GUARD.MEM.M
   store i32 %3, ptr %i.linear.iv, align 4
   %arrayidx = getelementptr inbounds [8 x i32], ptr @A, i64 0, i64 %indvars.iv
   %4 = load i32, ptr %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds [3 x i32], ptr %x.red.gep, i64 0, i64 0
-  %5 = load i32, ptr %arrayidx1, align 4
+  %5 = load i32, ptr %x.red, align 4
   %add2 = add nsw i32 %5, %4
-  store i32 %add2, ptr %arrayidx1, align 4
+  store i32 %add2, ptr %x.red, align 4
   %arrayidx4 = getelementptr inbounds [3 x [8 x i32]], ptr @A, i64 0, i64 1, i64 %indvars.iv
   %6 = load i32, ptr %arrayidx4, align 4
-  %arrayidx5 = getelementptr inbounds [3 x i32], ptr %x.red.gep, i64 0, i64 1
+  %arrayidx5 = getelementptr inbounds [3 x i32], ptr %x.red, i64 0, i64 1
   %7 = load i32, ptr %arrayidx5, align 4
   %add6 = add nsw i32 %7, %6
   store i32 %add6, ptr %arrayidx5, align 4
   %arrayidx8 = getelementptr inbounds [3 x [8 x i32]], ptr @A, i64 0, i64 2, i64 %indvars.iv
   %8 = load i32, ptr %arrayidx8, align 4
-  %arrayidx9 = getelementptr inbounds [3 x i32], ptr %x.red.gep, i64 0, i64 2
+  %arrayidx9 = getelementptr inbounds [3 x i32], ptr %x.red, i64 0, i64 2
   %9 = load i32, ptr %arrayidx9, align 4
   %add10 = add nsw i32 %9, %8
   store i32 %add10, ptr %arrayidx9, align 4
@@ -230,7 +225,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.3:                   ; preds = %DIR.VPO.GUARD.MEM.M
   br label %DIR.VPO.END.GUARD.MEM.MOTION.4
 
 DIR.VPO.END.GUARD.MEM.MOTION.4:                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.3
-  %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr %x.red.gep, i64 1) ]
+  %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr %x.red, i64 1) ]
   br label %DIR.OMP.SCAN.2
 
 DIR.OMP.SCAN.2:                                   ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.4
@@ -245,21 +240,20 @@ DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.6
   br label %DIR.VPO.GUARD.MEM.MOTION.8.split
 
 DIR.VPO.GUARD.MEM.MOTION.8.split:                 ; preds = %DIR.OMP.END.SCAN.3
-  %post.scan.guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red.gep) ]
+  %post.scan.guard.start = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.VPO.GUARD.MEM.MOTION.4
 
 DIR.VPO.GUARD.MEM.MOTION.4:                       ; preds = %DIR.VPO.GUARD.MEM.MOTION.8.split
-  %arrayidx11 = getelementptr inbounds [3 x i32], ptr %x.red.gep, i64 0, i64 0
-  %11 = load i32, ptr %arrayidx11, align 4
+  %11 = load i32, ptr %x.red, align 4
   %12 = load i32, ptr %i.linear.iv, align 4
   %idxprom12 = sext i32 %12 to i64
   %arrayidx13 = getelementptr inbounds [8 x i32], ptr @B, i64 0, i64 %idxprom12
   store i32 %11, ptr %arrayidx13, align 4
-  %arrayidx14 = getelementptr inbounds [3 x i32], ptr %x.red.gep, i64 0, i64 1
+  %arrayidx14 = getelementptr inbounds [3 x i32], ptr %x.red, i64 0, i64 1
   %13 = load i32, ptr %arrayidx14, align 4
   %arrayidx16 = getelementptr inbounds [3 x [8 x i32]], ptr @B, i64 0, i64 1, i64 %idxprom12
   store i32 %13, ptr %arrayidx16, align 4
-  %arrayidx17 = getelementptr inbounds [3 x i32], ptr %x.red.gep, i64 0, i64 2
+  %arrayidx17 = getelementptr inbounds [3 x i32], ptr %x.red, i64 0, i64 2
   %14 = load i32, ptr %arrayidx17, align 4
   %arrayidx19 = getelementptr inbounds [3 x [8 x i32]], ptr @B, i64 0, i64 2, i64 %idxprom12
   store i32 %14, ptr %arrayidx19, align 4

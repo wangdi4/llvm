@@ -1,6 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -no-opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
 typedef struct {
   unsigned long long a;
@@ -59,7 +58,6 @@ typedef struct {
 } AlsoPassedAsPtrfloat;
 
 AlsoPassedAsPtrfloat FuncPtri64(PassedAsPtrfloat a, AlsoPassedAsPtrfloat b) { return b; }
-// PTR: define dso_local "intel_dtrans_func_index"="1" { i64*, float } @FuncPtri64(i64* "intel_dtrans_func_index"="2" %{{.*}}, float %{{.*}}, i64* "intel_dtrans_func_index"="3" %{{.*}}, float %{{.*}}) {{.*}}!intel.dtrans.func.type ![[FuncPtri64_FUNC_MD:[0-9]+]]
 // OPQ: define dso_local "intel_dtrans_func_index"="1" { ptr, float } @FuncPtri64(ptr "intel_dtrans_func_index"="2" %{{.*}}, float %{{.*}}, ptr "intel_dtrans_func_index"="3" %{{.*}}, float %{{.*}}) {{.*}}!intel.dtrans.func.type ![[FuncPtri64_FUNC_MD:[0-9]+]]
 
 typedef struct {
@@ -76,7 +74,6 @@ typedef struct {
 } HasPointerPointer;
 
 HasPointerPointer FuncPP(PointerPointer a, HasPointerPointer b) { return b; }
-// PTR: define dso_local "intel_dtrans_func_index"="1" { i32*, float* } @FuncPP(i32* "intel_dtrans_func_index"="2" %{{.*}}, float* "intel_dtrans_func_index"="3" %{{.*}}, i32* "intel_dtrans_func_index"="4" %{{.*}}, float* "intel_dtrans_func_index"="5"  %{{.*}}) {{.*}}!intel.dtrans.func.type ![[FUNCPP_FUNC_MD:[0-9]+]]
 // OPQ: define dso_local "intel_dtrans_func_index"="1" { ptr, ptr } @FuncPP(ptr "intel_dtrans_func_index"="2" %{{.*}}, ptr "intel_dtrans_func_index"="3" %{{.*}}, ptr "intel_dtrans_func_index"="4" %{{.*}}, ptr "intel_dtrans_func_index"="5"  %{{.*}}) {{.*}}!intel.dtrans.func.type ![[FUNCPP_FUNC_MD:[0-9]+]]
 
 

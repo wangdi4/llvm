@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -164,8 +164,12 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                          TC.getDriver().Dir + "/../lib"));
     // When msvcrtd is added via --dependent-lib, we add the sycld
     // equivalent.  Do not add the -defaultlib as it conflicts.
-    if (!isDependentLibAdded(Args, "msvcrtd"))
-      CmdArgs.push_back("-defaultlib:sycl" SYCL_MAJOR_VERSION ".lib");
+    if (!isDependentLibAdded(Args, "msvcrtd")) {
+      if (Args.hasArg(options::OPT_fpreview_breaking_changes))
+        CmdArgs.push_back("-defaultlib:sycl" SYCL_MAJOR_VERSION "-preview.lib");
+      else
+        CmdArgs.push_back("-defaultlib:sycl" SYCL_MAJOR_VERSION ".lib");
+    }
     CmdArgs.push_back("-defaultlib:sycl-devicelib-host.lib");
   }
 
@@ -278,7 +282,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (C.getDriver().IsFlangMode()) {
     addFortranRuntimeLibraryPath(TC, Args, CmdArgs);
-    addFortranRuntimeLibs(TC, CmdArgs);
+    addFortranRuntimeLibs(TC, Args, CmdArgs);
 
     // Inform the MSVC linker that we're generating a console application, i.e.
     // one with `main` as the "user-defined" entry point. The `main` function is
@@ -384,6 +388,10 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (Args.hasArg(options::OPT_fprofile_sample_generate_EQ))
     CmdArgs.push_back(Args.MakeArgString("-profile-sample-generate"));
+
+  if (Arg *A = Args.getLastArg(options::OPT_fprofile_sample_use_EQ))
+    CmdArgs.push_back(Args.MakeArgString(std::string("-lto-sample-profile:") +
+                                         A->getValue()));
 #endif // INTEL_CUSTOMIZATION
 
   Args.AddAllArgValues(CmdArgs, options::OPT__SLASH_link);
@@ -535,10 +543,10 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
 
     addIntelOptimizationArgs(TC, Args, CmdArgs, Inputs[0], true, JA);
-    // Using lld-link and -flto, we need to add any additional -mllvm options
-    // and implied options.
-    for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
-      CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + AV));
+    // Using lld-link and -flto, we need to add any additional -mllvm-lto
+    // options after the implied options.
+    for (const Arg *A : Args.filtered(options::OPT_mllvm_lto))
+      CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + A->getValue()));
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -575,7 +583,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     A.renderAsInput(Args, CmdArgs);
   }
 
-  addHIPRuntimeLibArgs(TC, Args, CmdArgs);
+  addHIPRuntimeLibArgs(TC, C, Args, CmdArgs);
 
   TC.addProfileRTLibs(Args, CmdArgs);
 

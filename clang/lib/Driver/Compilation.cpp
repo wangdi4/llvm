@@ -38,6 +38,7 @@
 #include "llvm/Option/OptSpecifier.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/SimpleTable.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
@@ -159,6 +160,20 @@ bool Compilation::CleanupFile(const char *File, bool IssueErrors) const {
   // Don't try to remove files which we don't have write access to (but may be
   // able to remove), or non-regular files. Underlying tools may have
   // intentionally not overwritten them.
+
+  // Save the device code files(spv files) only if -fsycl-dump-device-code
+  // option is enabled.
+  if (TheDriver.isDumpDeviceCodeEnabled()) {
+    Arg *DumpDeviceCodeArg =
+        getArgs().getLastArg(options::OPT_fsycl_dump_device_code_EQ);
+    std::string ExpectedDir =
+        DumpDeviceCodeArg ? DumpDeviceCodeArg->getValue() : "";
+    std::string ActualFile(File);
+    if (ActualFile.find(ExpectedDir) != std::string::npos &&
+        llvm::sys::path::extension(ActualFile).equals(".spv"))
+      return false;
+  }
+
   if (!llvm::sys::fs::can_write(File) || !llvm::sys::fs::is_regular_file(File))
     return true;
 
@@ -178,7 +193,7 @@ bool Compilation::CleanupFile(const char *File, bool IssueErrors) const {
 bool Compilation::CleanupFileList(const TempFileList &Files,
                                   bool IssueErrors) const {
   bool Success = true;
-  for (const auto &File: Files) {
+  for (const auto &File : Files) {
     // Temporary file lists contain files that need to be cleaned. The
     // file containing the information is also removed
     if (File.second == types::TY_Tempfilelist ||
@@ -205,7 +220,7 @@ bool Compilation::CleanupFileList(const TempFileList &Files,
       } else {
         std::ifstream ListFile(File.first);
         std::string TmpFileName;
-        while (std::getline(ListFile, TmpFileName) && !TmpFileName.empty())
+        while (std::getline(ListFile, TmpFileName))
           Success &= CleanupFile(TmpFileName.c_str(), IssueErrors);
       }
     }
@@ -326,6 +341,49 @@ int Compilation::ExecuteCommand(const Command &C,
   return ExecutionFailed ? 1 : Res;
 }
 
+llvm::sys::ProcessInfo Compilation::ExecuteCommandAsync(
+    const Command &C, const Command *&FailingCommand, bool LogOnly) const {
+  if ((getDriver().CCPrintOptions || getArgs().hasArg(options::OPT_v)) &&
+      !getDriver().CCGenDiagnostics) {
+    raw_ostream *OS = &llvm::errs();
+    std::unique_ptr<llvm::raw_fd_ostream> OwnedStream;
+
+    // Follow gcc implementation of CC_PRINT_OPTIONS; we could also cache the
+    // output stream.
+    if (getDriver().CCPrintOptions &&
+        !getDriver().CCPrintOptionsFilename.empty()) {
+      std::error_code EC;
+      OwnedStream.reset(new llvm::raw_fd_ostream(
+          getDriver().CCPrintOptionsFilename, EC,
+          llvm::sys::fs::OF_Append | llvm::sys::fs::OF_TextWithCRLF));
+      if (EC) {
+        getDriver().Diag(diag::err_drv_cc_print_options_failure)
+            << EC.message();
+        FailingCommand = &C;
+        llvm::sys::ProcessInfo Res;
+        Res.ReturnCode = 1;
+        return Res;
+      }
+      OS = OwnedStream.get();
+    }
+
+    if (getDriver().CCPrintOptions)
+      *OS << "[Logging clang options]\n";
+
+    C.Print(*OS, "\n", /*Quote=*/getDriver().CCPrintOptions);
+  }
+
+  if (LogOnly) {
+    llvm::sys::ProcessInfo Res;
+    Res.ReturnCode = 0;
+    return Res;
+  }
+
+  std::string Error;
+  bool ExecutionFailed;
+  return C.ExecuteAsync(Redirects, &Error, &ExecutionFailed);
+}
+
 using FailingCommandList = SmallVectorImpl<std::pair<int, const Command *>>;
 
 static bool ActionFailed(const Action *A,
@@ -360,9 +418,198 @@ static bool InputsOk(const Command &C,
   return !ActionFailed(&C.getSource(), FailingCommands);
 }
 
+#if INTEL_CUSTOMIZATION
+int Compilation::waitForJobsToComplete(
+    SmallVectorImpl<std::pair<llvm::sys::ProcessInfo, const Command *>>
+        &JobsSubmitted,
+    FailingCommandList &FailingCommands, bool BlockingWait) const {
+  // The loop mutates the container, so call end() each time.
+  std::string ErrMsg;
+  auto It = JobsSubmitted.begin();
+  auto SecondsToWait = BlockingWait ? std::nullopt : std::optional<int>{0};
+  while (It != JobsSubmitted.end()) {
+    llvm::sys::ProcessInfo WaitResult =
+        llvm::sys::Wait((*It).first, SecondsToWait, &ErrMsg);
+
+    // Check if the job has finished (PID will be 0 if it's not).
+    if (!BlockingWait && !WaitResult.Pid) {
+      It++;
+      continue;
+    }
+    It = JobsSubmitted.erase(It);
+
+    if (PostCallback)
+      PostCallback(*(*It).second, WaitResult.ReturnCode);
+    if (!ErrMsg.empty()) {
+      assert(WaitResult.ReturnCode && "Error string set with 0 result code!");
+      getDriver().Diag(diag::err_drv_command_failure) << ErrMsg;
+    }
+
+    if (WaitResult.ReturnCode != 0) {
+      FailingCommands.push_back(
+          std::make_pair(WaitResult.ReturnCode, (*It).second));
+      return WaitResult.ReturnCode;
+    }
+  }
+  return 0;
+}
+
+void Compilation::terminateAllJobs(
+    SmallVectorImpl<std::pair<llvm::sys::ProcessInfo, const Command *>>
+        &JobsSubmitted) const {
+  auto It = JobsSubmitted.begin();
+  std::string ErrMsg;
+  while (It != JobsSubmitted.end()) {
+    llvm::sys::ProcessInfo WaitResult = llvm::sys::Wait((*It).first,
+                                                        /*SecondsToWait=*/0);
+
+    // Check if the job has finished (PID will be 0 if it's not).
+    if (!WaitResult.Pid) {
+      It++;
+      continue;
+    }
+    It = JobsSubmitted.erase(It);
+  }
+}
+
+void Compilation::parallelOpenMPCompile(const JobList &Jobs,
+                                        FailingCommandList &FailingCommands,
+                                        bool LogOnly) const {
+  // Put together vectors of commands that need to be performed.  These have to
+  // be done in a specific order.  We care about the identification of the
+  // following items:
+  //  - Initial IR pass
+  //  - Host compilation of IR
+  //  - Device compilation of IR (in parallel with host)
+  // Other items of note involve special handing of SYCL based offload items
+  // due to the sequential dependencies it has (host depends on device compile).
+  SmallVector<std::pair<llvm::sys::ProcessInfo, const Command *>, 8>
+      JobsSubmitted;
+  SmallVector<const Command *> EarlyCommands;
+  // HostDeviceCommands is a vector of vector.  Each individual vector will
+  // contain the individual jobs that can be parallelized together.
+  std::map<StringRef, SmallVector<const Command *>> HostDeviceCommands;
+  SmallVector<const Command *> RemainingCommands;
+  bool ProcessedHostDevice = false;
+  for (const auto &Job : Jobs) {
+    const Action JA(Job.getSource());
+    // Any items that are associated with the SYCL toolchain (i.e. this
+    // compilation contains SYCL and OpenMP offloading together) need to be
+    // scrutinized first.  The inter-dependency that the host compilation has
+    // with the device compile prevents the parallelization of the host compile
+    // step.
+    if (JA.isOffloading(Action::OFK_SYCL)) {
+      if (JA.getKind() == AnalyzeJobAction::AppendFooterJobClass ||
+          (JA.getKind() == AnalyzeJobAction::AssembleJobClass &&
+           JA.isDeviceOffloading(Action::OFK_SYCL))) {
+        EarlyCommands.push_back(&Job);
+        continue;
+      }
+    }
+    if (JA.isOffloading(Action::OFK_OpenMP)) {
+      if (JA.getKind() == AnalyzeJobAction::OffloadWrapperJobClass ||
+          JA.getKind() == AnalyzeJobAction::OffloadBundlingJobClass)
+        ProcessedHostDevice = true;
+      if (ProcessedHostDevice) {
+        RemainingCommands.push_back(&Job);
+        continue;
+      }
+      if (JA.getKind() == AnalyzeJobAction::CompileJobClass ||
+          JA.getKind() == AnalyzeJobAction::PreprocessJobClass) {
+        EarlyCommands.push_back(&Job);
+        continue;
+      }
+      if (JA.getKind() == AnalyzeJobAction::AssembleJobClass ||
+          JA.getKind() == AnalyzeJobAction::BackendJobClass) {
+        // Grab the current input string.  This is used as the key to the
+        // map of commands.
+        auto LastInput = Job.getInputInfos().back();
+        std::string InputFile(LastInput.getAsString());
+        HostDeviceCommands[InputFile].push_back(&Job);
+        continue;
+      }
+      RemainingCommands.push_back(&Job);
+      continue;
+    }
+    RemainingCommands.push_back(&Job);
+  }
+  // First build all of the IR-files, preprocessing steps and any other steps
+  // that have to be performed before the general compile steps.
+  for (const auto &Job : EarlyCommands) {
+    if (!InputsOk(*Job, FailingCommands))
+      continue;
+    const Command *FailingCommand = nullptr;
+    if (int Res = ExecuteCommand(*Job, FailingCommand, LogOnly)) {
+      FailingCommands.push_back(std::make_pair(Res, FailingCommand));
+      // Bail as soon as one command fails in cl driver mode.
+      // Do not bail when the tool is setup to allow for continuation upon
+      // failure.
+      if (TheDriver.IsCLMode() && FailingCommand->getWillExitForErrorCode(Res))
+        return;
+    }
+  }
+  // Now build the HostDeviceCommands in parallel
+  for (const auto &[Key, JobList] : HostDeviceCommands) {
+    for (const auto &Job : JobList) {
+      if (!InputsOk(*Job, FailingCommands))
+        continue;
+      const Command *FailingCommand = nullptr;
+
+      while (JobsSubmitted.size() == CoresToUse) {
+        // Bail as soon as one command fails in cl driver mode.
+        if (int Res = waitForJobsToComplete(JobsSubmitted, FailingCommands,
+                                            /*BlockingWait=*/false) &&
+                      TheDriver.IsCLMode()) {
+          terminateAllJobs(JobsSubmitted);
+          return;
+        }
+      }
+
+      JobsSubmitted.push_back(std::make_pair(
+          ExecuteCommandAsync(*Job, FailingCommand, LogOnly), FailingCommand));
+    }
+    // Wait for all commands to be executed.
+    while (!JobsSubmitted.empty()) {
+      // Bail as soon as one command fails in cl driver mode.
+      if (int Res = waitForJobsToComplete(JobsSubmitted, FailingCommands,
+                                          /*BlockingWait=*/true) &&
+                    TheDriver.IsCLMode()) {
+        terminateAllJobs(JobsSubmitted);
+        return;
+      }
+    }
+  }
+  // Complete the compilations for the rest of the jobs
+  for (const auto &Job : RemainingCommands) {
+    if (!InputsOk(*Job, FailingCommands))
+      continue;
+    const Command *FailingCommand = nullptr;
+    if (int Res = ExecuteCommand(*Job, FailingCommand, LogOnly)) {
+      FailingCommands.push_back(std::make_pair(Res, FailingCommand));
+      // Bail as soon as one command fails in cl driver mode.
+      // Do not bail when the tool is setup to allow for continuation upon
+      // failure.
+      if (TheDriver.IsCLMode() && FailingCommand->getWillExitForErrorCode(Res))
+        return;
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 void Compilation::ExecuteJobs(const JobList &Jobs,
                               FailingCommandList &FailingCommands,
                               bool LogOnly) const {
+#if INTEL_CUSTOMIZATION
+  // Perform parallel compilation for host and device compilation steps when
+  // it was requested and Offloading is enabled.
+  if (TranslatedArgs->hasArg(
+          options::OPT_fopenmp_concurrent_host_device_compile) &&
+      TranslatedArgs->hasArg(options::OPT_fopenmp_targets_EQ) &&
+      TranslatedArgs->hasArg(options::OPT_fiopenmp)) {
+    parallelOpenMPCompile(Jobs, FailingCommands, LogOnly);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   // According to UNIX standard, driver need to continue compiling all the
   // inputs on the command line even one of them failed.
   // In all but CLMode, execute all the jobs unless the necessary inputs for the

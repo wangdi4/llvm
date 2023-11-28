@@ -215,7 +215,8 @@ class HeuristicSLP : public HeuristicBase {
 public:
   HeuristicSLP(VPlanTTICostModel *CM) : HeuristicBase(CM, "SLP breaking") {};
   void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
+             VPInstructionCost &OvhCost, const VPlanVector *Plan,
+             raw_ostream *OS = nullptr) const;
 };
 
 // Heurstic that calculates Spill/Fill cost.
@@ -237,7 +238,8 @@ public:
   HeuristicSpillFill(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "Spill/Fill") {};
   void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
+             VPInstructionCost &OvhCost, const VPlanVector *Plan,
+             raw_ostream *OS = nullptr) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   using HeuristicBase::dump;
   void dump(raw_ostream &OS, const VPBasicBlock *VPBB) const;
@@ -259,7 +261,8 @@ public:
   HeuristicGatherScatter(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "Gather/Scatter") {};
   void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
+             VPInstructionCost &OvhCost, const VPlanVector *Plan,
+             raw_ostream *OS = nullptr) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   using HeuristicBase::dump;
   void dump(raw_ostream &OS, const VPlanVector *Plan) const;
@@ -297,7 +300,8 @@ public:
   // TODO:
   // The method should return Cost of psadbw instruction instead of zero.
   void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
+             VPInstructionCost &OvhCost, const VPlanVector *Plan,
+             raw_ostream *OS = nullptr) const;
   void initForVPlan();
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   using HeuristicBase::dump;
@@ -313,7 +317,8 @@ public:
   HeuristicSVMLIDivIRem(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "IDiv/IRem") {};
   void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-             const VPInstruction *VPInst, raw_ostream *OS = nullptr) const;
+             VPInstructionCost &OvhCost, const VPInstruction *VPInst,
+             raw_ostream *OS = nullptr) const;
 };
 
 // VPInstruction level heuristic that triggers on LOAD/STORE instructions
@@ -333,7 +338,8 @@ class HeuristicOVLSMember : public HeuristicBase {
 public:
   HeuristicOVLSMember(VPlanTTICostModel *CM) : HeuristicBase(CM, "OVLS") {};
   void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-             const VPInstruction *VPInst, raw_ostream *OS = nullptr) const;
+             VPInstructionCost &OvhCost, const VPInstruction *VPInst,
+             raw_ostream *OS = nullptr) const;
 };
 
 // Heuristic that models benefits or penalties of unrolling at the
@@ -343,7 +349,8 @@ class HeuristicUnroll : public HeuristicBase {
 public:
   HeuristicUnroll(VPlanTTICostModel *CM) : HeuristicBase(CM, "Unroll") {}
   void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
+             VPInstructionCost &OvhCost, const VPlanVector *Plan,
+             raw_ostream *OS = nullptr) const;
 };
 
 } // namespace VPlanCostModelHeuristics

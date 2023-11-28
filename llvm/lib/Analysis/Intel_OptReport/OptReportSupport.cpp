@@ -1,6 +1,6 @@
 //===----- OptReportSupport.cpp - Utils to support emitters -*- C++ -*------==//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -120,13 +120,12 @@ std::string formatBinaryStream(OptReport OR) {
     return "";
 
   for (const OptRemark Remark : OR.origin()) {
-    const MDString *R = cast<MDString>(Remark.getOperand(1));
-    std::string OriginString = std::string(R->getString());
+    OptRemarkID RemarkID = Remark.getRemarkID();
 
-    if (OriginString == "Remainder loop for vectorization") {
+    if (RemarkID == OptRemarkID::VectorizerRemainderLoop) {
       VecBits.set(2);
       LLVM_DEBUG(dbgs() << "VecBits: bits 2-2 set to 1\n");
-    } else if (OriginString == "Multiversioned loop") {
+    } else if (RemarkID == OptRemarkID::LoopMultiversionedForDD) {
       // We only support DD multiversioning right now.
       LoopBits.set(17);
       LLVM_DEBUG(dbgs() << "LoopBits: bits 17-20 set to 1\n");
@@ -141,19 +140,18 @@ std::string formatBinaryStream(OptReport OR) {
   }
 
   for (const OptRemark Remark : OR.remarks()) {
-    const auto *R = cast<MDString>(Remark.getOperand(1));
-    std::string FormatString = std::string(R->getString());
+    OptRemarkID RemarkID = Remark.getRemarkID();
 
-    if (FormatString == "LOOP WAS VECTORIZED") {
+    if (RemarkID == OptRemarkID::LoopVectorized) {
       // TODO (vzakhari 02/10/2019): bits 47-49 must specify main vectorization
       //       type, which does not seem to exist in the opt-report now.
       //       Default is 8-bit integer type.
       VecBits.set(0);
       LLVM_DEBUG(dbgs() << "VecBits: bits 0-0 set to 1\n");
-    } else if (FormatString == "vectorization support: vector length %s") {
+    } else if (RemarkID == OptRemarkID::VectorizationFactor) {
       const MDString *SM = nullptr;
-      if (Remark.getNumOperands() >= 3)
-        SM = dyn_cast<MDString>(Remark.getOperand(2));
+      if (Remark.getNumOperands() >= 2)
+        SM = dyn_cast<MDString>(Remark.getOperand(1));
       else
         llvm_unreachable("Missing 'vector length' operand.");
 
@@ -162,10 +160,10 @@ std::string formatBinaryStream(OptReport OR) {
       // argument specification.
       uint32_t VecLen = SM ? std::stoi(std::string(SM->getString())) : 1u;
       uint32_t Log2VecLen = std::min(Log2_32(VecLen), 15u);
-      uint32_t Mask[] { 0, Log2VecLen << 3 };
+      uint32_t Mask[]{0, Log2VecLen << 3};
       VecBits.setBitsInMask(Mask);
       LLVM_DEBUG(dbgs() << "VecBits: bits 35-38 set to " << Log2VecLen << "\n");
-    } else if (FormatString == "The loop has been multiversioned") {
+    } else if (RemarkID == OptRemarkID::LoopMultiversionedForDD) {
       // We only support DD multiversioning right now.
       LoopBits.set(17);
       LLVM_DEBUG(dbgs() << "LoopBits: bits 17-20 set to 1\n");
@@ -173,17 +171,19 @@ std::string formatBinaryStream(OptReport OR) {
       // multiversioned again - version #2.
       if (MvVersion != 0)
         MvVersion++;
-    } else if (FormatString == "LLorg: Loop has been completely unrolled" ||
-               FormatString == "Loop completely unrolled") {
+    } else if (RemarkID == OptRemarkID::LLORGFullyUnrolled ||
+               RemarkID == OptRemarkID::LoopCompletelyUnrolled) {
       // Set UnrollFactor to zero, so that all following "unroll by factor"
       // opt-reports are ignored.  UnrollFactor equal to zero means complete
       // unroll.
       UnrollFactor = 0;
-    } else if (FormatString == "Loop has been unrolled by %d factor" ||
-               FormatString == "LLorg: Loop has been unrolled by %d factor") {
+    } else if (RemarkID == OptRemarkID::LoopUnrollFactorWithoutRemainder ||
+               RemarkID == OptRemarkID::LoopUnrollFactorWithRemainder ||
+               RemarkID == OptRemarkID::WhileLoopUnrollFactor ||
+               RemarkID == OptRemarkID::LLORGUnrolledBy) {
       const ConstantAsMetadata *CM = nullptr;
-      if (Remark.getNumOperands() >= 3)
-        CM = dyn_cast<ConstantAsMetadata>(Remark.getOperand(2));
+      if (Remark.getNumOperands() >= 2)
+        CM = dyn_cast<ConstantAsMetadata>(Remark.getOperand(1));
       else
         llvm_unreachable("Missing 'unroll factor' operand.");
 
@@ -266,22 +266,34 @@ bool isProtobufBinOptReportEnabled() {
 // map is expected to match the number of properties defined by binary
 // opt-report Protobuf schema (check the enum Property in
 // opt_report_proto.proto).
-static const DenseMap<unsigned, opt_report_proto::BinOptReport::Property>
+static const DenseMap<DiagTableKey, opt_report_proto::BinOptReport::Property>
     DiagPropertyMap = {
-        {15300, opt_report_proto::BinOptReport::C_LOOP_VECTORIZED},
-        {15305, opt_report_proto::BinOptReport::C_LOOP_VEC_VL},
-        {25508, opt_report_proto::BinOptReport::C_LOOP_COMPLETE_UNROLL},
-        {25436, opt_report_proto::BinOptReport::C_LOOP_COMPLETE_UNROLL_FACTOR},
-        {25439, opt_report_proto::BinOptReport::C_LOOP_UNROLL_WITH_REMAINDER},
-        {25438,
+        {OptRemarkID::LoopVectorized,
+         opt_report_proto::BinOptReport::C_LOOP_VECTORIZED},
+        {OptRemarkID::VectorizationFactor,
+         opt_report_proto::BinOptReport::C_LOOP_VEC_VL},
+        {OptRemarkID::LoopCompletelyUnrolled,
+         opt_report_proto::BinOptReport::C_LOOP_COMPLETE_UNROLL},
+        {OptRemarkID::CompleteUnrollFactor,
+         opt_report_proto::BinOptReport::C_LOOP_COMPLETE_UNROLL_FACTOR},
+        {OptRemarkID::LoopUnrollFactorWithRemainder,
+         opt_report_proto::BinOptReport::C_LOOP_UNROLL_WITH_REMAINDER},
+        {OptRemarkID::LoopUnrollFactorWithoutRemainder,
          opt_report_proto::BinOptReport::C_LOOP_UNROLL_WITHOUT_REMAINDER},
-        {25540, opt_report_proto::BinOptReport::C_LOOP_UNROLL_AND_JAM},
-        {25491, opt_report_proto::BinOptReport::C_LOOP_REMAINDER},
-        {25518, opt_report_proto::BinOptReport::C_LOOP_VEC_PEEL},
-        {25519, opt_report_proto::BinOptReport::C_LOOP_VEC_REMAINDER},
-        {15301, opt_report_proto::BinOptReport::C_LOOP_VEC_SIMD},
-        {25588, opt_report_proto::BinOptReport::C_LOOP_HAS_SIMD_REDUCTION},
-        {25587, opt_report_proto::BinOptReport::C_LOOP_VEC_HAS_REDUCTION},
+        {OptRemarkID::LoopUnrollAndJamFactor,
+         opt_report_proto::BinOptReport::C_LOOP_UNROLL_AND_JAM},
+        {OptRemarkID::RemainderLoop,
+         opt_report_proto::BinOptReport::C_LOOP_REMAINDER},
+        {OptRemarkID::VectorizerPeelLoop,
+         opt_report_proto::BinOptReport::C_LOOP_VEC_PEEL},
+        {OptRemarkID::VectorizerRemainderLoop,
+         opt_report_proto::BinOptReport::C_LOOP_VEC_REMAINDER},
+        {OptRemarkID::SimdLoopVectorized,
+         opt_report_proto::BinOptReport::C_LOOP_VEC_SIMD},
+        {OptRemarkID::LoopHasSimdReduction,
+         opt_report_proto::BinOptReport::C_LOOP_HAS_SIMD_REDUCTION},
+        {OptRemarkID::LoopHasReduction,
+         opt_report_proto::BinOptReport::C_LOOP_VEC_HAS_REDUCTION},
 };
 #endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
 
@@ -346,7 +358,7 @@ std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
       BinRemark->set_remark_id(RemarkID);
       EmittedRemarkIDs.insert(RemarkID);
 
-      for (unsigned Op = 2; Op < Remark.getNumOperands(); ++Op) {
+      for (unsigned Op = 1; Op < Remark.getNumOperands(); ++Op) {
         // Create and add remark argument based on its type.
         if (auto *RemarkOp = dyn_cast<MDString>(Remark.getOperand(Op))) {
           std::string ArgString = std::string(RemarkOp->getString());

@@ -352,6 +352,7 @@ public:
   // TODO - fix all __esimd* intrinsics and table entries according to the rule
   // above.
   ESIMDIntrinDescTable() {
+    // clang-format off
     Table = {
         // An element of the table is std::pair of <key, value>; key is the
         // source
@@ -392,12 +393,6 @@ public:
         {"svm_scatter4_scaled",
          {"svm.scatter4.scaled", {ai1(2), t(2), c16(0), c64(0), a(0), a(1)}}},
 
-        // intrinsics to query thread's coordinates:
-        {"group_id_x", {"group.id.x", {}}},
-        {"group_id_y", {"group.id.y", {}}},
-        {"group_id_z", {"group.id.z", {}}},
-        {"local_id", {"local.id", {}}},
-        {"local_size", {"local.size", {}}},
         {"svm_atomic0", {"svm.atomic", {ai1(1), a(0), u(-1)}, bo(0)}},
         {"svm_atomic1", {"svm.atomic", {ai1(2), a(0), a(1), u(-1)}, bo(0)}},
         {"svm_atomic2",
@@ -438,25 +433,6 @@ public:
         // arg1: i32 offset (in owords)
         // arg2: data to write (overloaded)
         {"oword_st", {"oword.st", {aSI(0), a(1), a(2)}}},
-
-        // surface index-based gather/scatter:
-        // arg0: i32 log2 num blocks, CONSTANT (0/1/2 for num blocks 1/2/4)
-        // arg1: i16 scale, CONSTANT
-        // arg2: i32 surface index
-        // arg3: i32 global offset in bytes
-        // arg4: vXi32 element offset in bytes (overloaded)
-        {"gather_scaled2",
-         {"gather.scaled2", {t(3), t(4), aSI(0), a(1), a(2)}}},
-
-        // arg0: vXi1 predicate (overloaded)
-        // arg1: i32 log2 num blocks, CONSTANT (0/1/2 for num blocks 1/2/4)
-        // arg2: i16 scale, CONSTANT
-        // arg3: i32 surface index
-        // arg4: i32 global offset in bytes
-        // arg5: vXi32 element offset in bytes (overloaded)
-        // arg6: old value of the data read
-        {"gather_scaled",
-         {"gather.scaled", {ai1(0), t(3), t(4), aSI(1), a(2), a(3), u(-1)}}},
 
         // arg0: i32 log2 num blocks, CONSTANT (0/1/2 for num blocks 1/2/4)
         // arg1: i16 scale, CONSTANT
@@ -544,12 +520,21 @@ public:
         {"raw_send2_noresult",
          {"raw.send2.noresult",
           {a(0), a(1), ai1(2), a(3), a(4), a(5), a(6), a(7)}}},
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+        {"raw_sendg",
+         {"raw.sendg",
+          {t16(4), t1(1), t1(0), t8(3), ai1(0), a(1), t16(5), a(2), t16(6),
+	   a(3), a(4), t64(7), a(5)}}},
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
         {"wait", {"dummy.mov", {a(0)}}},
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
         {"qf_cvt", {"qf.cvt", {a(0)}}},
         {"hf8_cvt", {"hf8.cvt", {a(0)}}},
         {"srnd", {"srnd", {a(0), a(1)}}},
+	{"packed_4bit_upconvert_lut", {"packed.4bit.upconvert.lut", {a(0), a(1)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
         {"dpas2",
@@ -575,7 +560,7 @@ public:
         {"lsc_load_merge_bti",
          {"lsc.load.merge.bti",
           {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
-           t8(6), t8(7), c8(0), a(1), aSI(2), a(2)}}},
+           t8(6), t8(7), c8(0), a(1), aSI(2), a(3)}}},
         {"lsc_load_stateless",
          {"lsc.load.stateless",
           {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
@@ -726,6 +711,7 @@ public:
         {"subb", {"subb", {l(0)}}},
         {"bfn", {"bfn", {a(0), a(1), a(2), t(0)}}}};
   }
+  // clang-format on
 
   const IntrinTable &getTable() { return Table; }
 };
@@ -1758,6 +1744,13 @@ bool SYCLLowerESIMDPass::prepareForAlwaysInliner(Module &M) {
     F.addFnAttr(llvm::Attribute::AlwaysInline);
     return true;
   };
+  auto markNoInline = [](Function &F) {
+    if (F.hasFnAttribute(llvm::Attribute::AlwaysInline))
+      F.removeFnAttr(llvm::Attribute::AlwaysInline);
+    if (F.hasFnAttribute(llvm::Attribute::InlineHint))
+      F.removeFnAttr(llvm::Attribute::InlineHint);
+    F.addFnAttr(llvm::Attribute::NoInline);
+  };
 
   bool NeedInline = false;
   for (auto &F : M) {
@@ -1784,12 +1777,17 @@ bool SYCLLowerESIMDPass::prepareForAlwaysInliner(Module &M) {
       continue;
     }
 
+    if (isAssertFail(F)) {
+      markNoInline(F);
+      continue;
+    }
+
     // TODO: The next code and comment was placed to ESIMDLoweringPass
     // 2 years ago, when GPU VC BE did not support function calls and
     // required everything to be inlined right into the kernel unless
     // it had noinline or VCStackCall attrubute.
     // This code migrated to here without changes, but... VC BE does support
-    //  the calls of spir_func these days, so this code may need re-visiting.
+    //  the calls of spir_func these days, so this code needs re-visiting.
     if (!F.hasFnAttribute(Attribute::NoInline))
       NeedInline |= markAlwaysInlined(F);
 

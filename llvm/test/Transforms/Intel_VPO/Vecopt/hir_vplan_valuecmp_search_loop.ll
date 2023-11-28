@@ -116,8 +116,8 @@ entry:
 
 land.rhs:
   %indvars.iv = phi i32 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [8192 x i32], [8192 x i32]* @b, i32 0, i32 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [8192 x i32], ptr @b, i32 0, i32 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1.not = icmp sgt i32 %0, %v
   br i1 %cmp1.not, label %for.end.split.loop.exit8, label %for.inc
 
@@ -145,13 +145,13 @@ define i32 @_Z6searchil(i32 %v, i64 %n) #0 {
 ; CHECK:       Function: _Z6searchil
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK-NEXT:      %arr.base.cast = ptrtoint.ptr.i64(&((@b)[0][0]));
-; CHECK-NEXT:      %alignment = %arr.base.cast  &  127;
-; CHECK-NEXT:      %peel.factor = 128  -  %alignment;
+; CHECK-NEXT:      %alignment = %arr.base.cast  &  63;
+; CHECK-NEXT:      %peel.factor = 64  -  %alignment;
 ; CHECK-NEXT:      %peel.factor1 = %peel.factor  >>  2;
 ; CHECK-NEXT:      %peel.factor1 = (%n <= %peel.factor1) ? %n : %peel.factor1;
 ; CHECK-NEXT:      if (%peel.factor1 != 0)
 ; CHECK-NEXT:      {
-; CHECK-NEXT:         + DO i1 = 0, %peel.factor1 + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 127> <vector-peel>
+; CHECK-NEXT:         + DO i1 = 0, %peel.factor1 + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 63> <vector-peel>
 ; CHECK-NEXT:         |   if ((@b)[0][i1] > %v)
 ; CHECK-NEXT:         |   {
 ; CHECK-NEXT:         |      %indvars.iv.out = i1;
@@ -161,24 +161,24 @@ define i32 @_Z6searchil(i32 %v, i64 %n) #0 {
 ; CHECK-NEXT:      }
 ; CHECK-NEXT:      if (%peel.factor1 <u %n)
 ; CHECK-NEXT:      {
-; CHECK-NEXT:         %tgu = (%n + -1 * %peel.factor1)/u32;
-; CHECK-NEXT:         if (0 <u 32 * %tgu)
+; CHECK-NEXT:         %tgu = (%n + -1 * %peel.factor1)/u16;
+; CHECK-NEXT:         if (0 <u 16 * %tgu)
 ; CHECK-NEXT:         {
-; CHECK-NEXT:            + DO i1 = 0, 32 * %tgu + -1, 32   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 256> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:            |   %wide.cmp. = (<32 x i32>*)(@b)[0][i1 + %peel.factor1] > %v;
-; CHECK-NEXT:            |   %intmask = bitcast.<32 x i1>.i32(%wide.cmp.);
+; CHECK-NEXT:            + DO i1 = 0, 16 * %tgu + -1, 16   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 512> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:            |   %wide.cmp. = (<16 x i32>*)(@b)[0][i1 + %peel.factor1] > %v;
+; CHECK-NEXT:            |   %intmask = bitcast.<16 x i1>.i16(%wide.cmp.);
 ; CHECK-NEXT:            |   if (%intmask != 0)
 ; CHECK-NEXT:            |   {
 ; CHECK-NEXT:            |      %.vec = %wide.cmp.  ^  -1;
-; CHECK-NEXT:            |      %bsfintmask = bitcast.<32 x i1>.i32(%wide.cmp.);
-; CHECK-NEXT:            |      %bsf = @llvm.cttz.i32(%bsfintmask,  0);
-; CHECK-NEXT:            |      %cast = zext.i32.i64(%bsf);
+; CHECK-NEXT:            |      %bsfintmask = bitcast.<16 x i1>.i16(%wide.cmp.);
+; CHECK-NEXT:            |      %bsf = @llvm.cttz.i16(%bsfintmask,  0);
+; CHECK-NEXT:            |      %cast = zext.i16.i64(%bsf);
 ; CHECK-NEXT:            |      %indvars.iv.out = i1 + %peel.factor1 + %cast;
 ; CHECK-NEXT:            |      goto for.end.split.loop.exit8;
 ; CHECK-NEXT:            |   }
 ; CHECK-NEXT:            + END LOOP
 ; CHECK-NEXT:         }
-; CHECK:              + DO i1 = 32 * %tgu, %n + -1 * %peel.factor1 + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 31>  <LEGAL_MAX_TC = 31> <nounroll> <novectorize> <max_trip_count = 31>
+; CHECK:              + DO i1 = 16 * %tgu, %n + -1 * %peel.factor1 + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 15>  <LEGAL_MAX_TC = 15> <nounroll> <novectorize> <max_trip_count = 15>
 ; CHECK-NEXT:         |   if ((@b)[0][i1 + %peel.factor1] > %v)
 ; CHECK-NEXT:         |   {
 ; CHECK-NEXT:         |      %indvars.iv.out = i1 + %peel.factor1;

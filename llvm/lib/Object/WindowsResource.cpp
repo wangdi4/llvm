@@ -67,7 +67,7 @@ WindowsResource::WindowsResource(MemoryBufferRef Source)
     : Binary(Binary::ID_WinRes, Source) {
   size_t LeadingSize = WIN_RES_MAGIC_SIZE + WIN_RES_NULL_ENTRY_SIZE;
   BBS = BinaryByteStream(Data.getBuffer().drop_front(LeadingSize),
-                         support::little);
+                         llvm::endianness::little);
 }
 
 // static
@@ -736,7 +736,7 @@ WindowsResourceCOFFWriter::write(uint32_t TimeDateStamp) {
 // it's okay to *not* copy the trailing zero.
 static void coffnamecpy(char (&Dest)[COFF::NameSize], StringRef Src) {
   assert(Src.size() <= COFF::NameSize &&
-         "Src is not larger than COFF::NameSize");
+         "Src is not larger than COFF::NameSize"); // INTEL
   assert((Src.size() == COFF::NameSize || Dest[Src.size()] == '\0') &&
          "Dest not zeroed upon initialization");
 #if INTEL_CUSTOMIZATION

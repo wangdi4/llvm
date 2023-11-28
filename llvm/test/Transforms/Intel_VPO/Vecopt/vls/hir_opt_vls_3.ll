@@ -49,23 +49,22 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ;
 ; Note that we can't attach TBAA to the @llvm.masked.store.
 ; CHECK: region.{{.*}}:
-; CHECK: [[ARRAYIDX:%.*]] = getelementptr inbounds [1024 x %struct.S1], [1024 x %struct.S1]* @arr1, i64 0, i64 %{{.*}}, i32 0
-; CHECK: [[BITCAST:%.*]] = bitcast i64* [[ARRAYIDX]] to <16 x i64>*
-; CHECK: @llvm.masked.store.v16i64.p0v16i64(<16 x i64> {{%.*}}, <16 x i64>* [[BITCAST]], i32 8,
+; CHECK: [[ARRAYIDX:%.*]] = getelementptr inbounds [1024 x %struct.S1], ptr @arr1, i64 0, i64 %{{.*}}, i32 0
+; CHECK: @llvm.masked.store.v16i64.p0(<16 x i64> {{%.*}}, ptr [[ARRAYIDX]], i32 8,
 ;
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %a = getelementptr inbounds [1024 x %struct.S1], [1024 x %struct.S1]* @arr1, i64 0, i64 %indvars.iv, i32 0
-  store i64 %indvars.iv, i64* %a, align 8, !tbaa !2
+  %a = getelementptr inbounds [1024 x %struct.S1], ptr @arr1, i64 0, i64 %indvars.iv, i32 0
+  store i64 %indvars.iv, ptr %a, align 8, !tbaa !2
   %0 = add nuw nsw i64 %indvars.iv, 2
-  %b = getelementptr inbounds [1024 x %struct.S1], [1024 x %struct.S1]* @arr1, i64 0, i64 %indvars.iv, i32 1
-  store i64 %0, i64* %b, align 8, !tbaa !7
+  %b = getelementptr inbounds [1024 x %struct.S1], ptr @arr1, i64 0, i64 %indvars.iv, i32 1
+  store i64 %0, ptr %b, align 8, !tbaa !7
   %1 = add nuw nsw i64 %indvars.iv, 3
-  %c = getelementptr inbounds [1024 x %struct.S1], [1024 x %struct.S1]* @arr1, i64 0, i64 %indvars.iv, i32 2
-  store i64 %1, i64* %c, align 8, !tbaa !8
+  %c = getelementptr inbounds [1024 x %struct.S1], ptr @arr1, i64 0, i64 %indvars.iv, i32 2
+  store i64 %1, ptr %c, align 8, !tbaa !8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.end, label %for.body

@@ -1,8 +1,8 @@
+;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,hir-vec-dir-insert,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
-;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
-;This case needs two distributions to make 2 vectorizable loops
-; and one serial
-;;Split at 8-10 and again 21-22
+; This case distributes into 3 loops to make 2 vectorizable loops and one serial
+
+; Split at 8-10 and again 21-22
 ;          BEGIN REGION { }
 ;<30>         + DO i1 = 0, 98, 1   <DO_LOOP>
 ;<3>          |   %0 = (@B)[0][i1 + 1];
@@ -23,27 +23,40 @@
 ;<30>         + END LOOP
 ;          END REGION
 
-;
-; CHECK: BEGIN REGION
-; CHECK: DO i1 = 0, 98, 1
-; CHECK: (@A)[0][i1 + 1] =
-; CHECK: END LOOP
 
-; Ideally we should split into 3 loops. However the dependence
-;between pi block 1 and 2 is only =, recurrence analysis
-;sees no reason to separate the two. The reason to do is
-; that pi block 1 forms a vectorizable loop and 2 does not
-; Enable the following 4 checks when this analysis is available
-; ACHECK-NEXT: DO i1 = 0, 98, 1
-; ACHECK-NEXT: (@E)[0][i1 + 1]
-; ACHECK: (@E)[0][i1 + 2]
-; ACHECK-NEXT: END LOOP
+; CHECK: modified
 
-; CHECK: DO i1 = 0, 98, 1
-; CHECK: (@E)[0][i1 + 1]
-; CHECK: (@F)[0][i1 + 1]
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: END REGION
+; CHECK: %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+
+; CHECK: + DO i1 = 0, 98, 1   <DO_LOOP>
+; CHECK: |   %0 = (@B)[0][i1 + 1];
+; CHECK: |   %1 = (@C)[0][i1 + 1];
+; CHECK: |   %add = %0  +  %1;
+; CHECK: |   (@A)[0][i1 + 1] = %add;
+; CHECK: + END LOOP
+
+; CHECK: @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
+
+; CHECK: + DO i1 = 0, 98, 1   <DO_LOOP>
+; CHECK: |   %2 = (@E)[0][i1 + 1];
+; CHECK: |   %reload = (@A)[0][i1 + 1];
+; CHECK: |   %div = %reload  /  %2;
+; CHECK: |   (@D)[0][i1 + 1] = %div;
+; CHECK: |   %3 = (@D)[0][i1 + 2];
+; CHECK: |   %add16 = %div  +  %3;
+; CHECK: |   %conv18 = %add16  *  5.000000e-01;
+; CHECK: |   (@E)[0][i1 + 2] = %conv18;
+; CHECK: + END LOOP
+
+; CHECK: %entry.region1 = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+
+; CHECK: + DO i1 = 0, 98, 1   <DO_LOOP>
+; CHECK: |   %4 = (@E)[0][i1 + 1];
+; CHECK: |   %mul = %4  *  %4;
+; CHECK: |   (@F)[0][i1 + 1] = %mul;
+; CHECK: + END LOOP
+
+; CHECK: @llvm.directive.region.exit(%entry.region1); [ DIR.VPO.END.AUTO.VEC() ]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

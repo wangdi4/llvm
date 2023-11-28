@@ -1,5 +1,4 @@
-; XFAIL: *
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa"  2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -disable-output -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
 
 ;typedef long long a[1];
 ;typedef a b[9];
@@ -14,7 +13,7 @@
 ;        g[1][c] = f;
 ;}
 
-; This test makes sure, the outermost loop of blocking can be a loop at level larger than 1.
+; This test makes sure that the outermost loop of blocking can be a loop at level larger than 1.
 
 ; DEFAULT:Function: h
 
@@ -58,7 +57,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @e = common dso_local local_unnamed_addr global i32 0, align 4
 @c = common dso_local local_unnamed_addr global i32 0, align 4
 @f = common dso_local local_unnamed_addr global i64 0, align 8
-@g = common dso_local local_unnamed_addr global [9 x [1 x i64]] zeroinitializer, align 16
+@g = common dso_local local_unnamed_addr global [9 x [1 x double]] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @h() local_unnamed_addr #0 {
@@ -68,7 +67,7 @@ entry:
   br i1 %tobool15, label %for.end11, label %for.cond1.preheader.lr.ph
 
 for.cond1.preheader.lr.ph:                        ; preds = %entry
-  %0 = load i64, ptr @f, align 8, !tbaa !6
+  %0 = load double, ptr @f, align 8, !tbaa !6
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.cond1.preheader.lr.ph, %for.inc10
@@ -81,8 +80,8 @@ for.cond4.preheader:                              ; preds = %for.cond1.preheader
 
 for.body6:                                        ; preds = %for.cond4.preheader, %for.body6
   %indvars.iv = phi i64 [ 2, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
-  %arrayidx = getelementptr inbounds [9 x [1 x i64]], ptr @g, i64 0, i64 1, i64 %indvars.iv
-  store i64 %0, ptr %arrayidx, align 8, !tbaa !8
+  %arrayidx = getelementptr inbounds [9 x [1 x double]], ptr @g, i64 0, i64 1, i64 %indvars.iv
+  store double %0, ptr %arrayidx, align 8, !tbaa !8
   %1 = trunc i64 %indvars.iv to i32
   %tobool5 = icmp eq i32 %1, -2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2

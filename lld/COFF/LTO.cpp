@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -30,6 +30,7 @@
 #include "Symbols.h"
 #include "lld/Common/Args.h"
 #include "lld/Common/CommonLinkerContext.h"
+#include "lld/Common/Filesystem.h"
 #include "lld/Common/Strings.h"
 #include "lld/Common/TargetOptionsCommandFlags.h"
 #include "llvm/ADT/STLExtras.h"
@@ -59,18 +60,6 @@ using namespace llvm;
 using namespace llvm::object;
 using namespace lld;
 using namespace lld::coff;
-
-// Creates an empty file to and returns a raw_fd_ostream to write to it.
-static std::unique_ptr<raw_fd_ostream> openFile(StringRef file) {
-  std::error_code ec;
-  auto ret =
-      std::make_unique<raw_fd_ostream>(file, ec, sys::fs::OpenFlags::OF_None);
-  if (ec) {
-    error("cannot open " + file + ": " + ec.message());
-    return nullptr;
-  }
-  return ret;
-}
 
 std::string BitcodeCompiler::getThinLTOOutputFile(StringRef path) {
   return lto::getThinLTOOutputFile(path, ctx.config.thinLTOPrefixReplaceOld,
@@ -113,7 +102,7 @@ lto::Config BitcodeCompiler::createConfig() {
   c.OptLevel = ctx.config.ltoo;
   c.CPU = getCPUStr();
   c.MAttrs = getMAttrs();
-  std::optional<CodeGenOpt::Level> optLevelOrNone = CodeGenOpt::getLevel(
+  std::optional<CodeGenOptLevel> optLevelOrNone = CodeGenOpt::getLevel(
       ctx.config.ltoCgo.value_or(args::getCGOptLevel(ctx.config.ltoo)));
   assert(optLevelOrNone && "Invalid optimization level!");
   c.CGOptLevel = *optLevelOrNone;
@@ -123,10 +112,14 @@ lto::Config BitcodeCompiler::createConfig() {
   c.CSIRProfile = std::string(ctx.config.ltoCSProfileFile);
   c.RunCSIRInstr = ctx.config.ltoCSProfileGenerate;
   c.PGOWarnMismatch = ctx.config.ltoPGOWarnMismatch;
+  c.TimeTraceEnabled = ctx.config.timeTraceEnabled;
+  c.TimeTraceGranularity = ctx.config.timeTraceGranularity;
 #if INTEL_CUSTOMIZATION
+  c.SampleProfile = ctx.config.ltoSampleProfileName;
   c.ShouldDiscardValueNames = ctx.config.intelShouldDiscardValueNames;
   c.PTO.LoopVectorization = c.OptLevel > 1;
   c.PTO.SLPVectorization = c.OptLevel > 1;
+  c.VerifyEach = ctx.config.llvmVerifyEach;
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -137,6 +130,18 @@ lto::Config BitcodeCompiler::createConfig() {
   if (!ctx.config.dll)
     c.WPUtils.setLinkingExecutable(true);
 #endif // INTEL_CUSTOMIZATION
+
+  if (ctx.config.emit == EmitKind::LLVM) {
+    c.PostInternalizeModuleHook = [this](size_t task, const Module &m) {
+      if (std::unique_ptr<raw_fd_ostream> os =
+              openLTOOutputFile(ctx.config.outputFile))
+        WriteBitcodeToFile(m, *os, false);
+      return false;
+    };
+  } else if (ctx.config.emit == EmitKind::ASM) {
+    c.CGFileType = CodeGenFileType::AssemblyFile;
+    c.Options.MCOptions.AsmVerbose = true;
+  }
 
   if (ctx.config.saveTemps)
     checkError(c.addSaveTemps(std::string(ctx.config.outputFile) + ".",
@@ -282,6 +287,8 @@ BitcodeCompiler::compile(COFFLinkerContext &ctx,
     pruneCache(ctx.config.ltoCache, ctx.config.ltoCachePolicy, files);
 
   std::vector<InputFile *> ret;
+  bool emitASM = ctx.config.emit == EmitKind::ASM;
+  const char *Ext = emitASM ? ".s" : ".obj";
   for (unsigned i = 0; i != maxTasks; ++i) {
     StringRef bitcodeFilePath;
     // Get the native object contents either from the cache or from memory.  Do
@@ -304,20 +311,21 @@ BitcodeCompiler::compile(COFFLinkerContext &ctx,
     if (bitcodeFilePath == "ld-temp.o") {
       ltoObjName =
           saver().save(Twine(ctx.config.outputFile) + ".lto" +
-                       (i == 0 ? Twine("") : Twine('.') + Twine(i)) + ".obj");
+                       (i == 0 ? Twine("") : Twine('.') + Twine(i)) + Ext);
     } else {
       StringRef directory = sys::path::parent_path(bitcodeFilePath);
-      StringRef baseName = sys::path::filename(bitcodeFilePath);
+      StringRef baseName = sys::path::stem(bitcodeFilePath);
       StringRef outputFileBaseName = sys::path::filename(ctx.config.outputFile);
       SmallString<64> path;
       sys::path::append(path, directory,
-                        outputFileBaseName + ".lto." + baseName);
+                        outputFileBaseName + ".lto." + baseName + Ext);
       sys::path::remove_dots(path, true);
       ltoObjName = saver().save(path.str());
     }
-    if (ctx.config.saveTemps)
+    if (ctx.config.saveTemps || emitASM)
       saveBuffer(buf[i].second, ltoObjName);
-    ret.push_back(make<ObjFile>(ctx, MemoryBufferRef(objBuf, ltoObjName)));
+    if (!emitASM)
+      ret.push_back(make<ObjFile>(ctx, MemoryBufferRef(objBuf, ltoObjName)));
 #if INTEL_CUSTOMIZATION
     if (buffersOut)
       buffersOut->push_back(objBuf);

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2014-2018 Intel Corporation.
+// Copyright 2014 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,18 +12,16 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "Stats.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataStatsAPI.h"
-
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-
-#include "Stats.h"
 
 using namespace llvm;
 using namespace SYCLKernelMetadataAPI;

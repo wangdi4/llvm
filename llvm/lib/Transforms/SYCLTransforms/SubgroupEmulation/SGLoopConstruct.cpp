@@ -1,6 +1,6 @@
 //=----------- SGLoopConstruct.cpp - Create subgroup loop - C++ -*-----------=//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -199,7 +199,7 @@ void SGLoopConstructPass::createSGLoop() {
                                              "sg.loop.src.");
         auto *Switch = Builder.CreateSwitch(SGLoopSrc, FirstTarget,
                                             JumpTargets.size() - 1);
-        for (auto It = ++JumpTargets.begin(), End = JumpTargets.end();
+        for (auto It = std::next(JumpTargets.begin()), End = JumpTargets.end();
              It != End; ++It) {
           BasicBlock *JumpTarget = (*It)->getParent();
           JumpTarget->setName("sg.loop.header.");

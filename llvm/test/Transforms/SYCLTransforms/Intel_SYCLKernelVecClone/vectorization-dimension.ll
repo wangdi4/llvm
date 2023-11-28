@@ -77,9 +77,9 @@ attributes #0 = { nounwind readnone }
 !2 = !{i1 false}
 !3 = !{i32 16}
 !4 = !{!"int*", !"int*"}
-!5 = !{i32 addrspace(1)* null, i32 addrspace(1)* null}
+!5 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 !6 = !{!"int*", !"int*", !"int*"}
-!7 = !{i32 addrspace(1)* null, i32 addrspace(1)* null, i32 addrspace(1)* null}
+!7 = !{ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; CHECK-DAG: [[VD0]] = !{i32 0}
 

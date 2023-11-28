@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -18,10 +18,8 @@
 #include "ICLDevBackendOptions.h"
 #include "IRunConfiguration.h"
 #include "common_dev_limits.h"
-#include <cstddef> // for std::size_t not included in ICLDevBackendOptions.h! TODO: Remove when the bug is fixed.
-
 #include "llvm/Support/DataTypes.h"
-
+#include <cstddef> // for std::size_t not included in ICLDevBackendOptions.h! TODO: Remove when the bug is fixed.
 #include <string>
 #include <vector>
 

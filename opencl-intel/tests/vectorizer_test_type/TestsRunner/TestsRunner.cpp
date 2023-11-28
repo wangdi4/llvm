@@ -6,6 +6,9 @@
  */
 
 #include "TestsRunner.h"
+#include "../KernelExecutor/IllegalParameterException.h"
+#include "../KernelExecutor/KerenelExecutor.h"
+#include "../Utils/StringConvertor.h"
 
 #include <cmath>
 #include <exception>
@@ -17,10 +20,6 @@
 #else
 #include <dirent.h>
 #endif
-
-#include "../KernelExecutor/IllegalParameterException.h"
-#include "../KernelExecutor/KerenelExecutor.h"
-#include "../Utils/StringConvertor.h"
 
 using std::cout;
 using std::endl;

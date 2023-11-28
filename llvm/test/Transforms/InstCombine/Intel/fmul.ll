@@ -14,7 +14,7 @@ define void @fmul_loop_invariant_fdiv(ptr %a, float %x) {
 ; CHECK-NEXT:    ret void
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I_08:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY]] ]
-; CHECK-NEXT:    [[IDXPROM:%.*]] = zext i32 [[I_08]] to i64
+; CHECK-NEXT:    [[IDXPROM:%.*]] = zext nneg i32 [[I_08]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[A:%.*]], i64 [[IDXPROM]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = load float, ptr [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = fmul fast float [[TMP1]], [[TMP0]]
@@ -31,7 +31,7 @@ define void @fmul_loop_invariant_fdiv(ptr %a, float %x) {
 ; LTOO3-NEXT:    ret void
 ; LTOO3:       for.body:
 ; LTOO3-NEXT:    [[I_08:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY]] ]
-; LTOO3-NEXT:    [[IDXPROM:%.*]] = zext i32 [[I_08]] to i64
+; LTOO3-NEXT:    [[IDXPROM:%.*]] = zext nneg i32 [[I_08]] to i64
 ; LTOO3-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[A:%.*]], i64 [[IDXPROM]]
 ; LTOO3-NEXT:    [[TMP1:%.*]] = load float, ptr [[ARRAYIDX]], align 4
 ; LTOO3-NEXT:    [[TMP2:%.*]] = fmul fast float [[TMP1]], [[TMP0]]
@@ -74,7 +74,7 @@ define void @fmul_loop_invariant_sfwd(float %x) {
 ; CHECK-NEXT:    ret void
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I_08:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY]] ]
-; CHECK-NEXT:    [[IDXPROM:%.*]] = zext i32 [[I_08]] to i64
+; CHECK-NEXT:    [[IDXPROM:%.*]] = zext nneg i32 [[I_08]] to i64
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [100 x float], ptr @ga, i64 0, i64 [[IDXPROM]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = load float, ptr [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = fmul fast float [[TMP1]], [[TMP0]]
@@ -94,7 +94,7 @@ define void @fmul_loop_invariant_sfwd(float %x) {
 ; LTOO3-NEXT:    ret void
 ; LTOO3:       for.body:
 ; LTOO3-NEXT:    [[I_08:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[FOR_BODY]] ]
-; LTOO3-NEXT:    [[IDXPROM:%.*]] = zext i32 [[I_08]] to i64
+; LTOO3-NEXT:    [[IDXPROM:%.*]] = zext nneg i32 [[I_08]] to i64
 ; LTOO3-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [100 x float], ptr @ga, i64 0, i64 [[IDXPROM]]
 ; LTOO3-NEXT:    [[TMP1:%.*]] = load float, ptr [[ARRAYIDX]], align 4
 ; LTOO3-NEXT:    [[TMP2:%.*]] = fmul fast float [[TMP1]], [[TMP0]]

@@ -90,7 +90,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
-define double @gemv(double* %A, double* %b, i64 %N) #0 {
+define double @gemv(ptr %A, ptr %b, i64 %N) #0 {
 entry:
   %L1.ztt = icmp sgt i64 %N, 0
   %N128 = mul nuw nsw i64 %N, 128
@@ -116,10 +116,10 @@ L2:
   %j = phi i64 [ 0, %L1 ], [ %j.next, %L2 ]
   %sum.L2 = phi double [ %sum.L1, %L1 ], [ %sum.next, %L2 ]
   %A_ind = add nuw nsw i64 %A_row, %j
-  %Aijp = getelementptr inbounds double, double* %A, i64 %A_ind
-  %Aij = load double, double* %Aijp
-  %bjp = getelementptr inbounds double, double* %b, i64 %j
-  %bj = load double, double* %bjp
+  %Aijp = getelementptr inbounds double, ptr %A, i64 %A_ind
+  %Aij = load double, ptr %Aijp
+  %bjp = getelementptr inbounds double, ptr %b, i64 %j
+  %bj = load double, ptr %bjp
   %Aijbj = fmul nnan nsz arcp afn reassoc double %Aij, %bj
   %sum.next = fadd double %sum.L2, %Aijbj
   %j.next = add nuw nsw i64 %j, 1

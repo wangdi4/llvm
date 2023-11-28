@@ -17,15 +17,13 @@
 ; FLOAT-LT-512:   [[MASK_EXT:%.*]] = sext <[[VL]] x i1> [[MASK:%.*]] to <[[VL]] x i32>
 ; FLOAT-LT-512:   [[RESULT:%.*]] = call afn svml_cc <[[VL]] x float> @__svml_sinf[[VL]]_mask(<[[VL]] x float> {{.*}}, <[[VL]] x i32> [[MASK_EXT:%.*]])
 ; FLOAT-512:      [[RESULT:%.*]] = call afn svml_cc <[[VL]] x float> @__svml_sinf[[VL]]_mask(<[[VL]] x float> undef, <[[VL]] x i1> [[MASK:%.*]], <[[VL]] x float> {{.*}})
-; CHECK:          [[PTR:%.*]] = bitcast float* {{.*}} to <[[VL]] x float>*
-; CHECK:          call void @llvm.masked.store.v[[VL]]f32.p0v[[VL]]f32(<[[VL]] x float> [[RESULT]], <[[VL]] x float>* [[PTR]], i32 4, <[[VL]] x i1> [[MASK]])
+; CHECK:          call void @llvm.masked.store.v[[VL]]f32.p0(<[[VL]] x float> [[RESULT]], ptr {{.*}}, i32 4, <[[VL]] x i1> [[MASK]])
 
 ; CHECK-LABEL: test_sin
 ; DOUBLE-LT-512:  [[MASK_EXT:%.*]] = sext <[[VL]] x i1> [[MASK:%.*]] to <[[VL]] x i64>
 ; DOUBLE-LT-512:  [[RESULT:%.*]] = call afn svml_cc <[[VL]] x double> @__svml_sin[[VL]]_mask(<[[VL]] x double> {{.*}}, <[[VL]] x i64> [[MASK_EXT:%.*]])
 ; DOUBLE-512:     [[RESULT:%.*]] = call afn svml_cc <[[VL]] x double> @__svml_sin[[VL]]_mask(<[[VL]] x double> undef, <[[VL]] x i1> [[MASK:%.*]], <[[VL]] x double> {{.*}})
-; CHECK:          [[PTR:%.*]] = bitcast double* {{.*}} to <[[VL]] x double>*
-; CHECK:          call void @llvm.masked.store.v[[VL]]f64.p0v[[VL]]f64(<[[VL]] x double> [[RESULT]], <[[VL]] x double>* [[PTR]], i32 8, <[[VL]] x i1> [[MASK]])
+; CHECK:          call void @llvm.masked.store.v[[VL]]f64.p0(<[[VL]] x double> [[RESULT]], ptr {{.*}}, i32 8, <[[VL]] x i1> [[MASK]])
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -33,14 +31,14 @@ target triple = "x86_64-unknown-linux-gnu"
 @N = common dso_local local_unnamed_addr global i32 0, align 4
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @test_sinf(float* nocapture readonly %input, float* nocapture readonly %b, float* %a) local_unnamed_addr #0 {
+define dso_local void @test_sinf(ptr nocapture readonly %input, ptr nocapture readonly %b, ptr %a) local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* @N, align 4, !tbaa !2
+  %0 = load i32, ptr @N, align 4, !tbaa !2
   %cmp = icmp sgt i32 %0, 0
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -49,17 +47,17 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.body.continue, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.body.continue ]
-  %arrayidx = getelementptr inbounds float, float* %b, i64 %indvars.iv
-  %2 = load float, float* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds float, ptr %b, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx, align 4, !tbaa !6
   %cmp6 = fcmp ogt float %2, 3.000000e+00
   br i1 %cmp6, label %if.then, label %omp.body.continue
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx8 = getelementptr inbounds float, float* %input, i64 %indvars.iv
-  %3 = load float, float* %arrayidx8, align 4, !tbaa !6
-  %arrayidx10 = getelementptr inbounds float, float* %a, i64 %indvars.iv
+  %arrayidx8 = getelementptr inbounds float, ptr %input, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx8, align 4, !tbaa !6
+  %arrayidx10 = getelementptr inbounds float, ptr %a, i64 %indvars.iv
   %call = tail call afn float @sinf(float %3) #2
-  store float %call, float* %arrayidx10, align 4, !tbaa !6
+  store float %call, ptr %arrayidx10, align 4, !tbaa !6
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body, %if.then
@@ -76,14 +74,14 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @test_sin(double* nocapture readonly %input, double* nocapture readonly %b, double* %a) local_unnamed_addr #0 {
+define dso_local void @test_sin(ptr nocapture readonly %input, ptr nocapture readonly %b, ptr %a) local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* @N, align 4, !tbaa !2
+  %0 = load i32, ptr @N, align 4, !tbaa !2
   %cmp = icmp sgt i32 %0, 0
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -92,17 +90,17 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.body.continue, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.body.continue ]
-  %arrayidx = getelementptr inbounds double, double* %b, i64 %indvars.iv
-  %2 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %b, i64 %indvars.iv
+  %2 = load double, ptr %arrayidx, align 8
   %cmp6 = fcmp ogt double %2, 3.000000e+00
   br i1 %cmp6, label %if.then, label %omp.body.continue
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx8 = getelementptr inbounds double, double* %input, i64 %indvars.iv
-  %3 = load double, double* %arrayidx8, align 8
-  %arrayidx10 = getelementptr inbounds double, double* %a, i64 %indvars.iv
+  %arrayidx8 = getelementptr inbounds double, ptr %input, i64 %indvars.iv
+  %3 = load double, ptr %arrayidx8, align 8
+  %arrayidx10 = getelementptr inbounds double, ptr %a, i64 %indvars.iv
   %call = tail call afn double @sin(double %3) #2
-  store double %call, double* %arrayidx10, align 8
+  store double %call, ptr %arrayidx10, align 8
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body, %if.then

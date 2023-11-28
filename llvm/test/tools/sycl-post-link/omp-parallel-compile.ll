@@ -29,15 +29,15 @@
 ; CHECK-KERN1-DAG: @arr = external protected target_declare addrspace(1) global i32, align 4
 ; CHECK-KERN1-DAG: define weak dso_local spir_kernel void @__omp_offloading_fc09_26904c__Z4main_l19
 ; CHECK-KERN1-DAG:   call void @start_wrapper()
-; CHECK-KERN1-DAG:   call spir_func i64 @_Z12get_local_idj(i32 addrspace(1)* @arr)
-; CHECK-KERN1-DAG: declare spir_func i64 @_Z12get_local_idj(i32 addrspace(1)*)
+; CHECK-KERN1-DAG:   call spir_func i64 @_Z12get_local_idj(ptr addrspace(1) @arr)
+; CHECK-KERN1-DAG: declare spir_func i64 @_Z12get_local_idj(ptr addrspace(1))
 ; CHECK-KERN1-DAG: define weak protected spir_func void @start_wrapper()
 
 ; CHECK-KERN2-DAG: @brr = external dso_local addrspace(1) global i32, align 4
 ; CHECK-KERN2-DAG: define weak dso_local spir_kernel void @__omp_offloading_fc09_26904c__Z4main_l24
 ; CHECK-KERN2-DAG:   call void @start_wrapper()
-; CHECK-KERN2-DAG:   call spir_func i64 @_Z12get_local_idj(i32 addrspace(1)* @brr)
-; CHECK-KERN2-DAG: declare spir_func i64 @_Z12get_local_idj(i32 addrspace(1)*)
+; CHECK-KERN2-DAG:   call spir_func i64 @_Z12get_local_idj(ptr addrspace(1) @brr)
+; CHECK-KERN2-DAG: declare spir_func i64 @_Z12get_local_idj(ptr addrspace(1))
 ; CHECK-KERN2-DAG: define weak protected spir_func void @start_wrapper()
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
@@ -45,51 +45,51 @@ target triple = "spir64"
 
 %0 = type { i32, i32, [2 x %1], i64, i64, i64 }
 %1 = type { i32, i32 }
-%struct.__tgt_offload_entry = type { i8 addrspace(4)*, i8 addrspace(2)*, i64, i32, i32, i64 }
+%struct.__tgt_offload_entry = type { ptr addrspace(4), ptr addrspace(2), i64, i32, i32, i64 }
 
 @arr = protected target_declare addrspace(1) global i32 0, align 4
 @brr = internal addrspace(1) global i32 0, align 4
 @__omp_offloading_fc09_26904c__Z4main_l19_kernel_info = weak target_declare local_unnamed_addr addrspace(1) constant %0 { i32 5, i32 2, [2 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
 @__omp_offloading_fc09_26904c__Z4main_l24_kernel_info = weak target_declare local_unnamed_addr addrspace(1) constant %0 { i32 5, i32 2, [2 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
 @.omp_offloading.entry_name = internal target_declare unnamed_addr addrspace(2) constant [7 x i8] c"_Z3arr\00"
-@.omp_offloading.entry._Z3arr = weak target_declare local_unnamed_addr addrspace(1) constant %struct.__tgt_offload_entry { i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (i32 addrspace(1)* @arr to i8 addrspace(1)*) to i8 addrspace(4)*), i8 addrspace(2)* getelementptr inbounds ([7 x i8], [7 x i8] addrspace(2)* @.omp_offloading.entry_name, i32 0, i32 0), i64 4, i32 0, i32 0, i64 7 }, section "omp_offloading_entries"
+@.omp_offloading.entry._Z3arr = weak target_declare local_unnamed_addr addrspace(1) constant %struct.__tgt_offload_entry { ptr addrspace(4) addrspacecast (ptr addrspace(1) bitcast (ptr addrspace(1) @arr to ptr addrspace(1)) to ptr addrspace(4)), ptr addrspace(2) getelementptr inbounds ([7 x i8], ptr addrspace(2) @.omp_offloading.entry_name, i32 0, i32 0), i64 4, i32 0, i32 0, i64 7 }, section "omp_offloading_entries"
 @.omp_offloading.entry_name.1 = internal target_declare unnamed_addr addrspace(2) constant [7 x i8] c"_Z3brr\00"
-@.omp_offloading.entry._Z3brr = weak target_declare local_unnamed_addr addrspace(1) constant %struct.__tgt_offload_entry { i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (i32 addrspace(1)* @brr to i8 addrspace(1)*) to i8 addrspace(4)*), i8 addrspace(2)* getelementptr inbounds ([7 x i8], [7 x i8] addrspace(2)* @.omp_offloading.entry_name.1, i32 0, i32 0), i64 4, i32 0, i32 0, i64 7 }, section "omp_offloading_entries"
+@.omp_offloading.entry._Z3brr = weak target_declare local_unnamed_addr addrspace(1) constant %struct.__tgt_offload_entry { ptr addrspace(4) addrspacecast (ptr addrspace(1) bitcast (ptr addrspace(1) @brr to ptr addrspace(1)) to ptr addrspace(4)), ptr addrspace(2) getelementptr inbounds ([7 x i8], ptr addrspace(2) @.omp_offloading.entry_name.1, i32 0, i32 0), i64 4, i32 0, i32 0, i64 7 }, section "omp_offloading_entries"
 @.omp_offloading.entry_name.2 = internal target_declare unnamed_addr addrspace(2) constant [41 x i8] c"__omp_offloading_fc09_26904c__Z4main_l19\00"
-@.omp_offloading.entry.__omp_offloading_fc09_26904c__Z4main_l19 = weak target_declare local_unnamed_addr addrspace(1) constant %struct.__tgt_offload_entry { i8 addrspace(4)* null, i8 addrspace(2)* getelementptr inbounds ([41 x i8], [41 x i8] addrspace(2)* @.omp_offloading.entry_name.2, i32 0, i32 0), i64 0, i32 0, i32 0, i64 41 }, section "omp_offloading_entries"
+@.omp_offloading.entry.__omp_offloading_fc09_26904c__Z4main_l19 = weak target_declare local_unnamed_addr addrspace(1) constant %struct.__tgt_offload_entry { ptr addrspace(4) null, ptr addrspace(2) getelementptr inbounds ([41 x i8], ptr addrspace(2) @.omp_offloading.entry_name.2, i32 0, i32 0), i64 0, i32 0, i32 0, i64 41 }, section "omp_offloading_entries"
 @.omp_offloading.entry_name.3 = internal target_declare unnamed_addr addrspace(2) constant [41 x i8] c"__omp_offloading_fc09_26904c__Z4main_l24\00"
-@.omp_offloading.entry.__omp_offloading_fc09_26904c__Z4main_l24 = weak target_declare local_unnamed_addr addrspace(1) constant %struct.__tgt_offload_entry { i8 addrspace(4)* null, i8 addrspace(2)* getelementptr inbounds ([41 x i8], [41 x i8] addrspace(2)* @.omp_offloading.entry_name.3, i32 0, i32 0), i64 0, i32 0, i32 0, i64 41 }, section "omp_offloading_entries"
+@.omp_offloading.entry.__omp_offloading_fc09_26904c__Z4main_l24 = weak target_declare local_unnamed_addr addrspace(1) constant %struct.__tgt_offload_entry { ptr addrspace(4) null, ptr addrspace(2) getelementptr inbounds ([41 x i8], ptr addrspace(2) @.omp_offloading.entry_name.3, i32 0, i32 0), i64 0, i32 0, i32 0, i64 41 }, section "omp_offloading_entries"
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn
 define protected spir_func void @set_arr(i32 noundef %pos) local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @arr to i32 addrspace(4)*), align 4, !tbaa !9
+  %0 = load i32, ptr addrspace(4) addrspacecast (ptr addrspace(1) @arr to ptr addrspace(4)), align 4, !tbaa !9
   %add = add nsw i32 %0, %pos
-  store i32 %add, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @arr to i32 addrspace(4)*), align 4, !tbaa !9
-  %1 = load i32, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @brr to i32 addrspace(4)*), align 4, !tbaa !9
+  store i32 %add, ptr addrspace(4) addrspacecast (ptr addrspace(1) @arr to ptr addrspace(4)), align 4, !tbaa !9
+  %1 = load i32, ptr addrspace(4) addrspacecast (ptr addrspace(1) @brr to ptr addrspace(4)), align 4, !tbaa !9
   %add1 = add nsw i32 %1, %pos
-  store i32 %add1, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @brr to i32 addrspace(4)*), align 4, !tbaa !9
+  store i32 %add1, ptr addrspace(4) addrspacecast (ptr addrspace(1) @brr to ptr addrspace(4)), align 4, !tbaa !9
   ret void
 }
 
 ; Function Attrs: noinline nounwind
-define weak dso_local spir_kernel void @__omp_offloading_fc09_26904c__Z4main_l19(i32 addrspace(1)* %arr, i32 addrspace(1)* %brr) local_unnamed_addr #1 {
+define weak dso_local spir_kernel void @__omp_offloading_fc09_26904c__Z4main_l19(ptr addrspace(1) %arr, ptr addrspace(1) %brr) local_unnamed_addr #1 {
 DIR.OMP.TARGET.3:
   call void @start_wrapper()
-  %0 = tail call spir_func i64 @_Z12get_local_idj(i32 addrspace(1)* @arr) #3
+  %0 = tail call spir_func i64 @_Z12get_local_idj(ptr addrspace(1) @arr) #3
   ret void
 }
 
-declare spir_func i64 @_Z12get_local_idj(i32 addrspace(1)*) local_unnamed_addr
+declare spir_func i64 @_Z12get_local_idj(ptr addrspace(1)) local_unnamed_addr
 
 ; Function Attrs: convergent nounwind
 declare spir_func void @_Z22__spirv_ControlBarrieriii(i32, i32, i32) #2
 
 ; Function Attrs: noinline nounwind
-define weak dso_local spir_kernel void @__omp_offloading_fc09_26904c__Z4main_l24(i32 addrspace(1)* %arr20, i32 addrspace(1)* %brr21) local_unnamed_addr #1 {
+define weak dso_local spir_kernel void @__omp_offloading_fc09_26904c__Z4main_l24(ptr addrspace(1) %arr20, ptr addrspace(1) %brr21) local_unnamed_addr #1 {
 DIR.OMP.TARGET.7:
   call void @start_wrapper()
-  %0 = tail call spir_func i64 @_Z12get_local_idj(i32 addrspace(1)* @brr) #3
+  %0 = tail call spir_func i64 @_Z12get_local_idj(ptr addrspace(1) @brr) #3
   ret void
 }
 

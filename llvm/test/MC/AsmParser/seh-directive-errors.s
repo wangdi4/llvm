@@ -1,9 +1,3 @@
-# INTEL_CUSTOMIZATION
-# INTEL_FEATURE_ISA_APX_F
-# UNSUPPORTED: intel_feature_isa_apx_f
-# This test fails in APX b/c more GPRs. R16-R31 makes ".seh_pushreg 17" legal.
-# end INTEL_FEATURE_ISA_APX_F
-# end INTEL_CUSTOMIZATION
 # RUN: not llvm-mc -triple x86_64-windows-msvc %s -filetype=obj -o /dev/null 2>&1 | FileCheck %s --implicit-check-not=error:
 # RUN: not llvm-mc -triple x86_64-windows-msvc %s -o /dev/null 2>&1 | FileCheck %s --implicit-check-not=error:
 	.text
@@ -111,7 +105,7 @@ h:                                      # @h
 i:
 	.seh_proc i
 	pushq %rbp
-	.seh_pushreg 17
+	.seh_pushreg 32
 # CHECK: :[[@LINE-1]]:{{[0-9]+}}: error: incorrect register number for use with this directive
 	pushq %rbx
 	.seh_pushreg %xmm0

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019-2020 Intel Corporation.
+// Copyright 2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,11 +12,10 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "CL/cl_internal_ext.h"
 #include "FrameworkTest.h"
 #include "TestsHelpClasses.h"
 #include "common_utils.h"
-#include <CL/cl.h>
-#include <CL/cl_gvp_ext.h>
 #include <time.h>
 
 extern cl_device_type gDeviceType;
@@ -30,12 +29,8 @@ public:
 protected:
   virtual void SetUp() {
     m_options = "-cl-std=CL2.0";
-    if (GetParam()) {
+    if (GetParam())
       m_options += " -g -cl-opt-disable";
-#if defined _WIN32 && (defined _M_X64 || defined __x86_64__)
-      ASSERT_TRUE(SETENV("CL_CONFIG_USE_NATIVE_DEBUGGER", "1"));
-#endif
-    }
 
     cl_int err = clGetPlatformIDs(1, &m_platform, nullptr);
     ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");

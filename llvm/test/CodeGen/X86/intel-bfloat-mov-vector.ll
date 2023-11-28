@@ -1055,21 +1055,20 @@ define void @extract_store_f16_7(<8 x bfloat> %x, bfloat* %y) {
 define <8 x bfloat> @build_vector_xxxxuuuu(bfloat %a0, bfloat %a1, bfloat %a2, bfloat %a3) {
 ; AVX512FP16-X64-LABEL: build_vector_xxxxuuuu:
 ; AVX512FP16-X64:       # %bb.0:
-; AVX512FP16-X64-NEXT:    vpunpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
-; AVX512FP16-X64-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm2[0],xmm0[2,3]
-; AVX512FP16-X64-NEXT:    vpbroadcastw %xmm3, %xmm1
-; AVX512FP16-X64-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1,2],xmm1[3],xmm0[4,5,6,7]
+; AVX512FP16-X64-NEXT:    vmovw %xmm3, %eax
+; AVX512FP16-X64-NEXT:    vmovw %xmm1, %ecx
+; AVX512FP16-X64-NEXT:    vmovw %xmm2, %edx
+; AVX512FP16-X64-NEXT:    vpinsrw $1, %ecx, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $2, %edx, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $3, %eax, %xmm0, %xmm0
 ; AVX512FP16-X64-NEXT:    retq
 ;
 ; AVX512FP16-X86-LABEL: build_vector_xxxxuuuu:
 ; AVX512FP16-X86:       # %bb.0:
 ; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm0
-; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm1
-; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm2
-; AVX512FP16-X86-NEXT:    vpunpcklwd {{.*#+}} xmm1 = xmm1[0],xmm2[0],xmm1[1],xmm2[1],xmm1[2],xmm2[2],xmm1[3],xmm2[3]
-; AVX512FP16-X86-NEXT:    vinsertps {{.*#+}} xmm0 = xmm1[0],xmm0[0],xmm1[2,3]
-; AVX512FP16-X86-NEXT:    vpbroadcastw {{[0-9]+}}(%esp), %xmm1
-; AVX512FP16-X86-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1,2],xmm1[3],xmm0[4,5,6,7]
+; AVX512FP16-X86-NEXT:    vpinsrw $1, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $2, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $3, {{[0-9]+}}(%esp), %xmm0, %xmm0
 ; AVX512FP16-X86-NEXT:    retl
   %a = insertelement <8 x bfloat> undef, bfloat %a0, i32 0
   %b = insertelement <8 x bfloat> %a, bfloat %a1, i32 1
@@ -1081,24 +1080,22 @@ define <8 x bfloat> @build_vector_xxxxuuuu(bfloat %a0, bfloat %a1, bfloat %a2, b
 define <8 x bfloat> @build_vector_uuuuxxxx(bfloat %a0, bfloat %a1, bfloat %a2, bfloat %a3) {
 ; AVX512FP16-X64-LABEL: build_vector_uuuuxxxx:
 ; AVX512FP16-X64:       # %bb.0:
-; AVX512FP16-X64-NEXT:    vpbroadcastw %xmm1, %xmm1
-; AVX512FP16-X64-NEXT:    vpbroadcastd %xmm0, %xmm0
-; AVX512FP16-X64-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1,2,3,4],xmm1[5],xmm0[6,7]
-; AVX512FP16-X64-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0,1,2],xmm2[0]
-; AVX512FP16-X64-NEXT:    vpbroadcastw %xmm3, %xmm1
-; AVX512FP16-X64-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1,2,3,4,5,6],xmm1[7]
+; AVX512FP16-X64-NEXT:    vmovw %xmm3, %eax
+; AVX512FP16-X64-NEXT:    vmovw %xmm2, %ecx
+; AVX512FP16-X64-NEXT:    vmovw %xmm0, %edx
+; AVX512FP16-X64-NEXT:    vmovw %xmm1, %esi
+; AVX512FP16-X64-NEXT:    vpinsrw $4, %edx, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $5, %esi, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $6, %ecx, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $7, %eax, %xmm0, %xmm0
 ; AVX512FP16-X64-NEXT:    retq
 ;
 ; AVX512FP16-X86-LABEL: build_vector_uuuuxxxx:
 ; AVX512FP16-X86:       # %bb.0:
-; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm0
-; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm1
-; AVX512FP16-X86-NEXT:    vbroadcastss %xmm1, %xmm1
-; AVX512FP16-X86-NEXT:    vpbroadcastw {{[0-9]+}}(%esp), %xmm2
-; AVX512FP16-X86-NEXT:    vpblendw {{.*#+}} xmm1 = xmm1[0,1,2,3,4],xmm2[5],xmm1[6,7]
-; AVX512FP16-X86-NEXT:    vinsertps {{.*#+}} xmm0 = xmm1[0,1,2],xmm0[0]
-; AVX512FP16-X86-NEXT:    vpbroadcastw {{[0-9]+}}(%esp), %xmm1
-; AVX512FP16-X86-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1,2,3,4,5,6],xmm1[7]
+; AVX512FP16-X86-NEXT:    vpinsrw $4, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $5, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $6, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $7, {{[0-9]+}}(%esp), %xmm0, %xmm0
 ; AVX512FP16-X86-NEXT:    retl
   %a = insertelement <8 x bfloat> undef, bfloat %a0, i32 4
   %b = insertelement <8 x bfloat> %a, bfloat %a1, i32 5
@@ -1110,35 +1107,32 @@ define <8 x bfloat> @build_vector_uuuuxxxx(bfloat %a0, bfloat %a1, bfloat %a2, b
 define <8 x bfloat> @build_vector_xxxxxxxx(bfloat %a0, bfloat %a1, bfloat %a2, bfloat %a3, bfloat %a4, bfloat %a5, bfloat %a6, bfloat %a7) {
 ; AVX512FP16-X64-LABEL: build_vector_xxxxxxxx:
 ; AVX512FP16-X64:       # %bb.0:
-; AVX512FP16-X64-NEXT:    vpunpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
-; AVX512FP16-X64-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm2[0],zero,zero
-; AVX512FP16-X64-NEXT:    vpbroadcastw %xmm3, %xmm1
-; AVX512FP16-X64-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1,2],xmm1[3],xmm0[4,5,6,7]
-; AVX512FP16-X64-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0,1],xmm4[0],xmm0[3]
-; AVX512FP16-X64-NEXT:    vpbroadcastw %xmm5, %xmm1
-; AVX512FP16-X64-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1,2,3,4],xmm1[5],xmm0[6,7]
-; AVX512FP16-X64-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0,1,2],xmm6[0]
-; AVX512FP16-X64-NEXT:    vpbroadcastw %xmm7, %xmm1
-; AVX512FP16-X64-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1,2,3,4,5,6],xmm1[7]
+; AVX512FP16-X64-NEXT:    vmovw %xmm7, %eax
+; AVX512FP16-X64-NEXT:    vmovw %xmm6, %ecx
+; AVX512FP16-X64-NEXT:    vmovw %xmm5, %edx
+; AVX512FP16-X64-NEXT:    vmovw %xmm4, %esi
+; AVX512FP16-X64-NEXT:    vmovw %xmm3, %edi
+; AVX512FP16-X64-NEXT:    vmovw %xmm1, %r8d
+; AVX512FP16-X64-NEXT:    vmovw %xmm2, %r9d
+; AVX512FP16-X64-NEXT:    vpinsrw $1, %r8d, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $2, %r9d, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $3, %edi, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $4, %esi, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $5, %edx, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $6, %ecx, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $7, %eax, %xmm0, %xmm0
 ; AVX512FP16-X64-NEXT:    retq
 ;
 ; AVX512FP16-X86-LABEL: build_vector_xxxxxxxx:
 ; AVX512FP16-X86:       # %bb.0:
 ; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm0
-; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm1
-; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm2
-; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm3
-; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm4
-; AVX512FP16-X86-NEXT:    vpunpcklwd {{.*#+}} xmm3 = xmm3[0],xmm4[0],xmm3[1],xmm4[1],xmm3[2],xmm4[2],xmm3[3],xmm4[3]
-; AVX512FP16-X86-NEXT:    vinsertps {{.*#+}} xmm2 = xmm3[0],xmm2[0],zero,zero
-; AVX512FP16-X86-NEXT:    vpbroadcastw {{[0-9]+}}(%esp), %xmm3
-; AVX512FP16-X86-NEXT:    vpblendw {{.*#+}} xmm2 = xmm2[0,1,2],xmm3[3],xmm2[4,5,6,7]
-; AVX512FP16-X86-NEXT:    vinsertps {{.*#+}} xmm1 = xmm2[0,1],xmm1[0],xmm2[3]
-; AVX512FP16-X86-NEXT:    vpbroadcastw {{[0-9]+}}(%esp), %xmm2
-; AVX512FP16-X86-NEXT:    vpblendw {{.*#+}} xmm1 = xmm1[0,1,2,3,4],xmm2[5],xmm1[6,7]
-; AVX512FP16-X86-NEXT:    vinsertps {{.*#+}} xmm0 = xmm1[0,1,2],xmm0[0]
-; AVX512FP16-X86-NEXT:    vpbroadcastw {{[0-9]+}}(%esp), %xmm1
-; AVX512FP16-X86-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1,2,3,4,5,6],xmm1[7]
+; AVX512FP16-X86-NEXT:    vpinsrw $1, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $2, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $3, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $4, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $5, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $6, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $7, {{[0-9]+}}(%esp), %xmm0, %xmm0
 ; AVX512FP16-X86-NEXT:    retl
   %a = insertelement <8 x bfloat> undef, bfloat %a0, i32 0
   %b = insertelement <8 x bfloat> %a, bfloat %a1, i32 1
@@ -1154,37 +1148,34 @@ define <8 x bfloat> @build_vector_xxxxxxxx(bfloat %a0, bfloat %a1, bfloat %a2, b
 define <16 x bfloat> @build_vector_xxxxuuuuuuuuxxxx(bfloat %a0, bfloat %a1, bfloat %a2, bfloat %a3, bfloat %a4, bfloat %a5, bfloat %a6, bfloat %a7) {
 ; AVX512FP16-X64-LABEL: build_vector_xxxxuuuuuuuuxxxx:
 ; AVX512FP16-X64:       # %bb.0:
-; AVX512FP16-X64-NEXT:    vpbroadcastw %xmm5, %xmm5
-; AVX512FP16-X64-NEXT:    vpbroadcastd %xmm4, %xmm4
-; AVX512FP16-X64-NEXT:    vpblendw {{.*#+}} xmm4 = xmm4[0,1,2,3,4],xmm5[5],xmm4[6,7]
-; AVX512FP16-X64-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1,2],xmm6[0]
-; AVX512FP16-X64-NEXT:    vpbroadcastw %xmm7, %xmm5
-; AVX512FP16-X64-NEXT:    vpblendw {{.*#+}} xmm4 = xmm4[0,1,2,3,4,5,6],xmm5[7]
-; AVX512FP16-X64-NEXT:    vpunpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
-; AVX512FP16-X64-NEXT:    vinsertps {{.*#+}} xmm0 = xmm0[0],xmm2[0],xmm0[2,3]
-; AVX512FP16-X64-NEXT:    vpbroadcastw %xmm3, %xmm1
-; AVX512FP16-X64-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1,2],xmm1[3],xmm0[4,5,6,7]
-; AVX512FP16-X64-NEXT:    vinserti128 $1, %xmm4, %ymm0, %ymm0
+; AVX512FP16-X64-NEXT:    vmovw %xmm3, %eax
+; AVX512FP16-X64-NEXT:    vmovw %xmm1, %ecx
+; AVX512FP16-X64-NEXT:    vmovw %xmm2, %edx
+; AVX512FP16-X64-NEXT:    vmovw %xmm7, %esi
+; AVX512FP16-X64-NEXT:    vmovw %xmm6, %edi
+; AVX512FP16-X64-NEXT:    vmovw %xmm4, %r8d
+; AVX512FP16-X64-NEXT:    vmovw %xmm5, %r9d
+; AVX512FP16-X64-NEXT:    vpinsrw $4, %r8d, %xmm0, %xmm1
+; AVX512FP16-X64-NEXT:    vpinsrw $5, %r9d, %xmm1, %xmm1
+; AVX512FP16-X64-NEXT:    vpinsrw $6, %edi, %xmm1, %xmm1
+; AVX512FP16-X64-NEXT:    vpinsrw $7, %esi, %xmm1, %xmm1
+; AVX512FP16-X64-NEXT:    vpinsrw $1, %ecx, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $2, %edx, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vpinsrw $3, %eax, %xmm0, %xmm0
+; AVX512FP16-X64-NEXT:    vinserti128 $1, %xmm1, %ymm0, %ymm0
 ; AVX512FP16-X64-NEXT:    retq
 ;
 ; AVX512FP16-X86-LABEL: build_vector_xxxxuuuuuuuuxxxx:
 ; AVX512FP16-X86:       # %bb.0:
 ; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm0
-; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm1
-; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm2
-; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm3
-; AVX512FP16-X86-NEXT:    vmovsh {{[0-9]+}}(%esp), %xmm4
-; AVX512FP16-X86-NEXT:    vbroadcastss %xmm4, %xmm4
-; AVX512FP16-X86-NEXT:    vpbroadcastw {{[0-9]+}}(%esp), %xmm5
-; AVX512FP16-X86-NEXT:    vpblendw {{.*#+}} xmm4 = xmm4[0,1,2,3,4],xmm5[5],xmm4[6,7]
-; AVX512FP16-X86-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0,1,2],xmm3[0]
-; AVX512FP16-X86-NEXT:    vpbroadcastw {{[0-9]+}}(%esp), %xmm4
-; AVX512FP16-X86-NEXT:    vpblendw {{.*#+}} xmm3 = xmm3[0,1,2,3,4,5,6],xmm4[7]
-; AVX512FP16-X86-NEXT:    vpunpcklwd {{.*#+}} xmm1 = xmm1[0],xmm2[0],xmm1[1],xmm2[1],xmm1[2],xmm2[2],xmm1[3],xmm2[3]
-; AVX512FP16-X86-NEXT:    vinsertps {{.*#+}} xmm0 = xmm1[0],xmm0[0],xmm1[2,3]
-; AVX512FP16-X86-NEXT:    vpbroadcastw {{[0-9]+}}(%esp), %xmm1
-; AVX512FP16-X86-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1,2],xmm1[3],xmm0[4,5,6,7]
-; AVX512FP16-X86-NEXT:    vinserti128 $1, %xmm3, %ymm0, %ymm0
+; AVX512FP16-X86-NEXT:    vpinsrw $1, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $2, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $3, {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX512FP16-X86-NEXT:    vpinsrw $4, {{[0-9]+}}(%esp), %xmm0, %xmm1
+; AVX512FP16-X86-NEXT:    vpinsrw $5, {{[0-9]+}}(%esp), %xmm1, %xmm1
+; AVX512FP16-X86-NEXT:    vpinsrw $6, {{[0-9]+}}(%esp), %xmm1, %xmm1
+; AVX512FP16-X86-NEXT:    vpinsrw $7, {{[0-9]+}}(%esp), %xmm1, %xmm1
+; AVX512FP16-X86-NEXT:    vinserti128 $1, %xmm1, %ymm0, %ymm0
 ; AVX512FP16-X86-NEXT:    retl
   %a = insertelement <16 x bfloat> undef, bfloat %a0, i32 0
   %b = insertelement <16 x bfloat> %a, bfloat %a1, i32 1

@@ -89,12 +89,10 @@
 ;CHECK-NEXT: Running analysis: CallGraphAnalysis
 ;CHECK-NEXT: Running pass: InvalidateAnalysisPass<llvm::AAManager>
 ;CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ProfileSummaryAnalysis{{.*}}>
-;CHECK-NEXT: Running analysis: ProfileSummaryAnalysis
 ;CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*SCC.*}}, {{.*Module.*}}>
 ;CHECK-NEXT: Running analysis: LazyCallGraphAnalysis
 ;CHECK-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
 ;CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*Module.*}}, {{.*SCC.*}}>
-;CHECK-NEXT: Running pass: InlinerPass
 ;CHECK-NEXT: Running pass: InlinerPass
 ;CHECK-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ;CHECK-NEXT: Running pass: SROAPass
@@ -352,7 +350,7 @@
 ;            Running analysis: DominatorTreeAnalysis
 ;            Running analysis: LoopAnalysis
 ;CHECK:      Running pass: MathLibraryFunctionsReplacementPass
-;CHECK:      Running pass: vpo::VPlanDriverPass
+;CHECK:      Running pass: vpo::VPlanDriverLLVMPass
 ;            Running analysis: ScalarEvolutionAnalysis
 ;            Running analysis: TargetLibraryAnalysis
 ;            Running analysis: AssumptionAnalysis

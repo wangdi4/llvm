@@ -1,5 +1,5 @@
 //INTEL_COLLAB
-//RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-version=50 \
+//RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-version=50 \
 //RUN:  -fopenmp-late-outline \
 //RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
@@ -85,7 +85,7 @@ void use_template() {
 // CHECK-LABEL: omp_kernel
 void omp_kernel(float * __restrict xxi) {
 //CHECK: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr %xxi.addr)
+//CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %xxi.addr
 //CHECK: "DIR.OMP.TARGET"()
 //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %xxi.addr)
  #pragma omp target teams distribute nowait is_device_ptr(xxi)
@@ -108,8 +108,8 @@ void zoo() {
 //CHECK: [[LREFPTR2:%[0-9]+]] = load ptr, ptr [[LREFPTR1]]
 //CHECK: "DIR.OMP.TARGET"()
 //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[LREFPTR2]]
-//CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[REFTMP]])
-//CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[REFTMP1]])
+//CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[REFTMP]]
+//CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[REFTMP1]]
 //CHECK-NEXT: store ptr [[LREFPTR2]], ptr [[REFTMP]]
 //CHECK-NEXT: store ptr [[REFTMP]], ptr [[REFTMP1]]
 #pragma omp target is_device_ptr(qref)

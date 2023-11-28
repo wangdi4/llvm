@@ -9,8 +9,8 @@ define void @preserve_add(ptr %base, i64 %n) {
 ; CHECK-NEXT:    br label [[LOOP_BODY:%.*]]
 ; CHECK:       loop.body:
 ; CHECK-NEXT:    [[INDVAR:%.*]] = phi i64 [ [[INDVAR_NEXT:%.*]], [[LOOP_BODY]] ], [ 0, [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[INDVAR_ADDONE:%.*]] = add nuw nsw i64 [[INDVAR]], 1
-; CHECK-NEXT:    [[PTR_ADDONE:%.*]] = getelementptr inbounds i64, ptr [[BASE:%.*]], i64 [[INDVAR_ADDONE]]
+; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr i64, ptr [[BASE:%.*]], i64 [[INDVAR]]
+; CHECK-NEXT:    [[PTR_ADDONE:%.*]] = getelementptr i64, ptr [[TMP0]], i64 1
 ; CHECK-NEXT:    [[VEC_ADDONE:%.*]] = load <16 x i64>, ptr [[PTR_ADDONE]], align 8
 ; CHECK-NEXT:    [[PTR:%.*]] = getelementptr inbounds i64, ptr [[BASE]], i64 [[INDVAR]]
 ; CHECK-NEXT:    [[VEC:%.*]] = load <16 x i64>, ptr [[PTR]], align 8

@@ -28,7 +28,8 @@ declare void @__cxa_throw(ptr, ptr, ptr)
 
 define void @foo(ptr %arg2) !intel.dtrans.func.type !20 {
 bb:
-  %i63 = tail call ptr @DummyAlloc(ptr %arg2, i64 and (i64 add (i64 ptrtoint (ptr getelementptr inbounds ([5 x i16], ptr @Arr, i64 0, i64 4) to i64), i64 sub (i64 2, i64 ptrtoint (ptr @Arr to i64))), i64 8589934590))
+  %0 = and i64 add (i64 ptrtoint (ptr getelementptr inbounds ([5 x i16], ptr @Arr, i64 0, i64 4) to i64), i64 sub (i64 2, i64 ptrtoint (ptr @Arr to i64))), 8589934590
+  %i63 = tail call ptr @DummyAlloc(ptr %arg2, i64 %0)
   unreachable
 }
 

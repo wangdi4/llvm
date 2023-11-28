@@ -2,7 +2,7 @@
 
 ; RUN: opt -passes=vplan-vec -vplan-force-vf=4 -disable-output -vplan-print-after-predicator < %s 2>&1 | FileCheck %s
 
-define void @jira_cmplrllvm_25053(i32* %a, i32 %b)  {
+define void @jira_cmplrllvm_25053(ptr %a, i32 %b)  {
 ; CHECK-LABEL:  VPlan after predicator:
 ; CHECK-NEXT:  VPlan IR for: jira_cmplrllvm_25053:header
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -16,8 +16,8 @@ define void @jira_cmplrllvm_25053(i32* %a, i32 %b)  {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i64 [[VP_IV]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr i32, ptr [[A0:%.*]] i64 [[VP_IV]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load ptr [[VP_GEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
@@ -100,8 +100,8 @@ entry:
 
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %latch ]
-  %gep = getelementptr i32, i32 *%a, i64 %iv
-  %ld = load i32, i32* %gep, align 4
+  %gep = getelementptr i32, ptr %a, i64 %iv
+  %ld = load i32, ptr %gep, align 4
   %uniform = icmp eq i32 %b,  42
   %varying = icmp eq i32 %ld,  42
   br label %bb0

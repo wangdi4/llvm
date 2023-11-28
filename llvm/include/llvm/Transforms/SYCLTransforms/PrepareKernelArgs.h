@@ -28,13 +28,10 @@ class AssumptionCache;
 /// calculated based on the arguments' alignment, which in non LLVM dependent.
 class PrepareKernelArgsPass : public PassInfoMixin<PrepareKernelArgsPass> {
 public:
-  PrepareKernelArgsPass(bool UseTLSGlobals = false) : UseTLSGlobals(UseTLSGlobals) {}
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M, bool UseTLSGlobals,
-               function_ref<AssumptionCache *(Function &F)> GetAC,
+  bool runImpl(Module &M, function_ref<AssumptionCache *(Function &F)> GetAC,
                ImplicitArgsInfo *IAInfo);
 
   static bool isRequired() { return true; }
@@ -73,15 +70,18 @@ private:
   /// \param Builder An IR builder that allows to add instructions to the
   /// wrapper.
   /// \param WrappedKernel The kernel which is wrapped by the wrapper.
-  /// \param ArgsBuffer The single buffer argument that is passed to the
-  /// wrapper. WrappedKernel arguments need to be loaded from this buffer.
-  /// \param WGId Workgroup IDs.
+  /// \param UniformArgsBuffer The single uniform buffer argument that is passed
+  /// to the wrapper. WrappedKernel arguments need to be loaded from this
+  /// buffer.
+  /// \param NonUniformArgsBuffer The single Non-uniform buffer
+  /// argument, which contains Workgroup IDs and heap memory address.
   /// \param RuntimeContext Runtime parameters.
-  /// \returns a parameters vector containing the loaded values that need to be
-  /// used when calling F.
+  /// \returns a parameters vector containing
+  /// the loaded values that need to be used when calling F.
   std::vector<Value *> createArgumentLoads(IRBuilder<> &Builder,
                                            Function *WrappedKernel,
-                                           Argument *ArgsBuffer, Argument *WGId,
+                                           Argument *UniformArgsBuffer,
+                                           Argument *NonUniformArgsBuffer,
                                            Argument *RuntimeContext);
 
   Type *getGIDWrapperArgType() const;
@@ -89,6 +89,16 @@ private:
 
   /// Create a dummy ret instruction in wrapped kernel.
   void createDummyRetWrappedKernel(Function *Wrapper, Function *F);
+
+  std::pair<Value *, Value *>
+  createHeapMemLoadCmpInst(IRBuilder<> &Builder,
+                           Argument *NonUniformArgsBuffer);
+
+  Value *allocaArrayForLocalPrivateBuffer(IRBuilder<> &Builder,
+                                          std::pair<Value *, Value *> HeapMem,
+                                          const DataLayout &DL,
+                                          Value *BufferSize, unsigned Alignment,
+                                          Value *HeapCurrentOffset);
 
 private:
   /// The llvm module this pass needs to update.
@@ -102,8 +112,8 @@ private:
 
   Type *ArgsBufferValueTy = nullptr;
 
-  /// Use TLS globals instead of implicit arguments.
-  bool UseTLSGlobals;
+  /// Has TLS globals instead of implicit arguments.
+  bool HasTLSGlobals = false;
 
   /// OpenCL 2.0 enqueue_kernel and kernel query functions.
   SmallVector<Function *, 8> EnqueueKernelAndQueryFuncs;

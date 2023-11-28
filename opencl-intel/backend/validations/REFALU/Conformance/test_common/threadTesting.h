@@ -10,9 +10,9 @@
 #define _threadTesting_h
 
 #ifdef __APPLE__
-#include <OpenCL/opencl.h>
+#include "OpenCL/opencl.h"
 #else
-#include <CL/cl.h>
+#include "CL/cl.h"
 #endif
 
 #define TEST_NOT_IMPLEMENTED -99

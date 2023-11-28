@@ -11,8 +11,10 @@ set(CPU_DEVICE_TEST_TYPE_LINK_LIBS
   CLElfLib
   CacheBinaryHandler
   LLVMBinaryFormat
+  LLVMDebugInfoBTF
   LLVMDebugInfoDWARF
   LLVMDebugInfoTraceBack
+  LLVMInstrumentation
   LLVMIntelJITEvents
   LLVMIntel_Debug
   LLVMMC

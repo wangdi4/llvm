@@ -515,6 +515,16 @@ def VOP3_CVT_SR_F8_F32_Profile : VOP3_Profile<VOPProfile<[i32, f32, i32, f32]>,
   let HasExtVOP3DPP = 0;
 }
 
+def IsPow2Plus1: PatLeaf<(i32 imm), [{
+  uint32_t V = N->getZExtValue();
+  return isPowerOf2_32(V - 1);
+}]>;
+
+def Log2_32: SDNodeXForm<imm, [{
+  uint32_t V = N->getZExtValue();
+  return CurDAG->getTargetConstant(Log2_32(V - 1), SDLoc(N), MVT::i32);
+}]>;
+
 let SubtargetPredicate = isGFX9Plus in {
 let isCommutable = 1, isReMaterializable = 1 in {
   defm V_ADD3_U32 : VOP3Inst <"v_add3_u32", VOP3_Profile<VOP_I32_I32_I32_I32>>;
@@ -612,6 +622,10 @@ def : ThreeOp_i32_Pats<and, or, V_AND_OR_B32_e64>;
 def : ThreeOp_i32_Pats<or, or, V_OR3_B32_e64>;
 def : ThreeOp_i32_Pats<xor, add, V_XAD_U32_e64>;
 
+def : GCNPat<
+ (DivergentBinFrag<mul> i32:$src0, IsPow2Plus1:$src1),
+ (V_LSHL_ADD_U32_e64 i32:$src0, (i32 (Log2_32 imm:$src1)), i32:$src0)>;
+
 let SubtargetPredicate = isGFX940Plus in
 def : GCNPat<
   (ThreeOpFrag<shl_0_to_4, add> i64:$src0, i32:$src1, i64:$src2),
@@ -681,7 +695,9 @@ def VOP3_PERMLANE_Profile : VOP3_Profile<VOPProfile <[i32, i32, i32, i32]>, VOP3
 }
 
 def opsel_i1timm : SDNodeXForm<timm, [{
-  return CurDAG->getTargetConstant(N->getZExtValue() ? SISrcMods::OP_SEL_0 : 0, SDLoc(N), MVT::i32);
+  return CurDAG->getTargetConstant(
+      N->getZExtValue() ? SISrcMods::OP_SEL_0 : SISrcMods::NONE,
+      SDLoc(N), MVT::i32);
 }]>;
 def gi_opsel_i1timm : GICustomOperandRenderer<"renderOpSelTImm">,
   GISDNodeXFormEquiv<opsel_i1timm>;

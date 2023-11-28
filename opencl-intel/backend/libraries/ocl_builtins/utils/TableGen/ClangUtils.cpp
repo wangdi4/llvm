@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,12 +14,11 @@
 
 #include "ClangUtils.h"
 #include "cl_device_api.h"
+#include "llvm/Support/FileSystem.h"
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
-
-#include "llvm/Support/FileSystem.h"
 
 static std::string getZeroLiteral(const std::string &type) {
   if ("char" == type || "short" == type || "int" == type || "uchar" == type ||
@@ -53,13 +52,9 @@ void build(const std::string &code, std::string fileName) {
   const char *wide_vec_types_include_dir = XSTR(CL_BUILTIN_SOURCE_DIR);
 
   std::stringstream options;
-  options
-      << "-cc1 -x cl -emit-llvm-bc "
-         "-disable-intel-proprietary-opts " // INTEL
-         "-include opencl-c.h -include long_vector_types.h";
-#ifndef SPIRV_ENABLE_OPAQUE_POINTERS
-  options << " -no-opaque-pointers";
-#endif
+  options << "-cc1 -x cl -emit-llvm-bc "
+             "-disable-intel-proprietary-opts " // INTEL
+             "-include opencl-c.h -include long_vector_types.h";
   options << " "
           << "-opencl-builtins -fblocks -cl-std=CL3.0";
   options << " "

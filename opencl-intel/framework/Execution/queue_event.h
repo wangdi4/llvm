@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,11 +13,11 @@
 // License.
 
 #pragma once
+#include "cl_object.h"
+#include "cl_types.h"
 #include "ocl_event.h"
 #include "ocl_itt.h"
 #include "queue_event.h"
-#include <cl_object.h>
-#include <cl_types.h>
 #include <mutex>
 
 namespace Intel {

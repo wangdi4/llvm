@@ -655,10 +655,6 @@ bool run_multi_devices_sub_buffer_simple_test(const char *test_name) {
 
     assert(num_devices > 0);
     pDevices = new cl_device_id[num_devices];
-    if (NULL == pDevices) {
-      bResult = false;
-      break;
-    }
 
     cl_uint num_devices_ret = 0;
     iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num_devices, pDevices,
@@ -710,10 +706,6 @@ bool run_multi_devices_sub_buffer_simple_test(const char *test_name) {
     }
 
     clSubBuffArr = new cl_mem[num_devices];
-    if (NULL == clSubBuffArr) {
-      bResult = false;
-      break;
-    }
 
     cl_buffer_region region;
     region.origin = 0;
@@ -746,10 +738,6 @@ bool run_multi_devices_sub_buffer_simple_test(const char *test_name) {
     }
 
     clCommandQueues = new cl_command_queue[num_devices];
-    if (NULL == clCommandQueues) {
-      bResult = false;
-      break;
-    }
 
     for (unsigned int i = 0; i < num_devices; i++) {
       clCommandQueues[i] = clCreateCommandQueueWithProperties(

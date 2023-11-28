@@ -1,6 +1,6 @@
 //===- IntelVPlanAlignmentAnalysisTest.cpp ----------------------*- C++ -*-===//
 //
-//   Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -75,7 +75,7 @@ protected:
   std::unique_ptr<VPlanValueTrackingLLVM> VPVT;
   std::unique_ptr<VPlanPeelingAnalysis> VPPA;
 
-  void buildVPlanFromString(const char* ModuleString) {
+  void buildVPlanFromString(const char *ModuleString) {
     Module &M = parseModule(ModuleString);
     FuncFoo = M.getFunction("foo");
     BasicBlock *LoopHeader = FuncFoo->getEntryBlock().getSingleSuccessor();
@@ -84,7 +84,7 @@ protected:
 
   void commonSetup() {
     VPSE = std::make_unique<VPlanScalarEvolutionLLVM>(
-      *SE, *LI->begin(), FuncFoo->getContext(), DL.get());
+        *SE, *LI->begin(), FuncFoo->getContext(), DL.get());
     VPVT = std::make_unique<VPlanValueTrackingLLVM>(*VPSE, *DL, Plan->getVPAC(),
                                                     &*DT, Plan->getDT());
   }
@@ -105,8 +105,8 @@ protected:
 // is useful for testing purposes.
 class VPlanPeelingCostModelLog final : public VPlanPeelingCostModel {
 public:
-  VPInstructionCost
-  getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override {
+  VPInstructionCost getCost(VPLoadStoreInst *Mrf, int VF,
+                            Align Alignment) override {
     return -1 * static_cast<int>(Log2(Alignment));
   }
 };
@@ -114,23 +114,25 @@ public:
 TEST_F(VPlanPeelingAnalysisTest, NoPeeling_NoUnitStride) {
   // No peeling, since there's no unit-strided store or load in the loop.
   buildVPlanFromString(
-    "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
-    "entry:\n"
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %counter_times_two = mul nsw nuw i64 %counter, 2\n"
-    "  %src.ptr = getelementptr inbounds i32, i32* %src, i64 %counter_times_two\n"
-    "  %src.val = load i32, i32* %src.ptr, align 4\n"
-    "  %dst.val = add i32 %src.val, 42\n"
-    "  %dst.ptr = getelementptr inbounds i32, i32* %dst, i64 %counter_times_two\n"
-    "  store i32 %dst.val, i32* %dst.ptr, align 4\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, %size\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo(ptr %dst, ptr %src, i64 %size) {\n"
+      "entry:\n"
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %counter_times_two = mul nsw nuw i64 %counter, 2\n"
+      "  %src.ptr = getelementptr inbounds i32, ptr %src, i64 "
+      "%counter_times_two\n"
+      "  %src.val = load i32, ptr %src.ptr, align 4\n"
+      "  %dst.val = add i32 %src.val, 42\n"
+      "  %dst.ptr = getelementptr inbounds i32, ptr %dst, i64 "
+      "%counter_times_two\n"
+      "  store i32 %dst.val, ptr %dst.ptr, align 4\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, %size\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   VPlanPeelingCostModelLog CM;
   setupPeelingAnalysis();
@@ -139,58 +141,58 @@ TEST_F(VPlanPeelingAnalysisTest, NoPeeling_NoUnitStride) {
   for (auto VF : VFs) {
     std::unique_ptr<VPlanPeelingVariant> PV =
         VPPA->selectBestPeelingVariant(VF, CM, true);
-    ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV));
-    VPlanStaticPeeling &SP = cast<VPlanStaticPeeling>(*PV);
-    EXPECT_EQ(SP.peelCount(), 0);
+    ASSERT_TRUE(isa<VPlanNoPeeling>(*PV));
   }
 }
 
 TEST_F(VPlanPeelingAnalysisTest, NoPeeling_Misalign) {
-  // No peeling, since there's no properly aligned memory references in the loop.
+  // No peeling, since there's no properly aligned memory references in the
+  // loop.
   buildVPlanFromString(
-    "define void @foo(i16* %buf1, i32* %buf2, i32* %buf3, i32* %buf4, i64* %buf5) {\n"
-    "entry:\n"
-    "  %buf1.asInt = ptrtoint i16* %buf1 to i64\n"
-    "  %buf2.asInt = ptrtoint i32* %buf2 to i64\n"
-    "  %buf3.asInt = ptrtoint i32* %buf3 to i64\n"
-    "  %buf4.asInt = ptrtoint i32* %buf4 to i64\n"
-    "  %buf5.asInt = ptrtoint i64* %buf5 to i64\n"
-    "  %tmp1 = and i64 %buf1.asInt, -1024\n"
-    "  %tmp2 = and i64 %buf2.asInt, -1024\n"
-    "  %tmp3 = and i64 %buf3.asInt, -1024\n"
-    "  %tmp4 = and i64 %buf4.asInt, -1024\n"
-    "  %tmp5 = and i64 %buf5.asInt, -1024\n"
-    "  %ptr1.asInt = or i64 %tmp1, 3\n"
-    "  %ptr2.asInt = or i64 %tmp2, 5\n"
-    "  %ptr3.asInt = or i64 %tmp3, 6\n"
-    "  %ptr4.asInt = or i64 %tmp4, 7\n"
-    "  %ptr5.asInt = or i64 %tmp5, 10\n"
-    "  %ptr1 = inttoptr i64 %ptr1.asInt to i16*\n"
-    "  %ptr2 = inttoptr i64 %ptr2.asInt to i32*\n"
-    "  %ptr3 = inttoptr i64 %ptr3.asInt to i32*\n"
-    "  %ptr4 = inttoptr i64 %ptr4.asInt to i32*\n"
-    "  %ptr5 = inttoptr i64 %ptr5.asInt to i64*\n"
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %count16 = trunc i64 %counter to i16\n"
-    "  %count32 = trunc i64 %counter to i32\n"
-    "  %p1 = getelementptr inbounds i16, i16* %ptr1, i64 %counter\n"
-    "  %p2 = getelementptr inbounds i32, i32* %ptr2, i64 %counter\n"
-    "  %p3 = getelementptr inbounds i32, i32* %ptr3, i64 %counter\n"
-    "  %p4 = getelementptr inbounds i32, i32* %ptr4, i64 %counter\n"
-    "  %p5 = getelementptr inbounds i64, i64* %ptr5, i64 %counter\n"
-    "  store i16 %count16, i16* %p1, align 1\n"
-    "  store i32 %count32, i32* %p2, align 1\n"
-    "  store i32 %count32, i32* %p3, align 1\n"
-    "  store i32 %count32, i32* %p4, align 1\n"
-    "  store i64 %counter, i64* %p5, align 1\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo(ptr %buf1, ptr %buf2, ptr %buf3, ptr %buf4, ptr %buf5) "
+      "{\n"
+      "entry:\n"
+      "  %buf1.asInt = ptrtoint ptr %buf1 to i64\n"
+      "  %buf2.asInt = ptrtoint ptr %buf2 to i64\n"
+      "  %buf3.asInt = ptrtoint ptr %buf3 to i64\n"
+      "  %buf4.asInt = ptrtoint ptr %buf4 to i64\n"
+      "  %buf5.asInt = ptrtoint ptr %buf5 to i64\n"
+      "  %tmp1 = and i64 %buf1.asInt, -1024\n"
+      "  %tmp2 = and i64 %buf2.asInt, -1024\n"
+      "  %tmp3 = and i64 %buf3.asInt, -1024\n"
+      "  %tmp4 = and i64 %buf4.asInt, -1024\n"
+      "  %tmp5 = and i64 %buf5.asInt, -1024\n"
+      "  %ptr1.asInt = or i64 %tmp1, 3\n"
+      "  %ptr2.asInt = or i64 %tmp2, 5\n"
+      "  %ptr3.asInt = or i64 %tmp3, 6\n"
+      "  %ptr4.asInt = or i64 %tmp4, 7\n"
+      "  %ptr5.asInt = or i64 %tmp5, 10\n"
+      "  %ptr1 = inttoptr i64 %ptr1.asInt to ptr\n"
+      "  %ptr2 = inttoptr i64 %ptr2.asInt to ptr\n"
+      "  %ptr3 = inttoptr i64 %ptr3.asInt to ptr\n"
+      "  %ptr4 = inttoptr i64 %ptr4.asInt to ptr\n"
+      "  %ptr5 = inttoptr i64 %ptr5.asInt to ptr\n"
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %count16 = trunc i64 %counter to i16\n"
+      "  %count32 = trunc i64 %counter to i32\n"
+      "  %p1 = getelementptr inbounds i16, ptr %ptr1, i64 %counter\n"
+      "  %p2 = getelementptr inbounds i32, ptr %ptr2, i64 %counter\n"
+      "  %p3 = getelementptr inbounds i32, ptr %ptr3, i64 %counter\n"
+      "  %p4 = getelementptr inbounds i32, ptr %ptr4, i64 %counter\n"
+      "  %p5 = getelementptr inbounds i64, ptr %ptr5, i64 %counter\n"
+      "  store i16 %count16, ptr %p1, align 1\n"
+      "  store i32 %count32, ptr %p2, align 1\n"
+      "  store i32 %count32, ptr %p3, align 1\n"
+      "  store i32 %count32, ptr %p4, align 1\n"
+      "  store i64 %counter, ptr %p5, align 1\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   VPlanPeelingCostModelLog CM;
   setupPeelingAnalysis();
@@ -199,31 +201,29 @@ TEST_F(VPlanPeelingAnalysisTest, NoPeeling_Misalign) {
   for (auto VF : VFs) {
     std::unique_ptr<VPlanPeelingVariant> PV =
         VPPA->selectBestPeelingVariant(VF, CM, true);
-    ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV));
-    VPlanStaticPeeling &SP = cast<VPlanStaticPeeling>(*PV);
-    EXPECT_EQ(SP.peelCount(), 0);
+    ASSERT_TRUE(isa<VPlanNoPeeling>(*PV));
   }
 }
 
 TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Store) {
   // Peeling for a store must be preferred to a load of the same type.
   buildVPlanFromString(
-    "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
-    "entry:\n"
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %src.ptr = getelementptr inbounds i32, i32* %src, i64 %counter\n"
-    "  %src.val = load i32, i32* %src.ptr, align 4\n"
-    "  %dst.val = add i32 %src.val, 42\n"
-    "  %dst.ptr = getelementptr inbounds i32, i32* %dst, i64 %counter\n"
-    "  store i32 %dst.val, i32* %dst.ptr, align 4\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, %size\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo(ptr %dst, ptr %src, i64 %size) {\n"
+      "entry:\n"
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %src.ptr = getelementptr inbounds i32, ptr %src, i64 %counter\n"
+      "  %src.val = load i32, ptr %src.ptr, align 4\n"
+      "  %dst.val = add i32 %src.val, 42\n"
+      "  %dst.ptr = getelementptr inbounds i32, ptr %dst, i64 %counter\n"
+      "  store i32 %dst.val, ptr %dst.ptr, align 4\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, %size\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   VPlanPeelingCostModelSimple CM(*DL);
   setupPeelingAnalysis();
@@ -254,23 +254,24 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Load) {
   // The store in the function is not unit-strided, so the cost model has no
   // other choice but to choose the load as peeling target.
   buildVPlanFromString(
-    "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
-    "entry:\n"
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %src.ptr = getelementptr inbounds i32, i32* %src, i64 %counter\n"
-    "  %src.val = load i32, i32* %src.ptr, align 4\n"
-    "  %dst.val = add i32 %src.val, 42\n"
-    "  %counter_times_two = mul nsw nuw i64 %counter, 2\n"
-    "  %dst.ptr = getelementptr inbounds i32, i32* %dst, i64 %counter_times_two\n"
-    "  store i32 %dst.val, i32* %dst.ptr, align 4\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, %size\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo(ptr %dst, ptr %src, i64 %size) {\n"
+      "entry:\n"
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %src.ptr = getelementptr inbounds i32, ptr %src, i64 %counter\n"
+      "  %src.val = load i32, ptr %src.ptr, align 4\n"
+      "  %dst.val = add i32 %src.val, 42\n"
+      "  %counter_times_two = mul nsw nuw i64 %counter, 2\n"
+      "  %dst.ptr = getelementptr inbounds i32, ptr %dst, i64 "
+      "%counter_times_two\n"
+      "  store i32 %dst.val, ptr %dst.ptr, align 4\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, %size\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   VPlanPeelingCostModelSimple CM(*DL);
   setupPeelingAnalysis();
@@ -299,44 +300,44 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Load) {
 
 TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
   buildVPlanFromString(
-    "define void @foo(i32 *%buf, i64 %x) {\n"
-    "entry:\n"
-    "  %offset0 = mul i64 %x, 16\n"
-    "  %offset1 = mul i64 %x, 32\n"
-    "  %offset2 = mul i64 %x, 64\n"
-    "  %offset3 = add i64 %offset0, 3\n"
-    "  %offset4 = add i64 %offset1, 5\n"
-    "  %offset5 = add i64 %offset2, 7\n"
-    // %ptr1 = %buf + 128 * %x
-    "  %ptr1 = getelementptr inbounds i32, i32* %buf, i64 %offset1\n"
-    // %ptr2 = %buf + 256 * %x
-    "  %ptr2 = getelementptr inbounds i32, i32* %buf, i64 %offset2\n"
-    // %ptr3 = %buf + 64 * %x + 12
-    "  %ptr3 = getelementptr inbounds i32, i32* %buf, i64 %offset3\n"
-    // %ptr4 = %buf + 128 * %x + 20
-    "  %ptr4 = getelementptr inbounds i32, i32* %buf, i64 %offset4\n"
-    // %ptr5 = %buf + 256 * %x + 28
-    "  %ptr5 = getelementptr inbounds i32, i32* %buf, i64 %offset5\n"
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %count32 = trunc i64 %counter to i32\n"
-    "  %p1 = getelementptr inbounds i32, i32* %ptr1, i64 %counter\n"
-    "  %p2 = getelementptr inbounds i32, i32* %ptr2, i64 %counter\n"
-    "  %p3 = getelementptr inbounds i32, i32* %ptr3, i64 %counter\n"
-    "  %p4 = getelementptr inbounds i32, i32* %ptr4, i64 %counter\n"
-    "  %p5 = getelementptr inbounds i32, i32* %ptr5, i64 %counter\n"
-    "  store i32 %count32, i32* %p1\n"
-    "  store i32 %count32, i32* %p2\n"
-    "  store i32 %count32, i32* %p3\n"
-    "  store i32 %count32, i32* %p4\n"
-    "  store i32 %count32, i32* %p5\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo(ptr %buf, i64 %x) {\n"
+      "entry:\n"
+      "  %offset0 = mul i64 %x, 16\n"
+      "  %offset1 = mul i64 %x, 32\n"
+      "  %offset2 = mul i64 %x, 64\n"
+      "  %offset3 = add i64 %offset0, 3\n"
+      "  %offset4 = add i64 %offset1, 5\n"
+      "  %offset5 = add i64 %offset2, 7\n"
+      // %ptr1 = %buf + 128 * %x
+      "  %ptr1 = getelementptr inbounds i32, ptr %buf, i64 %offset1\n"
+      // %ptr2 = %buf + 256 * %x
+      "  %ptr2 = getelementptr inbounds i32, ptr %buf, i64 %offset2\n"
+      // %ptr3 = %buf + 64 * %x + 12
+      "  %ptr3 = getelementptr inbounds i32, ptr %buf, i64 %offset3\n"
+      // %ptr4 = %buf + 128 * %x + 20
+      "  %ptr4 = getelementptr inbounds i32, ptr %buf, i64 %offset4\n"
+      // %ptr5 = %buf + 256 * %x + 28
+      "  %ptr5 = getelementptr inbounds i32, ptr %buf, i64 %offset5\n"
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %count32 = trunc i64 %counter to i32\n"
+      "  %p1 = getelementptr inbounds i32, ptr %ptr1, i64 %counter\n"
+      "  %p2 = getelementptr inbounds i32, ptr %ptr2, i64 %counter\n"
+      "  %p3 = getelementptr inbounds i32, ptr %ptr3, i64 %counter\n"
+      "  %p4 = getelementptr inbounds i32, ptr %ptr4, i64 %counter\n"
+      "  %p5 = getelementptr inbounds i32, ptr %ptr5, i64 %counter\n"
+      "  store i32 %count32, ptr %p1\n"
+      "  store i32 %count32, ptr %p2\n"
+      "  store i32 %count32, ptr %p3\n"
+      "  store i32 %count32, ptr %p4\n"
+      "  store i32 %count32, ptr %p5\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   VPlanPeelingCostModelLog CM;
   setupPeelingAnalysis();
@@ -350,7 +351,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
   // disabled.
   std::unique_ptr<VPlanPeelingVariant> PV4_s =
       VPPA->selectBestPeelingVariant(4, CM, false);
-  EXPECT_TRUE(isa<VPlanStaticPeeling>(*PV4_s));
+  EXPECT_TRUE(isa<VPlanNoPeeling>(*PV4_s));
 
   // VF = 4.
   // Best alignment:
@@ -395,36 +396,36 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_LowPeelCount) {
   // Static peeling with lower PeelCount should be preferred to peeling with
   // higher PeelCount if the profit is the same (same access type).
   buildVPlanFromString(
-    "define void @foo(i32* %buf1, i32* %buf2, i32* %buf3) {\n"
-    "entry:\n"
-    "  %buf1.asInt = ptrtoint i32* %buf1 to i64\n"
-    "  %buf2.asInt = ptrtoint i32* %buf2 to i64\n"
-    "  %buf3.asInt = ptrtoint i32* %buf3 to i64\n"
-    "  %tmp1 = and i64 %buf1.asInt, -64\n"
-    "  %tmp2 = and i64 %buf2.asInt, -64\n"
-    "  %tmp3 = and i64 %buf3.asInt, -64\n"
-    "  %ptr1.asInt = or i64 %tmp1, 52\n"
-    "  %ptr2.asInt = or i64 %tmp2, 12\n"
-    "  %ptr3.asInt = or i64 %tmp3, 24\n"
-    "  %ptr1 = inttoptr i64 %ptr1.asInt to i32*\n" /* %ptr1 ≡ 52 (mod 64) */
-    "  %ptr2 = inttoptr i64 %ptr2.asInt to i32*\n" /* %ptr2 ≡ 12 (mod 64) */
-    "  %ptr3 = inttoptr i64 %ptr3.asInt to i32*\n" /* %ptr3 ≡ 24 (mod 64) */
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %count32 = trunc i64 %counter to i32\n"
-    "  %p1 = getelementptr inbounds i32, i32* %ptr1, i64 %counter\n"
-    "  %p2 = getelementptr inbounds i32, i32* %ptr2, i64 %counter\n"
-    "  %p3 = getelementptr inbounds i32, i32* %ptr3, i64 %counter\n"
-    "  store i32 %count32, i32* %p1\n"
-    "  store i32 %count32, i32* %p2\n"
-    "  store i32 %count32, i32* %p3\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo(ptr %buf1, ptr %buf2, ptr %buf3) {\n"
+      "entry:\n"
+      "  %buf1.asInt = ptrtoint ptr %buf1 to i64\n"
+      "  %buf2.asInt = ptrtoint ptr %buf2 to i64\n"
+      "  %buf3.asInt = ptrtoint ptr %buf3 to i64\n"
+      "  %tmp1 = and i64 %buf1.asInt, -64\n"
+      "  %tmp2 = and i64 %buf2.asInt, -64\n"
+      "  %tmp3 = and i64 %buf3.asInt, -64\n"
+      "  %ptr1.asInt = or i64 %tmp1, 52\n"
+      "  %ptr2.asInt = or i64 %tmp2, 12\n"
+      "  %ptr3.asInt = or i64 %tmp3, 24\n"
+      "  %ptr1 = inttoptr i64 %ptr1.asInt to ptr\n" /* %ptr1 ≡ 52 (mod 64) */
+      "  %ptr2 = inttoptr i64 %ptr2.asInt to ptr\n" /* %ptr2 ≡ 12 (mod 64) */
+      "  %ptr3 = inttoptr i64 %ptr3.asInt to ptr\n" /* %ptr3 ≡ 24 (mod 64) */
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %count32 = trunc i64 %counter to i32\n"
+      "  %p1 = getelementptr inbounds i32, ptr %ptr1, i64 %counter\n"
+      "  %p2 = getelementptr inbounds i32, ptr %ptr2, i64 %counter\n"
+      "  %p3 = getelementptr inbounds i32, ptr %ptr3, i64 %counter\n"
+      "  store i32 %count32, ptr %p1\n"
+      "  store i32 %count32, ptr %p2\n"
+      "  store i32 %count32, ptr %p3\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   VPlanPeelingCostModelSimple CM(*DL);
   setupPeelingAnalysis();
@@ -452,29 +453,29 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_StoreVsLoad) {
   // Peeling for the store must be preferred even if it results in higher
   // PeelCount.
   buildVPlanFromString(
-    "define void @foo(i16* %buf1, i16* %buf2) {\n"
-    "entry:\n"
-    "  %buf1.asInt = ptrtoint i16* %buf1 to i64\n"
-    "  %buf2.asInt = ptrtoint i16* %buf2 to i64\n"
-    "  %tmp1 = and i64 %buf1.asInt, -64\n"
-    "  %tmp2 = and i64 %buf2.asInt, -64\n"
-    "  %ptr1.asInt = or i64 %tmp1, 62\n"
-    "  %ptr2.asInt = or i64 %tmp2,  2\n"
-    "  %ptr1 = inttoptr i64 %ptr1.asInt to i16*\n" /* %ptr1 ≡ 62 (mod 64) */
-    "  %ptr2 = inttoptr i64 %ptr2.asInt to i16*\n" /* %ptr2 ≡ 2 (mod 64) */
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %p1 = getelementptr inbounds i16, i16* %ptr1, i64 %counter\n"
-    "  %val = load i16, i16* %p1\n"
-    "  %p2 = getelementptr inbounds i16, i16* %ptr2, i64 %counter\n"
-    "  store i16 %val, i16* %p2\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo(ptr %buf1, ptr %buf2) {\n"
+      "entry:\n"
+      "  %buf1.asInt = ptrtoint ptr %buf1 to i64\n"
+      "  %buf2.asInt = ptrtoint ptr %buf2 to i64\n"
+      "  %tmp1 = and i64 %buf1.asInt, -64\n"
+      "  %tmp2 = and i64 %buf2.asInt, -64\n"
+      "  %ptr1.asInt = or i64 %tmp1, 62\n"
+      "  %ptr2.asInt = or i64 %tmp2,  2\n"
+      "  %ptr1 = inttoptr i64 %ptr1.asInt to ptr\n" /* %ptr1 ≡ 62 (mod 64) */
+      "  %ptr2 = inttoptr i64 %ptr2.asInt to ptr\n" /* %ptr2 ≡ 2 (mod 64) */
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %p1 = getelementptr inbounds i16, ptr %ptr1, i64 %counter\n"
+      "  %val = load i16, ptr %p1\n"
+      "  %p2 = getelementptr inbounds i16, ptr %ptr2, i64 %counter\n"
+      "  store i16 %val, ptr %p2\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   VPlanPeelingCostModelSimple CM(*DL);
   setupPeelingAnalysis();
@@ -514,45 +515,43 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_DoubleLoad) {
   // Two loads (i8 and i32) can be aligned simultaneously. So, a static peeling
   // to align both loads should be preferred to aligning the single i32 store.
   buildVPlanFromString(
-    "define void @foo(i8* %buf1, i8* %buf2, i8* %buf3) {\n"
-    "entry:\n"
-    "  %buf1.asInt = ptrtoint i8* %buf1 to i64\n"
-    "  %buf2.asInt = ptrtoint i8* %buf2 to i64\n"
-    "  %buf3.asInt = ptrtoint i8* %buf3 to i64\n"
-    "  %tmp1 = and i64 %buf1.asInt, -64\n"
-    "  %tmp2 = and i64 %buf2.asInt, -64\n"
-    "  %tmp3 = and i64 %buf3.asInt, -64\n"
-    "  %ptr1.asInt = or i64 %tmp1, 14\n"
-    "  %ptr2.asInt = or i64 %tmp2, 14\n"
-    "  %ptr3.asInt = or i64 %tmp3, 11\n"
-    "  %ptr1 = inttoptr i64 %ptr1.asInt to i8*\n" // %ptr1 ≡ 14 (mod 64)
-    "  %ptr2 = inttoptr i64 %ptr2.asInt to i8*\n" // %ptr2 ≡ 14 (mod 64)
-    "  %ptr3 = inttoptr i64 %ptr3.asInt to i8*\n" // %ptr3 ≡ 11 (mod 64)
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %p1 = getelementptr inbounds i8, i8* %ptr1, i64 %counter\n"
-    "  %p2 = getelementptr inbounds i8, i8* %ptr2, i64 %counter\n"
-    "  %v1 = load i8, i8* %p1\n"
-    "  %v2 = load i8, i8* %p2\n"
-    "  %v3 = add i8 %v1, %v2\n"
-    "  %p3 = getelementptr inbounds i8, i8* %ptr3, i64 %counter\n"
-    "  store i8 %v3, i8* %p3\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo(ptr %buf1, ptr %buf2, ptr %buf3) {\n"
+      "entry:\n"
+      "  %buf1.asInt = ptrtoint ptr %buf1 to i64\n"
+      "  %buf2.asInt = ptrtoint ptr %buf2 to i64\n"
+      "  %buf3.asInt = ptrtoint ptr %buf3 to i64\n"
+      "  %tmp1 = and i64 %buf1.asInt, -64\n"
+      "  %tmp2 = and i64 %buf2.asInt, -64\n"
+      "  %tmp3 = and i64 %buf3.asInt, -64\n"
+      "  %ptr1.asInt = or i64 %tmp1, 14\n"
+      "  %ptr2.asInt = or i64 %tmp2, 14\n"
+      "  %ptr3.asInt = or i64 %tmp3, 11\n"
+      "  %ptr1 = inttoptr i64 %ptr1.asInt to ptr\n" // %ptr1 ≡ 14 (mod 64)
+      "  %ptr2 = inttoptr i64 %ptr2.asInt to ptr\n" // %ptr2 ≡ 14 (mod 64)
+      "  %ptr3 = inttoptr i64 %ptr3.asInt to ptr\n" // %ptr3 ≡ 11 (mod 64)
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %p1 = getelementptr inbounds i8, ptr %ptr1, i64 %counter\n"
+      "  %p2 = getelementptr inbounds i8, ptr %ptr2, i64 %counter\n"
+      "  %v1 = load i8, ptr %p1\n"
+      "  %v2 = load i8, ptr %p2\n"
+      "  %v3 = add i8 %v1, %v2\n"
+      "  %p3 = getelementptr inbounds i8, ptr %ptr3, i64 %counter\n"
+      "  store i8 %v3, ptr %p3\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   VPlanPeelingCostModelSimple CM(*DL);
   setupPeelingAnalysis();
 
   std::unique_ptr<VPlanPeelingVariant> PV2 =
       VPPA->selectBestPeelingVariant(2, CM, true);
-  ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV2));
-  VPlanStaticPeeling &SP2 = cast<VPlanStaticPeeling>(*PV2);
-  EXPECT_EQ(SP2.peelCount(), 0); // Make loads aligned by 2.
+  ASSERT_TRUE(isa<VPlanNoPeeling>(*PV2));
 
   std::unique_ptr<VPlanPeelingVariant> PV4 =
       VPPA->selectBestPeelingVariant(4, CM, true);
@@ -592,57 +591,57 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   // %p2, %p3, and with large VF it is more profitable to align pointers %p4,
   // %p5, %p6.
   buildVPlanFromString(
-    "define void @foo( i8* %buf1, i16* %buf2, i32* %buf3,\n"
-    "                 i16* %buf4, i32* %buf5, i64* %buf6) {\n"
-    "entry:\n"
-    "  %buf1.asInt = ptrtoint  i8* %buf1 to i64\n"
-    "  %buf2.asInt = ptrtoint i16* %buf2 to i64\n"
-    "  %buf3.asInt = ptrtoint i32* %buf3 to i64\n"
-    "  %buf4.asInt = ptrtoint i16* %buf4 to i64\n"
-    "  %buf5.asInt = ptrtoint i32* %buf5 to i64\n"
-    "  %buf6.asInt = ptrtoint i64* %buf6 to i64\n"
-    "  %tmp1 = and i64 %buf1.asInt, -1024\n"
-    "  %tmp2 = and i64 %buf2.asInt, -1024\n"
-    "  %tmp3 = and i64 %buf3.asInt, -1024\n"
-    "  %tmp4 = and i64 %buf4.asInt, -1024\n"
-    "  %tmp5 = and i64 %buf5.asInt, -1024\n"
-    "  %tmp6 = and i64 %buf6.asInt, -1024\n"
-    "  %ptr1.asInt = or i64 %tmp1, 556\n" // = 512 + 44
-    "  %ptr2.asInt = or i64 %tmp2, 260\n" // = 256 + 4
-    "  %ptr3.asInt = or i64 %tmp3, 664\n" // = 512 + 128 + 24
-    "  %ptr4.asInt = or i64 %tmp4, 418\n" // = 256 + 128 + 34
-    "  %ptr5.asInt = or i64 %tmp5, 636\n" // = 512 + 64 + 60
-    "  %ptr6.asInt = or i64 %tmp6, 840\n" // = 512 + 256 + 72
-    "  %ptr1 = inttoptr i64 %ptr1.asInt to i8*\n"
-    "  %ptr2 = inttoptr i64 %ptr2.asInt to i16*\n"
-    "  %ptr3 = inttoptr i64 %ptr3.asInt to i32*\n"
-    "  %ptr4 = inttoptr i64 %ptr4.asInt to i16*\n"
-    "  %ptr5 = inttoptr i64 %ptr5.asInt to i32*\n"
-    "  %ptr6 = inttoptr i64 %ptr6.asInt to i64*\n"
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %counte8 = trunc i64 %counter to i8\n"
-    "  %count16 = trunc i64 %counter to i16\n"
-    "  %count32 = trunc i64 %counter to i32\n"
-    "  %p1 = getelementptr inbounds  i8,  i8* %ptr1, i64 %counter\n"
-    "  %p2 = getelementptr inbounds i16, i16* %ptr2, i64 %counter\n"
-    "  %p3 = getelementptr inbounds i32, i32* %ptr3, i64 %counter\n"
-    "  %p4 = getelementptr inbounds i16, i16* %ptr4, i64 %counter\n"
-    "  %p5 = getelementptr inbounds i32, i32* %ptr5, i64 %counter\n"
-    "  %p6 = getelementptr inbounds i64, i64* %ptr6, i64 %counter\n"
-    "  store  i8 %counte8,  i8* %p1\n"
-    "  store i16 %count16, i16* %p2\n"
-    "  store i32 %count32, i32* %p3\n"
-    "  store i16 %count16, i16* %p4\n"
-    "  store i32 %count32, i32* %p5\n"
-    "  store i64 %counter, i64* %p6\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo( ptr %buf1, ptr %buf2, ptr %buf3,\n"
+      "                 ptr %buf4, ptr %buf5, ptr %buf6) {\n"
+      "entry:\n"
+      "  %buf1.asInt = ptrtoint  ptr %buf1 to i64\n"
+      "  %buf2.asInt = ptrtoint ptr %buf2 to i64\n"
+      "  %buf3.asInt = ptrtoint ptr %buf3 to i64\n"
+      "  %buf4.asInt = ptrtoint ptr %buf4 to i64\n"
+      "  %buf5.asInt = ptrtoint ptr %buf5 to i64\n"
+      "  %buf6.asInt = ptrtoint ptr %buf6 to i64\n"
+      "  %tmp1 = and i64 %buf1.asInt, -1024\n"
+      "  %tmp2 = and i64 %buf2.asInt, -1024\n"
+      "  %tmp3 = and i64 %buf3.asInt, -1024\n"
+      "  %tmp4 = and i64 %buf4.asInt, -1024\n"
+      "  %tmp5 = and i64 %buf5.asInt, -1024\n"
+      "  %tmp6 = and i64 %buf6.asInt, -1024\n"
+      "  %ptr1.asInt = or i64 %tmp1, 556\n" // = 512 + 44
+      "  %ptr2.asInt = or i64 %tmp2, 260\n" // = 256 + 4
+      "  %ptr3.asInt = or i64 %tmp3, 664\n" // = 512 + 128 + 24
+      "  %ptr4.asInt = or i64 %tmp4, 418\n" // = 256 + 128 + 34
+      "  %ptr5.asInt = or i64 %tmp5, 636\n" // = 512 + 64 + 60
+      "  %ptr6.asInt = or i64 %tmp6, 840\n" // = 512 + 256 + 72
+      "  %ptr1 = inttoptr i64 %ptr1.asInt to ptr\n"
+      "  %ptr2 = inttoptr i64 %ptr2.asInt to ptr\n"
+      "  %ptr3 = inttoptr i64 %ptr3.asInt to ptr\n"
+      "  %ptr4 = inttoptr i64 %ptr4.asInt to ptr\n"
+      "  %ptr5 = inttoptr i64 %ptr5.asInt to ptr\n"
+      "  %ptr6 = inttoptr i64 %ptr6.asInt to ptr\n"
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %counte8 = trunc i64 %counter to i8\n"
+      "  %count16 = trunc i64 %counter to i16\n"
+      "  %count32 = trunc i64 %counter to i32\n"
+      "  %p1 = getelementptr inbounds  i8,  ptr %ptr1, i64 %counter\n"
+      "  %p2 = getelementptr inbounds i16, ptr %ptr2, i64 %counter\n"
+      "  %p3 = getelementptr inbounds i32, ptr %ptr3, i64 %counter\n"
+      "  %p4 = getelementptr inbounds i16, ptr %ptr4, i64 %counter\n"
+      "  %p5 = getelementptr inbounds i32, ptr %ptr5, i64 %counter\n"
+      "  %p6 = getelementptr inbounds i64, ptr %ptr6, i64 %counter\n"
+      "  store  i8 %counte8,  ptr %p1\n"
+      "  store i16 %count16, ptr %p2\n"
+      "  store i32 %count32, ptr %p3\n"
+      "  store i16 %count16, ptr %p4\n"
+      "  store i32 %count32, ptr %p5\n"
+      "  store i64 %counter, ptr %p6\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   // Displacements of pointers *in elements* (ignoring insignificant
   // higher-order bits):
@@ -668,9 +667,8 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //   %p4: 2 -> 2 (cost -= 0)
   //   %p5: 4 -> 4 (cost -= 0)
   //   %p6: 8 -> 8 (cost -= 0)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P2 =
-      VPPA->selectBestStaticPeelingVariant(2, CM);
-  EXPECT_EQ(P2.first.peelCount(), 0);
+  std::pair<int, VPInstructionCost> P2 = VPPA->selectBestStaticPeelCount(2, CM);
+  EXPECT_EQ(P2.first, 0);
   EXPECT_EQ(P2.second, 3);
 
   // VF = 4. Best PeelCount = 2.
@@ -681,9 +679,8 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //   %p4: 2 ->  2 (cost -= 0)
   //   %p5: 4 ->  4 (cost -= 0)
   //   %p6: 8 ->  8 (cost -= 0)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P4 =
-      VPPA->selectBestStaticPeelingVariant(4, CM);
-  EXPECT_EQ(P4.first.peelCount(), 2);
+  std::pair<int, VPInstructionCost> P4 = VPPA->selectBestStaticPeelCount(4, CM);
+  EXPECT_EQ(P4.first, 2);
   EXPECT_EQ(P4.second, 5);
 
   // VF = 8. Best PeelCount = 7.
@@ -694,9 +691,8 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //  %p4: 2 -> 16 (cost -= 3)
   //  %p5: 4 ->  8 (cost -= 1)
   //  %p6: 8 -> 64 (cost -= 3)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P8 =
-      VPPA->selectBestStaticPeelingVariant(8, CM);
-  EXPECT_EQ(P8.first.peelCount(), 7);
+  std::pair<int, VPInstructionCost> P8 = VPPA->selectBestStaticPeelCount(8, CM);
+  EXPECT_EQ(P8.first, 7);
   EXPECT_EQ(P8.second, 7);
 
   // VF = 16. Best PeelCount = 7.
@@ -707,9 +703,9 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //  %p4: 2 ->  16 (cost -= 3)
   //  %p5: 4 ->   8 (cost -= 1)
   //  %p6: 8 -> 128 (cost -= 4)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P16 =
-      VPPA->selectBestStaticPeelingVariant(16, CM);
-  EXPECT_EQ(P16.first.peelCount(), 7);
+  std::pair<int, VPInstructionCost> P16 =
+      VPPA->selectBestStaticPeelCount(16, CM);
+  EXPECT_EQ(P16.first, 7);
   EXPECT_EQ(P16.second, 8);
 }
 
@@ -722,57 +718,57 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   // which leaves the 3rd bit in an unknown state. As a result, the maximum
   // static alignment for %p1 is 4.
   buildVPlanFromString(
-    "define void @foo( i8* %buf1, i16* %buf2, i32* %buf3,\n"
-    "                 i16* %buf4, i32* %buf5, i64* %buf6) {\n"
-    "entry:\n"
-    "  %buf1.asInt = ptrtoint  i8* %buf1 to i64\n"
-    "  %buf2.asInt = ptrtoint i16* %buf2 to i64\n"
-    "  %buf3.asInt = ptrtoint i32* %buf3 to i64\n"
-    "  %buf4.asInt = ptrtoint i16* %buf4 to i64\n"
-    "  %buf5.asInt = ptrtoint i32* %buf5 to i64\n"
-    "  %buf6.asInt = ptrtoint i64* %buf6 to i64\n"
-    "  %tmp1 = and i64 %buf1.asInt, -1020\n" // = -1024 + 4
-    "  %tmp2 = and i64 %buf2.asInt,   -32\n"
-    "  %tmp3 = and i64 %buf3.asInt,  -992\n" // = -1024 + 32
-    "  %tmp4 = and i64 %buf4.asInt,    -4\n"
-    "  %tmp5 = and i64 %buf5.asInt, -1008\n" // = -1024 + 16
-    "  %tmp6 = and i64 %buf6.asInt,  -768\n" // = -1024 + 256
-    "  %ptr1.asInt = or i64 %tmp1,  1\n"
-    "  %ptr2.asInt = or i64 %tmp2,  6\n"
-    "  %ptr3.asInt = or i64 %tmp3,  4\n"
-    "  %ptr4.asInt = or i64 %tmp4,  2\n"
-    "  %ptr5.asInt = or i64 %tmp5,  0\n"
-    "  %ptr6.asInt = or i64 %tmp6, 72\n"
-    "  %ptr1 = inttoptr i64 %ptr1.asInt to i8*\n"
-    "  %ptr2 = inttoptr i64 %ptr2.asInt to i16*\n"
-    "  %ptr3 = inttoptr i64 %ptr3.asInt to i32*\n"
-    "  %ptr4 = inttoptr i64 %ptr4.asInt to i16*\n"
-    "  %ptr5 = inttoptr i64 %ptr5.asInt to i32*\n"
-    "  %ptr6 = inttoptr i64 %ptr6.asInt to i64*\n"
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %counte8 = trunc i64 %counter to i8\n"
-    "  %count16 = trunc i64 %counter to i16\n"
-    "  %count32 = trunc i64 %counter to i32\n"
-    "  %p1 = getelementptr inbounds  i8,  i8* %ptr1, i64 %counter\n"
-    "  %p2 = getelementptr inbounds i16, i16* %ptr2, i64 %counter\n"
-    "  %p3 = getelementptr inbounds i32, i32* %ptr3, i64 %counter\n"
-    "  %p4 = getelementptr inbounds i16, i16* %ptr4, i64 %counter\n"
-    "  %p5 = getelementptr inbounds i32, i32* %ptr5, i64 %counter\n"
-    "  %p6 = getelementptr inbounds i64, i64* %ptr6, i64 %counter\n"
-    "  store  i8 %counte8,  i8* %p1\n"
-    "  store i16 %count16, i16* %p2\n"
-    "  store i32 %count32, i32* %p3\n"
-    "  store i16 %count16, i16* %p4\n"
-    "  store i32 %count32, i32* %p5\n"
-    "  store i64 %counter, i64* %p6\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo( ptr %buf1, ptr %buf2, ptr %buf3,\n"
+      "                 ptr %buf4, ptr %buf5, ptr %buf6) {\n"
+      "entry:\n"
+      "  %buf1.asInt = ptrtoint  ptr %buf1 to i64\n"
+      "  %buf2.asInt = ptrtoint ptr %buf2 to i64\n"
+      "  %buf3.asInt = ptrtoint ptr %buf3 to i64\n"
+      "  %buf4.asInt = ptrtoint ptr %buf4 to i64\n"
+      "  %buf5.asInt = ptrtoint ptr %buf5 to i64\n"
+      "  %buf6.asInt = ptrtoint ptr %buf6 to i64\n"
+      "  %tmp1 = and i64 %buf1.asInt, -1020\n" // = -1024 + 4
+      "  %tmp2 = and i64 %buf2.asInt,   -32\n"
+      "  %tmp3 = and i64 %buf3.asInt,  -992\n" // = -1024 + 32
+      "  %tmp4 = and i64 %buf4.asInt,    -4\n"
+      "  %tmp5 = and i64 %buf5.asInt, -1008\n" // = -1024 + 16
+      "  %tmp6 = and i64 %buf6.asInt,  -768\n" // = -1024 + 256
+      "  %ptr1.asInt = or i64 %tmp1,  1\n"
+      "  %ptr2.asInt = or i64 %tmp2,  6\n"
+      "  %ptr3.asInt = or i64 %tmp3,  4\n"
+      "  %ptr4.asInt = or i64 %tmp4,  2\n"
+      "  %ptr5.asInt = or i64 %tmp5,  0\n"
+      "  %ptr6.asInt = or i64 %tmp6, 72\n"
+      "  %ptr1 = inttoptr i64 %ptr1.asInt to ptr\n"
+      "  %ptr2 = inttoptr i64 %ptr2.asInt to ptr\n"
+      "  %ptr3 = inttoptr i64 %ptr3.asInt to ptr\n"
+      "  %ptr4 = inttoptr i64 %ptr4.asInt to ptr\n"
+      "  %ptr5 = inttoptr i64 %ptr5.asInt to ptr\n"
+      "  %ptr6 = inttoptr i64 %ptr6.asInt to ptr\n"
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %counte8 = trunc i64 %counter to i8\n"
+      "  %count16 = trunc i64 %counter to i16\n"
+      "  %count32 = trunc i64 %counter to i32\n"
+      "  %p1 = getelementptr inbounds  i8,  ptr %ptr1, i64 %counter\n"
+      "  %p2 = getelementptr inbounds i16, ptr %ptr2, i64 %counter\n"
+      "  %p3 = getelementptr inbounds i32, ptr %ptr3, i64 %counter\n"
+      "  %p4 = getelementptr inbounds i16, ptr %ptr4, i64 %counter\n"
+      "  %p5 = getelementptr inbounds i32, ptr %ptr5, i64 %counter\n"
+      "  %p6 = getelementptr inbounds i64, ptr %ptr6, i64 %counter\n"
+      "  store  i8 %counte8,  ptr %p1\n"
+      "  store i16 %count16, ptr %p2\n"
+      "  store i32 %count32, ptr %p3\n"
+      "  store i16 %count16, ptr %p4\n"
+      "  store i32 %count32, ptr %p5\n"
+      "  store i64 %counter, ptr %p6\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   // Displacements of pointers *in elements* (modulo base varies due to gaps in
   // known bits):
@@ -798,9 +794,8 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->  4 (cost -= 1)
   //  %p5: 4 ->  4 (cost -= 0)
   //  %p6: 8 -> 16 (cost -= 1)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P2 =
-      VPPA->selectBestStaticPeelingVariant(2, CM);
-  EXPECT_EQ(P2.first.peelCount(), 1);
+  std::pair<int, VPInstructionCost> P2 = VPPA->selectBestStaticPeelCount(2, CM);
+  EXPECT_EQ(P2.first, 1);
   EXPECT_EQ(P2.second, 5);
 
   // VF = 4. Best PeelCount = 3.
@@ -811,9 +806,8 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->  8 (cost -= 1)
   //  %p5: 4 ->  4 (cost -= 0)
   //  %p6: 8 -> 32 (cost -= 2)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P4 =
-      VPPA->selectBestStaticPeelingVariant(4, CM);
-  EXPECT_EQ(P4.first.peelCount(), 3);
+  std::pair<int, VPInstructionCost> P4 = VPPA->selectBestStaticPeelCount(4, CM);
+  EXPECT_EQ(P4.first, 3);
   EXPECT_EQ(P4.second, 8);
 
   // VF = 8. Best PeelCount = 7.
@@ -824,9 +818,8 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->  8 (cost -= 1)
   //  %p5: 4 ->  4 (cost -= 0)
   //  %p6: 8 -> 64 (cost -= 3)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P8 =
-      VPPA->selectBestStaticPeelingVariant(8, CM);
-  EXPECT_EQ(P8.first.peelCount(), 7);
+  std::pair<int, VPInstructionCost> P8 = VPPA->selectBestStaticPeelCount(8, CM);
+  EXPECT_EQ(P8.first, 7);
   EXPECT_EQ(P8.second, 10);
 
   // VF = 16. Best PeelCount = 7.
@@ -837,9 +830,9 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->   8 (cost -= 1)
   //  %p5: 4 ->   4 (cost -= 0)
   //  %p6: 8 -> 128 (cost -= 4)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P16 =
-      VPPA->selectBestStaticPeelingVariant(16, CM);
-  EXPECT_EQ(P16.first.peelCount(), 7);
+  std::pair<int, VPInstructionCost> P16 =
+      VPPA->selectBestStaticPeelCount(16, CM);
+  EXPECT_EQ(P16.first, 7);
   EXPECT_EQ(P16.second, 11);
 
   // VF = 32. Best PeelCount = 23.
@@ -850,9 +843,9 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->   8 (cost -= 1)
   //  %p5: 4 ->   4 (cost -= 0)
   //  %p6: 8 -> 256 (cost -= 5)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P32 =
-      VPPA->selectBestStaticPeelingVariant(32, CM);
-  EXPECT_EQ(P32.first.peelCount(), 23);
+  std::pair<int, VPInstructionCost> P32 =
+      VPPA->selectBestStaticPeelCount(32, CM);
+  EXPECT_EQ(P32.first, 23);
   EXPECT_EQ(P32.second, 12);
 
   // VF = 64. Best PeelCount = 23.
@@ -863,9 +856,9 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->   8 (cost -= 1)
   //  %p5: 4 ->   4 (cost -= 0)
   //  %p6: 8 -> 256 (cost -= 5)
-  std::pair<VPlanStaticPeeling, VPInstructionCost> P64 =
-      VPPA->selectBestStaticPeelingVariant(64, CM);
-  EXPECT_EQ(P64.first.peelCount(), 23);
+  std::pair<int, VPInstructionCost> P64 =
+      VPPA->selectBestStaticPeelCount(64, CM);
+  EXPECT_EQ(P64.first, 23);
   EXPECT_EQ(P64.second, 12);
 }
 
@@ -895,8 +888,9 @@ protected:
     return Store;
   }
 
-  void expectAlignment(const VPValue *V, const VPInstruction *I, unsigned VF, MaybeAlign Expected) const {
-    VPlanAlignmentAnalysis AA(*VPSE, *VPVT, VF);
+  void expectAlignment(const VPValue *V, const VPInstruction *I, unsigned VF,
+                       MaybeAlign Expected) const {
+    VPlanAlignmentAnalysis AA(*VPSE, *VPVT, *TTI, VF);
     EXPECT_EQ(AA.tryGetKnownAlignment(V, I).valueOrOne().value(),
               Expected.valueOrOne().value());
   }
@@ -910,51 +904,51 @@ protected:
 
 TEST_F(VPlanAlignmentAnalysisTest, StaticPeeling) {
   buildVPlanFromString(
-    "define void @foo(i32* %dst, i16* %src) {\n"
-    "entry:\n"
-    "  %dst.asInt = ptrtoint i32* %dst to i64\n"
-    "  %tmp = and i64 %dst.asInt, -64\n"
-    "  %ptr.asInt = or i64 %tmp, 20\n"
-    "  %ptr = inttoptr i64 %ptr.asInt to i32*\n" /* %ptr ≡ 20 (mod 64) */
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %count32 = trunc i64 %counter to i32\n"
-    "  %gep.src = getelementptr inbounds i16, i16* %src, i64 %counter\n"
-    "  %val.i16 = load i16, i16* %gep.src, align 2"
-    "  %val.i32 = zext i16 %val.i16 to i32"
-    "  %res = add i32 %val.i32, %count32"
-    "  %gep.dst = getelementptr inbounds i32, i32* %ptr, i64 %counter\n"
-    "  store i32 %res, i32* %gep.dst\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo(ptr %dst, ptr %src) {\n"
+      "entry:\n"
+      "  %dst.asInt = ptrtoint ptr %dst to i64\n"
+      "  %tmp = and i64 %dst.asInt, -64\n"
+      "  %ptr.asInt = or i64 %tmp, 20\n"
+      "  %ptr = inttoptr i64 %ptr.asInt to ptr\n" /* %ptr ≡ 20 (mod 64) */
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %count32 = trunc i64 %counter to i32\n"
+      "  %gep.src = getelementptr inbounds i16, ptr %src, i64 %counter\n"
+      "  %val.i16 = load i16, ptr %gep.src, align 2"
+      "  %val.i32 = zext i16 %val.i16 to i32"
+      "  %res = add i32 %val.i32, %count32"
+      "  %gep.dst = getelementptr inbounds i32, ptr %ptr, i64 %counter\n"
+      "  store i32 %res, ptr %gep.dst\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   setupPeelingAnalysis();
   VPLoadStoreInst *S = findStoreInst();
 
-  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, 1);
-  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, 2);
-  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, 4);
-  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, 8);
+  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, *TTI, 1);
+  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, *TTI, 2);
+  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, *TTI, 4);
+  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, *TTI, 8);
 
-  VPlanStaticPeeling SP0(0);
+  VPlanNoPeeling NP;
   VPlanStaticPeeling SP1(1);
   VPlanStaticPeeling SP2(2);
   VPlanStaticPeeling SP3(3);
   VPlanStaticPeeling SP7(7);
 
-  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP0));
-  EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, &SP0));
-  EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, &SP0));
-  EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, &SP0));
-  EXPECT_TRUE(AA1.isAlignedUnitStride(*S, &SP0));
-  EXPECT_FALSE(AA2.isAlignedUnitStride(*S, &SP0));
-  EXPECT_FALSE(AA4.isAlignedUnitStride(*S, &SP0));
-  EXPECT_FALSE(AA8.isAlignedUnitStride(*S, &SP0));
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &NP));
+  EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, &NP));
+  EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, &NP));
+  EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, &NP));
+  EXPECT_TRUE(AA1.isAlignedUnitStride(*S, &NP));
+  EXPECT_FALSE(AA2.isAlignedUnitStride(*S, &NP));
+  EXPECT_FALSE(AA4.isAlignedUnitStride(*S, &NP));
+  EXPECT_FALSE(AA8.isAlignedUnitStride(*S, &NP));
 
   EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP1));
   EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, &SP1));
@@ -995,40 +989,42 @@ TEST_F(VPlanAlignmentAnalysisTest, StaticPeeling) {
 
 TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Full) {
   buildVPlanFromString(
-    "define void @foo(double* %dst, double* %src, i64 %x) {\n"
-    "entry:\n"
-    "  %dst.asInt = ptrtoint double* %dst to i64\n"
-    "  %dst.asInt.aligned = and i64 %dst.asInt, -64\n"
-    "  %dst.aligned = inttoptr i64 %dst.asInt.aligned to double*\n"
-    "  %src.asInt = ptrtoint double* %src to i64\n"
-    "  %src.asInt.aligned = and i64 %src.asInt, -64\n"
-    "  %src.aligned = inttoptr i64 %src.asInt.aligned to double*\n"
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %idx.src = add nsw i64 %x, %counter"
-    "  %gep.src = getelementptr inbounds double, double* %src.aligned, i64 %idx.src\n"
-    "  %idx.dst = add nsw i64 %idx.src, 128"
-    "  %gep.dst = getelementptr inbounds double, double* %dst.aligned, i64 %idx.dst\n"
-    // load src.aligned[i + x]
-    "  %val = load double, double* %gep.src"
-    // store dst.aligned[i + x + 128]
-    "  store double %val, double* %gep.dst\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo(ptr %dst, ptr %src, i64 %x) {\n"
+      "entry:\n"
+      "  %dst.asInt = ptrtoint ptr %dst to i64\n"
+      "  %dst.asInt.aligned = and i64 %dst.asInt, -64\n"
+      "  %dst.aligned = inttoptr i64 %dst.asInt.aligned to ptr\n"
+      "  %src.asInt = ptrtoint ptr %src to i64\n"
+      "  %src.asInt.aligned = and i64 %src.asInt, -64\n"
+      "  %src.aligned = inttoptr i64 %src.asInt.aligned to ptr\n"
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %idx.src = add nsw i64 %x, %counter"
+      "  %gep.src = getelementptr inbounds double, ptr %src.aligned, i64 "
+      "%idx.src\n"
+      "  %idx.dst = add nsw i64 %idx.src, 128"
+      "  %gep.dst = getelementptr inbounds double, ptr %dst.aligned, i64 "
+      "%idx.dst\n"
+      // load src.aligned[i + x]
+      "  %val = load double, ptr %gep.src"
+      // store dst.aligned[i + x + 128]
+      "  store double %val, ptr %gep.dst\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   setupPeelingAnalysis();
   VPLoadStoreInst *L = findLoadInst();
   VPLoadStoreInst *S = findStoreInst();
 
-  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, 1);
-  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, 2);
-  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, 4);
-  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, 8);
+  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, *TTI, 1);
+  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, *TTI, 2);
+  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, *TTI, 4);
+  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, *TTI, 8);
 
   VPConstStepInduction Address =
       *VPSE->asConstStepInduction(S->getAddressSCEV());
@@ -1057,40 +1053,42 @@ TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Full) {
 
 TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Partial) {
   buildVPlanFromString(
-    "define void @foo(double* %dst, double* %src, i64 %x) {\n"
-    "entry:\n"
-    "  %dst.asInt = ptrtoint double* %dst to i64\n"
-    "  %dst.asInt.aligned = and i64 %dst.asInt, -64\n"
-    "  %dst.aligned = inttoptr i64 %dst.asInt.aligned to double*\n"
-    "  %src.asInt = ptrtoint double* %src to i64\n"
-    "  %src.asInt.aligned = and i64 %src.asInt, -64\n"
-    "  %src.aligned = inttoptr i64 %src.asInt.aligned to double*\n"
-    "  br label %for.body\n"
-    "for.body:\n"
-    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %idx.src = add nsw i64 %x, %counter"
-    "  %gep.src = getelementptr inbounds double, double* %src.aligned, i64 %idx.src\n"
-    "  %idx.dst = add nsw i64 %idx.src, 2"
-    "  %gep.dst = getelementptr inbounds double, double* %dst.aligned, i64 %idx.dst\n"
-    // load src.aligned[i + x]
-    "  %val = load double, double* %gep.src"
-    // store dst.aligned[i + x + 2]
-    "  store double %val, double* %gep.dst\n"
-    "  %counter.next = add nsw i64 %counter, 1\n"
-    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
-    "  br i1 %exitcond, label %exit, label %for.body\n"
-    "exit:\n"
-    "  ret void\n"
-    "}\n");
+      "define void @foo(ptr %dst, ptr %src, i64 %x) {\n"
+      "entry:\n"
+      "  %dst.asInt = ptrtoint ptr %dst to i64\n"
+      "  %dst.asInt.aligned = and i64 %dst.asInt, -64\n"
+      "  %dst.aligned = inttoptr i64 %dst.asInt.aligned to ptr\n"
+      "  %src.asInt = ptrtoint ptr %src to i64\n"
+      "  %src.asInt.aligned = and i64 %src.asInt, -64\n"
+      "  %src.aligned = inttoptr i64 %src.asInt.aligned to ptr\n"
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %idx.src = add nsw i64 %x, %counter"
+      "  %gep.src = getelementptr inbounds double, ptr %src.aligned, i64 "
+      "%idx.src\n"
+      "  %idx.dst = add nsw i64 %idx.src, 2"
+      "  %gep.dst = getelementptr inbounds double, ptr %dst.aligned, i64 "
+      "%idx.dst\n"
+      // load src.aligned[i + x]
+      "  %val = load double, ptr %gep.src"
+      // store dst.aligned[i + x + 2]
+      "  store double %val, ptr %gep.dst\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n");
 
   setupPeelingAnalysis();
   VPLoadStoreInst *L = findLoadInst();
   VPLoadStoreInst *S = findStoreInst();
 
-  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, 1);
-  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, 2);
-  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, 4);
-  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, 8);
+  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, *TTI, 1);
+  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, *TTI, 2);
+  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, *TTI, 4);
+  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, *TTI, 8);
 
   VPConstStepInduction Address =
       *VPSE->asConstStepInduction(S->getAddressSCEV());
@@ -1111,13 +1109,13 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignedVal) {
   buildVPlanFromString(
       "declare void @llvm.assume(i1)\n"
       "\n"
-      "define void @foo(i32* %p) {\n"
+      "define void @foo(ptr %p) {\n"
       "entry:\n"
       "  br label %for.body\n"
       "for.body:\n"
       "  %ind = phi i32 [ 0, %entry ], [ %ind.next, %for.body ]\n"
-      "  call void @llvm.assume(i1 true) [ \"align\"(i32* %p, i32 16) ]\n"
-      "  store i32 1, i32* %p\n"
+      "  call void @llvm.assume(i1 true) [ \"align\"(ptr %p, i32 16) ]\n"
+      "  store i32 1, ptr %p\n"
       "  %ind.next = add nuw nsw i32 %ind, 1\n"
       "  %cond = icmp eq i32 %ind.next, 256\n"
       "  br i1 %cond, label %for.body, label %exit\n"
@@ -1137,12 +1135,12 @@ TEST_F(VPlanAlignmentAnalysisTest, UnalignedVal) {
   buildVPlanFromString(
       "declare void @llvm.assume(i1)\n"
       "\n"
-      "define void @foo(i32* %p) {\n"
+      "define void @foo(ptr %p) {\n"
       "entry:\n"
       "  br label %for.body\n"
       "for.body:\n"
       "  %ind = phi i32 [ 0, %entry ], [ %ind.next, %for.body ]\n"
-      "  store i32 1, i32* %p\n"
+      "  store i32 1, ptr %p\n"
       "  %ind.next = add nuw nsw i32 %ind, 1\n"
       "  %cond = icmp eq i32 %ind.next, 256\n"
       "  br i1 %cond, label %for.body, label %exit\n"
@@ -1161,16 +1159,16 @@ TEST_F(VPlanAlignmentAnalysisTest, UnalignedVal) {
 TEST_F(VPlanAlignmentAnalysisTest, AlignedLinearMemref) {
   buildVPlanFromString(R"(
       declare void @llvm.assume(i1)
-      define void @foo(i32* %p.i32.16) {
+      define void @foo(ptr %p.i32.16) {
       entry:
         br label %for.body
       for.body:
         %iv = phi i32 [ 0, %entry ], [ %iv.next, %for.body ]
-        call void @llvm.assume(i1 true) [ "align"(i32* %p.i32.16, i64 16) ]
-        %gep.i32.16 = getelementptr i32, i32* %p.i32.16, i32 %iv
-        %gep.i8.null = getelementptr i8, i8* null, i32 %iv
-        %gep.i32.null = getelementptr i32, i32* null, i32 %iv
-        %gep.i64.null = getelementptr i64, i64* null, i32 %iv
+        call void @llvm.assume(i1 true) [ "align"(ptr %p.i32.16, i64 16) ]
+        %gep.i32.16 = getelementptr i32, ptr %p.i32.16, i32 %iv
+        %gep.i8.null = getelementptr i8, ptr null, i32 %iv
+        %gep.i32.null = getelementptr i32, ptr null, i32 %iv
+        %gep.i64.null = getelementptr i64, ptr null, i32 %iv
         %iv.next = add nuw nsw i32 %iv, 1
         %cond = icmp eq i32 %iv.next, 256
         br i1 %cond, label %exit, label %for.body
@@ -1220,33 +1218,39 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignmentPropagation) {
     LS.setAlignment(OrigAlign);
   };
 
+  // No peel tests
+  {
+    // Format is {VF, Peel, ExpectedAlign}
+    const std::tuple<unsigned, VPlanNoPeeling, uint64_t> InputAndExpecteds[] = {
+        {1, VPlanNoPeeling::LoopObject, 4},
+        {2, VPlanNoPeeling::LoopObject, 8},
+        {4, VPlanNoPeeling::LoopObject, 16},
+        {8, VPlanNoPeeling::LoopObject, 16},
+    };
+    for (const auto &[VF, Peel, ExpectedAlign] : InputAndExpecteds) {
+      ResetAlign(LS);
+      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), TTI.get(), VF,
+                                                 &Peel);
+      EXPECT_EQ(LS.getAlignment().value(), ExpectedAlign)
+          << ", VF = " << VF << " (disabled)";
+    }
+  }
+
   // Static peel tests
   {
     // Format is {VF, Peel, ExpectedAlign}
     const std::tuple<unsigned, VPlanStaticPeeling, uint64_t>
         InputAndExpecteds[] = {
-            {1, VPlanStaticPeeling::NoPeelLoop, 4},
-            {1, VPlanStaticPeeling{0}, 4},
-            {2, VPlanStaticPeeling::NoPeelLoop, 8},
-            {2, VPlanStaticPeeling{0}, 8},
-            {2, VPlanStaticPeeling{1}, 4},
-            {4, VPlanStaticPeeling::NoPeelLoop, 16},
-            {4, VPlanStaticPeeling{0}, 16},
-            {4, VPlanStaticPeeling{1}, 4},
-            {4, VPlanStaticPeeling{2}, 8},
-            {4, VPlanStaticPeeling{3}, 4},
-            {8, VPlanStaticPeeling::NoPeelLoop, 16},
-            {8, VPlanStaticPeeling{0}, 16},
-            {8, VPlanStaticPeeling{1}, 4},
-            {8, VPlanStaticPeeling{2}, 8},
-            {8, VPlanStaticPeeling{4}, 16},
-            {8, VPlanStaticPeeling{5}, 4},
-            {8, VPlanStaticPeeling{6}, 8},
-            {8, VPlanStaticPeeling{7}, 4},
+            {2, VPlanStaticPeeling{1}, 4},  {4, VPlanStaticPeeling{1}, 4},
+            {4, VPlanStaticPeeling{2}, 8},  {4, VPlanStaticPeeling{3}, 4},
+            {8, VPlanStaticPeeling{1}, 4},  {8, VPlanStaticPeeling{2}, 8},
+            {8, VPlanStaticPeeling{4}, 16}, {8, VPlanStaticPeeling{5}, 4},
+            {8, VPlanStaticPeeling{6}, 8},  {8, VPlanStaticPeeling{7}, 4},
         };
     for (const auto &[VF, Peel, ExpectedAlign] : InputAndExpecteds) {
       ResetAlign(LS);
-      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, &Peel);
+      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), TTI.get(), VF,
+                                                 &Peel);
       EXPECT_EQ(LS.getAlignment().value(), ExpectedAlign)
           << ", VF = " << VF << ", peel count = " << Peel.peelCount()
           << " (static)";
@@ -1275,7 +1279,8 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignmentPropagation) {
         };
     for (const auto &[VF, Peel, ExpectedAlign] : InputAndExpecteds) {
       ResetAlign(LS);
-      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, &Peel);
+      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), TTI.get(), VF,
+                                                 &Peel);
       EXPECT_EQ(LS.getAlignment().value(), ExpectedAlign)
           << "VF = " << VF
           << ", target align = " << Peel.targetAlignment().value()
@@ -1286,7 +1291,8 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignmentPropagation) {
   // Null alignment tests
   for (const unsigned VF : {1, 2, 4, 8}) {
     ResetAlign(LS);
-    VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, nullptr);
+    VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), TTI.get(), VF,
+                                               nullptr);
     EXPECT_EQ(LS.getAlignment().value(), (uint64_t)4) << "peel = nullptr";
   }
 }

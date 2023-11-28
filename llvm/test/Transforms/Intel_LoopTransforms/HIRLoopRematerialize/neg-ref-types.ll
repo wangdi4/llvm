@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-rematerialize,print<hir>" -hir-loop-rematerialize-tc-lb=1 -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-rematerialize,print<hir>" -hir-loop-rematerialize-tc-lb=1 -aa-pipeline="basic-aa" -hir-allow-loop-materialization-regions=true -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that loop rematerialization doesn't happen as the types of 3 refs,
 ; (%biasVal)[0],(%biasVal)[1],(%biasVal)[2] are not the same.
@@ -15,7 +15,7 @@
 ; CHECK: Function: test
 ;
 ; CHECK:       BEGIN REGION { }
-; CHECK:             (float*)(%biasVal)[0] = 0.000000e+00;
+; CHECK:             (%biasVal)[0].0.0.0.0 = 0.000000e+00;
 ; CHECK:             (%biasVal)[1] = 0.000000e+00;
 ; CHECK:             (%biasVal)[2] = 0.000000e+00;
 ; CHECK:       END REGION

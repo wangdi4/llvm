@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ;; void byref_inscan_reduction_simple(float (&y_ref), float *B) {
 ;;   #pragma omp simd reduction(inscan,+:y_ref)
@@ -12,20 +12,9 @@
 
 ; CHECK-LABEL: entry:
 
-; CHECK:         [[Y_REF_ADDR_RED:%.*.addr.red]] = alloca float, align 8
-; CHECK-NEXT:    [[Y_REF_ADDR_RED_REF:%.*.addr.red.ref]] = alloca ptr, align 8
+; CHECK-NOT:     %.*.addr.red = alloca float, align 8
 ; CHECK:         [[Y_REF_ADDR:%.*.addr]] = alloca ptr, align 8
-; CHECK:         br
-
-; CHECK:         [[Y_REF_ADDR_LOAD:%.*]] = load ptr, ptr [[Y_REF_ADDR]], align 8
-; CHECK-NEXT:    [[Y_REF_ADDR_LOAD_LOAD:%.*]] = load float, ptr [[Y_REF_ADDR_LOAD]], align 4
-; CHECK-NEXT:    store float [[Y_REF_ADDR_LOAD_LOAD]], ptr [[Y_REF_ADDR_RED]], align 4
-
-; CHECK-LABEL:   call void @llvm.directive.region.exit
-
-; CHECK:         [[Y_REF_ADDR_LOAD_2:%.*]] = load ptr, ptr [[Y_REF_ADDR]], align 8
-; CHECK-NEXT:    [[Y_REF_ADDR_FAST_RED_LOAD:%.*]] = load float, ptr {{%.*.addr.fast_red}}, align 4
-; CHECK-NEXT:    store float [[Y_REF_ADDR_FAST_RED_LOAD]], ptr [[Y_REF_ADDR_LOAD_2]], align 4
+; CHECK:         "QUAL.OMP.REDUCTION.ADD:BYREF.INSCAN.TYPED"(ptr [[Y_REF_ADDR]], float 0.000000e+00, i32 1, i64 1),
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

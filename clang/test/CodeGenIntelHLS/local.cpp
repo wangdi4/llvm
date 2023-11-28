@@ -1,5 +1,5 @@
-//RUN: %clang_cc1 -fhls -triple x86_64-unknown-linux-gnu -fkeep-static-consts -emit-llvm -opaque-pointers -o - %s | FileCheck %s
-//RUN: %clang_cc1 -fhls -triple x86_64-unknown-linux-gnu -fkeep-static-consts -debug-info-kind=limited -emit-llvm -opaque-pointers -o %t %s
+//RUN: %clang_cc1 -fhls -triple x86_64-unknown-linux-gnu -fkeep-static-consts -emit-llvm -o - %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -triple x86_64-unknown-linux-gnu -fkeep-static-consts -debug-info-kind=limited -emit-llvm -o %t %s
 
 //CHECK: @_ZL13global_const1 = internal constant i32 0, align 4
 //CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{register:1}

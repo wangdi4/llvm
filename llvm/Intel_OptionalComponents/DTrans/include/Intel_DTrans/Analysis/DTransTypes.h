@@ -1,6 +1,6 @@
 //===-----------DTransTypes.h - Type model for DTrans ---------------------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -293,10 +293,8 @@ public:
 
   DTransType *getPointerElementType() const { return PointeeType; }
 
-  // TODO: When the opaque pointers are enabled, this will need to be changed to
-  // just return an opaque pointer.
   llvm::Type *getLLVMType() const {
-    return getPointerElementType()->getLLVMType()->getPointerTo();
+    return PointerType::getUnqual(getContext());
   }
 
   // Return a metadata node that describes the type.
@@ -737,7 +735,7 @@ public:
     // type recovery a function type can be created for something that is known
     // to be a pointer to a function, even if the individual parameter types or
     // return type is not known at the time.
-    auto *Int8PtrTy = llvm::Type::getInt8PtrTy(getContext());
+    auto *Int8PtrTy = llvm::PointerType::getUnqual(getContext());
 
     llvm::Type *FuncRetTy = Int8PtrTy;
     DTransType *RetTy = getReturnType();

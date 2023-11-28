@@ -10,20 +10,20 @@
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O1,CHECK-EP
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O2>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O23SZ ;INTEL
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O2SZ,CHECK-O23SZ ;INTEL
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O2>' -S %s -passes-ep-full-link-time-optimization-early=no-op-module \
 ; RUN:     -passes-ep-full-link-time-optimization-last=no-op-module 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O23SZ,CHECK-EP ;INTEL
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O2SZ,CHECK-O23SZ,CHECK-EP ;INTEL
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O3>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ ;INTEL
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<Os>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-OS,CHECK-O23SZ ;INTEL
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-OS,CHECK-O2SZ,CHECK-O23SZ ;INTEL
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<Oz>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O23SZ ;INTEL
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2SZ,CHECK-O23SZ ;INTEL
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O3>' -S  %s -passes-ep-peephole='no-op-function' 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-EP-Peephole ;INTEL
@@ -31,6 +31,8 @@
 ; CHECK-EP: Running pass: NoOpModulePass
 ; CHECK-O: Running pass: CrossDSOCFIPass
 ; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: RequireAnalysisPass<llvm::DopeVectorTypeAnalysis, llvm::Module, llvm::AnalysisManager<Module>> on [module]
+; CHECK-O-NEXT: Running analysis: DopeVectorTypeAnalysis on [module]
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis
@@ -144,7 +146,7 @@
 ; CHECK-O1-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O1-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O1-NEXT: Running pass: MathLibraryFunctionsReplacementPass
-; CHECK-O1-NEXT: Running pass: vpo::VPlanDriverPass
+; CHECK-O1-NEXT: Running pass: vpo::VPlanDriverLLVMPass
 ; CHECK-O1-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-O1-DAG:  Running analysis: TargetLibraryAnalysis
 ; CHECK-O1-DAG:  Running analysis: AssumptionAnalysis
@@ -186,6 +188,7 @@
 ; CHECK-O3-NEXT: Running pass: AggressiveInstCombinePass ;INTEL
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: InlineForceInlinePass
 ; CHECK-O23SZ-NEXT: Running pass: InlineListsPass
 ; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA
 ; CHECK-O23SZ-NEXT: Running analysis: AndersensAA
@@ -231,12 +234,12 @@
 ; end INTEL_CUSTOMIZATION
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O23SZ-NEXT: Running pass: ConstraintEliminationPass
+; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
+; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: HandlePragmaVectorAlignedPass on foo ;INTEL
-; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo ;INTEL
-; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis on foo ;INTEL
@@ -258,20 +261,29 @@
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: GlobalsAA on [module]
 ; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
-; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module] ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module]
+; CHECK-O3-NEXT: Running pass: GVNHoistPass on foo
+; CHECK-O3-NEXT: Running analysis: AAManager on foo
+; CHECK-O3-NEXT: Running analysis: MemoryDependenceAnalysis on foo
+; CHECK-O3-NEXT: Running analysis: MemorySSAAnalysis on foo
+; end INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
-; CHECK-O23SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
-; CHECK-O23SZ-NEXT: Running analysis: AAManager on foo
-; COM: CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-O2SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
+; CHECK-O2SZ-NEXT: Running analysis: AAManager on foo
+; end INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT: Running pass: LICMPass on loop
 ; CHECK-O23SZ-NEXT: Running pass: GVNPass on foo
-; CHECK-O23SZ-NEXT: Running analysis: MemoryDependenceAnalysis on foo
-; CHECK-O23SZ-NEXT: Running pass: DopeVectorHoistPass on foo ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-O2SZ-NEXT: Running analysis: MemoryDependenceAnalysis on foo
+; CHECK-O23SZ-NEXT: Running pass: DopeVectorHoistPass on foo
+; end INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass on foo
-; CHECK-O23SZ-NEXT: Running pass: DSEPass on foo
 ; COM: CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: DSEPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: MoveAutoInitPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: MergedLoadStoreMotionPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
@@ -329,7 +341,7 @@
 ; CHECK-O23SZ-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: MathLibraryFunctionsReplacementPass
-; CHECK-O23SZ-NEXT: Running pass: vpo::VPlanDriverPass
+; CHECK-O23SZ-NEXT: Running pass: vpo::VPlanDriverLLVMPass
 ; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-O23SZ-DAG: Running analysis: TargetLibraryAnalysis
 ; CHECK-O23SZ-DAG: Running analysis: AssumptionAnalysis
@@ -377,6 +389,7 @@
 ; CHECK-O3-NEXT: Running pass: InjectTLIMappings on foo
 ; CHECK-OS-NEXT: Running pass: InjectTLIMappings on foo
 ; end INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: InferAlignmentPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopUnrollPass on foo
 ; CHECK-O23SZ-NEXT: WarnMissedTransformationsPass on foo
 ; COM: CHECK-O23SZ-NEXT: Running pass: SROAPass on foo ;INTEL

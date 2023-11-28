@@ -5,6 +5,12 @@
 // RUN: %{build} -fno-builtin -fsycl-device-lib-jit-link -o %t.out
 // RUN: %if !gpu %{ %{run} %t.out %}
 
+// FIXME: enable opaque pointers support on CPU.
+// UNSUPPORTED: cpu
+
+// https://github.com/intel/llvm/issues/11434
+// XFAIL: gpu-intel-dg2
+
 #include <cassert>
 #include <cstdint>
 #include <cstring>

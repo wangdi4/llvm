@@ -47,8 +47,12 @@
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_ORIG]])
 
 ;; Separating pragma block
-; CHECK:         call void @.omp_combiner.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
-; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
+; CHECK:         call void @.omp_combiner.(ptr [[RED_ORIG]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
+; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
+; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
+; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_ORIG]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]])
+; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_ORIG]])
+; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_ORIG]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_ORIG]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]])
 

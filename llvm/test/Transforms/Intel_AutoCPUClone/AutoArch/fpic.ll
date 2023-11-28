@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone -disable-selective-mv < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -acd-enable-all < %s -S | FileCheck %s
 
 ; This test checks that functions are multiversioned using wrapper based resolvers
 ; when "PIC Level" is present among the module flags and the flag's value is different

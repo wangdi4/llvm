@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,7 +16,6 @@
 #include "CPUProgram.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"

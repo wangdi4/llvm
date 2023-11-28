@@ -43,12 +43,16 @@
 #include <string>
 #include <vector>
 
+namespace llvm {
+class PassBuilder;
+}
 namespace clang {
 
 /// Bitfields of CodeGenOptions, split out from CodeGenOptions to ensure
 /// that this large collection of bitfields is a trivial class type.
 class CodeGenOptionsBase {
   friend class CompilerInvocation;
+  friend class CompilerInvocationBase;
 
 public:
 #define CODEGENOPT(Name, Bits, Default) unsigned Name : Bits;
@@ -80,6 +84,12 @@ public:
     SLEEF,      // SLEEF SIMD Library for Evaluating Elementary Functions.
     Darwin_libsystem_m, // Use Darwin's libsytem_m vector functions.
     ArmPL               // Arm Performance Libraries.
+  };
+
+  enum AltMathLibrary {
+    NoAltMathLibrary,   // Don't use any alternate math library
+    SVMLAltMathLibrary, // Intel SVML Library
+    TestAltMathLibrary  // Use a fake alternate math library for testing
   };
 
   enum ObjCDispatchMethodKind {
@@ -223,6 +233,10 @@ public:
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 
+  /// The code model-specific large data threshold to use
+  /// (-mlarge-data-threshold).
+  uint64_t LargeDataThreshold;
+
   /// The filename with path we use for coverage data files. The runtime
   /// allows further manipulation with the GCOV_PREFIX and GCOV_PREFIX_STRIP
   /// environment variables.
@@ -293,8 +307,6 @@ public:
   };
 
 #if INTEL_CUSTOMIZATION
-  /// OpenCL compile options to embed in the SPIR metadata
-  std::string SPIRCompileOptions;
   /// Compiler options to embed in .comment section
   std::string Sox;
 #endif // INTEL_CUSTOMIZATION
@@ -462,6 +474,9 @@ public:
 
   /// List of dynamic shared object files to be loaded as pass plugins.
   std::vector<std::string> PassPlugins;
+
+  /// List of pass builder callbacks.
+  std::vector<std::function<void(llvm::PassBuilder &)>> PassBuilderCallbacks;
 
   /// Path to allowlist file specifying which objects
   /// (files, functions) should exclusively be instrumented

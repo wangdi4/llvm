@@ -17,7 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; <19>               @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
 ; <0>          END REGION
 
-define void @_Z3fooPlS_(i32* nocapture noundef writeonly %lp1) {
+define void @_Z3fooPlS_(ptr nocapture noundef writeonly %lp1) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: _Z3fooPlS_:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -29,7 +29,7 @@ define void @_Z3fooPlS_(i32* nocapture noundef writeonly %lp1) {
 ; CHECK:       Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 99 BinOp: i64 [[VP3:%.*]] = add i64 [[VP4:%.*]] i64 1
 ; CHECK-NEXT:    Linked values: i64 [[VP4]], i64 [[VP3]],
-; CHECK:       IntInduction(+) Start: i32 [[VP_LOAD:undef]] Step: i32 2 StartVal: ? EndVal: ? need close form  Memory: i32* [[L2_LINEAR0:%.*]]
+; CHECK:       IntInduction(+) Start: i32 [[VP_LOAD:undef]] Step: i32 2 StartVal: ? EndVal: ? need close form  Memory: ptr [[L2_LINEAR0:%.*]]
 
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        %priv.mem.bc = &((i32*)(%priv.mem)[0]);
@@ -59,21 +59,21 @@ define void @_Z3fooPlS_(i32* nocapture noundef writeonly %lp1) {
 DIR.OMP.SIMD.1:
   %l2.linear = alloca i32, align 8
   %l1.linear.iv = alloca i64, align 8
-  store i32 100, i32* %l2.linear, align 8
+  store i32 100, ptr %l2.linear, align 8
   br label %DIR.OMP.SIMD.118
 
 DIR.OMP.SIMD.118:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED"(i32* %l2.linear, i32 0, i32 1, i32 2), "QUAL.OMP.LINEAR:IV.TYPED"(i64* %l1.linear.iv, i64 0, i32 1, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(i8* null, i64 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(i8* null, i64 0) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED"(ptr %l2.linear, i32 0, i32 1, i32 2), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %l1.linear.iv, i64 0, i32 1, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i64 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i64 0) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.118
   %.omp.iv.local.011 = phi i64 [ 0, %DIR.OMP.SIMD.118 ], [ %add2, %omp.inner.for.body ]
-  %1 = load i32, i32* %l2.linear, align 8
-  %arrayidx = getelementptr inbounds i32, i32* %lp1, i64 %.omp.iv.local.011
-  store i32 %1, i32* %arrayidx, align 8
+  %1 = load i32, ptr %l2.linear, align 8
+  %arrayidx = getelementptr inbounds i32, ptr %lp1, i64 %.omp.iv.local.011
+  store i32 %1, ptr %arrayidx, align 8
   %add1 = add nsw i32 %1, 2
-  store i32 %add1, i32* %l2.linear, align 8
-  %call = call noundef i64 @_Z3bazPl(i32* noundef nonnull %l2.linear)
+  store i32 %add1, ptr %l2.linear, align 8
+  %call = call noundef i64 @_Z3bazPl(ptr noundef nonnull %l2.linear)
   %add2 = add nuw nsw i64 %.omp.iv.local.011, 1
   %exitcond.not = icmp eq i64 %add2, 100
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.117, label %omp.inner.for.body
@@ -90,6 +90,6 @@ declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
 
-declare dso_local noundef i64 @_Z3bazPl(i32* noundef) #0
+declare dso_local noundef i64 @_Z3bazPl(ptr noundef) #0
 
 attributes #0 = { nounwind }

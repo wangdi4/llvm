@@ -1,6 +1,6 @@
 //===- HIRLoopFusionGraph.cpp - Implements Loop Fusion Graph --------------===//
 //
-// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1464,6 +1464,27 @@ void FuseGraph::constructNaiveEdges(GraphNodeMapTy &GraphNodeMap,
   }
 }
 
+// Checks the paths from NodeV to NodeW using the predecessors of NodeW.
+// Note this function is recursive. \p Visited is used to avoid cycles.
+// Stores the good paths into CollapseRange for merging.
+void FuseGraph::collectGoodPathsFrom(unsigned NodeV, unsigned NodeW,
+                                     BitVector &Visited,
+                                     CollapseRangeTy &CollapseRange) {
+  Visited.set(NodeW);
+
+  for (unsigned NodeX : Predecessors[NodeW]) {
+    if (Visited.test(NodeX) || Vertex[NodeX].isBadNode())
+      continue;
+
+    if (BadPathFrom[NodeV].count(NodeX) || BadPathTo[NodeX].count(NodeV))
+      continue;
+
+    if (PathFrom[NodeV].count(NodeX))
+      collectGoodPathsFrom(NodeV, NodeX, Visited, CollapseRange);
+  }
+  CollapseRange.insert(NodeW);
+}
+
 void FuseGraph::weightedFusion() {
   FuseEdgeHeap Heap;
   initPathInfo(Heap);
@@ -1501,20 +1522,7 @@ void FuseGraph::weightedFusion() {
 
     BitVector Visited(Vertex.size());
 
-    auto &PathFromNodeV = PathFrom[NodeV];
-    std::function<void(unsigned)> FindNodesFromVTo = [&](unsigned Node) {
-      Visited.set(Node);
-      // Note: predecessors may require lexical pre-sorting to make final
-      // collapsed node stable w.r.t. order between internal nodes.
-      for (unsigned NodeX : Predecessors[Node]) {
-        if (PathFromNodeV.count(NodeX) && !Visited.test(NodeX)) {
-          FindNodesFromVTo(NodeX);
-        }
-      }
-      CollapseRange.insert(Node);
-    };
-
-    FindNodesFromVTo(NodeW);
+    collectGoodPathsFrom(NodeV, NodeW, Visited, CollapseRange);
 
     // Nothing to collapse. Heap edges between collapsed edges may be stale.
     if (CollapseRange.size() == 1) {
@@ -1685,41 +1693,50 @@ void FuseGraph::topologicalSort(
   unsigned NumNodes = Vertex.size();
 
   SortedFuseNodes.reserve(NumNodes);
-  BitVector Visited(NumNodes);
+  // Set of Nodes we already sorted
+  BitVector AlreadySorted(NumNodes);
+
+  // Set of predecessors we've already seen
+  BitVector PredsVisited(NumNodes);
 
   SmallVector<unsigned, 8> WorkList;
   WorkList.reserve(NumNodes);
 
+  // Pre-sort the predecessors before we do DFS traversal
+  // Sort predecessors to make the final sequence stable - original order
+  // preserved if no reordering is required.
+  std::unordered_map<unsigned, SmallVector<unsigned, 8>> SortedPreds;
+  for (const auto &[Node, Preds] : Predecessors) {
+    SortedPreds[Node].append(Preds.begin(), Preds.end());
+
+    std::sort(SortedPreds[Node].begin(), SortedPreds[Node].end(),
+              std::greater<unsigned>());
+  }
+
   for (unsigned NodeIdx = 0; NodeIdx < NumNodes; NodeIdx++) {
-    if (Visited[NodeIdx] || Vertex[NodeIdx].isRemoved()) {
+    if (AlreadySorted[NodeIdx] || Vertex[NodeIdx].isRemoved()) {
       continue;
     }
 
     WorkList.push_back(NodeIdx);
+    PredsVisited.reset();
 
     while (!WorkList.empty()) {
       unsigned CurNodeIdx = WorkList.back();
-      if (Visited[CurNodeIdx]) {
+      if (AlreadySorted[CurNodeIdx]) {
         WorkList.pop_back();
         continue;
       }
 
       bool UnvisitedPredecessors = false;
 
-      auto PredNodes = Predecessors.find(CurNodeIdx);
-      if (PredNodes != Predecessors.end()) {
-        // Sort predecessors to make the final sequence stable - original order
-        // preserved if no reordering is required.
-        SmallVector<unsigned, 8> SortedPredNodes(PredNodes->second.begin(),
-                                                 PredNodes->second.end());
-
-        // Use std::greater<unsigned>() because we push nodes to the back and
-        // nodes from the back would be handled first.
-        std::sort(SortedPredNodes.begin(), SortedPredNodes.end(),
-                  std::greater<unsigned>());
-
-        for (auto Pred : SortedPredNodes) {
-          if (!Visited[Pred]) {
+      auto PredNodes = SortedPreds.find(CurNodeIdx);
+      if (PredNodes != SortedPreds.end()) {
+        for (auto Pred : PredNodes->second) {
+          // Push predecessor onto the worklist if we have not either sorted
+          // or visited the node already
+          if (!AlreadySorted[Pred] && !PredsVisited[Pred]) {
+            PredsVisited[Pred] = true;
             WorkList.push_back(Pred);
             UnvisitedPredecessors = true;
           }
@@ -1732,8 +1749,8 @@ void FuseGraph::topologicalSort(
         assert(!Vertex[CurNodeIdx].isRemoved() && "Adding removed node");
         SortedFuseNodes.push_back(&Vertex[CurNodeIdx]);
 
-        assert(!Visited[CurNodeIdx] && "Found already visited node");
-        Visited[CurNodeIdx] = true;
+        assert(!AlreadySorted[CurNodeIdx] && "Found already sorted node");
+        AlreadySorted[CurNodeIdx] = true;
       }
     }
   }

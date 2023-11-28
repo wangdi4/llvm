@@ -1,6 +1,6 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-windows-pc -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple i386-windows-pc -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-windows-pc -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple i386-windows-pc -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
 
 // Ensure that we properly emit the dtrans information for a mem-ptr thunk.
 // Previously in CMPLRLLVM-41283 we did this for tail-call thunks.

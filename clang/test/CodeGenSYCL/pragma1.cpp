@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -internal-isystem %S/Inputs -fsycl-is-device -O0 -emit-llvm -no-opaque-pointers -o - %s | FileCheck %s
+//RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -internal-isystem %S/Inputs -fsycl-is-device -O0 -emit-llvm -o - %s | FileCheck %s
 
 #include "sycl.hpp"
 
@@ -37,81 +37,81 @@ void foo_ivdep(int select, SIVDep &SV, SIVDep2 &SV2, SIVDep2 *Sv2p)
   for (int i=0;i<32;++i) { bar(i); }
 
   int myArray[32];
-  //CHECK: load i32, i32 addrspace(4)* %i8.ascast, align 4
+  //CHECK: load i32, ptr addrspace(4) %i8.ascast, align 4
   //CHECK: %[[IDXPROM:.+]] = sext i32 %8 to i64
-  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %myArray.ascast, i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP3:![0-9]+]]
-  //CHECK: store i32 %call, i32 addrspace(4)* %[[ARRAYIDX]], align 4
+  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], ptr addrspace(4) %myArray.ascast, i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP3:![0-9]+]]
+  //CHECK: store i32 %call, ptr addrspace(4) %[[ARRAYIDX]], align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP4:![0-9]+]]
   [[intel::ivdep(myArray)]]
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: load i32, i32 addrspace(4)* %i15.ascast, align 4
+  //CHECK: load i32, ptr addrspace(4) %i15.ascast, align 4
   //CHECK: %[[IDXPROM:.+]] = sext i32 %12 to i64
-  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %myArray.ascast, i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP5:![0-9]+]]
-  //CHECK: store i32 %call19, i32 addrspace(4)* %[[ARRAYIDX]], align 4
+  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], ptr addrspace(4) %myArray.ascast, i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP5:![0-9]+]]
+  //CHECK: store i32 %call19, ptr addrspace(4) %[[ARRAYIDX]], align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP6:![0-9]+]]
   [[intel::ivdep(myArray, 8)]]
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: load i32, i32 addrspace(4)* %i25.ascast, align 4
+  //CHECK: load i32, ptr addrspace(4) %i25.ascast, align 4
   //CHECK: %[[IDXPROM:.+]] = sext i32 %16 to i64
-  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %myArray.ascast, i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP7:![0-9]+]]
-  //CHECK: store i32 %call29, i32 addrspace(4)* %[[ARRAYIDX]], align 4
+  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], ptr addrspace(4) %myArray.ascast, i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP7:![0-9]+]]
+  //CHECK: store i32 %call29, ptr addrspace(4) %[[ARRAYIDX]], align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP8:![0-9]+]]
   #pragma unroll 4
   [[intel::ivdep(myArray, 8)]]
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: load i32, i32 addrspace(4)* %i35.ascast, align 4
+  //CHECK: load i32, ptr addrspace(4) %i35.ascast, align 4
   //CHECK: %[[IDXPROM:.+]] = sext i32 %21 to i64
-  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %A, i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP9:![0-9]+]]
-  //CHECK: store i32 %call39, i32 addrspace(4)* %[[ARRAYIDX]], align 4
+  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], ptr addrspace(4) %A, i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP9:![0-9]+]]
+  //CHECK: store i32 %call39, ptr addrspace(4) %[[ARRAYIDX]], align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP10:![0-9]+]]
   [[intel::ivdep(SV.A)]]
   for (int i=0;i<32;++i) { SV.A[i] = ibar(i); }
 
-  //CHECK: %[[PTRLOAD2:.+]] = load %struct.{{.*}}SIVDep2 addrspace(4)*, %struct.{{.*}}SIVDep2 addrspace(4)* addrspace(4)* %Sv2p.addr.ascast, align 8
-  //CHECK: %[[PTRIDX:.+]] = getelementptr inbounds %struct.{{.*}}SIVDep2, %struct.{{.*}}SIVDep2 addrspace(4)* %[[PTRLOAD2]], i32 0, i32 0
-  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [8 x [16 x %struct.{{.*}}SIVDep]], [8 x [16 x %struct.{{.*}}SIVDep]] addrspace(4)* %[[PTRIDX]], i64 0, i64 2
-  //CHECK: %[[ARRAYIDX1:.+]] = getelementptr inbounds [16 x %struct.{{.*}}SIVDep], [16 x %struct.{{.*}}SIVDep] addrspace(4)* %[[ARRAYIDX]], i64 0, i64 3
-  //CHECK: %[[PTRIDX1:.+]] = getelementptr inbounds %struct.{{.*}}SIVDep, %struct.{{.*}}SIVDep addrspace(4)* %[[ARRAYIDX1]], i32 0, i32 0
-  //CHECK: %[[PTRLOAD3:.+]] = load i32, i32 addrspace(4)* %i45.ascast, align 4
+  //CHECK: %[[PTRLOAD2:.+]] = load ptr addrspace(4), ptr addrspace(4) %Sv2p.addr.ascast, align 8
+  //CHECK: %[[PTRIDX:.+]] = getelementptr inbounds %struct.{{.*}}SIVDep2, ptr addrspace(4) %[[PTRLOAD2]], i32 0, i32 0
+  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [8 x [16 x %struct.{{.*}}SIVDep]], ptr addrspace(4) %[[PTRIDX]], i64 0, i64 2
+  //CHECK: %[[ARRAYIDX1:.+]] = getelementptr inbounds [16 x %struct.{{.*}}SIVDep], ptr addrspace(4) %[[ARRAYIDX]], i64 0, i64 3
+  //CHECK: %[[PTRIDX1:.+]] = getelementptr inbounds %struct.{{.*}}SIVDep, ptr addrspace(4) %[[ARRAYIDX1]], i32 0, i32 0
+  //CHECK: %[[PTRLOAD3:.+]] = load i32, ptr addrspace(4) %i45.ascast, align 4
   //CHECK: %[[IDXPROM:.+]] = sext i32 %[[PTRLOAD3]] to i64
-  //CHECK: %[[ARRAYIDX2:.+]] = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %[[PTRIDX1]], i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP11:![0-9]+]]
-  //CHECK: store i32 %call49, i32 addrspace(4)* %[[ARRAYIDX2]], align 4
+  //CHECK: %[[ARRAYIDX2:.+]] = getelementptr inbounds [32 x i32], ptr addrspace(4) %[[PTRIDX1]], i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP11:![0-9]+]]
+  //CHECK: store i32 %call49, ptr addrspace(4) %[[ARRAYIDX2]], align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP12:![0-9]+]]
   [[intel::ivdep(Sv2p->X[2][3].A)]]
   for (int i=0;i<32;++i) { Sv2p->X[2][3].A[i] = ibar(i); }
 
   int myArray2[32];
   int *ptr = select ? myArray : myArray2;
-  //CHECK: %[[PTRLOAD1:.+]] = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %ptr.ascast, align 8
-  //CHECK: %[[PTRLOAD2:.+]] = load i32, i32 addrspace(4)* %i58.ascast, align 4
+  //CHECK: %[[PTRLOAD1:.+]] = load ptr addrspace(4), ptr addrspace(4) %ptr.ascast, align 8
+  //CHECK: %[[PTRLOAD2:.+]] = load i32, ptr addrspace(4) %i58.ascast, align 4
   //CHECK: %[[IDXPROM:.+]] = sext i32 %[[PTRLOAD2]] to i64
-  //CHECK: %[[PTRIDX:.+]] = getelementptr inbounds i32, i32 addrspace(4)* %[[PTRLOAD1]], i64 %[[IDXPROM]], !llvm.index.group [[IVDEP13:![0-9]+]]
-  //CHECK: store i32 %call62, i32 addrspace(4)* %[[PTRIDX]], align 4
+  //CHECK: %[[PTRIDX:.+]] = getelementptr inbounds i32, ptr addrspace(4) %[[PTRLOAD1]], i64 %[[IDXPROM]], !llvm.index.group [[IVDEP13:![0-9]+]]
+  //CHECK: store i32 %call62, ptr addrspace(4) %[[PTRIDX]], align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP14:![0-9]+]]
   [[intel::ivdep(ptr)]]
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
 
-  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %myArray.ascast, i64 0, i64 16
-  //CHECK: store i32 addrspace(4)* %[[ARRAYIDX]], i32 addrspace(4)* addrspace(4)* %ptr.ascast, align 8
-  //CHECK: store i32 0, i32 addrspace(4)* %i69.ascast, align 4
+  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], ptr addrspace(4) %myArray.ascast, i64 0, i64 16
+  //CHECK: store ptr addrspace(4) %[[ARRAYIDX]], ptr addrspace(4) %ptr.ascast, align 8
+  //CHECK: store i32 0, ptr addrspace(4) %i69.ascast, align 4
   ptr = &myArray[16];
 
-  //CHECK: %[[PTRLOAD:.+]] = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %ptr.ascast, align 8
-  //CHECK: %[[IDXLOAD:.+]] = load i32, i32 addrspace(4)* %i69.ascast, align 4
+  //CHECK: %[[PTRLOAD:.+]] = load ptr addrspace(4), ptr addrspace(4) %ptr.ascast, align 8
+  //CHECK: %[[IDXLOAD:.+]] = load i32, ptr addrspace(4) %i69.ascast, align 4
   //CHECK: %[[IDXPROM:.+]] = sext i32 %[[IDXLOAD]] to i64
-  //CHECK: %[[PTRIDX:.+]] = getelementptr inbounds i32, i32 addrspace(4)* %[[PTRLOAD]], i64 %[[IDXPROM]], !llvm.index.group [[IVDEP15:![0-9]+]]
-  //CHECK: store i32 %call73, i32 addrspace(4)* %[[PTRIDX]], align 4
+  //CHECK: %[[PTRIDX:.+]] = getelementptr inbounds i32, ptr addrspace(4) %[[PTRLOAD]], i64 %[[IDXPROM]], !llvm.index.group [[IVDEP15:![0-9]+]]
+  //CHECK: store i32 %call73, ptr addrspace(4) %[[PTRIDX]], align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP16:![0-9]+]]
   [[intel::ivdep(ptr)]]
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
 
-  //CHECK: load i32, i32 addrspace(4)* %i79.ascast, align 4
+  //CHECK: load i32, ptr addrspace(4) %i79.ascast, align 4
   //CHECK: %[[IDXPROM:.+]] = sext i32 %41 to i64
-  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %myArray.ascast, i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP17:![0-9]+]]
-  //CHECK: store i32 %call83, i32 addrspace(4)* %[[ARRAYIDX]], align 4
+  //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], ptr addrspace(4) %myArray.ascast, i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP17:![0-9]+]]
+  //CHECK: store i32 %call83, ptr addrspace(4) %[[ARRAYIDX]], align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP18:![0-9]+]]
   [[intel::ivdep(myArray2)]]
   [[intel::ivdep(myArray)]]

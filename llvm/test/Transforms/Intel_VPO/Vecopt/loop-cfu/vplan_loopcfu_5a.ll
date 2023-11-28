@@ -10,13 +10,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 
-define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %ub, i32 %k) local_unnamed_addr {
+define dso_local void @foo(ptr nocapture %a, i32 %m, ptr nocapture readonly %ub, i32 %k) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP__PRE:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[UB0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP__PRE:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]], [[BB2:BB[0-9]+]]
@@ -27,9 +27,9 @@ define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %u
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB1]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_MUL:%.*]] = mul i32 [[VP_REC]] i32 [[VP_IV]]
-; CHECK-NEXT:       [DA: Div] store i32 [[VP_MUL]] i32* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:       [DA: Div] store i32 [[VP_MUL]] ptr [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
-; CHECK-NEXT:       [DA: Div] i32 [[VP_REC_NEXT]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_REC_NEXT]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp sgt i32 [[VP_REC]] i32 0
 ; CHECK-NEXT:       [DA: Uni] br [[BB2]]
 ; CHECK-EMPTY:
@@ -47,18 +47,18 @@ define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %u
 ;
 entry:
   %lane = call i64 @llvm.vplan.laneid()
-  %arrayidx = getelementptr inbounds i32, i32* %ub, i64 %lane
-  %arrayidx2 = getelementptr inbounds i32, i32* %a, i64 %lane
-  %.pre = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ub, i64 %lane
+  %arrayidx2 = getelementptr inbounds i32, ptr %a, i64 %lane
+  %.pre = load i32, ptr %arrayidx, align 4
   br label %header
 
 header:
   %rec = phi i32 [ %rec.next, %header ], [ %.pre, %entry ]
   %iv = phi i32 [ %iv.next, %header ], [ 0, %entry ]
   %mul = mul nsw i32 %rec, %iv
-  store i32 %mul, i32* %arrayidx2, align 4
+  store i32 %mul, ptr %arrayidx2, align 4
   %iv.next = add nuw nsw i32 %iv, 1
-  %rec.next = load i32, i32* %arrayidx, align 4
+  %rec.next = load i32, ptr %arrayidx, align 4
   %continue.cond = icmp sgt i32 %rec, 0
   br i1 %continue.cond, label %header, label %loop.exit
 

@@ -625,7 +625,13 @@ attributes #5 = { nounwind }
 
 !omp_offload.info = !{}
 !llvm.module.flags = !{!0, !1, !2}
+!ifx.types.dv = !{!3, !4, !5, !6}
 
 !0 = !{i32 1, !"ThinLTO", i32 0}
 !1 = !{i32 1, !"EnableSplitLTOUnit", i32 1}
 !2 = !{i32 1, !"LTOPostLink", i32 1}
+!3 = !{%"QNCA_a0$float*$rank1$" zeroinitializer, float 0.000000e+00}
+!4 = !{%"QNCA_a0$float*$rank2$" zeroinitializer, float 0.000000e+00}
+!5 = !{%"QNCA_a0$float*$rank3$" zeroinitializer, float 0.000000e+00}
+!6 = !{%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$" zeroinitializer, %"ARR_MOD$.btT_TESTTYPE" zeroinitializer}
+

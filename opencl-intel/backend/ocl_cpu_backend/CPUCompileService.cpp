@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -22,9 +22,8 @@
 #include "cache_binary_handler.h"
 #include "elf_binary.h"
 #include "exceptions.h"
-
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/IR/Module.h"
+#include "llvm/TargetParser/Triple.h"
 
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 

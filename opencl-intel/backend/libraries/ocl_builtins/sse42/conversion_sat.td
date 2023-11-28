@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006 Intel Corporation
 // Conversions (_sat) Built-In Functions
 // SSE42
 // convert_ushortn - ints

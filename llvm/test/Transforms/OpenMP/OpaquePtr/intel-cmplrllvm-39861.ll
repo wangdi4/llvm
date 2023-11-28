@@ -1,4 +1,4 @@
-; RUN: opt -S -opaque-pointers -passes='cgscc(openmp-opt-cgscc)' < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes='cgscc(openmp-opt-cgscc)' < %s 2>&1 | FileCheck %s
 
 ; The customized printf was being removed and replaced with an incompatible
 ; version. With opaque pointers, the args don't strictly need to match,

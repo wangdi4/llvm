@@ -42,8 +42,3 @@ int main(int argc, char *argv[]) {
 // CHECK-NEXT: #0 {{.*}}task-two.c:30
 // CHECK: DONE
 // CHECK: ThreadSanitizer: reported {{[0-9]+}} warnings
-
-// INTEL_CUSTOMIZATION
-// CMPLRLLVM-49465
-// XFAIL: iomp
-// end INTEL_CUSTOMIZATION

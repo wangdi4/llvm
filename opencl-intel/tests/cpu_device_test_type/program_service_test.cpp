@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -22,20 +22,19 @@
 // program_service_test.cpp
 ///////////////////////////////////////////////////////////
 
+#include "cl_sys_defines.h"
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
 #include "cpu_dev_test.h"
-
-#include <cl_sys_defines.h>
-#include <stdlib.h>
-#include <string.h>
-#ifdef _WIN32
-#include <windows.h>
-#endif
 #include <iosfwd>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <vector>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #if (defined(_WIN32))
 #define SET_FPOS_T(var, val) (var) = (val)

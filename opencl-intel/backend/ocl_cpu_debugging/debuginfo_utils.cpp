@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,13 +13,11 @@
 // License.
 
 #include "debuginfo_utils.h"
+#include "cl_utils.h"
 #include "debugservermessages_wrapper.h"
-#include <cl_utils.h>
-
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Metadata.h"
-
 #include <iostream>
 
 using namespace std;

@@ -1,4 +1,4 @@
-// Copyright 2010-2023 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,6 +13,7 @@
 #define NOMINMAX
 
 #include "Compiler.h"
+#include "BackendUtils.h"
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
 #include "CompilerConfig.h"
@@ -85,50 +86,6 @@ static void LogHasRecursion(llvm::raw_ostream &logs,
     logs << *i << "\n";
   }
 }
-
-/**
- * Generates the log record (to the given stream) enumerating function names
-   with unresolved pipe accesses.
- */
-static void
-LogHasFpgaPipeDynamicAccess(llvm::raw_ostream &logs,
-                            const std::vector<std::string> &functions) {
-  logs << "Error: dynamic pipe or channel access in function(s):\n";
-
-  for (const auto &fun : functions) {
-    logs << fun << "\n";
-  }
-}
-
-static void
-LogVectorVariantFailureFunctions(llvm::raw_ostream &logs,
-                                 const std::vector<std::string> &functions,
-                                 const std::string &reason) {
-  logs << "Error: " << reason << " in function(s):\n";
-
-  for (const auto &f : functions) {
-    logs << f << "\n";
-  }
-}
-
-/**
- * Generates the log record (to the given stream) enumerating global names
-   whose depth attribute is ignored.
-   Note: currently only FPGA channels is expected to be such globals.
- */
-static void
-LogHasFPGAChannelsWithDepthIgnored(llvm::raw_ostream &logs,
-                                   const std::vector<std::string> &globals) {
-  logs << "Warning: The default channel depths in the emulation flow will be "
-       << "different from the hardware flow depth (0) to speed up emulation. "
-       << "The following channels are affected:\n";
-
-  for (const auto &global : globals) {
-    logs << " - " << global << "\n";
-  }
-
-  logs << "\n";
-}
 } // namespace Utils
 
 ProgramBuildResult::ProgramBuildResult()
@@ -153,12 +110,10 @@ void ProgramBuildResult::SetBuildResult(cl_dev_err_code code) {
 
 cl_dev_err_code ProgramBuildResult::GetBuildResult() const { return m_result; }
 
-CompilerBuildOptions::CompilerBuildOptions(const char *pBuildOpts)
-    : m_debugInfo(false), m_useNativeDebugger(true), m_profiling(false),
-      m_disableOpt(false), m_relaxedMath(false), m_denormalsZero(false),
-      m_uniformWGSize(false) {
+CompilerBuildOptions::CompilerBuildOptions(const char *pBuildOpts) {
+  if (!pBuildOpts)
+    return;
   llvm::StringRef buildOptions(pBuildOpts);
-
   if (buildOptions.empty())
     return;
 
@@ -170,14 +125,14 @@ CompilerBuildOptions::CompilerBuildOptions(const char *pBuildOpts)
       m_profiling = true;
     else if (opt.equals("-g"))
       m_debugInfo = true;
+    else if (opt.equals("-coverage"))
+      m_coverage = true;
     else if (opt.equals("-cl-fast-relaxed-math"))
       m_relaxedMath = true;
     else if (opt.equals("-cl-opt-disable"))
       m_disableOpt = true;
     else if (opt.equals("-cl-denorms-are-zero"))
       m_denormalsZero = true;
-    else if (opt.equals("-cl-uniform-work-group-size"))
-      m_uniformWGSize = true;
   }
 }
 
@@ -250,6 +205,11 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
   // sycl_benchmarks/dnnbench-pooling.
   Args.push_back("-unroll-runtime=false");
 
+  // Threshold is tuned based on sycl_benchmarks/mandelbrot-dpd,dnnbench-norm.
+  // For dnnbench-norm, we need to disable vectorization on single-task kernels
+  // to observe the impact of the threshold.
+  Args.push_back("-unroll-partial-threshold=30");
+
   // inline threshold is not exposed by standard new pass manager
   // pipeline, so we have to set threshold globally here.
   Args.push_back("-inline-threshold=16384");
@@ -277,8 +237,7 @@ Compiler::Compiler(const ICompilerConfig &config)
     : m_bIsFPGAEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
       m_transposeSize(config.GetTransposeSize()),
       m_rtLoopUnrollFactor(config.GetRTLoopUnrollFactor()),
-      m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()), m_debug(false),
-      m_disableOptimization(false), m_useNativeDebugger(true),
+      m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()),
       m_streamingAlways(config.GetStreamingAlways()),
       m_expensiveMemOpts(config.GetExpensiveMemOpts()),
       m_passManagerType(config.GetPassManagerType()),
@@ -325,9 +284,16 @@ llvm::TargetMachine *Compiler::GetTargetMachine(llvm::Module *pModule) const {
     TargetOpts.DoFMAOpt = false;
 #endif // INTEL_CUSTOMIZATION
 
-  llvm::CodeGenOpt::Level CGOptLevel = m_disableOptimization
-                                           ? llvm::CodeGenOpt::None
-                                           : llvm::CodeGenOpt::Default;
+  OptimizationLevel OptLevel =
+      BackendUtils::getOptLevel(m_buildOptions.GetDisableOpt(), *pModule);
+  // Align OpenCL with DPC++ that the default opt-level is O2.
+  bool IsOCL = !CompilationUtils::isGeneratedFromOCLCPP(*pModule);
+  llvm::CodeGenOptLevel CGOptLevel =
+      (OptLevel == OptimizationLevel::O0)   ? llvm::CodeGenOptLevel::None
+      : (OptLevel == OptimizationLevel::O1) ? llvm::CodeGenOptLevel::Less
+      : (OptLevel == OptimizationLevel::O2 || IsOCL)
+          ? llvm::CodeGenOptLevel::Default
+          : llvm::CodeGenOptLevel::Aggressive;
 
   llvm::EngineBuilder Builder;
 
@@ -355,12 +321,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
 
   validateVectorizerMode(pResult->LogS());
 
-  CompilerBuildOptions buildOptions(pBuildOptions);
-
-  // Record the debug control flags.
-  m_debug = buildOptions.GetDebugInfoFlag();
-  m_disableOptimization = buildOptions.GetDisableOpt();
-  m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
+  m_buildOptions = CompilerBuildOptions(pBuildOptions);
 
   materializeSpirTriple(pModule);
 
@@ -373,12 +334,11 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   //
 
   intel::OptimizerConfig optimizerConfig(
-      m_CpuId, m_transposeSize, targetMachine.get(), m_debug,
-      m_useNativeDebugger, buildOptions.GetProfilingFlag(),
-      buildOptions.GetDisableOpt(), buildOptions.GetRelaxedMath(),
-      buildOptions.GetUniformWGSize(), m_bIsFPGAEmulator, m_dumpHeuristicIR,
-      m_rtLoopUnrollFactor, m_streamingAlways, m_expensiveMemOpts,
-      m_subGroupConstructionMode);
+      m_CpuId, m_transposeSize, targetMachine.get(),
+      m_buildOptions.GetProfilingFlag(), m_buildOptions.GetDisableOpt(),
+      m_buildOptions.GetRelaxedMath(), m_buildOptions.GetCoverage(),
+      m_bIsFPGAEmulator, m_dumpHeuristicIR, m_rtLoopUnrollFactor,
+      m_streamingAlways, m_expensiveMemOpts, m_subGroupConstructionMode);
   auto &BIModules = GetBuiltinModuleList();
   std::unique_ptr<Optimizer> optimizer;
   switch (m_passManagerType) {
@@ -394,51 +354,8 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
 
   optimizer->Optimize(pResult->LogS());
 
-  if (optimizer->hasVectorVariantFailure()) {
-    std::map<std::string, std::vector<std::string>> Reasons;
-    for (auto &F : *pModule)
-      if (F.hasFnAttribute(llvm::KernelAttribute::VectorVariantFailure)) {
-        std::string Value =
-            F.getFnAttribute(llvm::KernelAttribute::VectorVariantFailure)
-                .getValueAsString()
-                .str();
-        Reasons[Value].push_back(F.getName().str());
-      }
-
-    for (const auto &It : Reasons)
-      Utils::LogVectorVariantFailureFunctions(pResult->LogS(), It.second,
-                                              It.first);
-
-    throw Exceptions::UserErrorCompilerException(
-        "Vector-variant processing problem for an indirect function call.",
-        CL_DEV_INVALID_BINARY);
-  }
-
-  if (optimizer->hasUnsupportedRecursion()) {
-    Utils::LogHasRecursion(pResult->LogS(),
-                           optimizer->GetInvalidFunctions(
-                               Optimizer::InvalidFunctionType::RECURSION));
-    throw Exceptions::UserErrorCompilerException("Recursive call detected.",
-                                                 CL_DEV_INVALID_BINARY);
-  }
-
-  if (optimizer->hasFpgaPipeDynamicAccess()) {
-    Utils::LogHasFpgaPipeDynamicAccess(
-        pResult->LogS(),
-        optimizer->GetInvalidFunctions(
-            Optimizer::InvalidFunctionType::FPGA_PIPE_DYNAMIC_ACCESS));
-
-    throw Exceptions::UserErrorCompilerException(
-        "Dynamic access to FPGA pipe or channel detected.",
-        CL_DEV_INVALID_BINARY);
-  }
-
-  if (optimizer->hasFPGAChannelsWithDepthIgnored()) {
-    // In this case build is not failed, we just need to show diagnostics
-    Utils::LogHasFPGAChannelsWithDepthIgnored(
-        pResult->LogS(), optimizer->GetInvalidGlobals(
-                             Optimizer::InvalidGVType::FPGA_DEPTH_IS_IGNORED));
-  }
+  if (const std::string &Msg = optimizer->getExceptionMsg(); !Msg.empty())
+    throw Exceptions::CompilerException(Msg, CL_DEV_INVALID_BINARY);
 
   //
   // Populate the build results
@@ -586,11 +503,6 @@ llvm::LLVMContext &Compiler::getLLVMContext() {
   auto It = m_LLVMContexts.find(TID);
   if (It == m_LLVMContexts.end()) {
     It = m_LLVMContexts.emplace(TID, std::make_unique<LLVMContext>()).first;
-#ifdef SPIRV_ENABLE_OPAQUE_POINTERS
-    It->second->setOpaquePointers(true);
-#else
-    It->second->setOpaquePointers(false);
-#endif
   }
   return *It->second;
 }

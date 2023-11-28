@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2023 Intel Corporation.
+// Copyright 2008 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,12 +14,12 @@
 
 #pragma once
 
+#include "Logger.h"
 #include "cl_framework.h"
 #include "command_queue.h"
 #include "iexecution.h"
 #include "ocl_config.h"
 #include "ocl_itt.h"
-#include <Logger.h>
 #include <unordered_map>
 
 // forward declarations
@@ -330,7 +330,7 @@ public:
                                     size_t szParamValueSize, void *pParamValue,
                                     size_t *pszParamValueSizeRet) override;
 
-  cl_err_code Release(bool bTerminate);
+  cl_err_code Release();
   cl_err_code Finish(const SharedPtr<IOclCommandQueueBase> &pCommandQueue);
   void DeleteAllActiveQueues(bool preserve_user_handles);
   void CancelAllActiveQueues();
@@ -403,11 +403,6 @@ private:
   bool CanAccessUSM(SharedPtr<IOclCommandQueueBase> &queue,
                     SharedPtr<USMBuffer> &buf);
 
-  // Register tracker event for blocking USMFree
-  void SetTrackerForUSM(Command *command,
-                        const std::vector<const void *> &usmPtrList,
-                        cl_event tracker, bool isTrackerVisible);
-
   size_t CalcRegionSizeInBytes(SharedPtr<MemoryObject> pImage,
                                const size_t *szRegion);
   cl_err_code FlushAllQueuesForContext(cl_context ctx);
@@ -435,6 +430,10 @@ private:
       cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
       cl_event *event, Utils::ApiLogger *api_logger, cl_command_type cmdType);
 
+  // Callback for Evt status change. if it's changed to CL_COMPLETE, we need to
+  // remove it from kernel-event map.
+  void callbackForKernelEventMap(cl_event Evt);
+
   ContextModule *m_pContextModule; // Pointer to the context operation. This is
                                    // the internal interface of the module.
   OCLObjectsMap<_cl_command_queue_int, _cl_context_int>
@@ -456,6 +455,9 @@ private:
 
   // Whether parallel copy is enabled.
   bool m_enableParallelCopy = false;
+
+  /// Sync for the access of ExecutionModule::m_OclKernelEventMap
+  std::mutex KernelEventMutex;
 
   DECLARE_LOGGER_CLIENT; // Logger client for logging operations.
 };

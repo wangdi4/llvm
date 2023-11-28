@@ -8,21 +8,21 @@ target triple = "x86_64-pc-linux"
 
 %struct.ndrange_t.6 = type { i32, [3 x i64], [3 x i64], [3 x i64] }
 
-; CHECK:  define dso_local void @_ZGVdN8u___block_fn_block_invoke_kernel(i8 addrspace(4)* [[INP_ARG:%.*]]) {
+; CHECK:  define dso_local void @_ZGVdN8u___block_fn_block_invoke_kernel(ptr addrspace(4) [[INP_ARG:%.*]]) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[NDRANGE_I_I0:%.*]] = alloca [[STRUCT_NDRANGE_T_60:%.*]], align 8
-; CHECK-NEXT:    [[BLOCK0:%.*]] = alloca <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>, align 8
+; CHECK-NEXT:    [[BLOCK0:%.*]] = alloca <{ i32, i32, ptr addrspace(4), ptr addrspace(1), i32 }>, align 8
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca [[STRUCT_NDRANGE_T_60]], align 8
 ; CHECK-NEXT:    [[CALL_I_I0:%.*]] = tail call i64 @_Z13get_global_idj(i32 0)
 ; CHECK-NEXT:    [[TMP_VEC0:%.*]] = alloca [2 x %struct.ndrange_t.6], align 8
-; CHECK-NEXT:    [[TMP_VEC_BC0:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[TMP_VEC0]] to %struct.ndrange_t.6*
-; CHECK-NEXT:    [[TMP_VEC_BASE_ADDR0:%.*]] = getelementptr [[STRUCT_NDRANGE_T_60]], %struct.ndrange_t.6* [[TMP_VEC_BC0]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[BLOCK_VEC0:%.*]] = alloca [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>], align 8
-; CHECK-NEXT:    [[BLOCK_VEC_BC0:%.*]] = bitcast [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>]* [[BLOCK_VEC0]] to <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>*
-; CHECK-NEXT:    [[BLOCK_VEC_BASE_ADDR0:%.*]] = getelementptr <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>, <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>* [[BLOCK_VEC_BC0]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP_VEC_BASE_ADDR0:%.*]] = getelementptr [[STRUCT_NDRANGE_T_60]], ptr [[TMP_VEC0]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP_VEC_BASE_ADDR_EXTRACT0:%.*]] = extractelement <2 x ptr> [[TMP_VEC_BASE_ADDR0]], i32 0
+; CHECK-NEXT:    [[BLOCK_VEC0:%.*]] = alloca [2 x <{ i32, i32, ptr addrspace(4), ptr addrspace(1), i32 }>], align 8
+; CHECK-NEXT:    [[BLOCK_VEC_BASE_ADDR0:%.*]] = getelementptr <{ i32, i32, ptr addrspace(4), ptr addrspace(1), i32 }>, ptr [[BLOCK_VEC0]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[BLOCK_VEC_BASE_ADDR_EXTRACT0:%.*]] = extractelement <2 x ptr> [[BLOCK_VEC_BASE_ADDR0]], i32 0
 ; CHECK-NEXT:    [[NDRANGE_I_I_VEC0:%.*]] = alloca [2 x %struct.ndrange_t.6], align 8
-; CHECK-NEXT:    [[NDRANGE_I_I_VEC_BC0:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[NDRANGE_I_I_VEC0]] to %struct.ndrange_t.6*
-; CHECK-NEXT:    [[NDRANGE_I_I_VEC_BASE_ADDR0:%.*]] = getelementptr [[STRUCT_NDRANGE_T_60]], %struct.ndrange_t.6* [[NDRANGE_I_I_VEC_BC0]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[NDRANGE_I_I_VEC_BASE_ADDR0:%.*]] = getelementptr [[STRUCT_NDRANGE_T_60]], ptr [[NDRANGE_I_I_VEC0]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[NDRANGE_I_I_VEC_BASE_ADDR_EXTRACT0:%.*]] = extractelement <2 x ptr> [[NDRANGE_I_I_VEC_BASE_ADDR0]], i32 0
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
@@ -34,12 +34,9 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    [[TMP_VEC0_BCAST:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[TMP_VEC0]] to i8* 
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 160, i8* [[TMP_VEC0_BCAST]]) 
-; CHECK-NEXT:    [[BLOCK_VEC0_BCAST:%.*]] = bitcast [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>]* [[BLOCK_VEC0]] to i8* 
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 56, i8* [[BLOCK_VEC0_BCAST]]) 
-; CHECK-NEXT:    [[NDRANGE_I_I_VEC0_BCAST:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[NDRANGE_I_I_VEC0]] to i8* 
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 160, i8* [[NDRANGE_I_I_VEC0_BCAST]]) 
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 160, ptr [[TMP_VEC_BASE_ADDR_EXTRACT0]]) 
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 56, ptr [[BLOCK_VEC_BASE_ADDR_EXTRACT0]]) 
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 160, ptr [[NDRANGE_I_I_VEC_BASE_ADDR_EXTRACT0]]) 
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
@@ -47,15 +44,10 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VPLANNEDBB10]] ], [ [[TMP11:%.*]], [[VPLANNEDBB50]] ]
 ; CHECK-NEXT:    [[TMP1:%.*]] = sext <2 x i32> [[VEC_PHI0]] to <2 x i64>
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nuw <2 x i64> [[TMP1]], [[BROADCAST_SPLAT0]]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i8, i8 addrspace(4)* [[INP_ARG]], i64 16
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i8 addrspace(4)* [[SCALAR_GEP0]] to i32 addrspace(1)* addrspace(4)*
-; CHECK-NEXT:    [[TMP4:%.*]] = load i32 addrspace(1)*, i32 addrspace(1)* addrspace(4)* [[TMP3]], align 8
-; CHECK-NEXT:    [[SCALAR_GEP30:%.*]] = getelementptr inbounds i8, i8 addrspace(4)* [[INP_ARG]], i64 24
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8 addrspace(4)* [[SCALAR_GEP30]] to i32 addrspace(4)*
-; CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32 addrspace(4)* [[TMP5]], align 8
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>]* [[BLOCK_VEC0]] to i8*
-; CHECK-NEXT:    [[TMP8:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[TMP_VEC0]] to i8*
-; CHECK-NEXT:    [[TMP9:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[NDRANGE_I_I_VEC0]] to i8*
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i8, ptr addrspace(4) [[INP_ARG]], i64 16
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr addrspace(1), ptr addrspace(4) [[SCALAR_GEP0]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP30:%.*]] = getelementptr inbounds i8, ptr addrspace(4) [[INP_ARG]], i64 24
+; CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr addrspace(4) [[SCALAR_GEP30]], align 8
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp slt i32 [[TMP6]], 1
 ; CHECK-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB40:%.*]], label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
@@ -63,41 +55,36 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 
 ; Function Attrs: nounwind
-define dso_local void @_ZGVdN8u___block_fn_block_invoke_kernel(i8 addrspace(4)*) {
+define dso_local void @_ZGVdN8u___block_fn_block_invoke_kernel(ptr addrspace(4)) {
 entry:
   %ndrange.i.i = alloca %struct.ndrange_t.6, align 8
-  %block = alloca <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>, align 8
+  %block = alloca <{ i32, i32, ptr addrspace(4), ptr addrspace(1), i32 }>, align 8
   %tmp = alloca %struct.ndrange_t.6, align 8
   %call.i.i = tail call i64 @_Z13get_global_idj(i32 0)
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(i8 addrspace(4)* %0, i8 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(%struct.ndrange_t.6* %ndrange.i.i, %struct.ndrange_t.6 zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(<{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>* %block, <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }> zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(%struct.ndrange_t.6* %tmp, %struct.ndrange_t.6 zeroinitializer, i32 1), "QUAL.OMP.SIMDLEN"(i32 8) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(4) %0, i8 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %ndrange.i.i, %struct.ndrange_t.6 zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %block, <{ i32, i32, ptr addrspace(4), ptr addrspace(1), i32 }> zeroinitializer, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp, %struct.ndrange_t.6 zeroinitializer, i32 1), "QUAL.OMP.SIMDLEN"(i32 8) ]
   br label %simd.loop
 
 simd.loop:
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
   %1 = sext i32 %index to i64
   %add = add nuw i64 %1, %call.i.i
-  %block.capture.addr.i = getelementptr inbounds i8, i8 addrspace(4)* %0, i64 16
-  %2 = bitcast i8 addrspace(4)* %block.capture.addr.i to i32 addrspace(1)* addrspace(4)*
-  %3 = load i32 addrspace(1)*, i32 addrspace(1)* addrspace(4)* %2, align 8
-  %block.capture.addr1.i = getelementptr inbounds i8, i8 addrspace(4)* %0, i64 24
-  %4 = bitcast i8 addrspace(4)* %block.capture.addr1.i to i32 addrspace(4)*
-  %5 = load i32, i32 addrspace(4)* %4, align 8
-  %6 = bitcast <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>* %block to i8*
-  call void @llvm.lifetime.start.p0i8(i64 28, i8* nonnull %6)
-  %7 = bitcast %struct.ndrange_t.6* %tmp to i8*
-  call void @llvm.lifetime.start.p0i8(i64 80, i8* nonnull %7)
-  %8 = bitcast %struct.ndrange_t.6* %ndrange.i.i to i8*
-  call void @llvm.lifetime.start.p0i8(i64 80, i8* nonnull %8)
-  %cmp.i.i = icmp slt i32 %5, 1
+  %block.capture.addr.i = getelementptr inbounds i8, ptr addrspace(4) %0, i64 16
+  %2 = load ptr addrspace(1), ptr addrspace(4) %block.capture.addr.i, align 8
+  %block.capture.addr1.i = getelementptr inbounds i8, ptr addrspace(4) %0, i64 24
+  %3 = load i32, ptr addrspace(4) %block.capture.addr1.i, align 8
+  call void @llvm.lifetime.start.p0(i64 28, ptr nonnull %block)
+  call void @llvm.lifetime.start.p0(i64 80, ptr nonnull %tmp)
+  call void @llvm.lifetime.start.p0(i64 80, ptr nonnull %ndrange.i.i)
+  %cmp.i.i = icmp slt i32 %3, 1
   br i1 %cmp.i.i, label %__block_fn_block_invoke.exit, label %simd.loop.exit
 
 __block_fn_block_invoke.exit:
-  call void @llvm.lifetime.end.p0i8(i64 80, i8* nonnull %8)
-  call void @llvm.lifetime.end.p0i8(i64 28, i8* nonnull %6)
-  call void @llvm.lifetime.end.p0i8(i64 80, i8* nonnull %7)
+  call void @llvm.lifetime.end.p0(i64 80, ptr nonnull %ndrange.i.i)
+  call void @llvm.lifetime.end.p0(i64 28, ptr nonnull %block)
+  call void @llvm.lifetime.end.p0(i64 80, ptr nonnull %tmp)
   br label %simd.loop.exit
 
 simd.loop.exit:
@@ -113,8 +100,8 @@ return:
   ret void
 }
 
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture)
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture)
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture)
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 declare i64 @_Z13get_global_idj(i32)

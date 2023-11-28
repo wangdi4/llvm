@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.h - Implement inlining report ---------*- C++ -*-===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -407,8 +407,14 @@ public:
   // SCC of the CG.
   void beginSCC(LazyCallGraph::SCC &SCC, void *Inliner);
 
+  // Indicate that we have begun inlining functions in the current Module.
+  void beginModule(void *Inliner);
+
   // Indicate that we are done inlining functions in the current SCC.
   void endSCC();
+
+  // Indicate that we are done inlining functions in the current Module.
+  void endModule(void);
 
   void beginUpdate(CallBase *Call) {
     if (!isClassicIREnabled())
@@ -499,6 +505,11 @@ public:
   /// Replace all uses of 'OldFunction' with 'NewFunction' in the
   /// inlining report.
   void replaceAllUsesWith(Function *OldFunction, Function *NewFunction);
+
+  /// Replace all uses of 'OldFunction' with 'NewFunction'
+  /// where 'ShouldReplace' is true in the inlining report.
+  void replaceUsesWithIf(Function *OldFunction, Function *NewFunction,
+                         llvm::function_ref<bool(Use &U)> ShouldReplace);
 
   /// Ensure that 'F' and all Functions that call it directly are in the
   /// inlining report.
@@ -639,6 +650,12 @@ public:
   // Update the name of 'F' in the inlining report.
   void updateName(Function *F);
 
+  // Create an InlineReportFunction to represent 'F'
+  InlineReportFunction *addFunction(Function *F);
+
+  // Create an InlineReportCallSite to represent Call
+  InlineReportCallSite *addCallSite(CallBase *Call, bool AttachToCaller = true);
+
 private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
@@ -731,14 +748,8 @@ private:
 
   DenseMap<Value *, InlineReportCallback *> CallbackMap;
 
-  // Create an InlineReportFunction to represent 'F'
-  InlineReportFunction *addFunction(Function *F);
-
   // Get the existing or create an InlineReportFunction to represent 'F'
   InlineReportFunction *getOrAddFunction(Function *F);
-
-  // Create an InlineReportCallSite to represent Call
-  InlineReportCallSite *addCallSite(CallBase *Call, bool AttachToCaller = true);
 
   // Get the existing or create an InlineReportCallSite to represent 'Call'
   InlineReportCallSite *getOrAddCallSite(CallBase *Call);
@@ -800,6 +811,7 @@ class InlineReportMakeCurrentPass
   static char PassID;
 
 public:
+  static bool isRequired() { return true; }
   InlineReportMakeCurrentPass(void);
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };

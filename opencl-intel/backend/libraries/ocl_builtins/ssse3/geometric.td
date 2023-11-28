@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006 Intel Corporation
 // Geometric Built-In Functions
 // SSSE3
 

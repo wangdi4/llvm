@@ -1,6 +1,6 @@
 //===------ HIRLocalityAnalysis.h - Provides Locality Analysis ---*- C++-*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -50,10 +50,9 @@ class HIRLoopLocality : public HIRAnalysis {
 public:
   typedef DDRefGrouping::RefGroupTy<const RegDDRef *> RefGroupTy;
   typedef DDRefGrouping::RefGroupVecTy<const RegDDRef *> RefGroupVecTy;
-
-private:
   typedef DDRefGatherer<const RegDDRef, MemRefs> LocalityRefGatherer;
 
+private:
   struct LocalityInfo {
     uint64_t NumSpatialCacheLines;
     uint64_t NumTempInvCacheLines;
@@ -176,11 +175,29 @@ private:
 
   /// Implements getTemporalLocality().
   static unsigned getTemporalLocalityImpl(const HLLoop *Lp, HIRDDAnalysis *HDDA,
+                                          LocalityRefGatherer::MapTy &MemRefMap,
                                           unsigned ReuseThreshold,
                                           TemporalLocalityType LocalityType,
                                           bool IgnoreConditionalRefs,
                                           bool IgnoreEqualRefs,
                                           bool CheckPresence);
+
+  static unsigned getTemporalLocalityImpl(const HLLoop *Lp, HIRDDAnalysis *HDDA,
+                                          unsigned ReuseThreshold,
+                                          TemporalLocalityType LocalityType,
+                                          bool IgnoreConditionalRefs,
+                                          bool IgnoreEqualRefs,
+                                          bool CheckPresence) {
+    RefGroupVecTy RefGroups;
+    LocalityRefGatherer::MapTy MemRefMap;
+
+    LocalityRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
+                                     MemRefMap);
+
+    return getTemporalLocalityImpl(Lp, HDDA, MemRefMap, ReuseThreshold,
+                                   LocalityType, IgnoreConditionalRefs,
+                                   IgnoreEqualRefs, CheckPresence);
+  }
 
 public:
   HIRLoopLocality(HIRFramework &HIRF) : HIRAnalysis(HIRF) {}
@@ -201,7 +218,23 @@ public:
       const HLLoop *OutermostLoop,
       SmallVector<const HLLoop *, MaxLoopNestLevel> &SortedLoops);
 
-  /// Returns true if loop has any temporal (invariant + reuse) locality using
+  /// Returns true if \p Lp has any temporal (invariant + reuse) locality using
+  /// \p ReuseThreshold and the populated \p MemRefMap.
+  /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
+  /// executed will be ignored.
+  /// If \p HDDA is not null, will also take aliasing into account to compute
+  /// locality.
+  static bool hasTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold,
+                                  LocalityRefGatherer::MapTy &MemRefMap,
+                                  bool IgnoreConditionalRefs,
+                                  bool IgnoreEqualRefs,
+                                  HIRDDAnalysis *HDDA = nullptr) {
+    return getTemporalLocalityImpl(
+        Lp, HDDA, MemRefMap, ReuseThreshold, TemporalLocalityType::Both,
+        IgnoreConditionalRefs, IgnoreEqualRefs, true);
+  }
+
+  /// Returns true if \p Lp has any temporal (invariant + reuse) locality using
   /// \p ReuseThreshold.
   /// If \p IgnoreConditionalRefs is true, any refs which are conditionally
   /// executed will be ignored.

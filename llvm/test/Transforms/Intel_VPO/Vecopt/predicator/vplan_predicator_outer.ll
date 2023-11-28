@@ -20,8 +20,8 @@ define void @test_2_level_loop_nest(i64 %vf) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB1]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr inbounds [1024 x [1024 x i64]]* @A i64 0 i64 [[VP_OUTER_INDUCTION_PHI]] i64 0
-; CHECK-NEXT:     [DA: Div] i1 [[VP_OUTER_LOOP_VARYING:%.*]] = icmp eq i64* [[VP_GEP]] i64* null
+; CHECK-NEXT:     [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr inbounds [1024 x [1024 x i64]], ptr @A i64 0 i64 [[VP_OUTER_INDUCTION_PHI]] i64 0
+; CHECK-NEXT:     [DA: Div] i1 [[VP_OUTER_LOOP_VARYING:%.*]] = icmp eq ptr [[VP_GEP]] ptr null
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
@@ -80,8 +80,8 @@ entry:
 
 outer.loop:
   %outer.induction.phi = phi i64 [ %lane, %entry ], [ %outer.induction, %outer.loop.latch ]
-  %gep = getelementptr inbounds [1024 x [1024 x i64]], [1024 x [1024 x i64]]* @A, i64 0, i64 %outer.induction.phi, i64 0
-  %outer.loop.varying = icmp eq i64* %gep, null
+  %gep = getelementptr inbounds [1024 x [1024 x i64]], ptr @A, i64 0, i64 %outer.induction.phi, i64 0
+  %outer.loop.varying = icmp eq ptr %gep, null
   br i1 %outer.loop.varying, label %inner.ph, label %outer.loop.latch
 
 inner.ph:
@@ -118,8 +118,8 @@ define void @test_2_level_loop_nest_swap_inner_branch(i64 %vf) local_unnamed_add
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB1]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr inbounds [1024 x [1024 x i64]]* @A i64 0 i64 [[VP_OUTER_INDUCTION_PHI]] i64 0
-; CHECK-NEXT:     [DA: Div] i1 [[VP_OUTER_LOOP_VARYING:%.*]] = icmp eq i64* [[VP_GEP]] i64* null
+; CHECK-NEXT:     [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr inbounds [1024 x [1024 x i64]], ptr @A i64 0 i64 [[VP_OUTER_INDUCTION_PHI]] i64 0
+; CHECK-NEXT:     [DA: Div] i1 [[VP_OUTER_LOOP_VARYING:%.*]] = icmp eq ptr [[VP_GEP]] ptr null
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
@@ -179,8 +179,8 @@ entry:
 
 outer.loop:
   %outer.induction.phi = phi i64 [ %lane, %entry ], [ %outer.induction, %outer.loop.latch ]
-  %gep = getelementptr inbounds [1024 x [1024 x i64]], [1024 x [1024 x i64]]* @A, i64 0, i64 %outer.induction.phi, i64 0
-  %outer.loop.varying = icmp eq i64* %gep, null
+  %gep = getelementptr inbounds [1024 x [1024 x i64]], ptr @A, i64 0, i64 %outer.induction.phi, i64 0
+  %outer.loop.varying = icmp eq ptr %gep, null
   br i1 %outer.loop.varying, label %inner.ph, label %outer.loop.latch
 
 inner.ph:

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2013-2018 Intel Corporation.
+// Copyright 2013 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,11 +17,10 @@
 #include "Image.h"
 #include "cl_types.h"
 #include "llvm/IR/Function.h"
-
-#undef DEBUG_TYPE
-#define DEBUG_TYPE "DataVersion"
 #include "llvm/Support/Debug.h"
-#include <llvm/Support/raw_ostream.h>
+#include "llvm/Support/raw_ostream.h"
+
+#define DEBUG_TYPE "DataVersion"
 
 enum convertEnum {
   ADDRESS_BASE = 0,

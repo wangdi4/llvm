@@ -879,7 +879,7 @@ float LiveIntervals::getSpillWeight(bool isDef, bool isUse,
 
 LiveRange::Segment
 LiveIntervals::addSegmentToEndOfBlock(Register Reg, MachineInstr &startInst) {
-  LiveInterval &Interval = createEmptyInterval(Reg);
+  LiveInterval &Interval = getOrCreateEmptyInterval(Reg);
   VNInfo *VN = Interval.getNextValue(
       SlotIndex(getInstructionIndex(startInst).getRegSlot()),
       getVNInfoAllocator());
@@ -1693,7 +1693,7 @@ LiveIntervals::repairIntervalsInRange(MachineBasicBlock *MBB,
         if (!hasInterval(Reg)) {
           createAndComputeVirtRegInterval(Reg);
           // Don't bother to repair a freshly calculated live interval.
-          erase_value(RegsToRepair, Reg);
+          llvm::erase(RegsToRepair, Reg);
         }
       }
     }

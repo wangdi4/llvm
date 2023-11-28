@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -22,10 +22,6 @@
 //
 // Example: "ACCUATE 3.2434", "INTERVAL 322.34 234.4"
 
-#include <fstream>
-#include <iostream>
-#include <sstream>
-
 #include "Buffer.h"
 #include "BufferContainerList.h"
 #include "DataType.h"
@@ -35,9 +31,11 @@
 #include "VectorWidth.h"
 #include "XMLDataReader.h"
 #include "XMLDataWriter.h"
-#include <cassert>
-
 #include "llvm/Support/CommandLine.h"
+#include <cassert>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 
 using namespace std;
 using namespace llvm;

@@ -1,30 +1,6 @@
 // REQUIRES: intel_feature_isa_amx_transpose
 // RUN: llvm-mc -triple x86_64-unknown-unknown --show-encoding %s | FileCheck %s
 
-// CHECK:      tilemovrow %xmm24, %tmm14, %zmm22
-// CHECK: encoding: [0x62,0xc2,0x3c,0x40,0x4a,0xf6]
-               tilemovrow %xmm24, %tmm14, %zmm22
-
-// CHECK:      tilemovrow %xmm24, %tmm30, %zmm22
-// CHECK: encoding: [0x62,0x82,0x3c,0x40,0x4a,0xf6]
-               tilemovrow %xmm24, %tmm30, %zmm22
-
-// CHECK:      tilemovrow %edx, %tmm14, %zmm22
-// CHECK: encoding: [0x62,0xc2,0x6d,0x48,0x4a,0xf6]
-               tilemovrow %edx, %tmm14, %zmm22
-
-// CHECK:      tilemovrow %edx, %tmm30, %zmm22
-// CHECK: encoding: [0x62,0x82,0x6d,0x48,0x4a,0xf6]
-               tilemovrow %edx, %tmm30, %zmm22
-
-// CHECK:      tilemovrow $123, %tmm14, %zmm22
-// CHECK: encoding: [0x62,0xc3,0x7d,0x48,0x07,0xf6,0x7b]
-               tilemovrow $123, %tmm14, %zmm22
-
-// CHECK:      tilemovrow $123, %tmm30, %zmm22
-// CHECK: encoding: [0x62,0x83,0x7d,0x48,0x07,0xf6,0x7b]
-               tilemovrow $123, %tmm30, %zmm22
-
 // CHECK:      tile16move      %zmm0, %tmm6
 // CHECK: encoding: [0x62,0xf2,0x7d,0x48,0x5f,0xf0]
                tile16move      %zmm0, %tmm6

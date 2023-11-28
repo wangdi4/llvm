@@ -1,7 +1,7 @@
 //===- HIRIdentityMatrixIdiomRecognition.cpp Implements
 // IdentityMatrixIdiomRecognition class -===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -303,43 +303,4 @@ PreservedAnalyses HIRIdentityMatrixIdiomRecognitionPass::runImpl(
                     HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F))
                     .run();
   return PreservedAnalyses::all();
-}
-
-class HIRIdentityMatrixIdiomRecognitionLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRIdentityMatrixIdiomRecognitionLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRIdentityMatrixIdiomRecognitionLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRIdentityMatrixIdiomRecognition(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
-        .run();
-  }
-};
-
-char HIRIdentityMatrixIdiomRecognitionLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRIdentityMatrixIdiomRecognitionLegacyPass, OPT_SWITCH,
-                      OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRIdentityMatrixIdiomRecognitionLegacyPass, OPT_SWITCH,
-                    OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIRIdentityMatrixIdiomRecognitionPass() {
-  return new HIRIdentityMatrixIdiomRecognitionLegacyPass();
 }

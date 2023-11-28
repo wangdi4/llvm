@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSAnalysis.h - -------------------------------------------===/
 //
-//   Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -100,7 +100,7 @@ private:
 
   /// Force VLS optimization for stride-2 accesses. This is set to true
   /// for avx512 compilations to match classic compiler behavior.
-  bool ForceStride2VLS = false;
+  bool ForceLimitedVLS = false;
 
 public:
   VPlanVLSAnalysis(const Loop *MainLoop, LLVMContext &Context,
@@ -134,7 +134,11 @@ public:
   OVLSContext &getOVLSContext() { return OptVLSContext; }
   const DataLayout &getDL() const { return DL; }
 
-  bool getForceStride2VLS() const { return ForceStride2VLS; }
+  bool getForceLimitedVLS() const { return ForceLimitedVLS; }
+
+  // Return true if we need to suppress VLS grouping for \p VPInst with
+  // access stride \p Stride when compiling for core-avx512.
+  bool limitVLSForAVX512(int64_t Stride, const VPLoadStoreInst &VPInst);
 };
 
 int computeInterleaveIndex(const OVLSMemref *Memref, OVLSGroup *Group);

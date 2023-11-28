@@ -11,11 +11,9 @@
 // Internal tests for I/O channels and pipes
 //
 // ===--------------------------------------------------------------------=== //
-#include "simple_fixture.h"
-
+#include "CL/cl_ext.h"
 #include "gtest_wrapper.h"
-#include <CL/cl.h>
-#include <CL/cl_ext.h>
+#include "simple_fixture.h"
 
 #include <algorithm>
 #include <cstdlib>

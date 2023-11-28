@@ -1,6 +1,6 @@
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2022-2023 Intel Corporation
+# Copyright (C) 2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -36,8 +36,19 @@ include_directories(
 include_directories(
   ${BACKEND_ROOT_DIR}/arch_headers ${BACKEND_ROOT_DIR}/passes/)
 
-add_opencl_library(${TARGET_NAME} STATIC ${TARGET_INCLUDE_FILES}
-                   ${TARGET_SOURCE_FILES})
+add_opencl_library(
+  ${TARGET_NAME}
+  STATIC
+  ${TARGET_INCLUDE_FILES}
+  ${TARGET_SOURCE_FILES}
+  LINK_LIBS
+  LLVMPasses
+  LLVMSPIRVLib
+  LLVMSYCLTransforms
+  LLVMScalarOpts
+  LLVMVectorize
+  OclBackendUtils
+  cl_sys_utils)
 
 if(OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME}

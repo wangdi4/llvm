@@ -22,7 +22,13 @@ set(TARGET_SOURCE_FILES Device.cpp fe_compiler.cpp platform_module.cpp
 
 include_directories(${CCLANG_DEV_INCLUDE_DIRS})
 
-add_opencl_library(${TARGET_NAME} STATIC ${TARGET_SOURCE_FILES}
-                   ${TARGET_INCLUDE_FILES})
+add_opencl_library(
+  ${TARGET_NAME}
+  STATIC
+  ${TARGET_SOURCE_FILES}
+  ${TARGET_INCLUDE_FILES}
+  LINK_LIBS
+  cl_sys_utils
+  cpu_device)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME})

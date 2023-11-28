@@ -31,8 +31,6 @@
 #include "MCTargetDesc/X86MCTargetDesc.h"
 #include "TargetInfo/X86TargetInfo.h"
 #include "X86.h"
-#include "X86CallLowering.h"
-#include "X86LegalizerInfo.h"
 #include "X86MachineFunctionInfo.h"
 #include "X86MacroFusion.h"
 #include "X86Subtarget.h"
@@ -83,7 +81,6 @@ static cl::opt<bool>
                      cl::init(true), cl::Hidden);
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 class APXFeatureString {
 private:
   std::string APXFeature;
@@ -121,10 +118,10 @@ static cl::opt<APXFeatureString, true, cl::parser<std::string>> X86APXFeatures(
     cl::desc("Specify apx features to enable (plus separated list of types):"
              "\npush2pop2    PUSH2/POP2 instructions"
              "\negpr         extended general purpose register"
-             "\nndd          non-destructive destination"),
+             "\nndd          non-destructive destination"
+             "\nccmp         conditional compare"),
     cl::location(APXFeatureStr));
 
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
@@ -141,7 +138,6 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86SplitVectorValueTypePass(PR);  // INTEL
   initializeX86LowerAMXIntrinsicsLegacyPassPass(PR);
   initializeX86LowerAMXTypeLegacyPassPass(PR);
-  initializeX86PreAMXConfigPassPass(PR);
   initializeX86PreTileConfigPass(PR);
   initializeGlobalISel(PR);
   initializeWinEHStatePassPass(PR);
@@ -179,6 +175,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86CFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
   initializeX86Gather2LoadPermutePassPass(PR);
+  initializeX86TransformToLibmSinCosCallPassPass(PR);
   initializeX86LowerMatrixIntrinsicsPassPass(PR);
   initializeX86InstCombinePass(PR);
   initializeX86FeatureInitPassPass(PR);
@@ -186,9 +183,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86PreISelIntrinsicLoweringPass(PR);
   initializeX86StackRealignPass(PR);
   initializeX86HeteroArchOptPass(PR);
-#if INTEL_FEATURE_ISA_APX_F
   initializeX86ConditionalComparesPass(PR);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   initializeX86ArgumentStackSlotPassPass(PR);
 }
@@ -218,12 +213,14 @@ static std::string computeDataLayout(const Triple &TT) {
   Ret += "-p270:32:32-p271:32:32-p272:64:64";
 
   // Some ABIs align 64 bit integers and doubles to 64 bits, others to 32.
+  // 128 bit integers are not specified in the 32-bit ABIs but are used
+  // internally for lowering f128, so we match the alignment to that.
   if (TT.isArch64Bit() || TT.isOSWindows() || TT.isOSNaCl())
-    Ret += "-i64:64";
+    Ret += "-i64:64-i128:128";
   else if (TT.isOSIAMCU())
     Ret += "-i64:32-f64:32";
   else
-    Ret += "-f64:32:64";
+    Ret += "-i128:128-f64:32:64";
 
   // Some ABIs align long double to 128 bits, others to 32.
   if (TT.isOSNaCl() || TT.isOSIAMCU())
@@ -311,7 +308,7 @@ X86TargetMachine::X86TargetMachine(const Target &T, const Triple &TT,
                                    const TargetOptions &Options,
                                    std::optional<Reloc::Model> RM,
                                    std::optional<CodeModel::Model> CM,
-                                   CodeGenOpt::Level OL, bool JIT)
+                                   CodeGenOptLevel OL, bool JIT)
     : LLVMTargetMachine(
           T, computeDataLayout(TT), TT, CPU, FS, Options,
           getEffectiveRelocModel(TT, JIT, RM),
@@ -403,7 +400,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
       // reduce RequiredVectorWidth to PreferVectorWidthOverride.
       RequiredVectorWidth = PreferVectorWidthOverride;
     } else if (Options.IntelAdvancedOptim &&
-        getOptLevel() >= CodeGenOpt::Aggressive) {
+        getOptLevel() >= CodeGenOptLevel::Aggressive) {
       // Avoid CPU frequency drop issue.
       RequiredVectorWidth = 0;
     }
@@ -429,19 +426,13 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
   // subtarget feature.
   if (SoftFloat)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     Key += (FS.empty() && !APXFeatureStr) ? "+soft-float" : "+soft-float,";
-#else // INTEL_FEATURE_ISA_APX_F
-    Key += FS.empty() ? "+soft-float" : "+soft-float,";
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   Key += static_cast<std::string>(APXFeatureStr);
   if (!FS.empty())
     Key += ",";
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   Key += FS;
@@ -565,10 +556,13 @@ MachineFunctionInfo *X86TargetMachine::createMachineFunctionInfo(
 void X86PassConfig::addIRPasses() {
   addPass(createAtomicExpandPass());
   addPass(createFloat128ExpandPass()); // INTEL
-  if (TM->getOptLevel() != CodeGenOpt::None) { // INTEL
+  if (TM->getOptLevel() != CodeGenOptLevel::None) { // INTEL
     addPass(createFoldLoadsToGatherPass()); // INTEL
     addPass(createX86Gather2LoadPermutePass()); // INTEL
   } // INTEL
+
+  if (TM->getOptLevel() > CodeGenOptLevel::Less) // INTEL
+    addPass(createX86TransformToLibmSinCosCallPass()); // INTEL
 
   addPass(createX86LowerMatrixIntrinsicsPass()); // INTEL
   // We add both pass anyway and when these two passes run, we skip the pass
@@ -577,16 +571,16 @@ void X86PassConfig::addIRPasses() {
   addPass(createX86LowerAMXTypePass());
 
 #if INTEL_CUSTOMIZATION
-  if (TM->getOptLevel() == CodeGenOpt::Aggressive) {
-    insertPass(&ExpandVectorPredicationID, &X86InstCombineID);
+  insertPass(&ExpandVectorPredicationID, &X86InstCombineID);
+  if (TM->getOptLevel() == CodeGenOptLevel::Aggressive) {
     if (TM->Options.IntelLibIRCAllowed)
       insertPass(&ExpandVectorPredicationID, &X86HeteroArchOptID);
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   TargetPassConfig::addIRPasses();
 
-  if (TM->getOptLevel() != CodeGenOpt::None) {
+  if (TM->getOptLevel() != CodeGenOptLevel::None) {
     addPass(createInterleavedAccessPass());
     addPass(createX86PartialReductionPass());
   }
@@ -616,7 +610,7 @@ bool X86PassConfig::addInstSelector() {
 
   // For ELF, cleanup any local-dynamic TLS accesses.
   if (TM->getTargetTriple().isOSBinFormatELF() &&
-      getOptLevel() != CodeGenOpt::None)
+      getOptLevel() != CodeGenOptLevel::None)
     addPass(createCleanupLocalDynamicTLSPass());
 
   addPass(createX86GlobalBaseRegPass());
@@ -646,9 +640,7 @@ bool X86PassConfig::addGlobalInstructionSelect() {
 
 bool X86PassConfig::addILPOpts() {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   addPass(createX86ConditionalCompares());
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   addPass(&EarlyIfConverterID);
   if (EnableMachineCombinerPass)
@@ -663,7 +655,7 @@ void X86PassConfig::addAdvancedPatternMatchingOpts() { // INTEL
 }                                                      // INTEL
 #if INTEL_CUSTOMIZATION
 void X86PassConfig::addPreStackSlotColoring() {
-  if (getOptLevel() == CodeGenOpt::Aggressive &&
+  if (getOptLevel() == CodeGenOptLevel::Aggressive &&
       TM->Options.IntelAdvancedOptim &&
       !TM->getTargetTriple().isOSWindows())
     addPass(createX86VecSpillPass());
@@ -675,17 +667,17 @@ bool X86PassConfig::addPreISel() {
   if (TT.isOSWindows() && TT.getArch() == Triple::x86)
     addPass(createX86WinEHStatePass());
 #if INTEL_CUSTOMIZATION
-  if (getOptLevel() >= CodeGenOpt::Default &&
+  if (getOptLevel() >= CodeGenOptLevel::Default &&
       TM->Options.IntelAdvancedOptim)
     addPass(createX86SplitVectorValueTypePass());
-  if (getOptLevel() == CodeGenOpt::Aggressive &&
+  if (getOptLevel() == CodeGenOptLevel::Aggressive &&
       TM->Options.IntelAdvancedOptim)
     addPass(createX86CiscizationHelperPass());
 #if INTEL_FEATURE_SW_ADVANCED
   // Always run this pass for feature like X87 precision control.
   addPass(createFeatureInitPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
-  if (getOptLevel() == CodeGenOpt::Aggressive)
+  if (getOptLevel() == CodeGenOptLevel::Aggressive)
     addPass(createIVSplitLegacyPass());
   addPass(createX86PreISelIntrinsicLoweringPass());
 #endif // INTEL_CUSTOMIZATION
@@ -693,7 +685,7 @@ bool X86PassConfig::addPreISel() {
 }
 
 void X86PassConfig::addPreRegAlloc() {
-  if (getOptLevel() != CodeGenOpt::None) {
+  if (getOptLevel() != CodeGenOptLevel::None) {
     addPass(&LiveRangeShrinkID);
     addPass(createX86FixupSetCC());
 #if INTEL_CUSTOMIZATION
@@ -712,7 +704,7 @@ void X86PassConfig::addPreRegAlloc() {
   addPass(createX86PRAExpandPseudoPass());
 #endif // INTEL_CUSTOMIZATION
 
-  if (getOptLevel() != CodeGenOpt::None)
+  if (getOptLevel() != CodeGenOptLevel::None)
     addPass(createX86PreTileConfigPass());
   else
     addPass(createX86FastPreTileConfigPass());
@@ -730,7 +722,7 @@ void X86PassConfig::addPostRegAlloc() {
   // to using the Speculative Execution Side Effect Suppression pass for
   // mitigation. This is to prevent slow downs due to
   // analyses needed by the LVIHardening pass when compiling at -O0.
-  if (getOptLevel() != CodeGenOpt::None)
+  if (getOptLevel() != CodeGenOptLevel::None)
     addPass(createX86LoadValueInjectionLoadHardeningPass());
 }
 
@@ -740,7 +732,7 @@ void X86PassConfig::addPreSched2() {
 }
 
 void X86PassConfig::addPreEmitPass() {
-  if (getOptLevel() != CodeGenOpt::None) {
+  if (getOptLevel() != CodeGenOptLevel::None) {
     addPass(new X86ExecutionDomainFix());
     addPass(createBreakFalseDeps());
   }
@@ -749,7 +741,7 @@ void X86PassConfig::addPreEmitPass() {
 
   addPass(createX86IssueVZeroUpperPass());
 
-  if (getOptLevel() != CodeGenOpt::None) {
+  if (getOptLevel() != CodeGenOptLevel::None) {
     addPass(createX86FixupBWInsts());
     addPass(createX86PadShortFunctions());
     addPass(createX86FixupLEAs());
@@ -767,7 +759,7 @@ void X86PassConfig::addPreEmitPass2() {
   const MCAsmInfo *MAI = TM->getMCAsmInfo();
 
 #if INTEL_CUSTOMIZATION
-  if (getOptLevel() != CodeGenOpt::None)
+  if (getOptLevel() != CodeGenOptLevel::None)
     addPass(createX86SplitLongBlockPass());
 #endif // INTEL_CUSTOMIZATION
 
@@ -838,7 +830,7 @@ static bool onlyAllocateTileRegisters(const TargetRegisterInfo &TRI,
 
 bool X86PassConfig::addRegAssignAndRewriteOptimized() {
 #if INTEL_CUSTOMIZATION
-  if (getOptLevel() == CodeGenOpt::Aggressive && TM->Options.IntelAdvancedOptim)
+  if (getOptLevel() == CodeGenOptLevel::Aggressive && TM->Options.IntelAdvancedOptim)
     addPass(createX86StackRealignPass());
 #endif // INTEL_CUSTOMIZATION
   // Don't support tile RA when RA is specified by command line "-regalloc".

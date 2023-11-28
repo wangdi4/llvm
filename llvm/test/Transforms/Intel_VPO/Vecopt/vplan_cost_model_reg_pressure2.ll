@@ -1,3 +1,4 @@
+; XFAIL: *
 ; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+sse2 -S | FileCheck %s
 

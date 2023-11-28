@@ -1,7 +1,7 @@
 // INTEL_COLLAB
 
 //RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp -fopenmp-version=51 \
-//RUN:   -opaque-pointers -std=c++14 -fexceptions -fcxx-exceptions -verify \
+//RUN:   -std=c++14 -fexceptions -fcxx-exceptions -verify \
 //RUN:   -Wno-source-uses-openmp -Wno-openmp-clauses -fopenmp-late-outline \
 //RUN:   -x c++  -emit-llvm -o - %s | FileCheck %s --check-prefix=CHECK
 
@@ -30,7 +30,7 @@ struct SomeKernel {
 // CHECK-NEXT:    [[THIS1:%.*]] = load ptr, ptr [[THIS_ADDR]], align 8
 // CHECK:          "DIR.OMP.PARALLEL"()
 // CHECK-SAME:     "QUAL.OMP.DEFAULT.FIRSTPRIVATE"
-// CHECK-SAME:     "QUAL.OMP.FIRSTPRIVATE"(ptr %targetDev3)
+// CHECK-SAME:     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %targetDev3
 // CHECK:          "DIR.OMP.END.PARALLEL"()
 // CHECK:          ret void
 void use_template() {
@@ -43,7 +43,7 @@ void use_template() {
 // CHECK-NEXT:    [[B:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    "DIR.OMP.PARALLEL"
 // CHECK-SAME:    "QUAL.OMP.DEFAULT.FIRSTPRIVATE"()
-// CHECK-SAME:    "QUAL.OMP.FIRSTPRIVATE"(ptr [[B]]
+// CHECK-SAME:    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[B]]
 // CHECK:         "DIR.OMP.END.PARALLEL"()
 // CHECK:        ret void
 //
@@ -87,7 +87,7 @@ void test1(short A) {
 // CHECK: [[A:%A.addr]] = alloca i16
 // CHECK: "DIR.OMP.DISTRIBUTE.PARLOOP"
 // CHECK-SAME: "QUAL.OMP.DEFAULT.FIRSTPRIVATE"
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[A]])
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[A]]
 // CHECK: DIR.OMP.END.DISTRIBUTE.PARLOOP"
   #pragma omp distribute parallel for shared(Ap) default(firstprivate)
   for (int i = 0; i < 10; i++)
@@ -96,10 +96,10 @@ void test1(short A) {
     if (&A == Ap) A++;
   }
 // CHECK: "DIR.OMP.TARGET"()
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[A]])
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[A]]
 // CHECK: "DIR.OMP.PARALLEL.LOOP"
 // CHECK-SAME: "QUAL.OMP.DEFAULT.FIRSTPRIVATE"()
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[A]])
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[A]]
 // CHECK: "DIR.OMP.END.PARALLEL.LOOP"
 // CHECK: "DIR.OMP.END.TARGET"
   #pragma omp target parallel for shared(Ap) default(firstprivate)
@@ -110,7 +110,7 @@ void test1(short A) {
   }
 // CHECK: "DIR.OMP.PARALLEL.LOOP"
 // CHECK: "QUAL.OMP.DEFAULT.FIRSTPRIVATE"
-// CHECK: "QUAL.OMP.FIRSTPRIVATE"(ptr [[A]])
+// CHECK: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[A]]
 // CHECK: "DIR.OMP.SIMD"()
 // CHECK: "DIR.OMP.END.SIMD"
 // CHECK: "DIR.OMP.END.PARALLEL.LOOP"
@@ -122,9 +122,9 @@ void test1(short A) {
   }
 // CHECK: "DIR.OMP.TEAMS"
 // CHECK-SAME: "QUAL.OMP.DEFAULT.FIRSTPRIVATE"
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[A]])
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[A]]
 // CHECK: "DIR.OMP.DISTRIBUTE"
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[A]]
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[A]]
 // CHECK: "DIR.OMP.END.DISTRIBUTE"
 // CHECK: "DIR.OMP.END.TEAMS"
   #pragma omp teams distribute shared(Ap) default(firstprivate)
@@ -135,9 +135,9 @@ void test1(short A) {
   }
 // CHECK: "DIR.OMP.TEAMS"()
 // CHECK-SAME: "QUAL.OMP.DEFAULT.FIRSTPRIVATE"
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[A]])
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[A]]
 // CHECK: "DIR.OMP.DISTRIBUTE.PARLOOP"
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[A]]
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[A]]
 // CHECK: "DIR.OMP.END.DISTRIBUTE.PARLOOP"
 // CHECK: "DIR.OMP.END.TEAMS"
   #pragma omp teams distribute parallel for shared(Ap) default(firstprivate)
@@ -147,10 +147,10 @@ void test1(short A) {
     if (&A == Ap) A++;
   }
 // CHECK: "DIR.OMP.TARGET"
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[A]]
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[A]]
 // CHECK: "DIR.OMP.TEAMS"
 // CHECK-SAME: "QUAL.OMP.DEFAULT.FIRSTPRIVATE"
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[A]])
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[A]]
 // CHECK: "DIR.OMP.DISTRIBUTE"
 // CHECK: "DIR.OMP.END.DISTRIBUTE"
 // CHECK: "DIR.OMP.END.TEAMS"
@@ -163,9 +163,9 @@ void test1(short A) {
   }
 // CHECK: "DIR.OMP.TEAMS"
 // CHECK-SAME: "QUAL.OMP.DEFAULT.FIRSTPRIVATE"
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[A]])
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[A]]
 // CHECK:"DIR.OMP.GENERICLOOP"
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[A]])
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[A]]
 // CHECK: "DIR.OMP.END.GENERICLOOP"
 // CHECK: "DIR.OMP.END.TEAMS"
   #pragma omp teams loop shared(Ap) default(firstprivate)

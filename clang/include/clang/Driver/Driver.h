@@ -7,9 +7,9 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -96,6 +96,8 @@ class Driver {
 
   IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS;
 
+  bool DumpDeviceCode;
+
   enum DriverMode {
     GCCMode,
     GXXMode,
@@ -180,9 +182,6 @@ public:
 
   /// Intel mode selected via --intel option.
   unsigned IntelMode : 1;
-
-  /// Intel Compiler Pro selected via compiler-auth-pro file
-  unsigned IntelPro : 1;
 
   /// Intel DPC++ Compiler Mode
   unsigned DPCPPMode : 1;
@@ -468,6 +467,7 @@ public:
     return Dir.c_str();
   }
   void setInstalledDir(StringRef Value) { InstalledDir = std::string(Value); }
+  bool isDumpDeviceCodeEnabled() const { return DumpDeviceCode; }
 
   bool isSaveTempsEnabled() const { return SaveTemps != SaveTempsNone; }
   bool isSaveTempsObj() const { return SaveTemps == SaveTempsObj; }
@@ -503,7 +503,7 @@ public:
   /// ParseArgStrings - Parse the given list of strings into an
   /// ArgList.
   llvm::opt::InputArgList ParseArgStrings(ArrayRef<const char *> Args,
-                                          bool IsClCompatMode,
+                                          bool UseDriverMode,
                                           bool &ContainsError);
 
   /// BuildInputs - Construct the list of inputs and their types from
@@ -819,12 +819,6 @@ private:
 
   /// Parse and set whether we are in Intel/DPCPP mode.
   void parseIntelDriverMode(ArrayRef<const char *> Args);
-
-  /// Specific to Intel, specialization function for setting the option flags
-  /// to handle icx/dpcpp behaviors on Windows.
-  std::pair<unsigned, unsigned>
-  getIncludeExcludeOptionFlagMasksIntel(bool IsClCompatMode,
-                                        bool AllowAllOpts) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// Set the driver mode (cl, gcc, etc) from the value of the `--driver-mode`
@@ -861,7 +855,11 @@ private:
 
   /// Get bitmasks for which option flags to include and exclude based on
   /// the driver mode.
-  std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const;
+  llvm::opt::Visibility
+#if INTEL_CUSTOMIZATION
+  getOptionVisibilityMask(bool UseDriverMode = true,
+                          bool AllowAllOpts = false) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// Helper used in BuildJobsForAction.  Doesn't use the cache when building
   /// jobs specifically for the given action, but will use the cache when

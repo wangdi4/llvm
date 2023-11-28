@@ -1,6 +1,6 @@
 //===-- CSATargetMachine.cpp - Define TargetMachine for CSA ---------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -224,7 +224,7 @@ public:
     // Add a pass to identify and prepare inner loops for pipelinling. This
     // only happens at O1+ so as to avoid requiring excessive additional
     // analyses at O0.
-    if (getOptLevel() != CodeGenOpt::None) {
+    if (getOptLevel() != CodeGenOptLevel::None) {
       addPass(createCSALoopPrepPass());
       addPass(createCSAInnerLoopPrepPass());
     }
@@ -265,7 +265,7 @@ public:
     addPass(createCSALowerScratchpadsPass());
 
     // Convert loads/stores to sld/sst where possible.
-    if (getOptLevel() != CodeGenOpt::None)
+    if (getOptLevel() != CodeGenOptLevel::None)
       addPass(createCSAStreamingMemoryConversionPass());
 
     return false;

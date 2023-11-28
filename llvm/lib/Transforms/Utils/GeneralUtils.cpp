@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -347,7 +347,7 @@ Type *GeneralUtils::getSizeTTy(Module *M) {
   IntegerType *IntTy;
   const DataLayout &DL = M->getDataLayout();
 
-  if (DL.getIntPtrType(Type::getInt8PtrTy(C))->getIntegerBitWidth() == 64)
+  if (DL.getIntPtrType(PointerType::getUnqual(C))->getIntegerBitWidth() == 64)
     IntTy = Type::getInt64Ty(C);
   else
     IntTy = Type::getInt32Ty(C);
@@ -372,21 +372,7 @@ bool GeneralUtils::isOMPItemGlobalVAR(const Value *V) {
 
   if (!isa<GlobalVariable>(CE->getOperand(0)))
     return false;
-#if !ENABLE_OPAQUEPOINTER
-  // If this is an AddrSpaceCast constant expression of a GlobalVariable,
-  // then assert that the AddrSpaceCast's type and the operand's
-  // type are only different by the addrspace. We expect that we can deduce
-  // the original type of the OpenMP clause's item VAR in both cases, i.e.
-  // when VAR is represented directly with a GlobalVariable or with
-  // GlobalVariable followed by AddrSpaceCast.
-  // TODO: OPAQUEPOINTER: Remove this call. It will not be needed after opaque
-  // pointers are introduced.
-  assert(cast<PointerType>(CE->getType())
-             ->isOpaqueOrPointeeTypeMatches(
-                 cast<GlobalVariable>(CE->getOperand(0))->getValueType()) &&
-         "isOMPItemGlobalVAR: Type mismatch for a GlobalVariable and "
-         "its addrspacecast.");
-#endif // !ENABLE_OPAQUEPOINTER
+
   return true;
 }
 
@@ -400,33 +386,7 @@ bool GeneralUtils::isOMPItemLocalVAR(const Value *V) {
 
   if (!isa<PointerType>(V->getType()))
     return false;
-#if !ENABLE_OPAQUEPOINTER
-  if (V->getType()->isOpaquePointerTy())
-    return true;
-#ifndef NDEBUG
-  // Skip a sequence of AddrSpaceCastInst's in hope to reach
-  // the AllocaInst.
-  bool ASCIChangedType = false;
-  while (const auto *ASCI = dyn_cast<AddrSpaceCastInst>(V)) {
-    // We expect that the address space casts do not change
-    // the original type of their pointer operand.
-    // If we reach an AllocaInst by following AddrSpaceCastInst
-    // chain, and the type changes along the way, then it is not
-    // clear what object type was specified in the clause.
-    // TODO: OPAQUEPOINTER: Delete the check below or change it appropriately.
-    // There will only be an AddrSpaceCast, the pointer type cannot be
-    // changed.
-    V = ASCI->getPointerOperand();
-    if (ASCI->getType()->getNonOpaquePointerElementType() !=
-        V->getType()->getNonOpaquePointerElementType())
-      ASCIChangedType = true;
-  }
 
-  (void)ASCIChangedType;
-  assert(!isa<AllocaInst>(V) || !ASCIChangedType && "isItemLocalVAR: "
-         "type changed between an alloca and the clause reference.");
-#endif  // NDEBUG
-#endif // !ENABLE_OPAQUEPOINTER
   return true;
 }
 

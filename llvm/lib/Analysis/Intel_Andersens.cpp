@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -725,16 +725,12 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
 
     Value *V = N->getValue();
 
-    bool IsOpaquePointers =
-        !FP->getType()->getContext().supportsTypedPointers();
     // Set IsComplete to AndersenSetResult::Incomplete if V is unsafe target.
-    if ((IsOpaquePointers && !safeOpaquePointersPossibleTarget(FP, V, Call)) ||
-        (!IsOpaquePointers && !safeTypedPointersPossibleTarget(FP, V, Call))) {
-        if (Trace) {
-            if (Function *Fn = dyn_cast<Function>(V)) {
+    if (!safeOpaquePointersPossibleTarget(FP, V, Call)) {
+      if (Trace) {
+        if (Function *Fn = dyn_cast<Function>(V)) {
           dbgs() << "    Unsafe target: Skipping  " << Fn->getName() << "\n";
-        }
-        else {
+        } else {
           dbgs() << "    Unsafe target: Skipping  " << *V << "\n";
         }
       }
@@ -747,39 +743,8 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
     // to the Target list.
     Type *CallTy = Call->getFunctionType();
     Type *TargetTy = cast<Function>(V)->getFunctionType();
-    if (IsOpaquePointers) {
-      if (CallTy == TargetTy)
-        Targets.push_back(V);
-    } else {
-      if (FP->getType() == V->getType()) {
-        Targets.push_back(V);
-      } else {
-        bool TypeComputed = false;
-        // If there is a chance that the types are similar, then it means
-        // that we don't have a complete set. V can be a possible target
-        // but there is no full proof that it's type match with FP.
-        //
-        // A set will be marked as partially complete only if it is complete.
-        // If the previous checks found that the set is incomplete, then that
-        // result can't be reverted.
-        if (IsComplete == AndersenSetResult::Complete &&
-            areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
-          IsComplete = AndersenSetResult::PartiallyComplete;
-          TypeComputed = true;
-        }
-
-        if (Trace) {
-          if (TypeComputed ||
-              areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
-            dbgs() << "    Types might be similar: Ignoring "
-                   << cast<Function>(V)->getName() << "\n";
-          } else {
-            dbgs() << "    Args mismatch: Ignoring "
-                   << cast<Function>(V)->getName() << "\n";
-          }
-        }
-      }
-    }
+    if (CallTy == TargetTy)
+      Targets.push_back(V);
   }
   return IsComplete;
 }
@@ -1199,6 +1164,60 @@ bool AndersensAAResult::invalidate(Module &M, const PreservedAnalyses &PA,
   // stateless and remains preserved.
   auto PAC = PA.getChecker<AndersensAA>();
   return !PAC.preservedWhenStateless();
+}
+
+// Invalidate points-to info of all users of newly created PHI nodes
+// in "BB" after Andersens's analysis.
+void AndersensAAResult::invalidateNewPHI(BasicBlock *BB) {
+
+  // Collect all users of "Val" in "AllUses".
+  auto CollectAllUses = [&](Value *Val, std::set<Value *> &AllUses) {
+    SmallVector<Value *, 32> WorkList;
+
+    WorkList.push_back(Val);
+    while (!WorkList.empty()) {
+      Value *V = WorkList.pop_back_val();
+      for (Use &UI : V->uses()) {
+        Value *Ptr = UI.getUser();
+        if (!AllUses.insert(Ptr).second)
+          continue;
+        if (isa<CallBase>(Ptr) || !isPointsToType(Ptr->getType()))
+          continue;
+        WorkList.push_back(Ptr);
+      }
+    }
+  };
+
+  SmallPtrSet<PHINode *, 32> NewPHINodes;
+  // Skip if there are no nodes in ValueNodes.
+  if (ValueNodes.size() == 0)
+    return;
+
+  // Collect all new PHI instructions that are created after Andersens's
+  // analysis pass.
+  for (auto &Inst : *BB) {
+    auto *PHI = dyn_cast<PHINode>(&Inst);
+    if (!PHI || !isPointsToType(PHI->getType()))
+      continue;
+    DenseMap<Value *, unsigned>::const_iterator I = ValueNodes.find(PHI);
+    if (I != ValueNodes.end())
+      continue;
+    NewPHINodes.insert(PHI);
+  }
+
+  // Invalidate points-to info of all uses of PHI.
+  std::set<Value *> AllInvalidUses;
+  for (auto *PI : NewPHINodes)
+    CollectAllUses(PI, AllInvalidUses);
+
+  for (auto *V : AllInvalidUses) {
+    DenseMap<Value *, unsigned>::const_iterator I = ValueNodes.find(V);
+    if (I == ValueNodes.end())
+      continue;
+    if (PrintAndersPointsToUpdates)
+      dbgs() << "Invalidated PHI user: " << *V << "\n";
+    ProcessIRValueDestructed(V);
+  }
 }
 
 AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
@@ -2504,12 +2523,6 @@ void AndersensAAResult::visitLoadInst(LoadInst &LI) {
 
 void AndersensAAResult::visitStoreInst(StoreInst &SI) {
 
-  // Returns true if "V" is LoadInst that loads pointer value as
-  // integer.
-  //   Ex:
-  //      %5 = bitcast %struct.p** %0 to i64*
-  //      %6 = load i64, i64* %5
-  //
   auto IsLoadingPtrAsInt = [](Value *V) {
     auto *LI = dyn_cast<LoadInst>(V);
     // Make sure load has single use to simplify the implementation.
@@ -2520,16 +2533,7 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
     auto *GV = dyn_cast<GlobalVariable>(PtrOp->stripPointerCasts());
     if (GV && GV->getValueType()->isPointerTy())
       return true;
-    auto *BC = dyn_cast<BitCastInst>(PtrOp);
-    if (!BC)
-      return false;
-    // Check source type of Bitcast is pointer to pointer to some type.
-    // Check getPointerElementType only when typed pointers are available.
-    if (!BC->getSrcTy()->isPointerTy() ||
-        BC->getSrcTy()->isOpaquePointerTy() ||
-        !BC->getSrcTy()->getNonOpaquePointerElementType()->isPointerTy())
-      return false;
-    return true;
+    return false;
   };
 
   ConstantExpr *CE;

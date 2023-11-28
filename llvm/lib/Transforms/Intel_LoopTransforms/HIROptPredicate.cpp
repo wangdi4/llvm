@@ -1,6 +1,6 @@
 //===--- HIROptPredicate.cpp - Implements OptPredicate class --------------===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -579,7 +579,7 @@ private:
   /// This routine will loop through the candidate loop to look
   /// for HLIf candidates. If all conditions are met, it will transform
   /// the loop. Returns true if transformation happened.
-  bool processOptPredicate(bool &HasMultiexitLoop);
+  bool processOptPredicate();
 
   /// Returns the deepest level at which any of the If/Ref operands is defined.
   unsigned getPossibleDefLevel(const HLIf *If, PUContext &PUC);
@@ -2154,15 +2154,10 @@ bool HIROptPredicate::run() {
     LLVM_DEBUG(dumpCandidates());
 
     bool MustCodeGen = mustCodeGen();
-    bool HasMultiexitLoop;
-    if (processOptPredicate(HasMultiexitLoop)) {
+    if (processOptPredicate()) {
       if (MustCodeGen)
         Region->setGenCode();
       HLNodeUtils::removeRedundantNodes(Region, false);
-
-      if (HasMultiexitLoop) {
-        HLNodeUtils::updateNumLoopExits(Region);
-      }
       Modified = true;
     }
 
@@ -2403,9 +2398,8 @@ void HIROptPredicate::clearOptReportState() {
 
 /// processOptPredicate - Main routine to perform opt predicate
 /// transformation.
-bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
+bool HIROptPredicate::processOptPredicate() {
   bool Modified = false;
-  HasMultiexitLoop = false;
 
   while (!Candidates.empty()) {
     HoistCandidate &Candidate = Candidates.back();
@@ -2420,11 +2414,6 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
 
     HLLoop *ParentLoop = PilotIfOrSwitch->getParentLoop();
     assert(ParentLoop && "Candidate should have a parent loop");
-
-    if (ParentLoop->isMultiExit()) {
-      // It will be used in the caller to update exit counts.
-      HasMultiexitLoop = true;
-    }
 
     LLVM_DEBUG(dbgs() << "Unswitching loop <" << ParentLoop->getNumber()
                       << ">:\n");
@@ -3286,56 +3275,4 @@ PreservedAnalyses HIROptPredicatePass::runImpl(
                     .run();
 
   return PreservedAnalyses::all();
-}
-
-class HIROptPredicateLegacyPass : public HIRTransformPass {
-  bool EnablePartialUnswitch;
-  bool EarlyPredicateOpt;
-
-public:
-  static char ID;
-
-  HIROptPredicateLegacyPass(bool EnablePartialUnswitch = true,
-                            bool EarlyPredicateOpt = false)
-      : HIRTransformPass(ID), EnablePartialUnswitch(EnablePartialUnswitch),
-        EarlyPredicateOpt(EarlyPredicateOpt) {
-    initializeHIROptPredicateLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    // Loop Statistics is not used by this pass directly but it used by
-    // HLNodeUtils::dominates() utility. This is a workaround to keep the pass
-    // manager from freeing it.
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIROptPredicate(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                           getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                           getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-                           EnablePartialUnswitch, EarlyPredicateOpt)
-        .run();
-  }
-};
-
-char HIROptPredicateLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIROptPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIROptPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIROptPredicatePass(bool EnablePartialUnswitch,
-                                              bool EarlyPredicateOpt) {
-  return new HIROptPredicateLegacyPass(EnablePartialUnswitch,
-                                       EarlyPredicateOpt);
 }

@@ -210,9 +210,8 @@ attributes #3 = { nofree nosync nounwind willreturn writeonly }
 !15 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-50: WARNING: Instruction with empty DebugLoc in function test
-; DEBUGIFY-COUNT-20: WARNING: Instruction with empty DebugLoc in function foo
+; DEBUGIFY-COUNT-72: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-31: WARNING: Instruction with empty DebugLoc in function foo
 ; DEBUGIFY: WARNING: Missing line 1
-; DEBUGIFY: WARNING: Missing line 16
 ; DEBUGIFY: WARNING: Missing variable 1
 ; DEBUGIFY-NOT: WARNING

@@ -1,5 +1,5 @@
+#include "CL/cl.h"
 #include "FrameworkTest.h"
-#include <CL/cl.h>
 #include <stdio.h>
 
 #define NUM_ITERATIONS 5

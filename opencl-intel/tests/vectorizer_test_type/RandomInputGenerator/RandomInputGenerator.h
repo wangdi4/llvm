@@ -9,7 +9,6 @@
 #define RANDOMINPUTGENERATOR_H_
 
 #include "Generator.h"
-
 #include <stdint.h>
 
 class RandomInputGenerator {

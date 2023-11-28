@@ -348,7 +348,7 @@ public:
 
 void BuiltinNameEmitter::Emit() {
   std::string Banner = (Family + " Builtin handling").str();
-  emitSourceFileHeader(Banner, OS);
+  emitSourceFileHeader(Banner, OS, Records);
 
   OS << "#include \"llvm/ADT/StringRef.h\"\n";
   OS << "using namespace clang;\n\n";
@@ -635,7 +635,7 @@ static unsigned short EncodeVersions(unsigned int MinVersion,
   }
 
   unsigned VersionIDs[] = {100, 110, 120, 200, 300};
-  for (unsigned I = 0; I < sizeof(VersionIDs) / sizeof(VersionIDs[0]); I++) {
+  for (unsigned I = 0; I < std::size(VersionIDs); I++) {
     if (VersionIDs[I] >= MinVersion && VersionIDs[I] < MaxVersion) {
       Encoded |= 1 << I;
     }
@@ -1262,7 +1262,7 @@ StringRef OpenCLBuiltinFileEmitterBase::emitTypeExtensionGuards(
 }
 
 void OpenCLBuiltinTestEmitter::emit() {
-  emitSourceFileHeader("OpenCL Builtin exhaustive testing", OS);
+  emitSourceFileHeader("OpenCL Builtin exhaustive testing", OS, Records);
 
   emitExtensionSetup();
 
@@ -1320,7 +1320,7 @@ void OpenCLBuiltinTestEmitter::emit() {
 }
 
 void OpenCLBuiltinHeaderEmitter::emit() {
-  emitSourceFileHeader("OpenCL Builtin declarations", OS);
+  emitSourceFileHeader("OpenCL Builtin declarations", OS, Records);
 
   emitExtensionSetup();
 

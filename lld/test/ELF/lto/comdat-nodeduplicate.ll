@@ -37,21 +37,18 @@
 ; RUN: ld.lld --thinlto-index-only --save-temps -u foo %t/a.bc %t/b.bc -o %t/ab
 ; RUN: FileCheck %s --check-prefix=RESOL_AB < %t/ab.resolution.txt
 ; RUN: (llvm-dis < %t/b.bc && llvm-dis < %t/b.bc.thinlto.bc) | FileCheck %s --check-prefix=IR_AB
-
 ; RUN: ld.lld -u foo %t/a.bc %t/b.bc -o %t/ab
 ; RUN: llvm-readelf -x .data %t/ab | FileCheck %s --check-prefix=DATA
 
 ; RUN: ld.lld --thinlto-index-only --save-temps -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
 ; RUN: FileCheck %s --check-prefix=RESOL_AB < %t/ab.resolution.txt
 ; RUN: (llvm-dis < %t/b.bc && llvm-dis < %t/b.bc.thinlto.bc) | FileCheck %s --check-prefix=IR_AB
-
 ; RUN: ld.lld -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
 ; RUN: llvm-readelf -x .data %t/ab | FileCheck %s --check-prefix=DATA
 
 ; RUN: ld.lld --thinlto-index-only --save-temps -u foo -u c %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
 ; RUN: FileCheck %s --check-prefix=RESOL_ABC < %t/abc.resolution.txt
 ; RUN: (llvm-dis < %t/b.bc && llvm-dis < %t/b.bc.thinlto.bc) | FileCheck %s --check-prefix=IR_ABC
-
 ; RUN: ld.lld -u foo %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
 ; RUN: llvm-readelf -x .data %t/abc | FileCheck %s --check-prefix=DATA
 

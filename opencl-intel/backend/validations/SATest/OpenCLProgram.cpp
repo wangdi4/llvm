@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2022 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -19,7 +19,6 @@
 #include "cl_types.h"
 #include "exceptions.h"
 #include "opencl_clang.h"
-
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -27,17 +26,16 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
-
 #include <fstream>
 #include <memory.h>
 #include <stdio.h>
 
+// debug macro
 #define DEBUG_TYPE "OpenCLProgram"
-// debug macros
-#include "llvm/Support/Debug.h"
 
 using namespace Validation;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -57,9 +55,6 @@ static std::string buildLibName(const char *s) {
 OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration *oclProgramConfig,
                              const std::string cpuArch)
     : C(new llvm::LLVMContext) {
-#ifndef SPIRV_ENABLE_OPAQUE_POINTERS
-  C->setOpaquePointers(false);
-#endif
   std::string programFile = oclProgramConfig->GetProgramFilePath();
   switch (oclProgramConfig->GetProgramFileType()) {
   case CL: {
@@ -122,9 +117,6 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration *oclProgramConfig,
   case LL: {
     llvm::SMDiagnostic err;
     llvm::LLVMContext context;
-#ifndef SPIRV_ENABLE_OPAQUE_POINTERS
-    context.setOpaquePointers(false);
-#endif
     std::unique_ptr<llvm::Module> M(
         llvm::parseAssemblyFile(programFile, err, context));
     llvm::SmallVector<char, 8> buffer;

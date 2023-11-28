@@ -1,4 +1,4 @@
-/* INTEL_CUSTOMIZATION */
+#if INTEL_CUSTOMIZATION
 /*
  * INTEL CONFIDENTIAL
  *
@@ -6,16 +6,14 @@
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise, you may not
- * use, modify, copy, publish, distribute, disclose or transmit this software or
- * the related documents without Intel's prior written permission.
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
  * This software and the related documents are provided as is, with no express
  * or implied warranties, other than those that are expressly stated in the
  * License.
  */
-/* end INTEL_CUSTOMIZATION */
-#if INTEL_COLLAB
 //===--- internal.h - header that contains internal utility functions -----===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -125,10 +123,10 @@ INLINE int __kmp_get_num_workers() {
 }
 #endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
-/// Return the active sub group leader id
-INLINE int __kmp_get_active_sub_group_leader_id() {
+/// Equivalent to sub_group_elect() which is not supported in CPU backend
+INLINE int __kmp_sub_group_elect() {
   int id = __spirv_BuiltInSubgroupLocalInvocationId;
-  return sub_group_scan_inclusive_min(id);
+  return id == sub_group_non_uniform_scan_inclusive_min(id);
 }
 
 /// Delay for exponential backoff
@@ -143,8 +141,7 @@ INLINE void __kmp_acquire_lock(int *lock) {
 #if KMP_SUBGROUP_NON_UNIFORM_VOTE_SUPPORTED
   if (sub_group_elect()) {
 #else
-  if (__spirv_BuiltInSubgroupLocalInvocationId ==
-      __kmp_get_active_sub_group_leader_id()) {
+  if (__kmp_sub_group_elect()) {
 #endif
     int expected;
     bool acquired = false;
@@ -170,8 +167,7 @@ INLINE void __kmp_release_lock(int *lock) {
 #if KMP_SUBGROUP_NON_UNIFORM_VOTE_SUPPORTED
   if (sub_group_elect())
 #else
-  if (__spirv_BuiltInSubgroupLocalInvocationId ==
-      __kmp_get_active_sub_group_leader_id())
+  if (__kmp_sub_group_elect())
 #endif
     atomic_store_explicit((volatile atomic_int *)lock, 0, memory_order_release);
 }
@@ -201,7 +197,6 @@ INLINE void __kmp_init_local(kmp_local_state_t *local_state) {
   atomic_init(&local_state->work_barrier.go, 0);
   local_state->spmd_num_threads = 0;
 }
-#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 /// Access local data
 INLINE kmp_local_state_t *__kmp_get_local_state() {
@@ -213,7 +208,6 @@ INLINE kmp_thread_state_t *__kmp_get_thread_state() {
   return &__omp_spirv_thread_data[__kmp_get_group_id()];
 }
 
-#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Initialize all team data
 INLINE void __kmp_init_locals() {
   for (int i = 0; i < KMP_MAX_NUM_GROUPS; ++i)
@@ -584,4 +578,4 @@ INLINE int __kmp_get_level(int tid) {
 #endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 #endif // INTERNAL_H
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION

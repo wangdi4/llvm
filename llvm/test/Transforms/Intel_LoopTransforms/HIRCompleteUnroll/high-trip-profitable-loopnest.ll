@@ -1,6 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-pre-vec-complete-unroll,print<hir>" -hir-complete-unroll-assume-dd-independence -hir-complete-unroll-opt-level=3 2>&1 < %s | FileCheck %s
 
-; XFAIL: *
 ; The incoming IR for this test case (from denbench/mp3playerfixeddata) has changed.
 ; srem is converted to urem and is parsed differently by ScalarEvolution.
 ; TODO: update the test case.

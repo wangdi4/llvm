@@ -1,6 +1,6 @@
 ; Check narrower FP16 SVML calls are correctly lowered to corresponding SVML
 ; calls or widened if absent in the library.
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vector-library=SVML -iml-trans -S < %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -48,15 +48,15 @@ entry:
 ; CHECK-LABEL: @test_sincoss16
 ; CHECK: [[RESULT:%.*]] = call svml_avx_cc { <16 x half>, <16 x half> } @__svml_sincoss16(<16 x half> [[ARG:%.*]])
 ; CHECK: [[COS_RET:%.*]] = extractvalue { <16 x half>, <16 x half> } [[RESULT]], 1
-; CHECK: store <16 x half> [[COS_RET]], <16 x half>* %p, align 32
+; CHECK: store <16 x half> [[COS_RET]], ptr %p, align 32
 ; CHECK: [[SIN_RET:%.*]] = extractvalue { <16 x half>, <16 x half> } [[RESULT]], 0
 ; CHECK: ret <16 x half> [[SIN_RET]]
 
-define <16 x half> @test_sincoss16(<16 x half>* nocapture %p, <16 x half> %a) #1 {
+define <16 x half> @test_sincoss16(ptr nocapture %p, <16 x half> %a) #1 {
 entry:
   %0 = tail call svml_cc { <16 x half>, <16 x half> } @__svml_sincoss16(<16 x half> %a)
   %1 = extractvalue { <16 x half>, <16 x half> } %0, 1
-  store <16 x half> %1, <16 x half>* %p, align 32
+  store <16 x half> %1, ptr %p, align 32
   %2 = extractvalue { <16 x half>, <16 x half> } %0, 0
   ret <16 x half> %2
 }
@@ -64,15 +64,15 @@ entry:
 ; CHECK-LABEL: @test_sincoss16_mask
 ; CHECK: [[RESULT:%.*]] = call svml_avx_cc { <16 x half>, <16 x half> } @__svml_sincoss16_mask(<16 x half> [[ARG:%.*]], <16 x i16> [[MASK:%.*]])
 ; CHECK: [[COS_RET:%.*]] = extractvalue { <16 x half>, <16 x half> } [[RESULT]], 1
-; CHECK: store <16 x half> [[COS_RET]], <16 x half>* %A, align 32
+; CHECK: store <16 x half> [[COS_RET]], ptr %A, align 32
 ; CHECK: [[SIN_RET:%.*]] = extractvalue { <16 x half>, <16 x half> } [[RESULT]], 0
 ; CHECK: ret <16 x half> [[SIN_RET]]
 
-define <16 x half> @test_sincoss16_mask(<16 x half>* nocapture %A, <16 x half> %B, <16 x i16> %C) #1 {
+define <16 x half> @test_sincoss16_mask(ptr nocapture %A, <16 x half> %B, <16 x i16> %C) #1 {
 entry:
   %0 = tail call svml_cc { <16 x half>, <16 x half> } @__svml_sincoss16_mask(<16 x half> %B, <16 x i16> %C)
   %1 = extractvalue { <16 x half>, <16 x half> } %0, 1
-  store <16 x half> %1, <16 x half>* %A, align 32
+  store <16 x half> %1, ptr %A, align 32
   %2 = extractvalue { <16 x half>, <16 x half> } %0, 0
   ret <16 x half> %2
 }
@@ -112,15 +112,15 @@ entry:
 ; CHECK: [[COS_EXTRACT:%.*]] = shufflevector <4 x half> [[COS]], <4 x half> undef, <2 x i32> <i32 0, i32 1>
 ; CHECK: [[RESULT_EXTRACT:%.*]] = insertvalue { <2 x half>, <2 x half> } [[TMP1]], <2 x half> [[COS_EXTRACT]], 1
 ; CHECK: [[COS_RET:%.*]] = extractvalue { <2 x half>, <2 x half> } [[RESULT_EXTRACT]], 1
-; CHECK: store <2 x half> [[COS_RET]], <2 x half>* %p, align 32
+; CHECK: store <2 x half> [[COS_RET]], ptr %p, align 32
 ; CHECK: [[SIN_RET:%.*]] = extractvalue { <2 x half>, <2 x half> } [[RESULT_EXTRACT]], 0
 ; CHECK: ret <2 x half> [[SIN_RET]]
 
-define <2 x half> @test_sincoss2(<2 x half>* nocapture %p, <2 x half> %a) #1 {
+define <2 x half> @test_sincoss2(ptr nocapture %p, <2 x half> %a) #1 {
 entry:
   %0 = tail call svml_cc { <2 x half>, <2 x half> } @__svml_sincoss2(<2 x half> %a)
   %1 = extractvalue { <2 x half>, <2 x half> } %0, 1
-  store <2 x half> %1, <2 x half>* %p, align 32
+  store <2 x half> %1, ptr %p, align 32
   %2 = extractvalue { <2 x half>, <2 x half> } %0, 0
   ret <2 x half> %2
 }
@@ -136,15 +136,15 @@ entry:
 ; CHECK: [[COS_EXTRACT:%.*]] = shufflevector <4 x half> [[COS]], <4 x half> undef, <2 x i32> <i32 0, i32 1>
 ; CHECK: [[RESULT_EXTRACT:%.*]] = insertvalue { <2 x half>, <2 x half> } [[TMP1]], <2 x half> [[COS_EXTRACT]], 1
 ; CHECK: [[COS_RET:%.*]] = extractvalue { <2 x half>, <2 x half> } [[RESULT_EXTRACT]], 1
-; CHECK: store <2 x half> [[COS_RET]], <2 x half>* %A, align 32
+; CHECK: store <2 x half> [[COS_RET]], ptr %A, align 32
 ; CHECK: [[SIN_RET:%.*]] = extractvalue { <2 x half>, <2 x half> } [[RESULT_EXTRACT]], 0
 ; CHECK: ret <2 x half> [[SIN_RET]]
 
-define <2 x half> @test_sincoss2_mask(<2 x half>* nocapture %A, <2 x half> %B, <2 x i16> %C) #1 {
+define <2 x half> @test_sincoss2_mask(ptr nocapture %A, <2 x half> %B, <2 x i16> %C) #1 {
 entry:
   %0 = tail call svml_cc { <2 x half>, <2 x half> } @__svml_sincoss2_mask(<2 x half> %B, <2 x i16> %C)
   %1 = extractvalue { <2 x half>, <2 x half> } %0, 1
-  store <2 x half> %1, <2 x half>* %A, align 32
+  store <2 x half> %1, ptr %A, align 32
   %2 = extractvalue { <2 x half>, <2 x half> } %0, 0
   ret <2 x half> %2
 }

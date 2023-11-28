@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -21,15 +21,13 @@
 
 #pragma once
 
+#include "cl_dev_backend_api.h"
+#include "cl_device_api.h"
+#include "cl_synch_objects.h"
+#include "cpu_config.h"
+#include "ocl_itt.h"
 #include <map>
 #include <string>
-
-#include <cl_dev_backend_api.h>
-#include <cl_device_api.h>
-#include <cl_synch_objects.h>
-#include <ocl_itt.h>
-
-#include "cpu_config.h"
 
 namespace Intel {
 namespace OpenCL {

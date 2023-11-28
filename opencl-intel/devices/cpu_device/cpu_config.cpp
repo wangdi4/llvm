@@ -1,4 +1,4 @@
-// Copyright 2006-2021 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -97,10 +97,7 @@ PassManagerType CPUDeviceConfig::GetPassManagerType() const {
 bool CPUDeviceConfig::IsSpirSupported() const { return true; }
 
 bool CPUDeviceConfig::IsHalfSupported() const {
-  std::string Env;
-  return FPGA_EMU_DEVICE != GetDeviceMode() &&
-         Intel::OpenCL::Utils::getEnvVar(Env,
-                                         "CL_CONFIG_CPU_EXPERIMENTAL_FP16");
+  return FPGA_EMU_DEVICE != GetDeviceMode();
 }
 
 bool CPUDeviceConfig::IsDoubleSupported() const {
@@ -204,6 +201,7 @@ CPUDeviceConfig::GetExtensionsWithVersion() {
   // required builtins.
   // GetExtVer(OCL_EXT_KHR_SUBGROUP_BALLOT, 1, 0, 0);
 
+  GetExtVer(OCL_EXT_INTEL_DEVICELIB_ASSERT, 1, 0, 0);
   GetExtVer(OCL_EXT_KHR_SUBGROUP_SHUFFLE, 1, 0, 0);
   GetExtVer(OCL_EXT_KHR_SUBGROUP_SHUFFLE_RELATIVE, 1, 0, 0);
   GetExtVer(OCL_EXT_KHR_SUBGROUP_EXTENDED_TYPES, 1, 0, 0);
@@ -235,8 +233,10 @@ CPUDeviceConfig::GetExtensionsWithVersion() {
     GetExtVer(OCL_EXT_KHR_SPIR, 1, 0, 0);
 
   // OpenCL 2.0 extensions
-  if (OPENCL_VERSION_2_0 <= GetOpenCLVersion())
+  if (OPENCL_VERSION_2_0 <= GetOpenCLVersion()) {
     GetExtVer(OCL_EXT_KHR_IMAGE2D_FROM_BUFFER, 1, 0, 0);
+    GetExtVer(OCL_EXT_INTEL_CONCURRENT_DISPATCH, 1, 0, 0);
+  }
 
   return m_extensions;
 }

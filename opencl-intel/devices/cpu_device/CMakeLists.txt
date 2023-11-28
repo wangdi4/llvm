@@ -87,7 +87,11 @@ add_opencl_library(
   ${TARGET_NAME}
   STATIC
   ${TARGET_SOURCES}
-)
+  LINK_LIBS
+  OclCpuBackEnd
+  builtin_kernels
+  cl_sys_utils
+  device_commands)
 
 if(INCLUDE_MKL)
   target_link_libraries(${TARGET_NAME} LINK_PRIVATE ${MKL_LINK_LIBS})

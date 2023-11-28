@@ -4,7 +4,7 @@
 ; RUN: opt %s -mattr=+avx512f,+avx512vl -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=4 -enable-intel-advanced-opts -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 2>&1 | FileCheck %s --check-prefix=CM4
 ; RUN: opt %s -mattr=+avx512f,+avx512vl -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -disable-output -debug-only=parvec-analysis -enable-compress-expand-idiom -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=8 -enable-intel-advanced-opts -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 2>&1 | FileCheck %s --check-prefix=CM8
 
-; RUN: opt %s -mattr=+avx512f,+avx512vl -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-optreport-emitter' -disable-output -intel-opt-report=high -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 2>&1 | FileCheck %s --check-prefix=OPTREPORT
+; RUN: opt %s -mattr=+avx512f,+avx512vl -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg,simplifycfg,intel-ir-optreport-emitter' -disable-output -intel-opt-report=high -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 2>&1 | FileCheck %s --check-prefix=OPTREPORT
 
 ; <0>          BEGIN REGION { }
 ; <28>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
@@ -44,8 +44,8 @@
 ; CHECK-NEXT:      i32 [[VP9:%.*]] = add i32 [[VP10:%.*]] i32 3
 ; CHECK-NEXT:      i32 [[VP11:%.*]] = add i32 4 i32 [[VP9]]
 ; CHECK-NEXT:    Stores:
-; CHECK-NEXT:      store double [[VP_LOAD:%.*]] double* [[VP_SUBSCRIPT:%.*]]
-; CHECK-NEXT:      store double [[VP_LOAD]] double* [[VP_SUBSCRIPT_1:%.*]]
+; CHECK-NEXT:      store double [[VP_LOAD:%.*]] ptr [[VP_SUBSCRIPT:%.*]]
+; CHECK-NEXT:      store double [[VP_LOAD]] ptr [[VP_SUBSCRIPT_1:%.*]]
 ; CHECK-NEXT:    Indices:
 ; CHECK-NEXT:      i64 [[VP12:%.*]] = sext i32 [[VP9]] to i64
 ; CHECK-NEXT:      i64 [[VP13:%.*]] = sext i32 [[VP7]] to i64
@@ -66,25 +66,25 @@
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i32 [[VP7]] = phi  [ i32 [[VP17]], [[BB1]] ],  [ i32 [[VP21:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP6]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP5]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP6]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i1 [[VP15:%.*]] = icmp ne i32 [[VP_LOAD_1]] i32 0
 ; CHECK-NEXT:     br i1 [[VP15]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
 ; CHECK-NEXT:       i64 [[MASK:%.*]] = compress-expand-mask
-; CHECK-NEXT:       double* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds double* [[A0:%.*]] i64 [[VP6]]
-; CHECK-NEXT:       double [[VP_LOAD]] = load double* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP6]]
+; CHECK-NEXT:       double [[VP_LOAD]] = load ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:       i64 [[VP13]] = sext i32 [[VP7]] to i64
 ; CHECK-NEXT:       i64 [[VP18:%.*]] = compress-expand-index {stride: 9} i64 [[VP13]]
-; CHECK-NEXT:       double* [[VP_SUBSCRIPT_1]] = subscript inbounds double* [[B0]] i64 [[VP18]]
-; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT_1]] i64 [[MASK]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_1]] = subscript inbounds ptr [[B0]] i64 [[VP18]]
+; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] ptr [[VP_SUBSCRIPT_1]] i64 [[MASK]]
 ; CHECK-NEXT:       i32 [[VP10]] = add i32 [[VP7]] i32 2
 ; CHECK-NEXT:       i32 [[VP9]] = add i32 [[VP10]] i32 3
 ; CHECK-NEXT:       i64 [[VP12]] = sext i32 [[VP9]] to i64
 ; CHECK-NEXT:       i64 [[VP20:%.*]] = compress-expand-index {stride: 9} i64 [[VP12]]
-; CHECK-NEXT:       double* [[VP_SUBSCRIPT]] = subscript inbounds double* [[B0]] i64 [[VP20]]
-; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT]] i64 [[MASK]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT]] = subscript inbounds ptr [[B0]] i64 [[VP20]]
+; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] ptr [[VP_SUBSCRIPT]] i64 [[MASK]]
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
@@ -130,11 +130,11 @@
 ; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP50]],  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD0:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 9, i64 18, i64 27, i64 36, i64 45, i64 54, i64 63>
 ; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC100]],  poison,  [[DOTVEC80]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0f64([[COMPRESS0]],  &((<8 x double*>)([[B0]])[%add]),  0,  [[CAST90]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0([[COMPRESS0]],  &((<8 x ptr>)([[B0]])[%add]),  0,  [[CAST90]])
 ; CHECK-NEXT:        |   [[SHUFFLE110:%.*]] = shufflevector [[PHI_TEMP50]] + 5,  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD120:%.*]] = [[SHUFFLE110]]  +  <i64 0, i64 9, i64 18, i64 27, i64 36, i64 45, i64 54, i64 63>
 ; CHECK-NEXT:        |   [[COMPRESS130:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC100]],  poison,  [[DOTVEC80]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0f64([[COMPRESS130]],  &((<8 x double*>)([[B0]])[%add12]),  0,  [[CAST90]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0([[COMPRESS130]],  &((<8 x ptr>)([[B0]])[%add12]),  0,  [[CAST90]])
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC80]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
 ; CHECK-NEXT:        |   [[CAST140:%.*]] = bitcast.<8 x i1>.i8([[SELECT0]])
 ; CHECK-NEXT:        |   [[POPCNT150:%.*]] = @llvm.ctpop.i8([[CAST140]])
@@ -176,9 +176,9 @@
 ; CM4: Cost 0 for i32 [[VP_INIT:%.*]] = compress-expand-index-init i32 live-in1
 ; CM4: Cost 5 for i64 [[MASK:%.*]] = compress-expand-mask
 ; CM4: Cost 2 for i64 [[VP9:%.*]] = compress-expand-index {stride: 9} i64 [[VP8:%.*]]
-; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *HW GS*
+; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1:%.*]] ptr [[VP_SUBSCRIPT_2:%.*]] *HW GS*
 ; CM4: Cost 2 for i64 [[VP13:%.*]] = compress-expand-index {stride: 9} i64 [[VP12:%.*]]
-; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1]] double* [[VP_SUBSCRIPT_3:%.*]] *HW GS*
+; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1]] ptr [[VP_SUBSCRIPT_3:%.*]] *HW GS*
 ; CM4: Block total cost includes HW GS Cost: 8
 ; CM4: Cost 3 for i32 [[VP3:%.*]] = compress-expand-index-inc {stride: 9} i32 [[VP__BLEND_BB4:%.*]]
 ; CM4: Cost Unknown for i32 [[VP_FINAL:%.*]] = compress-expand-index-final i32 [[VP3]]
@@ -186,9 +186,9 @@
 ; CM8: Cost 0 for i32 [[VP_INIT:%.*]] = compress-expand-index-init i32 live-in1
 ; CM8: Cost 5 for i64 [[MASK:%.*]] = compress-expand-mask
 ; CM8: Cost 3 for i64 [[VP9:%.*]] = compress-expand-index {stride: 9} i64 [[VP8:%.*]]
-; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *HW GS*
+; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1:%.*]] ptr [[VP_SUBSCRIPT_2:%.*]] *HW GS*
 ; CM8: Cost 3 for i64 [[VP13:%.*]] = compress-expand-index {stride: 9} i64 [[VP12:%.*]]
-; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1]] double* [[VP_SUBSCRIPT_3:%.*]] *HW GS*
+; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1]] ptr [[VP_SUBSCRIPT_3:%.*]] *HW GS*
 ; CM8: Block total cost includes HW GS Cost: 16
 ; CM8: Cost 3 for i32 [[VP3:%.*]] = compress-expand-index-inc {stride: 9} i32 [[VP__BLEND_BB4:%.*]]
 ; CM8: Cost Unknown for i32 [[VP_FINAL:%.*]] = compress-expand-index-final i32 [[VP3]]
@@ -202,7 +202,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fooPdS_Pii(double* noalias nocapture noundef readonly %A, double* noalias nocapture noundef writeonly %B, i32* noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPdS_Pii(ptr noalias nocapture noundef readonly %A, ptr noalias nocapture noundef writeonly %B, ptr noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
 entry:
   %cmp13 = icmp sgt i32 %N, 0
   br i1 %cmp13, label %for.body.preheader, label %for.cond.cleanup
@@ -220,21 +220,21 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %j.014 = phi i32 [ 0, %for.body.preheader ], [ %j.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %cmp1.not = icmp eq i32 %0, 0
   br i1 %cmp1.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds double, double* %A, i64 %indvars.iv
-  %1 = load double, double* %arrayidx3, align 8, !tbaa !7
+  %arrayidx3 = getelementptr inbounds double, ptr %A, i64 %indvars.iv
+  %1 = load double, ptr %arrayidx3, align 8, !tbaa !7
   %idxprom4 = sext i32 %j.014 to i64
-  %arrayidx5 = getelementptr inbounds double, double* %B, i64 %idxprom4
-  store double %1, double* %arrayidx5, align 8, !tbaa !7
+  %arrayidx5 = getelementptr inbounds double, ptr %B, i64 %idxprom4
+  store double %1, ptr %arrayidx5, align 8, !tbaa !7
   %inc0 = add nsw i32 2, %j.014
   %inc1 = add nsw i32 %inc0, 3
-  %arrayidx6 = getelementptr inbounds double, double* %B, i32 %inc1
-  store double %1, double* %arrayidx6
+  %arrayidx6 = getelementptr inbounds double, ptr %B, i32 %inc1
+  store double %1, ptr %arrayidx6
   %inc = add nsw i32 4, %inc1
   br label %for.inc
 

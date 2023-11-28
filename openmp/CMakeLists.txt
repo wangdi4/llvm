@@ -53,6 +53,8 @@ if (OPENMP_STANDALONE_BUILD)
     "C compiler to use for testing OpenMP runtime libraries.")
   set(OPENMP_TEST_CXX_COMPILER ${CMAKE_CXX_COMPILER} CACHE STRING
     "C++ compiler to use for testing OpenMP runtime libraries.")
+  set(OPENMP_TEST_Fortran_COMPILER ${CMAKE_Fortran_COMPILER} CACHE STRING
+    "FORTRAN compiler to use for testing OpenMP runtime libraries.")
   set(OPENMP_LLVM_TOOLS_DIR "" CACHE PATH "Path to LLVM tools for testing.")
 
   set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
@@ -69,6 +71,20 @@ else()
   else()
     set(OPENMP_TEST_C_COMPILER ${LLVM_RUNTIME_OUTPUT_INTDIR}/clang.exe)
     set(OPENMP_TEST_CXX_COMPILER ${LLVM_RUNTIME_OUTPUT_INTDIR}/clang++.exe)
+  endif()
+
+  # Check for flang
+  if (NOT MSVC)
+    set(OPENMP_TEST_Fortran_COMPILER ${LLVM_RUNTIME_OUTPUT_INTDIR}/flang-new)
+  else()
+    set(OPENMP_TEST_Fortran_COMPILER ${LLVM_RUNTIME_OUTPUT_INTDIR}/flang-new.exe)
+  endif()
+
+  # Set fortran test compiler if flang is found
+  if (EXISTS "${OPENMP_TEST_Fortran_COMPILER}")
+    message("Using local flang build at ${OPENMP_TEST_Fortran_COMPILER}")
+  else()
+    unset(OPENMP_TEST_Fortran_COMPILER)
   endif()
 
   # If not standalone, set CMAKE_CXX_STANDARD but don't set the global cache value,
@@ -101,9 +117,10 @@ endif()
 
 option(OPENMP_ENABLE_LIBOMPTARGET "Enable building libomptarget for offloading."
        ${ENABLE_LIBOMPTARGET})
-option(OPENMP_ENABLE_LIBOMPTARGET_PROFILING "Enable time profiling for libomptarget."
-       ${ENABLE_LIBOMPTARGET_PROFILING})
-if (INTEL_CUSTOMIZATION)
+option(OPENMP_ENABLE_LIBOMP_PROFILING "Enable time profiling for libomp." OFF)
+if(INTEL_CUSTOMIZATION)
+  option(OPENMP_ENABLE_LIBOMPTARGET_PROFILING "Enable time profiling for libomptarget."
+         ${ENABLE_LIBOMPTARGET_PROFILING})
   # Disable profiling, if building as part of llvm with shared libraries.
   # Due to libomptarget build location (see LIBOMPTARGET_LIBRARY_DIR)
   # being inconsistent with llvm component libraries' build locations
@@ -114,7 +131,6 @@ if (INTEL_CUSTOMIZATION)
     set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING OFF)
   endif()
 endif(INTEL_CUSTOMIZATION)
-option(OPENMP_ENABLE_LIBOMP_PROFILING "Enable time profiling for libomp." OFF)
 
 # Header install location
 if(${OPENMP_STANDALONE_BUILD})
@@ -126,11 +142,11 @@ endif()
 
 # Build host runtime library, after LIBOMPTARGET variables are set since they are needed
 # to enable time profiling support in the OpenMP runtime.
-# INTEL_CUSTOMIZATION
-# Do not add runtime if Intel specific runtime is being used, which we now do
-# unconditionally.
-# add_subdirectory(runtime)
-# end INTEL_CUSTOMIZATION
+if(INTEL_CUSTOMIZATION)
+# We do not build host runtime.
+else(INTEL_CUSTOMIZATION)
+add_subdirectory(runtime)
+endif(INTEL_CUSTOMIZATION) # INTEL
 
 if (OPENMP_ENABLE_LIBOMPTARGET)
   # Check that the library can actually be built.
@@ -145,16 +161,15 @@ if (OPENMP_ENABLE_LIBOMPTARGET)
   add_subdirectory(libomptarget)
 endif()
 
-if (INTEL_COLLAB)
-  if (WIN32 AND NOT OPENMP_ENABLE_LIBOMPTARGET)
-    set_directory_properties(PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
-    add_subdirectory(libomptarget)
-  endif()
-endif(INTEL_COLLAB)
-
-# INTEL_CUSTOMIZATION
+if(INTEL_CUSTOMIZATION)
+if(WIN32 AND NOT OPENMP_ENABLE_LIBOMPTARGET)
+  set_directory_properties(PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
+  add_subdirectory(libomptarget)
+endif()
 set(ENABLE_OMPT_TOOLS OFF)
-# end INTEL_CUSTOMIZATION
+else(INTEL_CUSTOMIZATION)
+set(ENABLE_OMPT_TOOLS ON)
+endif(INTEL_CUSTOMIZATION) # INTEL
 # Currently tools are not tested well on Windows or MacOS X.
 if (APPLE OR WIN32)
   set(ENABLE_OMPT_TOOLS OFF)
@@ -162,16 +177,18 @@ endif()
 
 option(OPENMP_ENABLE_OMPT_TOOLS "Enable building ompt based tools for OpenMP."
        ${ENABLE_OMPT_TOOLS})
-
-# INTEL_CUSTOMIZATION
+if(INTEL_CUSTOMIZATION)
 # Archer is enabled on Linux.
 option(OPENMP_ENABLE_ARCHER "Enable building ompt based tool Archer for OpenMP."
        ON)
-
-if (OPENMP_ENABLE_ARCHER AND CMAKE_SYSTEM_NAME MATCHES "Linux")
-#end INTEL_CUSTOMIZATION
+if(OPENMP_ENABLE_ARCHER AND CMAKE_SYSTEM_NAME MATCHES "Linux")
   add_subdirectory(tools)
 endif()
+else(INTEL_CUSTOMIZATION)
+if (OPENMP_ENABLE_OMPT_TOOLS)
+  add_subdirectory(tools)
+endif()
+endif(INTEL_CUSTOMIZATION) # INTEL
 
 option(OPENMP_MSVC_NAME_SCHEME "Build dll with MSVC naming scheme." OFF)
 

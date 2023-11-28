@@ -1,6 +1,6 @@
 //===-- IntelVPlanCostModel.cpp -------------------------------------------===//
 //
-//   Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -59,6 +59,27 @@ static cl::opt<float>
     CMLoadCostAdjustment("vplan-cm-load-cost-adjustment", cl::init(.5f),
                          cl::Hidden,
                          cl::desc("Load cost adjustment on top of TTI value"));
+
+static cl::opt<float> CMDefaultCallCost("vplan-cm-default-call-cost",
+                                        cl::init(100.f), cl::Hidden,
+                                        cl::desc("Default cost of a call"));
+static cl::opt<float>
+    CMCallCostVFBias("vplan-cm-call-cost-vf-bias", cl::init(1.f), cl::Hidden,
+                     cl::desc("VF bias is the cost of a call"));
+
+static cl::opt<bool> CMProhibitZMMLowPumping(
+    "vplan-cm-prohibit-zmm-low-pumping", cl::init(true), cl::Hidden,
+    cl::desc(
+        "The flag to prohibit the calls vectorization with "
+        "vector factors that lead to pumping on zmm targets when "
+        "-mprefer-vector-width=256 is used. Svml functions are not affected"));
+
+// Heuristic for the call of a vector variant.
+// Returns a default cost with a bias dependent on VF. This favors larger VFs
+// which is our aim.
+static float getCMDefaultCallCost(unsigned VF) {
+  return CMDefaultCallCost + VF * CMCallCostVFBias;
+}
 
 /// A helper function that returns the alignment of load or store instruction.
 static Align getMemInstAlignment(const Value *I) {
@@ -480,6 +501,41 @@ VPlanTTICostModel::getIntrinsicForLibFuncCall(
   }
 }
 
+VPInstructionCost
+VPlanTTICostModel::getParamSerializationCost(const CallBase &CB, unsigned VF) {
+  // For a serialized call, such as: float call @foo(double arg1, int arg2)
+  // calculate the cost of vectorized code that way:
+  // Cost of extracting VF double elements for arg1 +
+  // Cost of extracting VF int elements for arg2 +
+  // Cost of inserting VF float elements for the result of foo.
+  // TODO:
+  // Here we ignore the fact that when serialized code feeds another
+  // serialized code insert + extract in between can be optimized out.
+  VPInstructionCost Cost =
+      // The sum of costs of 'devectorizing' all args of the call.
+      std::accumulate(
+          CB.arg_begin(), CB.arg_end(), VPInstructionCost(0),
+          [=](VPInstructionCost Cost, const Use &Arg) {
+            Type *ArgTy = Arg.get()->getType();
+            // If Arg is not expected to be vectorized
+            // (isVectorizableTy(ArgTy) is false) then it contributes 0.
+            //
+            // TODO:
+            // In general there are can be call arguments that are not
+            // vectorized.  SVA should help here.
+            return Cost + (isVectorizableTy(ArgTy)
+                               ? getInsertExtractElementsCost(
+                                     Instruction::ExtractElement, ArgTy, VF)
+                               : 0);
+          }) +
+      // The cost of 'vectorizing' function's result if any.
+      (isVectorizableTy(CB.getType()) && !CB.getType()->isVoidTy()
+           ? getInsertExtractElementsCost(Instruction::InsertElement,
+                                          CB.getType(), VF)
+           : 0);
+  return Cost;
+}
+
 VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
   Intrinsic::ID ID, const VPCallInstruction *VPCall, unsigned VF) {
 
@@ -508,36 +564,14 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
     case VPCallInstruction::CallVecScenariosTy::Serialization: {
       // For a serialized call, such as: float call @foo(double arg1, int arg2)
       // calculate the cost of vectorized code that way:
-      // Cost of extracting VF double elements for arg1 +
-      // Cost of extracting VF int elements for arg2 +
       // Cost of VF calls to scalar @foo +
-      // Cost of inserting VF float elements for the result of foo.
-      // TODO:
-      // Here we ignore the fact that when serialized code feeds another
-      // serialized code insert + extract in between can be optimized out.
+      // serialization overhead of call arguments and building vector return
+      // value
       VPInstructionCost Cost =
-          // The sum of costs of 'devectorizing' all args of the call.
-          std::accumulate(
-            CB.arg_begin(), CB.arg_end(), VPInstructionCost(0),
-            [=](VPInstructionCost Cost, const Use &Arg) {
-              Type *ArgTy = Arg.get()->getType();
-              // If Arg is not expected to be vectorized
-              // (isVectorizableTy(ArgTy) is false) then it contributes 0.
-              //
-              // TODO:
-              // In general there are can be call arguments that are not
-              // vectorized.  SVA should help here.
-              return Cost + (isVectorizableTy(ArgTy) ?
-                             getInsertExtractElementsCost(
-                               Instruction::ExtractElement, ArgTy, VF) : 0);
-            }) +
+          getParamSerializationCost(CB, VF) +
           // The cost of VF calls to the scalar function.
-          VF * TTI.getIntrinsicInstrCost(
-                 IntrinsicCostAttributes(ID, CB), TTI::TCK_RecipThroughput) +
-          // The cost of 'vectorizing' function's result if any.
-          (isVectorizableTy(CB.getType()) && !CB.getType()->isVoidTy() ?
-           getInsertExtractElementsCost(Instruction::InsertElement,
-                                        CB.getType(), VF) : 0);
+          VF * TTI.getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB),
+                                         TTI::TCK_RecipThroughput);
       return Cost;
     }
 
@@ -587,6 +621,112 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
     IntrinsicCostAttributes(ID, RetTy, ParamTys, FMF,
                             dyn_cast<IntrinsicInst>(&CB)),
     TTI::TCK_RecipThroughput);
+}
+
+VPInstructionCost
+VPlanTTICostModel::getOtherCallCost(const VPCallInstruction *VPCall,
+                                    unsigned VF) {
+
+  assert(VF > 1 && "Unexpected VF");
+
+  auto *CallInst = VPCall->getUnderlyingCallInst();
+  assert(CallInst && "Expecting non-null underlying call.");
+  const CallBase &CB = *CallInst;
+  VPCallInstruction::CallVecScenariosTy VS = VPCall->getVectorizationScenario();
+  VPInstructionCost DefCost(getCMDefaultCallCost(VF));
+
+  switch (VS) {
+  case VPCallInstruction::CallVecScenariosTy::Undefined:
+    // Some calls are left unanalyzed, e.g. debug intrinsics.
+    return VPInstructionCost::getUnknown();
+
+  case VPCallInstruction::CallVecScenariosTy::LibraryFunc:
+  case VPCallInstruction::CallVecScenariosTy::VectorVariant:
+  case VPCallInstruction::CallVecScenariosTy::UnmaskedWiden: {
+    // Assuming the same cost as a call of scalar function, just that vector
+    // variant contains the same number of intsructions.
+    // TODO: in case PumpFactor is > 1 we need to account extract/insert
+    // of vector parameters and return value.
+    unsigned PumpFactor = VPCall->getPumpFactor();
+
+    if (isOpenCLSinCos(CB.getCalledFunction()->getName())) {
+      assert(PumpFactor == 1 &&
+             "Pumping feature is not supported for OpenCL sincos.");
+      return DefCost;
+    }
+    if (PumpFactor == 1) {
+      // In some cases the pump factor does not reflect the real situation.
+      // A typical example are svml functions. We have them for most VFs
+      // but in some cases the calls are split into several ones due to
+      // e.g. -prefer-vector-width switch
+      auto DefTy = CB.getType();
+      LibFunc CallF;
+      if (VS == VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
+          TLI->getLibFunc(*CB.getCalledFunction(), CallF) &&
+          (CallF == LibFunc_sincos || CallF == LibFunc_sincosf)) {
+        Type *ElementType = CB.getArgOperand(0)->getType();
+        DefTy = StructType::get(ElementType, ElementType);
+      } else if (VS == VPCallInstruction::CallVecScenariosTy::VectorVariant) {
+        // For vector variants find the widest parameter/return value type.
+        const VFInfo *Variant = VPCall->getVectorVariant();
+        assert(Variant && "Unexpected null matched vector variant");
+        ArrayRef<VFParameter> Parms = Variant->getParameters();
+        unsigned Widest = DefTy->getPrimitiveSizeInBits();
+        for (auto &Parm : Parms)
+          if (Parm.isVector() && !Parm.isMask()) {
+            Type* Ty = VPCall->getArgOperand(Parm.ParamPos)->getType();
+            unsigned W = Ty->getPrimitiveSizeInBits();
+            if (W > Widest) {
+              DefTy = Ty;
+              Widest = W;
+            }
+          }
+      } else if (DefTy->isVoidTy() && VPCall->getNumArgOperands() > 0) {
+        // For library functions take the first parameter type.
+        DefTy = VPCall->getArgOperand(0)->getType();
+      }
+      if (DefTy->isVoidTy()) {
+        // If no vector parameters/return values return w/o corrections.
+        // Note: that is a usual situation with OCL kernels.
+        return DefCost;
+      }
+
+      unsigned MultVF = 1;
+      if (auto StructTy = dyn_cast<StructType>(DefTy)) {
+        assert(StructTy->getNumElements() == 2 && "Expect 2-field struct");
+        DefTy = StructTy->getElementType(0);
+        assert(StructTy->getElementType(1) == DefTy &&
+               "Expect equal types in struct");
+        MultVF = 2;
+      }
+      PumpFactor = TTI.getNumberOfParts(getWidenedType(DefTy, MultVF * VF));
+      StringRef TargetISA = TTI.getISASetForIMLFunctions();
+
+      if (PumpFactor > 1 && TargetISA == "coreavx512zmmlow") {
+        if (!(VS == VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
+              isSVMLFunction(TLI, CB.getCalledFunction()->getName(),
+                             VPCall->getVectorLibraryFunc()))) {
+          // For non-svml functions return Invalid cost to prevent vectorization
+          // when it's prohibited otherwise restore PumpFactor==1.
+          return CMProhibitZMMLowPumping ? VPInstructionCost::getInvalid() : DefCost;
+        }
+      }
+    }
+    return DefCost * PumpFactor;
+  }
+  case VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic:
+    assert(false && "Unexpected call scenario");
+    return VPInstructionCost::getInvalid(); // in product compiler return
+                                            // inhibiting cost
+
+  case VPCallInstruction::CallVecScenariosTy::DoNotWiden:
+    return DefCost;
+
+  case VPCallInstruction::CallVecScenariosTy::Serialization:
+    // Calculate serialization overhead + the cost of VF calls to the scalar
+    // function.
+    return getParamSerializationCost(CB, VF) + VF * DefCost;
+  }
 }
 
 VPInstructionCost VPlanTTICostModel::getTTICost(const VPInstruction *VPInst) {
@@ -900,10 +1040,13 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
     if (ID == Intrinsic::not_intrinsic && VPCall->getCalledFunction())
       ID = getIntrinsicForLibFuncCall(VPCall);
 
-    if (ID == Intrinsic::not_intrinsic)
-      return VPInstructionCost::getUnknown();
+    if (ID != Intrinsic::not_intrinsic)
+      return getIntrinsicInstrCost(ID, VPCall, VF);
 
-    return getIntrinsicInstrCost(ID, VPCall, VF);
+    if (VF == 1)
+      return VPInstructionCost(getCMDefaultCallCost(VF));
+
+    return getOtherCallCost(VPCall, VF);
   }
   case VPInstruction::ConflictInsn: {
     // TODO:
@@ -1367,22 +1510,31 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
         Cost += getIntMinMaxInstCost(VPRedFinal->getBinOpcode(), IDVecTy);
       else if (CmpReduction)
         Cost += TTI.getCmpSelInstrCost(
-          Instruction::Select, VPRedFinal->getOperand(1)->getType(),
-          IntegerType::getInt1Ty(*Plan->getLLVMContext()) /* i1 */,
-          CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
+            Instruction::Select, VPRedFinal->getOperand(1)->getType(),
+            IntegerType::getInt1Ty(*Plan->getLLVMContext()) /* i1 */,
+            CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
       else
         Cost += TTI.getArithmeticInstrCost(
-          VPRedFinal->getBinOpcode(), VPInst->getType(),
-          TargetTransformInfo::TCK_RecipThroughput);
+            VPRedFinal->getBinOpcode(), VPInst->getType(),
+            TargetTransformInfo::TCK_RecipThroughput);
     }
 #if INTEL_FEATURE_SW_ADVANCED
     // For partial sum candidate reductions, we add an additional
     // cost for the UF-1 reduction operations required to combine
     // the parallel accumulators before this reduction-final.
     if (UF > 1 && getOrCreatePartialSumAnalysis().isCandidate(VPRedFinal)) {
-      Cost += (UF - 1) * TTI.getArithmeticInstrCost(
-                             VPRedFinal->getBinOpcode(), IDVecTy,
-                             TargetTransformInfo::TCK_RecipThroughput);
+      VPInstructionCost OpCost = 0;
+      if (isMinMaxOpcode(VPRedFinal->getBinOpcode())) {
+        Intrinsic::ID Intrin =
+            getIntrinsicForMinMaxOpcode(VPRedFinal->getBinOpcode());
+        OpCost = TTI.getIntrinsicInstrCost(
+            IntrinsicCostAttributes(Intrin, IDVecTy, {IDVecTy, IDVecTy}),
+            TTI::TCK_RecipThroughput);
+      } else
+        OpCost = TTI.getArithmeticInstrCost(
+            VPRedFinal->getBinOpcode(), IDVecTy,
+            TargetTransformInfo::TCK_RecipThroughput);
+      Cost += (UF - 1) * OpCost;
     }
 #endif // INTEL_FEATURE_SW_ADVANCED
     return Cost;

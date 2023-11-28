@@ -63,6 +63,8 @@ public:
       setFastMathFlags(fmi.getFastMathFlagsAttr().getValue());
     }
   }
+  FirOpBuilder(mlir::OpBuilder &builder, mlir::Operation *op)
+      : FirOpBuilder(builder, fir::getKindMapping(op), op) {}
 
   // The listener self-reference has to be updated in case of copy-construction.
   FirOpBuilder(const FirOpBuilder &other)
@@ -180,6 +182,15 @@ public:
                             llvm::ArrayRef<mlir::Value> lenParams,
                             bool asTarget = false);
 
+  /// Create a temporary using `fir.alloca`. This function does not hoist.
+  /// It is the callers responsibility to set the insertion point if
+  /// hoisting is required.
+  mlir::Value
+  createTemporaryAlloc(mlir::Location loc, mlir::Type type,
+                       llvm::StringRef name, mlir::ValueRange lenParams = {},
+                       mlir::ValueRange shape = {},
+                       llvm::ArrayRef<mlir::NamedAttribute> attrs = {});
+
   /// Create a temporary. A temp is allocated using `fir.alloca` and can be read
   /// and written using `fir.load` and `fir.store`, resp.  The temporary can be
   /// given a name via a front-end `Symbol` or a `StringRef`.
@@ -242,11 +253,6 @@ public:
     return createGlobal(loc, type, name, /*isConst=*/true, /*isTarget=*/false,
                         bodyBuilder, linkage);
   }
-
-  /// Create a fir::DispatchTable operation.
-  fir::DispatchTableOp createDispatchTableOp(mlir::Location loc,
-                                             llvm::StringRef name,
-                                             llvm::StringRef parentName);
 
   /// Convert a StringRef string into a fir::StringLitOp.
   fir::StringLitOp createStringLitOp(mlir::Location loc,
@@ -613,7 +619,9 @@ fir::ExtendedValue arraySectionElementToExtendedValue(
 void genScalarAssignment(fir::FirOpBuilder &builder, mlir::Location loc,
                          const fir::ExtendedValue &lhs,
                          const fir::ExtendedValue &rhs,
+                         bool needFinalization = false,
                          bool isTemporaryLHS = false);
+
 /// Assign \p rhs to \p lhs. Both \p rhs and \p lhs must be scalar derived
 /// types. The assignment follows Fortran intrinsic assignment semantic for
 /// derived types (10.2.1.3 point 13).

@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 -triple spir-unknown-unknown-intelfpga -emit-llvm -opaque-pointers -O0 -cl-std=CL2.0 -o - %s | FileCheck %s --check-prefix SPIR_20
-// RUN: %clang_cc1 -triple spir-unknown-unknown-intelfpga -emit-llvm -opaque-pointers -O0 -cl-std=CL1.2 -o - %s | FileCheck %s --check-prefix SPIR_12
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -emit-llvm -opaque-pointers -O0 -cl-std=CL2.0 -o - %s | FileCheck %s --check-prefix X86
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -emit-llvm -opaque-pointers -O0 -cl-std=CL1.2 -o - %s | FileCheck %s --check-prefix X86
+// RUN: %clang_cc1 -triple spir-unknown-unknown-intelfpga -emit-llvm -O0 -cl-std=CL2.0 -o - %s | FileCheck %s --check-prefix SPIR_20
+// RUN: %clang_cc1 -triple spir-unknown-unknown-intelfpga -emit-llvm -O0 -cl-std=CL1.2 -o - %s | FileCheck %s --check-prefix SPIR_12
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -emit-llvm -O0 -cl-std=CL2.0 -o - %s | FileCheck %s --check-prefix X86
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -emit-llvm -O0 -cl-std=CL1.2 -o - %s | FileCheck %s --check-prefix X86
 
 void test1(read_only pipe int p, global int *ptr) {
   // SPIR_20: call spir_func i32 @__read_pipe_2(target("spirv.Pipe", 0) %{{.*}}, ptr addrspace(4) %{{.*}}, i32 4, i32 4)

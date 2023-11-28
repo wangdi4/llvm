@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2021-2023 Intel Corporation
+# Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -14,8 +14,6 @@
 # or implied warranties, other than those that are expressly stated in the
 # License.
 #
-# end INTEL_CUSTOMIZATION
-# INTEL_COLLAB
 ##===----------------------------------------------------------------------===##
 #
 # Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -46,7 +44,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     src/abi-loop.cl
     src/abi-parallel.cl
     src/api.cl
-    src/abi-atomic-fp.cpp
+    src/abi-omp.cpp
   )
 
   set(opencl_src ${opencl_src_optional} ${opencl_src_required})
@@ -60,26 +58,20 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
   endif()
   set(opencl_flags_spirv
     -cc1 -emit-llvm-bc -triple spir64-unknown-unknown -cl-std=CL2.0
-    -disable-llvm-passes -include opencl-c.h -DINTEL_COLLAB=1
+    -disable-llvm-passes -include opencl-c.h -DINTEL_CUSTOMIZATION=1
   )
-  set(omp_cpp_flags -DINTEL_COLLAB=1 -c -fiopenmp -fopenmp-targets=spir64)
+  set(omp_cpp_flags -DINTEL_CUSTOMIZATION=1 -c -fiopenmp -fopenmp-targets=spir64)
 
   if("$ENV{LIBOMPTARGET_NO_DOUBLE_PRECISION}" STREQUAL "1")
     list(APPEND opencl_flags_spirv -DHAVE_FP64_SUPPORT=0)
   else()
     list(APPEND opencl_flags_spirv -DHAVE_FP64_SUPPORT=1)
   endif()
-  if(INTEL_CUSTOMIZATION)
-    list(APPEND opencl_flags_spirv
-      -DINTEL_CUSTOMIZATION=1
-      -disable-intel-proprietary-opts
-    )
-    list(PREPEND omp_cpp_flags --intel -DINTEL_CUSTOMIZATION=1)
-    if (NOT SPIRV_ENABLE_OPAQUE_POINTERS)
-      list(APPEND opencl_flags_spirv -no-opaque-pointers)
-      list(PREPEND omp_cpp_flags -Xclang -no-opaque-pointers)
-    endif()
-  endif(INTEL_CUSTOMIZATION)
+  list(APPEND opencl_flags_spirv
+    -DINTEL_CUSTOMIZATION=1
+    -disable-intel-proprietary-opts
+  )
+  list(PREPEND omp_cpp_flags --intel -DINTEL_CUSTOMIZATION=1)
 
   set(opencl_device_rtl_required
     ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl-required)
@@ -221,12 +213,10 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
 
   set(install_dest lib${LIBOMPTARGET_LIBDIR_SUFFIX})
 
-  if (INTEL_CUSTOMIZATION)
-    if(INTEL_DEPLOY_UNIFIED_LAYOUT)
-      # If building the new unified layout, deploy in the component-private area.
-      string(PREPEND install_dest "opt/${INTEL_DEPLOY_PKGCOMP_NAME}/")
-    endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
-  endif(INTEL_CUSTOMIZATION)
+  if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+    # If building the new unified layout, deploy in the component-private area.
+    string(PREPEND install_dest "opt/${INTEL_DEPLOY_PKGCOMP_NAME}/")
+  endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
 
   # FIXME: remove this from install, when IFX driver switches to
   #        the object file linking.
@@ -241,4 +231,4 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
 else()
   libomptarget_say("Not building OpenCL offloading device RTL: OpenCL SDK not found")
 endif()
-# end INTEL_COLLAB
+# end INTEL_CUSTOMIZATION

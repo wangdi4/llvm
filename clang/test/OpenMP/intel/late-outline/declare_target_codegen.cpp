@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -fopenmp-version=60 -emit-llvm -o - -fopenmp  \
+// RUN: %clang_cc1 -fopenmp-version=60 -emit-llvm -o - -fopenmp  \
 // RUN:  -fopenmp-late-outline -verify -triple x86_64-unknown-linux-gnu  \
 // RUN:  -Wno-openmp-groupprivate %s | FileCheck %s -check-prefix HOST
 
@@ -8,7 +8,7 @@
 // RUN:  -fopenmp-late-outline -fopenmp-version=60 -Werror -Wsource-uses-openmp -o \
 // RUN:  %t_host.bc %s
 
-// RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+// RUN: %clang_cc1 -triple spir64 \
 // RUN:  -aux-triple x86_64-unknown-linux-gnu \
 // RUN:  -emit-llvm -disable-llvm-passes -fopenmp-version=60 \
 // RUN:  -fopenmp -fopenmp-targets=spir64 -fopenmp-late-outline\
@@ -58,9 +58,9 @@ int main() {
 //HOST: @.str.1 = private target_declare unnamed_addr constant [7 x i8] c"SIGHUP\00", align 1
 //HOST: @.str.2 = private target_declare unnamed_addr constant [8 x i8] c"SIGQUIT\00", align 1
 //HOST: @.str.3 = private target_declare unnamed_addr constant [8 x i8] c"SIGTRAP\00", align 1
-//TARG: @c1 = target_declare addrspace(1) global i32 0, align 4
-//TARG: @y = target_declare addrspace(1) global i32 0, align 4
-//TARG: @glob_str = target_declare addrspace(1) global ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), align 8
+//TARG: @c1 = {{.*}}target_declare addrspace(1) global i32 0, align 4
+//TARG: @y = {{.*}}target_declare addrspace(1) global i32 0, align 4
+//TARG: @glob_str = {{.*}}target_declare addrspace(1) global ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), align 8
 //TARG: @.str = private target_declare unnamed_addr addrspace(1) constant [8 x i8] c"TESTING\00", align 1
 //TARG: @.str.1 = private target_declare unnamed_addr addrspace(1) constant [7 x i8] c"SIGHUP\00", align 1
 //TARG: @.str.2 = private target_declare unnamed_addr addrspace(1) constant [8 x i8] c"SIGQUIT\00", align 1

@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_IPCloningAnalysis.cpp - IP Cloning Analysis -*------===//
 //
-// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -358,6 +358,31 @@ static bool applyLoopHeuristic(Value *User, Value *V, LoopInfo* LI,
 
   if (!IPCloningLoopHeuristic)
     return false;
+
+  // Seek out instances of double indirect loads that stem from the specified
+  // argument, with an assumption that the second load will be found within a
+  // loop context.
+  if (auto GEP = dyn_cast<GEPOperator>(User)) {
+    if (GEP->getPointerOperand() == V) {
+      SmallMapVector<Value *, unsigned, 32> IndirectLoadCount;
+      IndirectLoadCount.insert({GEP, 0});
+      for (unsigned I = 0; I < IndirectLoadCount.size(); I++) {
+        auto [VV, CNT] = *(IndirectLoadCount.begin() + I);
+        for (auto *U : VV->users()) {
+          auto [IT, Inserted] = IndirectLoadCount.insert({U, CNT});
+          if (!Inserted)
+            continue;
+          if (auto Load = dyn_cast<LoadInst>(U)) {
+            if (++IT->second >= 2) {
+              auto BB = Load->getParent();
+              if (BB && LI->getLoopFor(BB))
+                return true;
+            }
+          }
+        }
+      }
+    }
+  }
 
   // Check if it is IcmpInst
   auto U = cast<Instruction>(User);

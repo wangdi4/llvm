@@ -135,7 +135,7 @@ void InitializeFlags() {
 
 #if INTEL_CUSTOMIZATION
   if (IsInSyclContext()) {
-    VReport(1, "Applying custom settings for SYCL Host Sanitizers.");
+    VReport(1, "Applying custom settings for SYCL Host Sanitizers.\n");
 
     // Workaround for libigc.so
     asan_parser.ParseString("alloc_dealloc_mismatch=0");

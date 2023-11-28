@@ -2,32 +2,31 @@
 ;
 ; Cheks serialization reason for llvm.invariant.start/llvm.invariant.end call
 ;
-; CHECK: remark #15558: Call to function 'llvm.invariant.start.p0i8' was serialized due to no suitable vector variants were found.
-; CHECK-NEXT: remark #15558: Call to function 'llvm.invariant.end.p0i8' was serialized due to no suitable vector variants were found.
+; CHECK: remark #15558: Call to function 'llvm.invariant.start.p0' was serialized due to no suitable vector variants were found.
+; CHECK-NEXT: remark #15558: Call to function 'llvm.invariant.end.p0' was serialized due to no suitable vector variants were found.
 ;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @_Z3fooPi(i32* nocapture %arr) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPi(ptr nocapture %arr) local_unnamed_addr #0 {
 DIR.OMP.SIMD.113:
   %i.linear.iv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.113
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %1 = bitcast i32* %i.linear.iv to i8*
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %2 = call {}* @llvm.invariant.start.p0i8(i64 4, i8* nonnull %1) #2
-  %3 = trunc i64 %indvars.iv to i32
-  %ptridx = getelementptr inbounds i32, i32* %arr, i64 %indvars.iv
-  store i32 %3, i32* %ptridx, align 4
-  call void @llvm.invariant.end.p0i8({}* %2, i64 1, i8* nonnull %1) #2
+  %1 = call ptr @llvm.invariant.start.p0(i64 4, ptr nonnull %i.linear.iv) #2
+  %2 = trunc i64 %indvars.iv to i32
+  %ptridx = getelementptr inbounds i32, ptr %arr, i64 %indvars.iv
+  store i32 %2, ptr %ptridx, align 4
+  call void @llvm.invariant.end.p0(ptr %1, i64 1, ptr nonnull %i.linear.iv) #2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body, !llvm.loop !7
@@ -40,9 +39,9 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
   ret void
 }
 
-declare {}* @llvm.invariant.start.p0i8(i64, i8* nocapture) nounwind readonly
+declare ptr @llvm.invariant.start.p0(i64, ptr nocapture) nounwind readonly
 
-declare void @llvm.invariant.end.p0i8({}*, i64, i8* nocapture) nounwind
+declare void @llvm.invariant.end.p0(ptr, i64, ptr nocapture) nounwind
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2

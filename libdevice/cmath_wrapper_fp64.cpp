@@ -149,9 +149,44 @@ DEVICE_EXTERN_C_INLINE
 double scalbn(double x, int exp) { return __devicelib_scalbn(x, exp); }
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
+#if !defined(_WIN32)
+DEVICE_EXTERN_C_INLINE
+int __devicelib___isnan(double x);
+
+DEVICE_EXTERN_C_INLINE
+int __isnan(double x) { return __devicelib___isnan(x); }
+
+DEVICE_EXTERN_C_INLINE
+int __devicelib___isinf(double x);
+
+DEVICE_EXTERN_C_INLINE
+int __isinf(double x) { return __devicelib___isinf(x); }
+
+DEVICE_EXTERN_C_INLINE
+int __devicelib___isnormal(double x);
+
+DEVICE_EXTERN_C_INLINE
+int __isnormal(double x) { return __devicelib___isnormal(x); }
+
+DEVICE_EXTERN_C_INLINE
+int __devicelib___signbit(double x);
+
+DEVICE_EXTERN_C_INLINE
+int __signbit(double x) { return __devicelib___signbit(x); }
+#endif
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
+
+#ifdef __NVPTX__
+extern "C" SYCL_EXTERNAL double __nv_nearbyint(double);
+DEVICE_EXTERN_C_INLINE
+double nearbyint(double x) { return __nv_nearbyint(x); }
+
+extern "C" SYCL_EXTERNAL double __nv_rint(double);
+DEVICE_EXTERN_C_INLINE
+double rint(double x) { return __nv_rint(x); }
+#endif // __NVPTX__
 
 #if defined(_MSC_VER)
 #include <math.h>

@@ -3,7 +3,7 @@
 ; RUN: opt %s -mattr=+avx512f,+avx512vl -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -disable-output -debug-only=parvec-analysis -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=4 2>&1 | FileCheck %s --check-prefix=CM4
 ; RUN: opt %s -mattr=+avx512f,+avx512vl -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -disable-output -debug-only=parvec-analysis -disable-vplan-codegen -vplan-cost-model-print-analysis-for-vf=8 2>&1 | FileCheck %s --check-prefix=CM8
 
-; RUN: opt %s -mattr=+avx512f,+avx512vl -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-optreport-emitter' -disable-output -intel-opt-report=high 2>&1 | FileCheck %s --check-prefix=OPTREPORT
+; RUN: opt %s -mattr=+avx512f,+avx512vl -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg,simplifycfg,intel-ir-optreport-emitter' -disable-output -intel-opt-report=high 2>&1 | FileCheck %s --check-prefix=OPTREPORT
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 1023, 1   <DO_LOOP>
@@ -39,10 +39,10 @@
 ; CHECK-NEXT:    Increments:
 ; CHECK-NEXT:      i32 [[VP8:%.*]] = add i32 [[VP6]] i32 5
 ; CHECK-NEXT:    Stores:
-; CHECK-NEXT:      store float [[VP9:%.*]] float* [[VP_SUBSCRIPT:%.*]]
+; CHECK-NEXT:      store float [[VP9:%.*]] ptr [[VP_SUBSCRIPT:%.*]]
 ; CHECK-NEXT:    Loads:
-; CHECK-NEXT:      float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT_1:%.*]]
-; CHECK-NEXT:      float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_2:%.*]]
+; CHECK-NEXT:      float [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT_1:%.*]]
+; CHECK-NEXT:      float [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_2:%.*]]
 ; CHECK-NEXT:    Indices:
 ; CHECK-NEXT:      i64 [[VP10:%.*]] = zext i32 [[VP6]] to i64
 ; CHECK-EMPTY:
@@ -61,8 +61,8 @@
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i32 [[VP6]] = phi  [ i32 [[VP15]], [[BB1]] ],  [ i32 [[VP21:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP5]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP4]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp ne i32 [[VP_LOAD_2]] i32 0
 ; CHECK-NEXT:     br i1 [[VP13]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
@@ -70,13 +70,13 @@
 ; CHECK-NEXT:       i64 [[MASK:%.*]] = compress-expand-mask
 ; CHECK-NEXT:       i64 [[VP10]] = zext i32 [[VP6]] to i64
 ; CHECK-NEXT:       i64 [[VP16:%.*]] = compress-expand-index {stride: 5} i64 [[VP10]]
-; CHECK-NEXT:       float* [[VP_SUBSCRIPT_1]] = subscript inbounds float* [[A0]] i64 [[VP16]]
-; CHECK-NEXT:       float [[VP17:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_1]] i64 [[MASK]]
-; CHECK-NEXT:       float* [[VP_SUBSCRIPT_2]] = subscript inbounds float* [[B0]] i64 [[VP16]]
-; CHECK-NEXT:       float [[VP19:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_2]] i64 [[MASK]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_1]] = subscript inbounds ptr [[A0]] i64 [[VP16]]
+; CHECK-NEXT:       float [[VP17:%.*]] = expand-load-nonu ptr [[VP_SUBSCRIPT_1]] i64 [[MASK]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_2]] = subscript inbounds ptr [[B0]] i64 [[VP16]]
+; CHECK-NEXT:       float [[VP19:%.*]] = expand-load-nonu ptr [[VP_SUBSCRIPT_2]] i64 [[MASK]]
 ; CHECK-NEXT:       float [[VP9]] = fadd float [[VP17]] float [[VP19]]
-; CHECK-NEXT:       float* [[VP_SUBSCRIPT]] = subscript inbounds float* [[A0]] i64 [[VP16]]
-; CHECK-NEXT:       compress-store-nonu float [[VP9]] float* [[VP_SUBSCRIPT]] i64 [[MASK]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT]] = subscript inbounds ptr [[A0]] i64 [[VP16]]
+; CHECK-NEXT:       compress-store-nonu float [[VP9]] ptr [[VP_SUBSCRIPT]] i64 [[MASK]]
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
@@ -106,13 +106,13 @@
 ; CHECK-NEXT:        |   [[CAST20:%.*]] = bitcast.i16.<16 x i1>([[XOR0]])
 ; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP0]],  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD30:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 5, i64 10, i64 15, i64 20, i64 25, i64 30, i64 35, i64 40, i64 45, i64 50, i64 55, i64 60, i64 65, i64 70, i64 75>
-; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[A0]])[%add3]),  0,  [[CAST20]],  poison)
+; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v16f32.v16p0(&((<16 x ptr>)([[A0]])[%add3]),  0,  [[CAST20]],  poison)
 ; CHECK-NEXT:        |   [[EXPAND0:%.*]] = @llvm.x86.avx512.mask.expand.v16f32([[GATHER0]],  poison,  [[DOTVEC10]])
-; CHECK-NEXT:        |   [[GATHER40:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[B0]])[%add3]),  0,  [[CAST20]],  poison)
+; CHECK-NEXT:        |   [[GATHER40:%.*]] = @llvm.masked.gather.v16f32.v16p0(&((<16 x ptr>)([[B0]])[%add3]),  0,  [[CAST20]],  poison)
 ; CHECK-NEXT:        |   [[EXPAND50:%.*]] = @llvm.x86.avx512.mask.expand.v16f32([[GATHER40]],  poison,  [[DOTVEC10]])
 ; CHECK-NEXT:        |   [[DOTVEC60:%.*]] = [[EXPAND0]]  +  [[EXPAND50]]
 ; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v16f32([[DOTVEC60]],  poison,  [[DOTVEC10]])
-; CHECK-NEXT:        |   @llvm.masked.scatter.v16f32.v16p0f32([[COMPRESS0]],  &((<16 x float*>)([[A0]])[%add3]),  0,  [[CAST20]])
+; CHECK-NEXT:        |   @llvm.masked.scatter.v16f32.v16p0([[COMPRESS0]],  &((<16 x ptr>)([[A0]])[%add3]),  0,  [[CAST20]])
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC10]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
 ; CHECK-NEXT:        |   [[CAST70:%.*]] = bitcast.<16 x i1>.i16([[SELECT0]])
 ; CHECK-NEXT:        |   [[POPCNT80:%.*]] = @llvm.ctpop.i16([[CAST70]])
@@ -127,18 +127,18 @@
 ; CM4: Cost 0 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
 ; CM4: Cost 11 for i64 [[MASK:%.*]] = compress-expand-mask
 ; CM4: Cost 2 for i64 [[VP7:%.*]] = compress-expand-index {stride: 5} i64 [[VP6:%.*]]
-; CM4: Cost 4 for float [[VP8:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_1:%.*]]
-; CM4: Cost 4 for float [[VP11:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_2:%.*]]
-; CM4: Cost 5 for compress-store-nonu float [[VP12:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
+; CM4: Cost 4 for float [[VP8:%.*]] = expand-load-nonu ptr [[VP_SUBSCRIPT_1:%.*]]
+; CM4: Cost 4 for float [[VP11:%.*]] = expand-load-nonu ptr [[VP_SUBSCRIPT_2:%.*]]
+; CM4: Cost 5 for compress-store-nonu float [[VP12:%.*]] ptr [[VP_SUBSCRIPT_3:%.*]]
 ; CM4: Cost 3 for i32 [[VP15:%.*]] = compress-expand-index-inc {stride: 5} i32 [[VP1:%.*]]
 ; CM4: Cost Unknown for i32 [[VP17:%.*]] = compress-expand-index-final i32 [[VP15]]
 
 ; CM8: Cost 0 for i32 [[VP0:%.*]] = compress-expand-index-init i32 live-in1
 ; CM8: Cost 11 for i64 [[MASK:%.*]] = compress-expand-mask
 ; CM8: Cost 2 for i64 [[VP7:%.*]] = compress-expand-index {stride: 5} i64 [[VP6:%.*]]
-; CM8: Cost 5 for float [[VP8:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_1:%.*]]
-; CM8: Cost 5 for float [[VP11:%.*]] = expand-load-nonu float* [[VP_SUBSCRIPT_2:%.*]]
-; CM8: Cost 9 for compress-store-nonu float [[VP12:%.*]] float* [[VP_SUBSCRIPT_3:%.*]]
+; CM8: Cost 5 for float [[VP8:%.*]] = expand-load-nonu ptr [[VP_SUBSCRIPT_1:%.*]]
+; CM8: Cost 5 for float [[VP11:%.*]] = expand-load-nonu ptr [[VP_SUBSCRIPT_2:%.*]]
+; CM8: Cost 9 for compress-store-nonu float [[VP12:%.*]] ptr [[VP_SUBSCRIPT_3:%.*]]
 ; CM8: Cost 3 for i32 [[VP15:%.*]] = compress-expand-index-inc {stride: 5} i32 [[VP1:%.*]]
 ; CM8: Cost Unknown for i32 [[VP17:%.*]] = compress-expand-index-final i32 [[VP15]]
 
@@ -149,26 +149,26 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z4vaddjPfS_Pi(i32 noundef %n, float* noalias nocapture noundef %a, float* noalias nocapture noundef readonly %b, i32* noalias nocapture noundef readonly %c) local_unnamed_addr #0 {
+define dso_local void @_Z4vaddjPfS_Pi(i32 noundef %n, ptr noalias nocapture noundef %a, ptr noalias nocapture noundef readonly %b, ptr noalias nocapture noundef readonly %c) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.inc
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
   %k.013 = phi i32 [ 0, %entry ], [ %k.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %c, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %c, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %tobool.not = icmp eq i32 %0, 0
   br i1 %tobool.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
   %idxprom1 = zext i32 %k.013 to i64
-  %arrayidx2 = getelementptr inbounds float, float* %b, i64 %idxprom1
-  %1 = load float, float* %arrayidx2, align 4, !tbaa !7
-  %arrayidx4 = getelementptr inbounds float, float* %a, i64 %idxprom1
-  %2 = load float, float* %arrayidx4, align 4, !tbaa !7
+  %arrayidx2 = getelementptr inbounds float, ptr %b, i64 %idxprom1
+  %1 = load float, ptr %arrayidx2, align 4, !tbaa !7
+  %arrayidx4 = getelementptr inbounds float, ptr %a, i64 %idxprom1
+  %2 = load float, ptr %arrayidx4, align 4, !tbaa !7
   %add = fadd fast float %2, %1
-  store float %add, float* %arrayidx4, align 4, !tbaa !7
+  store float %add, ptr %arrayidx4, align 4, !tbaa !7
   %add5 = add i32 %k.013, 5
   br label %for.inc
 

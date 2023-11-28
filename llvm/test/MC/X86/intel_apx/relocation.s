@@ -1,4 +1,3 @@
-# REQUIRES: intel_feature_isa_apx_f
 # RUN: llvm-mc -triple x86_64 -filetype=obj <%s | llvm-readelf --relocs - | FileCheck %s
 
 # CHECK: Relocation section '.rela.text' at offset 0x78 contains 1 entries:

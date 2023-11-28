@@ -6,7 +6,7 @@
 ; RUN:     -disable-output -vplan-debug-opt-report -intel-opt-report=high \
 ; RUN:     -vplan-enable-peeling -vplan-force-dyn-alignment \
 ; RUN:     -vplan-vec-scenario="s1;v4;s1" 2>&1 | FileCheck %s --check-prefixes=CHECK,IR
-; RUN: opt -S < %s -passes='hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter' \
+; RUN: opt -S < %s -passes='hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter' \
 ; RUN:     -disable-output -vplan-debug-opt-report -intel-opt-report=high \
 ; RUN:     -vplan-enable-peeling -vplan-force-dyn-alignment \
 ; RUN:     -vplan-vec-scenario="s1;v4;s1" 2>&1 | FileCheck %s --check-prefixes=CHECK,HIR
@@ -26,8 +26,7 @@ define dso_local void @foo(ptr nocapture noundef readonly %A, ptr nocapture noun
 ; <2>  for (unsigned I = 0; I < N; ++I)
 ; <3>    B[I] = A[I] + A[I + 1];
 ; <4>}
-; IR-LABEL:  Global optimization report for : foo
-; HIR-LABEL:  Report from: HIR Loop optimizations framework for : foo
+; CHECK-LABEL:  Global optimization report for : foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  LOOP BEGIN at test.c (2, 3)
 ; CHECK-NEXT:  <Peeled loop for vectorization>

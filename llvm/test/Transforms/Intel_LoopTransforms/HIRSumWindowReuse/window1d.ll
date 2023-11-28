@@ -1,8 +1,6 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sum-window-reuse,print<hir>" -aa-pipeline="basic-aa" < %s -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sum-window-reuse"  -print-changed -disable-output < %s -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sum-window-reuse,print<hir>" -aa-pipeline="basic-aa" < %s -disable-output 2>&1 | FileCheck %s
-
 ; This test checks that HIRSumWindowReuse is able to optimize a simple sliding
 ; window sum.
 

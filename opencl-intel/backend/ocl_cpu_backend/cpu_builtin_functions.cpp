@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -21,9 +21,8 @@
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/DynamicLibrary.h"
 
+#include <assert.h>
 #include <cstdint>
-#include <stdio.h>
-
 #ifdef _WIN32
 #include <smmintrin.h>
 #else
@@ -31,9 +30,8 @@
 #include <smmintrin.h>
 #endif
 #endif
-
-#include <assert.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <string>
 
 #ifndef LLVM_BACKEND_NOINLINE_PRE
@@ -127,6 +125,14 @@ __opencl_printf(const char *format, char *args,
 extern "C" LLVM_BACKEND_API int
 __opencl_snprintf(char *outstr, size_t size, const char *format, char *args,
                   ICLDevBackendDeviceAgentCallback *pCallback, void *pHandle);
+
+extern "C" LLVM_BACKEND_API int
+__devicelib_assert_fail(const char *expr, const char *file, int32_t line,
+                        const char *func, uint64_t gid0, uint64_t gid1,
+                        uint64_t gid2, uint64_t lid0, uint64_t lid1,
+                        uint64_t lid2);
+extern "C" LLVM_BACKEND_API void __devicelib_assert_read(void *);
+
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void
 __opencl_dbg_declare_local(void *addr, uint64_t var_metadata_addr,
                            uint64_t expr_metadata_addr, uint64_t gid0,
@@ -291,6 +297,9 @@ SORT_BI_DECLARATION(half)
 SORT_BI_DECLARATION(float)
 SORT_BI_DECLARATION(double)
 
+extern "C" LLVM_BACKEND_API void intel_device_barrier(unsigned int);
+extern "C" LLVM_BACKEND_API bool intel_is_device_barrier_valid();
+
 // Register BI functions defined above to JIT.
 //   MCJIT: use llvm::sys::DynamicLibrary::AddSymbol for each function.
 //   LLJIT: use defineAbsolute for each function.
@@ -323,6 +332,8 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT) {
   REGISTER_BI_FUNCTION("__get_time_counter", __cpu_get_time_counter)
   REGISTER_BI_FUNCTION("__opencl_printf", __opencl_printf)
   REGISTER_BI_FUNCTION("__opencl_snprintf", __opencl_snprintf)
+  REGISTER_BI_FUNCTION("__devicelib_assert_fail", __devicelib_assert_fail)
+  REGISTER_BI_FUNCTION("__devicelib_assert_read", __devicelib_assert_read)
   REGISTER_BI_FUNCTION("__opencl_dbg_declare_local", __opencl_dbg_declare_local)
   REGISTER_BI_FUNCTION("__opencl_dbg_enter_function",
                        __opencl_dbg_enter_function)
@@ -392,6 +403,9 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT) {
   REGISTER_BI_FUNCTION("_ihc_pthread_create", _ihc_pthread_create)
   REGISTER_BI_FUNCTION("_ihc_pthread_join", _ihc_pthread_join)
   REGISTER_BI_FUNCTION("_ihc_pthread_detach", _ihc_pthread_detach)
+  REGISTER_BI_FUNCTION("_Z20intel_device_barrierj", intel_device_barrier)
+  REGISTER_BI_FUNCTION("_Z29intel_is_device_barrier_validv",
+                       intel_is_device_barrier_valid)
 #ifdef _WIN32
   if (isFPGAEmuDev) {
     REGISTER_BI_FUNCTION("_Znwy", _Znwy)

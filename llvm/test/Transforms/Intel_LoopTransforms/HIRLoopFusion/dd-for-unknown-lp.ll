@@ -1,8 +1,8 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output %s 2>&1 | FileCheck %s
 
 ; Check that DD testing for fusion is successful for unknown loop inside fuse
-; candidates. DD needs to test for (@global.9)[0][3 * i2 + %tmp76 * i3 + 3] &
-; (@global.9)[0][i2]
+; candidates. DD needs to test for (@global.9)[3 * i2 + %tmp76 * i3 + 3] &
+; (@global.9)[i2]
 
 ; CHECK: Function: foo
 
@@ -53,8 +53,8 @@ bb45:                                             ; preds = %bb87, %bb
 
 bb48:                                             ; preds = %bb48, %bb45
   %tmp49 = phi i64 [ %tmp51, %bb48 ], [ 1, %bb45 ]
-  %tmp50 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([500000 x i32], [500000 x i32]* @global.9, i64 0, i64 0), i64 %tmp49)
-  store i32 1, i32* %tmp50, align 4
+  %tmp50 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) @global.9, i64 %tmp49)
+  store i32 1, ptr %tmp50, align 4
   %tmp51 = add i64 %tmp49, 1
   %tmp52 = icmp eq i64 %tmp51, 500001
   br i1 %tmp52, label %bb53, label %bb48
@@ -68,15 +68,15 @@ bb54:                                             ; preds = %bb80, %bb53
   %tmp57 = phi i64 [ %tmp84, %bb80 ], [ 4, %bb53 ]
   %tmp58 = phi i32 [ %tmp83, %bb80 ], [ 1, %bb53 ]
   %tmp59 = phi i32 [ 0, %bb80 ], [ %tmp47, %bb53 ]
-  %tmp60 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([500000 x i32], [500000 x i32]* @global.9, i64 0, i64 0), i64 %tmp55)
-  %tmp61 = load i32, i32* %tmp60, align 4
+  %tmp60 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) @global.9, i64 %tmp55)
+  %tmp61 = load i32, ptr %tmp60, align 4
   %tmp62 = icmp eq i32 %tmp61, 0
   br i1 %tmp62, label %bb80, label %bb73
 
 bb63:                                             ; preds = %bb79, %bb63
   %tmp64 = phi i64 [ %tmp66, %bb63 ], [ %tmp57, %bb79 ]
-  %tmp65 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([500000 x i32], [500000 x i32]* @global.9, i64 0, i64 0), i64 %tmp64)
-  store i32 0, i32* %tmp65, align 4
+  %tmp65 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) @global.9, i64 %tmp64)
+  store i32 0, ptr %tmp65, align 4
   %tmp66 = add i64 %tmp64, %tmp56
   %tmp67 = icmp ult i64 %tmp66, 500001
   br i1 %tmp67, label %bb63, label %bb68
@@ -122,9 +122,9 @@ bb91:                                             ; preds = %bb87
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 ; uselistorder directives
-uselistorder i32* (i8, i64, i64, i32*, i64)* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64, { 2, 1, 0 }
+uselistorder ptr @llvm.intel.subscript.p0.i64.i64.p0.i64, { 2, 1, 0 }
 
 attributes #0 = { nounwind readnone speculatable }

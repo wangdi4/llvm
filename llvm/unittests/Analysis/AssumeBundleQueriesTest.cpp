@@ -421,10 +421,9 @@ static void RunRandTest(uint64_t Seed, int Size, int MinCount, int MaxCount,
 
   std::vector<Type *> TypeArgs;
   for (int i = 0; i < (Size * 2); i++)
-    TypeArgs.push_back(Type::getInt32PtrTy(C));
+    TypeArgs.push_back(PointerType::getUnqual(C));
   FunctionType *FuncType =
       FunctionType::get(Type::getVoidTy(C), TypeArgs, false);
-
   Function *F =
       Function::Create(FuncType, GlobalValue::ExternalLinkage, "test", &*Mod);
   BasicBlock *BB = BasicBlock::Create(C);

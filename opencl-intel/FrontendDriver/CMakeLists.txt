@@ -38,10 +38,6 @@ set(CMAKE_CXX_FLAGS_DEBUG
     "${CMAKE_CXX_FLAGS_DEBUG} -D OCL_DEV_BACKEND_PLUGINS -D OCLFRONTEND_PLUGINS"
 )
 add_definitions(${LLVM_DEFINITIONS})
-if(NOT WIN32)
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
-  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}   -D_FORTIFY_SOURCE=2")
-endif(NOT WIN32)
 
 #
 # Include directories
@@ -103,7 +99,14 @@ add_opencl_library(
   ${TARGET_SOURCES}
   $<TARGET_OBJECTS:pre_release_header>
   INCLUDE_DIRS
-  ${INCLUDE_DIRS})
+  ${INCLUDE_DIRS}
+  COMPONENTS
+  CacheBinaryHandler
+  cl_logger
+  cl_sys_utils
+  reflection_module
+  LINK_LIBS
+  LLVMSPIRVLib)
 
 if(OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME} ${COMMON_CLANG})
@@ -114,37 +117,5 @@ set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME})
 
 if(WIN32)
   add_definitions(-DCCLANG_LIB_NAME="${COMMON_CLANG}.dll"
-                  -DDEFAULT_OCL_LIBRARY_DIR="${OCL_OUTPUT_LIBRARY_DIR}")
-  if(OPENCL_INTREE_BUILD)
-    set(COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/bin/${COMMON_CLANG}.dll)
-  else()
-    set(COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/${COMMON_CLANG}.dll)
-  endif()
-else(WIN32)
-  set(COMMON_CLANG_FILES ${COMMON_CLANG_LIB} ${COMMON_CLANG_SYMLINK})
+                  -DDEFAULT_OCL_LIBRARY_DIR="${COMMON_CLANG_BIN_DIR}")
 endif(WIN32)
-if(WIN32)
-  get_ics_build_type(ICS_BUILD_TYPE)
-  # Disable PDB installation in release build
-  if(NOT ICS_BUILD_TYPE STREQUAL "release")
-    if(OPENCL_INTREE_BUILD)
-      list(APPEND COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/bin/${COMMON_CLANG}.pdb)
-    else()
-      list(APPEND COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/${COMMON_CLANG}.pdb)
-    endif()
-  endif()
-endif(WIN32)
-
-if(NOT OPENCL_INTREE_BUILD)
-  copy_to(${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF})
-  copy_to(${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_EMU_SUFF})
-elseif(WIN32)
-  add_custom_command(
-    TARGET ${TARGET_NAME}
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy ${COMMON_CLANG_FILES}
-            ${OCL_OUTPUT_LIBRARY_DIR})
-endif()
-
-install_to(${COMMON_CLANG_FILES} DESTINATION ${OCL_INSTALL_LIBRARY_DIR}
-           COMPONENT ocl-common_clang)

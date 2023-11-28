@@ -28,7 +28,7 @@ for.body3:                                        ; preds = %for.body3, %for.con
   %add = add nsw i32 %0, %i.013
   store i32 %add, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 10
+  %exitcond = icmp eq i64 %indvars.iv.next, 20
   br i1 %exitcond, label %for.inc4, label %for.body3
 
 for.inc4:                                         ; preds = %for.body3

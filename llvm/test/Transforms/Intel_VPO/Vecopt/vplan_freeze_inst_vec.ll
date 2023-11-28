@@ -4,19 +4,17 @@
 ;
 ; LIT test to check vectorization of freeze instruction
 ;
-define dso_local void @foo(i64* noalias nocapture readonly %larr, i64* noalias nocapture %larr2) local_unnamed_addr #0 {
-; IR-CHECK:  define dso_local void @foo(i64* noalias nocapture readonly [[LARR0:%.*]], i64* noalias nocapture [[LARR20:%.*]]) local_unnamed_addr {
+define dso_local void @foo(ptr noalias nocapture readonly %larr, ptr noalias nocapture %larr2) local_unnamed_addr #0 {
+; IR-CHECK:  define dso_local void @foo(ptr noalias nocapture readonly [[LARR0:%.*]], ptr noalias nocapture [[LARR20:%.*]]) local_unnamed_addr {
 ; IR-CHECK:       vector.body:
 ; IR-CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0:%.*]] ]
 ; IR-CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
-; IR-CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, i64* [[LARR0]], i64 [[UNI_PHI10]]
-; IR-CHECK-NEXT:    [[TMP0:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <4 x i64>*
-; IR-CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i64>, <4 x i64>* [[TMP0]], align 8
+; IR-CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, ptr [[LARR0]], i64 [[UNI_PHI10]]
+; IR-CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i64>, ptr [[SCALAR_GEP0]], align 8
 ; IR-CHECK-NEXT:    [[TMP1:%.*]] = freeze <4 x i64> [[WIDE_LOAD0]]
 ; IR-CHECK-NEXT:    [[TMP2:%.*]] = add nsw <4 x i64> [[TMP1]], [[VEC_PHI0]]
-; IR-CHECK-NEXT:    [[SCALAR_GEP20:%.*]] = getelementptr inbounds i64, i64* [[LARR20]], i64 [[UNI_PHI10]]
-; IR-CHECK-NEXT:    [[TMP3:%.*]] = bitcast i64* [[SCALAR_GEP20]] to <4 x i64>*
-; IR-CHECK-NEXT:    store <4 x i64> [[TMP2]], <4 x i64>* [[TMP3]], align 8
+; IR-CHECK-NEXT:    [[SCALAR_GEP20:%.*]] = getelementptr inbounds i64, ptr [[LARR20]], i64 [[UNI_PHI10]]
+; IR-CHECK-NEXT:    store <4 x i64> [[TMP2]], ptr [[SCALAR_GEP20]], align 8
 ;
 ; HIR-CHECK:       Function: foo
 ; HIR-CHECK:               + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
@@ -31,12 +29,12 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %l1.07 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1.07
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %l1.07
+  %0 = load i64, ptr %arrayidx, align 8
   %freeze = freeze i64 %0
   %add = add nsw i64 %freeze, %l1.07
-  %arrayidx1 = getelementptr inbounds i64, i64* %larr2, i64 %l1.07
-  store i64 %add, i64* %arrayidx1, align 8
+  %arrayidx1 = getelementptr inbounds i64, ptr %larr2, i64 %l1.07
+  store i64 %add, ptr %arrayidx1, align 8
   %inc = add nuw nsw i64 %l1.07, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -emit-llvm -o - -fintel-compatibility \
-// RUN: -triple x86_64-unknown-linux-gnu -opaque-pointers %s \
+// RUN: -triple x86_64-unknown-linux-gnu %s \
 // RUN: | FileCheck %s
 //
 // Verify uses of #pragma prefetch

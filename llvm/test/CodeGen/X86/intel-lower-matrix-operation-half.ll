@@ -30,7 +30,7 @@ define void @load_mad_store_half_with(ptr addrspace(1) %ptrA, ptr addrspace(1) %
   %C = call <128 x float> @llvm.experimental.matrix.load.v128f32.p1(ptr addrspace(1) %ptrC, i64 %StrideC, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %A = call <128 x half> @llvm.experimental.matrix.load.v128f16.p1(ptr addrspace(1) %ptrA, i64 %StrideA, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %B = call <256 x half> @llvm.experimental.matrix.load.v256f16.p1(ptr addrspace(1) %ptrB, i64 %StrideB, i1 false, i32 16, i32 16, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-  %D = call <128 x float> @llvm.experimental.matrix.mad.v128f32.v128f16.v256f16(<128 x half> %A, metadata !"matrix.rowmajor", <256 x half> %B, metadata !"matrix.packed.b", <128 x float> %C, metadata !"matrix.rowmajor", i32 8, i32 16, i32 16, metadata !"scope.subgroup")
+  %D = call <128 x float> @llvm.experimental.matrix.mad.v128f32.v128f16.v256f16(<128 x half> %A, <256 x half> %B, <128 x float> %C, i32 8, i32 16, i32 16, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
   call void @llvm.experimental.matrix.store.v128f32.p1(<128 x float> %D, ptr addrspace(1) %ptrD, i64 %StrideD, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret void
 }
@@ -64,13 +64,13 @@ define void @load_mad_store_half_with_use(ptr addrspace(1) %ptrA, ptr addrspace(
   %C = call <128 x float> @llvm.experimental.matrix.load.v128f32.p1(ptr addrspace(1) %ptrC, i64 %StrideC, i1 false, i32 8, i32 16, metadata !"matrix.dynamic", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.accumulator")
   %A = call <128 x half> @llvm.experimental.matrix.load.v128f16.p1(ptr addrspace(1) %ptrA, i64 %StrideA, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
   %B = call <256 x half> @llvm.experimental.matrix.load.v256f16.p1(ptr addrspace(1) %ptrB, i64 %StrideB, i1 false, i32 16, i32 16, metadata !"matrix.packed", metadata !"matrix.packed", metadata !"scope.subgroup", metadata !"matrix.use.b")
-  %D = call <128 x float> @llvm.experimental.matrix.mad.v128f32.v128f16.v256f16(<128 x half> %A, metadata !"matrix.rowmajor", <256 x half> %B, metadata !"matrix.packed", <128 x float> %C, metadata !"matrix.dynamic", i32 8, i32 16, i32 16, metadata !"scope.subgroup")
+  %D = call <128 x float> @llvm.experimental.matrix.mad.v128f32.v128f16.v256f16(<128 x half> %A, <256 x half> %B, <128 x float> %C, i32 8, i32 16, i32 16, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
   call void @llvm.experimental.matrix.store.v128f32.p1(<128 x float> %D, ptr addrspace(1) %ptrD, i64 %StrideD, i1 false, i32 8, i32 16, metadata !"matrix.dynamic", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.accumulator")
   ret void
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(none)
-declare <128 x float> @llvm.experimental.matrix.mad.v128f32.v128f16.v256f16(<128 x half>, metadata, <256 x half>, metadata, <128 x float>, metadata, i32, i32, i32, metadata) #0
+declare <128 x float> @llvm.experimental.matrix.mad.v128f32.v128f16.v256f16(<128 x half>, <256 x half>, <128 x float>, i32, i32, i32, metadata, metadata, metadata, metadata, metadata) #0
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(read)
 declare <128 x float> @llvm.experimental.matrix.load.v128f32.p1(ptr addrspace(1), i64, i1, i32, i32, metadata, metadata, metadata, metadata) #1

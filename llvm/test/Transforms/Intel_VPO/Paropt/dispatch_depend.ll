@@ -1,7 +1,7 @@
-; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=OCG -check-prefix=ALL
-; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=OCG -check-prefix=ALL
-; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s -check-prefix=NCG -check-prefix=ALL
-; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s -check-prefix=NCG -check-prefix=ALL
+; RUN: opt -vpo-paropt-dispatch-codegen-version=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s -check-prefixes=VER0,ALL
+; RUN: opt -vpo-paropt-dispatch-codegen-version=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s -check-prefixes=VER0,ALL
+; RUN: opt -vpo-paropt-dispatch-codegen-version=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s -check-prefixes=VER1,ALL
+; RUN: opt -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s -check-prefixes=VER1,ALL
 
 ; // C++ source:
 ; // #include <stdio.h>
@@ -20,67 +20,84 @@
 ;   return 0;
 ; }
 ;
-; OCG:  call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 0, i64 0, i64 0, i8* null)
-; NCG-NOT:  call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 0, i64 0, i64 0, i8* null)
-; ALL:  call void @__kmpc_omp_wait_deps(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 2, i8* %{{.*}}, i32 0, i8* null)
-; OCG:  call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i8* %{{.*}})
-; ALL:  call void @_Z7foo_gpuiPi(i32 0, i32* %{{.*}})
-; OCG:  call void @__kmpc_omp_task_complete_if0(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i8* %{{.*}})
-; NCG:  call void @__tgt_target_sync(%struct.ident_t* @{{.*}}, i32 %my.tid, i8* %current.task, i8* null)
+; VER0: call ptr @__kmpc_omp_task_alloc(ptr @.kmpc_loc{{.*}}, i32 %{{.*}}, i32 0, i64 0, i64 0, ptr null)
+; VER1-NOT:  call ptr @__kmpc_omp_task_alloc
+; ALL:  call void @__kmpc_omp_wait_deps(ptr @.kmpc_loc{{.*}}, i32 %{{.*}}, i32 2, ptr %{{.*}}, i32 0, ptr null)
+; VER0: call void @__kmpc_omp_task_begin_if0(ptr @.kmpc_loc{{.*}}, i32 %{{.*}}, ptr %{{.*}})
+; ALL:  call void @_Z7foo_gpuiPi(i32 0, ptr %{{.*}})
+; VER0: call void @__kmpc_omp_task_complete_if0(ptr @.kmpc_loc{{.*}}, i32 %{{.*}}, ptr %{{.*}})
+; VER1: %current.task = call ptr @__kmpc_get_current_task(i32 %my.tid)
+; VER1: call void @__tgt_target_sync(ptr @.kmpc_loc{{.*}}, i32 %my.tid, ptr %current.task, ptr null)
 
-; ModuleID = 'dispatch_depend.cpp'
-source_filename = "dispatch_depend.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: noinline norecurse nounwind optnone uwtable mustprogress
-define dso_local i32 @main() #2 {
+%struct.kmp_depend_info = type { i64, i64, i8 }
+
+define dso_local void @_Z7foo_gpuiPi(i32 noundef %aaa, ptr noundef %bbb) {
+entry:
+  %aaa.addr = alloca i32, align 4
+  %bbb.addr = alloca ptr, align 8
+  store i32 %aaa, ptr %aaa.addr, align 4
+  store ptr %bbb, ptr %bbb.addr, align 8
+  ret void
+}
+
+define dso_local void @_Z3fooiPi(i32 noundef %aaa, ptr noundef %bbb) #1 {
+entry:
+  %aaa.addr = alloca i32, align 4
+  %bbb.addr = alloca ptr, align 8
+  store i32 %aaa, ptr %aaa.addr, align 4
+  store ptr %bbb, ptr %bbb.addr, align 8
+  ret void
+}
+
+define dso_local noundef i32 @main() {
 entry:
   %retval = alloca i32, align 4
-  %ptr = alloca i32*, align 8
+  %ptr = alloca ptr, align 8
   %ccc = alloca i32, align 4
   %ddd = alloca i32, align 4
-  store i32 0, i32* %retval, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.IF"(i32 0), "QUAL.OMP.IMPLICIT"(), "QUAL.OMP.DEPEND.IN"(i32* %ccc), "QUAL.OMP.DEPEND.OUT"(i32* %ddd), "QUAL.OMP.SHARED"(i32** %ptr) ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISPATCH"(), "QUAL.OMP.DEVICE"(i32 0) ]
-  %2 = load i32*, i32** %ptr, align 8
-  call void @_Z3fooiPi(i32 0, i32* %2) #3 [ "QUAL.OMP.DISPATCH.CALL"() ]
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.DISPATCH"() ]
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TASK"() ]
+  %.dep.arr.addr = alloca [2 x %struct.kmp_depend_info], align 8
+  %dep.counter.addr = alloca i64, align 8
+  store i32 0, ptr %retval, align 4
+  %0 = getelementptr inbounds [2 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
+  %1 = ptrtoint ptr %ccc to i64
+  %2 = getelementptr %struct.kmp_depend_info, ptr %0, i64 0
+  %3 = getelementptr inbounds %struct.kmp_depend_info, ptr %2, i32 0, i32 0
+  store i64 %1, ptr %3, align 8
+  %4 = getelementptr inbounds %struct.kmp_depend_info, ptr %2, i32 0, i32 1
+  store i64 4, ptr %4, align 8
+  %5 = getelementptr inbounds %struct.kmp_depend_info, ptr %2, i32 0, i32 2
+  store i8 1, ptr %5, align 8
+  %6 = ptrtoint ptr %ddd to i64
+  %7 = getelementptr %struct.kmp_depend_info, ptr %0, i64 1
+  %8 = getelementptr inbounds %struct.kmp_depend_info, ptr %7, i32 0, i32 0
+  store i64 %6, ptr %8, align 8
+  %9 = getelementptr inbounds %struct.kmp_depend_info, ptr %7, i32 0, i32 1
+  store i64 4, ptr %9, align 8
+  %10 = getelementptr inbounds %struct.kmp_depend_info, ptr %7, i32 0, i32 2
+  store i8 3, ptr %10, align 8
+  store i64 2, ptr %dep.counter.addr, align 8
+  %11 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(),
+    "QUAL.OMP.IF"(i32 0),
+    "QUAL.OMP.IMPLICIT"(),
+    "QUAL.OMP.DEPARRAY"(i32 2, ptr %0),
+    "QUAL.OMP.SHARED:TYPED"(ptr %ptr, ptr null, i32 1) ]
+
+  %12 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISPATCH"(),
+    "QUAL.OMP.DEVICE"(i32 0) ]
+
+  %13 = load ptr, ptr %ptr, align 8
+  call void @_Z3fooiPi(i32 noundef 0, ptr noundef %13) [ "QUAL.OMP.DISPATCH.CALL"() ]
+  call void @llvm.directive.region.exit(token %12) [ "DIR.OMP.END.DISPATCH"() ]
+
+  call void @llvm.directive.region.exit(token %11) [ "DIR.OMP.END.TASK"() ]
+
   ret i32 0
 }
 
-; Function Attrs: noinline nounwind optnone uwtable mustprogress
-define dso_local void @_Z7foo_gpuiPi(i32 %aaa, i32* %bbb) #0 {
-entry:
-  %aaa.addr = alloca i32, align 4
-  %bbb.addr = alloca i32*, align 8
-  store i32 %aaa, i32* %aaa.addr, align 4
-  store i32* %bbb, i32** %bbb.addr, align 8
-  ret void
-}
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 
-; Function Attrs: noinline nounwind optnone uwtable mustprogress
-define dso_local void @_Z3fooiPi(i32 %aaa, i32* %bbb) #1 {
-entry:
-  %aaa.addr = alloca i32, align 4
-  %bbb.addr = alloca i32*, align 8
-  store i32 %aaa, i32* %aaa.addr, align 4
-  store i32* %bbb, i32** %bbb.addr, align 8
-  ret void
-}
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #3
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #3
-
-attributes #0 = { noinline nounwind optnone uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="all" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { noinline nounwind optnone uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="all" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "openmp-variant"="name:_Z7foo_gpuiPi;construct:dispatch;arch:gen" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #2 = { noinline norecurse nounwind optnone uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="all" "may-have-openmp-directive"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #3 = { nounwind }
-
-!llvm.module.flags = !{!0}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
+attributes #1 = { "openmp-variant"="name:_Z7foo_gpuiPi;construct:dispatch;arch:gen" }

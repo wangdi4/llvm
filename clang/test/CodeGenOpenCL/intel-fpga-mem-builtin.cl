@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -O0 -triple spir-unknown-unknown-intelfpga -emit-llvm -opaque-pointers -o - | FileCheck %s
+// RUN: %clang_cc1 %s -O0 -triple spir-unknown-unknown-intelfpga -emit-llvm -o - | FileCheck %s
 
 #define PARAM_1 1U << 7
 #define PARAM_2 1U << 8

@@ -18,6 +18,7 @@ File Name:  FactoryTest.cpp
 
 #include "BackendWrapper.h"
 #include "gtest_wrapper.h"
+
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 using ECPU = Intel::OpenCL::Utils::ECPU;
 

@@ -30,7 +30,7 @@
 
 
 ; CHECK: BEGIN REGION { modified }
-;              %call = @llvm.stacksave();
+;              %call = @llvm.stacksave.p0();
 ; CHECK:       %TranspTmpArr = alloca 8 * (sext.i32.i64(%1) * sext.i32.i64(%2));
 ;
 ; CHECK:       + DO i1 = 0, sext.i32.i64(%1) + -1, 1   <DO_LOOP>
@@ -39,7 +39,7 @@
 ;              |   + END LOOP
 ;              + END LOOP
 ;
-;              %call8 = @llvm.stacksave();
+;              %call8 = @llvm.stacksave.p0();
 ; CHECK:       %TranspTmpArr9 = alloca 432 * sext.i32.i64(%2);
 ;
 ; CHECK:       + DO i1 = 0, 53, 1   <DO_LOOP>
@@ -64,8 +64,8 @@
 ;              |   |   + END LOOP
 ;              |   + END LOOP
 ;              + END LOOP
-;              @llvm.stackrestore(&((%call8)[0]));
-;              @llvm.stackrestore(&((%call)[0]));
+;              @llvm.stackrestore.p0(&((%call8)[0]));
+;              @llvm.stackrestore.p0(&((%call)[0]));
 ;        END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

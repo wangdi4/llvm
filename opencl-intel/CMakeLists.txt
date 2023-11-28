@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2022-2023 Intel Corporation
+# Copyright (C) 2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -26,7 +26,13 @@ else()
   set(OPENCL_INTREE_BUILD ON)
 endif()
 
-include(FetchContent)
+# This is a workaround for the following CMake bug:
+# https://gitlab.kitware.com/cmake/cmake/-/issues/21462
+# A fix was merged and will seemingly be in 3.24+.
+set(CMAKE_ASM_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreaded         "")
+set(CMAKE_ASM_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreadedDLL      "")
+set(CMAKE_ASM_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreadedDebug    "")
+set(CMAKE_ASM_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreadedDebugDLL "")
 
 # Project-wise options
 option(GIT_REVISIONS "Make package version from git revision" ON)
@@ -35,7 +41,6 @@ option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device" ON)
 option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of
                                using pre-installed binaries" OFF)
 option(LLVM_BUILD_OCL_CPU_BACKEND "Build OpenCL CPU backend DLL." ON)
-option(USE_GPA "Enable GPA support" OFF) # INTEL
 option(USE_ITT "Enable ITT support" ON)
 
 # validation
@@ -55,42 +60,11 @@ option(OPENCL_RT_BUILD_TESTS "Build OpenCL RT unittests. Defaults to OFF.
 set(OCL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(OCL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-if(INTEL_CUSTOMIZATION)
-  if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
-    STRING(REGEX REPLACE "\\\\" "/" GITSERVER "$ENV{ICS_GIT_MIRROR}")
-  else()
-    set(GITSERVER "https://github.com/intel-innersource")
-  endif()
- set(OPENCL_CLANG_REPO
-   "${GITSERVER}/applications.compilers.source.ocl-common-clang")
-endif(INTEL_CUSTOMIZATION)
-
-# Download opencl-clang
-set(OPENCL_CLANG_TAG 53843eee13cfb2357919ee02714a43bef1af0f86)
-# PCH_EXTENSION can override PCH extension map in opencl-clang/options_compile.cpp
-set(PCH_EXTENSION "cl_khr_3d_image_writes,cl_khr_depth_images,cl_khr_global_int32_base_atomics,cl_khr_global_int32_extended_atomics,cl_khr_int64_base_atomics,cl_khr_int64_extended_atomics,cl_khr_local_int32_base_atomics,cl_khr_local_int32_extended_atomics,cl_intel_subgroups,cl_intel_subgroups_short" CACHE STRING "")
-# INTEL_CUSTOMIZATION
-if(WIN32)
-  # Don't link LLVMSupport_dyn which will propogate /MD flag to opencl-clang.
-  set(EXCLUDE_LIBS_FROM_ALL "LLVMSupport_dyn" CACHE STRING "")
-endif()
-# end INTEL_CUSTOMIZATION
-
-message(STATUS "Will fetch opencl-clang from ${OPENCL_CLANG_REPO}")
-FetchContent_Declare(
-  opencl-clang
-  GIT_REPOSITORY ${OPENCL_CLANG_REPO}
-  GIT_TAG ${OPENCL_CLANG_TAG}
-)
-
-FetchContent_MakeAvailable(opencl-clang)
-
-if (NOT EXISTS ${opencl-clang_SOURCE_DIR})
-  message(FATAL_ERROR "opencl-clang is not fetched from ${OPENCL_CLANG_REPO}")
-endif()
-
 # Set path to the CMAKE modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
+
+include(FetchContent)
+include(AddOpenCLClang)
 
 if(NOT OPENCL_ASM_COMPILER)
   # OPENCL_ASM_COMPILER defines the assembler program to build assembly sources.
@@ -266,16 +240,9 @@ if(NOT OPENCL_INTREE_BUILD)
 endif()
 set(CMAKE_C_STANDARD 99)
 
-set(COMMON_CLANG common_clang${BUILD_PLATFORM})
 if(OPENCL_INTREE_BUILD)
   set(CLANG_OPENCL_HEADERS_DIR ${LLVM_EXTERNAL_CLANG_SOURCE_DIR}/lib/Headers)
 
-  get_target_property(COMMON_CLANG_H_LOC ${COMMON_CLANG} SOURCE_DIR)
-  if((NOT COMMON_CLANG_H_LOC) OR (NOT EXISTS
-                                  "${COMMON_CLANG_H_LOC}/opencl_clang.h"))
-    message(FATAL_ERROR "Cannot find opencl_clang.h from opencl_clang project (in ${COMMON_CLANG_H_LOC}).")
-  endif()
-  set(CCLANG_DEV_INCLUDE_DIRS ${COMMON_CLANG_H_LOC})
   set(LLVM_INCLUDE_DIRS ${LLVM_MAIN_INCLUDE_DIR})
   set(LLVM_PATH_BE ${LLVM_BINARY_DIR})
   set(LLVM_PATH_FE ${LLVM_BINARY_DIR})
@@ -437,24 +404,8 @@ llvm_map_components_to_libnames(
   SYCLTransforms
   )
 
-# Prepare common_clang dynamic library
-if(UNIX)
-  set_target_properties(${COMMON_CLANG}
-    PROPERTIES
-    SOVERSION ${VERSIONSTRING}
-    VERSION ${VERSIONSTRING})
-endif()
-if(OPENCL_INTREE_BUILD)
-  set(COMMON_CLANG_LIB ${COMMON_CLANG})
-else()
-  if(WIN32)
-    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/${COMMON_CLANG}.lib)
-  else(WIN32)
-    set(COMMON_CLANG_LIB
-        ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so.${VERSIONSTRING})
-    set(COMMON_CLANG_SYMLINK ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so)
-  endif(WIN32)
-endif()
+# Set opencl-clang library properties that rely on above configurations.
+set_opencl_clang_extra_properties()
 
 if(WIN32 AND ((${CMAKE_CFG_INTDIR} STREQUAL $(OutDir))
               OR (${CMAKE_CFG_INTDIR} STREQUAL $(Configuration))))
@@ -587,6 +538,10 @@ endif()
 set(CLANG_VERSION
     "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION_PATCHLEVEL}")
 
+# Used by code coverage tests to find clang profile lib
+set(CLANG_LIBRARY_DIR
+    "${LLVM_LIBRARY_DIR}/clang/${CLANG_VERSION_MAJOR}/lib/${LLVM_TARGET_TRIPLE}")
+
 # Let's help CMake to find llvm-lit
 if(NOT OPENCL_INTREE_BUILD)
   set(LLVM_EXTERNAL_LIT "${LLVM_PATH_BE}/bin/llvm-lit")
@@ -602,8 +557,6 @@ endif()
 include_directories(BEFORE ${OCL_GLOBAL_INCLUDE})
 
 add_subdirectory(externals)
-
-include(FetchContent)
 
 if(OPENCL_BE_INCLUDE_TESTS OR OPENCL_RT_INCLUDE_TESTS)
   # Download opencl cpp headers for tests

@@ -1,5 +1,9 @@
 // RUN: %libomptarget-compile-generic && env LIBOMPTARGET_DEBUG=1 %libomptarget-run-generic 2>&1 | %fcheck-generic -allow-empty -check-prefix=DEBUG
 // REQUIRES: libomptarget-debug
+// INTEL_CUSTOMIZATION
+// We do not use loop-trip-count argument
+// UNSUPPORTED: x86_64-pc-linux-gnu
+// end INTEL_CUSTOMIZATION
 
 /*
   Test for looptripcount being popped from runtime stack.

@@ -1,8 +1,8 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-pch -o %t -std=c++14 -fopenmp \
-// RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s
+// RUN: %clang_cc1 -emit-pch -o %t -std=c++14 -fopenmp \
+// RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
 // RUN:  -include-pch %t -verify \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022-2023 Intel Corporation
+// Modifications, Copyright (C) 2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -26,7 +26,6 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
 #include "gtest/gtest.h"
@@ -86,6 +85,16 @@ TEST_F(TargetLibraryInfoTest, InvalidProto) {
     auto *F = cast<Function>(
         M->getOrInsertFunction(TLI.getName(LF), InvalidFTy).getCallee());
     EXPECT_FALSE(isLibFunc(F, LF));
+  }
+
+  // i64 @labs(i32)
+  {
+    auto *InvalidLabsFTy = FunctionType::get(Type::getInt64Ty(Context),
+                                             {Type::getInt32Ty(Context)},
+                                             /*isVarArg=*/false);
+    auto *F = cast<Function>(
+        M->getOrInsertFunction("labs", InvalidLabsFTy).getCallee());
+    EXPECT_FALSE(isLibFunc(F, LibFunc_labs));
   }
 }
 
@@ -818,6 +827,9 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare x86_fp80 @exp10l(x86_fp80)\n"
 
 #if INTEL_CUSTOMIZATION
+      "declare i32 @__isoc23_sscanf(i8*, i8*, ...)\n"
+      "declare i64 @__isoc23_strtol(i8*, i8**, i32)\n"
+      "declare i64 @__isoc23_strtoul(i8*, i8**, i32)\n"
       "declare i32 @__isoc99_fscanf(%struct*, i8*, ... )\n"
       "declare i32 @__xstat(i32, i8*, %struct*)\n"
       "declare i32 @__xstat64(i32, i8*, %struct*)\n"
@@ -911,8 +923,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
 
       // These functions are OpenMP Offloading allocation / free routines
       "declare i8* @__kmpc_alloc_shared(i64)\n"
-      "declare void @__kmpc_free_shared(i8*, i64)\n"
 #if INTEL_CUSTOMIZATION
+      "declare void @__kmpc_free_shared(i8*, i64)\n"
       "declare %struct* @__acrt_iob_func(i32)\n"
       "declare void @__assert_fail(i8*, i8*, i32, i8*)\n"
       "declare void @__clang_call_terminate(i8*)\n"
@@ -1244,10 +1256,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @bsearch(i8*, i8*, i32, i32, i8*)\n"
       "declare i32 @chdir(i8*)\n"
       "declare i32 @clock()\n"
-#if INTEL_CUSTOMIZATION
       "declare {double, double} @clog(double, double)\n"
       "declare <2 x float> @clogf(<2 x float>)\n"
-#endif // INTEL_CUSTOMIZATION
       "declare i32 @close(i32)\n"
       "declare i8* @ctime(i8*)\n"
       "declare i32 @CloseHandle(i8*)\n"
@@ -1262,16 +1272,14 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare %struct @div(i32, i32)\n"
       "declare i32 @dup(i32)\n"
       "declare i32 @dup2(i32, i32)\n"
-      "declare double @erf(double)\n" // INTEL
+      "declare double @erf(double)\n"
       "declare float @erfc(double)\n"
-#if INTEL_CUSTOMIZATION
       "declare float @erfcf(float)\n"
       "declare double @erfcinv(double)\n"
       "declare float @erfcinvf(float)\n"
       "declare float @erff(float)\n"
       "declare double @erfinv(double)\n"
       "declare float @erfinvf(float)\n"
-#endif // INTEL_CUSTOMIZATION
       "declare void @error(i32, i32, i8*)\n"
       "declare i32 @fcntl(i32, i32)\n"
       "declare i32 @fcntl64(i32, i32)\n"
@@ -1513,7 +1521,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @WideCharToMultiByte(i32, i32, i16*, i32, i8*, i32, i8*, i32*)\n"
       "declare i32 @WriteFile(i8*, i8*, i32, i32*, %struct*)\n";
 #else // INTEL_CUSTOMIZATION
-  );
+  ); // INTEL
 #endif // INTEL_CUSTOMIZATION
 
 

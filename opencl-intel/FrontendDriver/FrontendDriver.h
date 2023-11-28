@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2009-2018 Intel Corporation.
+// Copyright 2009 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,7 +16,7 @@
 
 #include "cl_config.h"
 #include "clang_device_info.h"
-#include <frontend_api.h>
+#include "frontend_api.h"
 
 namespace Intel {
 namespace OpenCL {

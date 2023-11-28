@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -73,6 +73,9 @@ def filealign : P<"filealign", "Section alignment in the output file">;
 def functionpadmin : F<"functionpadmin">;
 def functionpadmin_opt : P<"functionpadmin",
     "Prepares an image for hotpatching">;
+def dependentloadflag : F<"dependentloadflag">;
+def dependentloadflag_opt : P<"dependentloadflag",
+    "Sets the default load flags used to resolve the statically linked imports of a module">;
 def guard   : P<"guard", "Control flow guard">;
 def heap    : P<"heap", "Size of the heap">;
 def ignore : P<"ignore", "Specify warning codes to ignore">;
@@ -161,6 +164,9 @@ def driver_uponly : F<"driver:uponly">,
     HelpText<"Set IMAGE_DLL_CHARACTERISTICS_WDM_DRIVER bit in PE header">;
 def driver_wdm_uponly : F<"driver:wdm,uponly">;
 def driver_uponly_wdm : F<"driver:uponly,wdm">;
+#if INTEL_CUSTOMIZATION
+def lto_sample_profile : P<"lto-sample-profile", "Specify sample profiling data file">;
+#endif // INTEL_CUSTOMIZATION
 def nodefaultlib_all : F<"nodefaultlib">,
     HelpText<"Remove all default libraries">;
 def noentry : F<"noentry">,
@@ -254,6 +260,8 @@ defm demangle : B<"demangle",
 def include_optional : Joined<["/", "-", "/?", "-?"], "includeoptional:">,
     HelpText<"Add symbol as undefined, but allow it to remain undefined">;
 def kill_at : F<"kill-at">;
+defm lld_allow_duplicate_weak : B_priv<"lld-allow-duplicate-weak">;
+def lldemit : P<"lldemit", "Specify output type">;
 def lldmingw : F<"lldmingw">;
 def noseh : F<"noseh">;
 def osversion : P_priv<"osversion">;
@@ -310,6 +318,14 @@ def print_symbol_order: P<
 def wrap : P_priv<"wrap">;
 
 def vfsoverlay : P<"vfsoverlay", "Path to a vfsoverlay yaml file to optionally look for /defaultlib's in">;
+
+def time_trace_eq: Joined<["--"], "time-trace=">, MetaVarName<"<file>">,
+  HelpText<"Record time trace to <file>">;
+def : Flag<["--"], "time-trace">, Alias<time_trace_eq>,
+  HelpText<"Record time trace to file next to output">;
+
+def time_trace_granularity_eq: Joined<["--"], "time-trace-granularity=">,
+    HelpText<"Minimum time granularity (in microseconds) traced by time profiler">;
 
 // Flags for debugging
 def lldmap : F<"lldmap">;

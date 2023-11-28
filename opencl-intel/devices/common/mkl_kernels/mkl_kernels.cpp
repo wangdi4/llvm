@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,11 +16,10 @@
 //  mkl_kernels.cpp
 ///////////////////////////////////////////////////////////
 
-#include "export/mkl_builtins.h"
-#include <cl_dynamic_lib.h>
-
-#include "gemm.h"
 #include "mkl_kernels.h"
+#include "cl_dynamic_lib.h"
+#include "export/mkl_builtins.h"
+#include "gemm.h"
 
 #ifdef __OMP2TBB__
 extern "C" void __kmpc_begin(void *loc, int flags);

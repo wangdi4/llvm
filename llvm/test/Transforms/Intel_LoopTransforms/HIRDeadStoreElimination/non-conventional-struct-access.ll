@@ -1,4 +1,4 @@
-; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -hir-dead-store-elimination-deduce-region-local-alloca=true 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination 2>&1 < %s | FileCheck %s
 
 ; Verify that store (%alloc)[0][i1 + 1].0 is not eliminated due to aliasing
 ; load (i32*)(%alloc)[0][i1] but store to (%alloc)[0][i1 + 1].1 is 

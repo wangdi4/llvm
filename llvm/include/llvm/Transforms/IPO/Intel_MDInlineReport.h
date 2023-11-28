@@ -1,7 +1,7 @@
 //===--- Intel_MDInlineReport.h ----------------------------------*- C++
 //-*-===//
 //
-// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -127,7 +127,7 @@ public:
   explicit InlineReportBuilder(unsigned MyLevel)
       : Level(MyLevel), InitializedFromModuleTable(false),
         CurrentCallInstr(nullptr), CurrentCallInstReport(nullptr),
-        CurrentCaller(nullptr), CurrentCallee(nullptr) {}
+        CurrentCaller(nullptr), CurrentCallee(nullptr), IRBModule(nullptr) {}
 
   virtual ~InlineReportBuilder(void) {
     for (auto &IRCBEntry : IRCallbackMap)
@@ -156,6 +156,8 @@ public:
 
   // Init the temporary data structures for the Function at the given index.
   void initFunctionTempsAtIndex(Function *F, unsigned Index) {
+    if (!IRBModule)
+      IRBModule = F->getParent();
     FunctionIndexMap.insert({F, Index});
     FunctionNameIndexMap.insert({std::string(F->getName()), Index});
     Inlines[Index] = new MapVector<unsigned, unsigned>;
@@ -165,8 +167,9 @@ public:
 
   // Init the temporary data structures for the Function. Use the next
   // available index.
-  void initFunctionTemps(Function *F) {
-    Module *M = F->getParent();
+  void initFunctionTemps(Function *F, Module *M = nullptr) {
+    if (!M)
+      M = F->getParent();
     NamedMDNode *ModuleInlineReport =
         M->getOrInsertNamedMetadata(MDInliningReport::ModuleTag);
     unsigned Index = ModuleInlineReport->getNumOperands();
@@ -401,8 +404,15 @@ public:
       LLVM_DEBUG(dbgs() << F.getName());
     LLVM_DEBUG(dbgs() << "\n");
     MDNode *MDIR = F.getMetadata(MDInliningReport::FunctionTag);
-    if (!MDIR)
-      return;
+    if (!MDIR) {
+      auto MapIt = FunctionIndexMap.find(&F);
+      if (MapIt == FunctionIndexMap.end())
+        return;
+      NamedMDNode *ModuleInlineReport =
+          IRBModule->getOrInsertNamedMetadata(MDInliningReport::ModuleTag);
+      unsigned Index = MapIt->second;
+      MDIR = ModuleInlineReport->getOperand(Index);
+    }
     if (auto *FIR = dyn_cast<MDTuple>(MDIR)) {
       LLVMContext &Ctx = MDIR->getContext();
       std::string IsDeadStr = "isDead: ";
@@ -457,6 +467,11 @@ public:
   // Replace uses of 'OldFunction' with 'NewFunction'.
   void replaceAllUsesWith(Function *OldFunction, Function *NewFunction);
 
+  /// Replace all uses of 'OldFunction' with 'NewFunction'
+  /// where 'ShouldReplace' is true in the inlining report.
+  void replaceUsesWithIf(Function *OldFunction, Function *NewFunction,
+                         llvm::function_ref<bool(Use &U)> ShouldReplace);
+
   // Replace 'OldCall' with 'NewCall'. If 'UpdateReason', update
   // the inlining reason based on the callee of 'NewCall'.
   void replaceCallBaseWithCallBase(CallBase *OldCall, CallBase *NewCall,
@@ -482,6 +497,12 @@ public:
   // Return 'true' if there should not be inline report metadata for 'CB'.
   bool shouldSkipCallBase(CallBase *CB);
 
+  // Add a call site corresponding to 'CB'.
+  void addCallSite(CallBase *CB);
+
+  // Add a function corresponding to 'F'.
+  void addFunction(Function *F);
+
 private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
@@ -496,6 +517,8 @@ private:
   Function *CurrentCaller;
   // Function called in the current call instruction.
   Function *CurrentCallee;
+  /// The Module for the inlining report.
+  Module *IRBModule;
   // Copy metadata 'OldMD' for use by another Function or CallBase.
   Metadata *copyMD(LLVMContext &C, Metadata *OldMD);
   // Copy metadata 'OldMD' for use by another Function or CallBase.
@@ -696,6 +719,9 @@ public:
         Report->getOperand(MDInliningReport::CSMDIR_ModuleName),
         "moduleName: ");
   }
+
+  // Set the inlining reason based on the type of the callee of 'CB'.
+  void initReason(CallBase *CB);
 };
 
 // Set of functions which set not-inlined reason to call site

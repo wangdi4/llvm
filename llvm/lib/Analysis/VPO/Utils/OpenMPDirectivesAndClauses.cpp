@@ -65,7 +65,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
       IsIV(false), IsInitTarget(false), IsInitTargetSync(false),
       IsInitPrefer(false), IsStrict(false), IsTask(false), IsInscan(false),
-      IsReproducible(false), IsTyped(false) {
+      IsReproducible(false), IsTyped(false), IsSubObject(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
   // Split Name into the BaseName and Modifier substrings
@@ -206,6 +206,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsMapChainLink();
         else if (ModSubString[i] == "IV")          // for linear clause
           setIsIV();
+        else if (ModSubString[i] == "SUBOBJ")
+          setIsSubObject();
         else if (ModSubString[i] == "PTR_TO_PTR") // For operands like "int *x"
           setIsPointerToPointer(); // (i32**) on linear, is/use_device_ptr etc.
         else if (ModSubString[i] == "FPTR") // map chain whose base is a
@@ -336,6 +338,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_OMP_GENERICLOOP:
   case DIR_OMP_SCOPE:
   case DIR_OMP_TILE:
+  case DIR_OMP_INTERLEAVE:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_AUTO_VEC:
   case DIR_PRAGMA_IVDEP:
@@ -373,6 +376,7 @@ bool VPOAnalysisUtils::isBeginLoopDirective(int DirID) {
   case DIR_OMP_DISTRIBUTE_PARLOOP:
   case DIR_OMP_GENERICLOOP:
   case DIR_OMP_TILE:
+  case DIR_OMP_INTERLEAVE:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_AUTO_VEC:
   case DIR_PRAGMA_IVDEP:
@@ -424,6 +428,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_GENERICLOOP:
   case DIR_OMP_END_SCOPE:
   case DIR_OMP_END_TILE:
+  case DIR_OMP_END_INTERLEAVE:
   case DIR_OMP_END_SCAN:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_END_AUTO_VEC:
@@ -462,6 +467,7 @@ bool VPOAnalysisUtils::isEndLoopDirective(int DirID) {
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
   case DIR_OMP_END_GENERICLOOP:
   case DIR_OMP_END_TILE:
+  case DIR_OMP_END_INTERLEAVE:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_END_AUTO_VEC:
   case DIR_PRAGMA_IVDEP:
@@ -650,6 +656,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
       return DIR_OMP_END_SCOPE;
   case DIR_OMP_TILE:
       return DIR_OMP_END_TILE;
+  case DIR_OMP_INTERLEAVE:
+      return DIR_OMP_END_INTERLEAVE;
 
 #if INTEL_CUSTOMIZATION
   // Non-OpenMP Directives
@@ -810,7 +818,7 @@ bool VPOAnalysisUtils::isScheduleClause(int ClauseID) {
 #if INTEL_FEATURE_CSA
     case QUAL_OMP_SA_SCHEDULE_STATIC:
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     return true;
   }
   return false;
@@ -900,6 +908,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_CAPTURE:
     case QUAL_OMP_MERGEABLE:
     case QUAL_OMP_NOGROUP:
+    case QUAL_OMP_PROC_BIND_PRIMARY:
     case QUAL_OMP_PROC_BIND_MASTER:
     case QUAL_OMP_PROC_BIND_CLOSE:
     case QUAL_OMP_PROC_BIND_SPREAD:
@@ -916,6 +925,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_BIND_THREAD:
     case QUAL_OMP_ORDER_CONCURRENT:
     case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
+    case QUAL_OMP_PERFECTLY_NESTED:
 #if INTEL_CUSTOMIZATION
     case QUAL_EXT_DO_CONCURRENT:
 #endif // INTEL_CUSTOMIZATION
@@ -946,7 +956,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_SA_NUM_WORKERS:
     case QUAL_OMP_SA_PIPELINE:
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
       return 1;
   }
   return 2; //everything else

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2020 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,7 +15,7 @@
 #ifndef ENHANCEMENT_TASK_GROUP_WITH_REFERENCE_H
 #define ENHANCEMENT_TASK_GROUP_WITH_REFERENCE_H
 
-#include <tbb/task_group.h>
+#include "tbb/task_group.h"
 
 /// Extend tbb::task_group with reserve/release_wait functions
 class task_group_with_reference : public tbb::task_group {

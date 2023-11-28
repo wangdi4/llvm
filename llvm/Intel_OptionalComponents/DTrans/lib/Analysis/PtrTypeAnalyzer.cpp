@@ -1,6 +1,6 @@
 //===-----------------------PtrTypeAnalyzer.cpp---------------------------===//
 //
-// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -3872,12 +3872,24 @@ private:
     // through other InsertValue instructions or no real uses.
     auto IsUsedByOnlyResumeInst = [](InsertValueInst *IV) {
       SmallVector<const User *, 4> WorkList(IV->user_begin(), IV->user_end());
+      SmallPtrSet<PHINode *, 32> Visited;
       while (!WorkList.empty()) {
         const User *U = WorkList.pop_back_val();
         if (isa<InsertValueInst>(U))
           for (const User *UU : U->users())
             WorkList.push_back(UU);
-        else if (!isa<ResumeInst>(U))
+        else if (isa<PHINode>(U)) {
+          for (const User *UU : U->users()) {
+            // Record phi node in Visited set to avoid infinite loop.
+            if (isa<PHINode>(UU)) {
+              const Value *CV = dyn_cast<Value>(UU);
+              Value *V = const_cast<Value *>(CV);
+              if (!Visited.insert(dyn_cast<PHINode>(V)).second)
+                continue;
+            }
+            WorkList.push_back(UU);
+          }
+        } else if (!isa<ResumeInst>(U))
           return false;
       }
       return true;

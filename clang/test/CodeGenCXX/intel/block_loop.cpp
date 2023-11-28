@@ -1,8 +1,8 @@
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s -check-prefix=CHECK-REGION
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -opaque-pointers -triple i686-windows -o - %s | FileCheck %s -check-prefix=CHECK-REGION
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -opaque-pointers -triple x86_64-windows-msvc -o - %s | FileCheck %s -check-prefix=CHECK-REGION
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -opaque-pointers -triple i686-unknown-windows-msvc -o - %s | FileCheck %s -check-prefix=CHECK-REGION
-// RUN: %clang_cc1 -fintel-compatibility-enable=PragmaBlockLoop -fintel-compatibility-enable=PragmaBlockLoop -emit-llvm -opaque-pointers -o - %s | FileCheck %s -check-prefix=CHECK-REGION
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK-REGION
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -triple i686-windows -o - %s | FileCheck %s -check-prefix=CHECK-REGION
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -triple x86_64-windows-msvc -o - %s | FileCheck %s -check-prefix=CHECK-REGION
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -triple i686-unknown-windows-msvc -o - %s | FileCheck %s -check-prefix=CHECK-REGION
+// RUN: %clang_cc1 -fintel-compatibility-enable=PragmaBlockLoop -fintel-compatibility-enable=PragmaBlockLoop -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK-REGION
 // expected-no-diagnostics
 
 void foo(int var) {

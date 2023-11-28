@@ -188,14 +188,12 @@ attributes #3 = { convergent nounwind readnone willreturn }
 !16 = !{i32 16}
 !17 = !{ptr addrspace(1) null}
 
-; DEBUGIFY-COUNT-53: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-72: WARNING: Instruction with empty DebugLoc in function test
 ; DEBUGIFY: WARNING: Missing line 1
 ; DEBUGIFY: WARNING: Missing line 2
 ; DEBUGIFY: WARNING: Missing line 3
 ; DEBUGIFY: WARNING: Missing line 4
-; DEBUGIFY: WARNING: Missing line 19
 ; DEBUGIFY: WARNING: Missing line 24
-; DEBUGIFY: WARNING: Missing line 25
 ; DEBUGIFY: WARNING: Missing variable 1
 ; DEBUGIFY: WARNING: Missing variable 2
 ; DEBUGIFY-NOT: WARNING

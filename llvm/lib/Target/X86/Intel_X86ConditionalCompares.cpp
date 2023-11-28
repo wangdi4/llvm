@@ -1,4 +1,3 @@
-#if INTEL_FEATURE_ISA_APX_F
 //===-- Intel_X86ConditionalCompares.cpp --- CCMP formation for X86 -------===//
 //
 // INTEL CONFIDENTIAL
@@ -897,4 +896,3 @@ bool X86ConditionalCompares::runOnMachineFunction(MachineFunction &MF) {
 
   return Changed;
 }
-#endif // INTEL_FEATURE_ISA_APX_F

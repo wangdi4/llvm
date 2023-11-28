@@ -4,69 +4,62 @@
   @buf = dso_local global [2048 x i8] zeroinitializer, align 16
 
   ; Function Attrs: noinline nounwind optnone uwtable
-  define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 noundef signext %col0, i16 noundef signext %col1, <256 x i32>* %m) #0 {
+  define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 noundef signext %col0, i16 noundef signext %col1, ptr %m) #0 {
 ; CHECK-LABEL: @test_tile_t2rpntlvwz0(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = udiv i16 [[COL1:%.*]], 4
-; CHECK-NEXT:    [[TMP1:%.*]] = call { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16 [[ROW:%.*]], i16 [[COL0:%.*]], i16 [[COL1]], i8* getelementptr inbounds ([2048 x i8], [2048 x i8]* @buf, i64 0, i64 0), i64 32) #[[ATTR3:[0-9]+]]
+; CHECK-NEXT:    [[TMP1:%.*]] = call { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16 [[ROW:%.*]], i16 [[COL0:%.*]], i16 [[COL1]], ptr @buf, i64 32) #[[ATTR3:[0-9]+]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = extractvalue { x86_amx, x86_amx } [[TMP1]], 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = sext i16 [[COL0]] to i64
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <256 x i32>* [[M:%.*]] to i8*
-; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], i8* [[TMP4]], i64 [[TMP3]], x86_amx [[TMP2]])
+; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], ptr [[M:%.*]], i64 [[TMP3]], x86_amx [[TMP2]])
 ; CHECK-NEXT:    [[TMP5:%.*]] = extractvalue { x86_amx, x86_amx } [[TMP1]], 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = sext i16 [[COL1]] to i64
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast <256 x i32>* [[M]] to i8*
-; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL1]], i8* [[TMP7]], i64 [[TMP6]], x86_amx [[TMP5]])
+; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL1]], ptr [[M]], i64 [[TMP6]], x86_amx [[TMP5]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = call x86_amx @llvm.x86.tilezero.internal(i16 [[ROW]], i16 [[COL0]]) #[[ATTR3]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = sext i16 [[COL0]] to i64
-; CHECK-NEXT:    [[TMP10:%.*]] = bitcast <256 x i32>* [[M]] to i8*
-; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], i8* [[TMP10]], i64 [[TMP9]], x86_amx [[TMP8]])
+; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], ptr [[M]], i64 [[TMP9]], x86_amx [[TMP8]])
 ; CHECK-NEXT:    [[TMP11:%.*]] = sext i16 [[COL0]] to i64
-; CHECK-NEXT:    [[TMP12:%.*]] = bitcast <256 x i32>* [[M]] to i8*
-; CHECK-NEXT:    [[TMP13:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 [[ROW]], i16 [[COL0]], i8* [[TMP12]], i64 [[TMP11]])
+; CHECK-NEXT:    [[TMP13:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 [[ROW]], i16 [[COL0]], ptr [[M]], i64 [[TMP11]])
 ; CHECK-NEXT:    [[TMP14:%.*]] = sext i16 [[COL1]] to i64
-; CHECK-NEXT:    [[TMP15:%.*]] = bitcast <256 x i32>* [[M]] to i8*
-; CHECK-NEXT:    [[TMP16:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 [[ROW]], i16 [[COL1]], i8* [[TMP15]], i64 [[TMP14]])
+; CHECK-NEXT:    [[TMP16:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 [[ROW]], i16 [[COL1]], ptr [[M]], i64 [[TMP14]])
 ; CHECK-NEXT:    [[TMP17:%.*]] = sext i16 [[COL0]] to i64
-; CHECK-NEXT:    [[TMP18:%.*]] = bitcast <256 x i32>* [[M]] to i8*
-; CHECK-NEXT:    [[TMP19:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 [[TMP0]], i16 [[COL0]], i8* [[TMP18]], i64 [[TMP17]])
+; CHECK-NEXT:    [[TMP19:%.*]] = call x86_amx @llvm.x86.tileloadd64.internal(i16 [[TMP0]], i16 [[COL0]], ptr [[M]], i64 [[TMP17]])
 ; CHECK-NEXT:    [[TMP20:%.*]] = call x86_amx @llvm.x86.tdpbssd.internal(i16 [[ROW]], i16 [[COL0]], i16 [[COL1]], x86_amx [[TMP13]], x86_amx [[TMP16]], x86_amx [[TMP19]]) #[[ATTR3]]
 ; CHECK-NEXT:    [[TMP21:%.*]] = sext i16 [[COL0]] to i64
-; CHECK-NEXT:    [[TMP22:%.*]] = bitcast <256 x i32>* [[M]] to i8*
-; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], i8* [[TMP22]], i64 [[TMP21]], x86_amx [[TMP20]])
+; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 [[ROW]], i16 [[COL0]], ptr [[M]], i64 [[TMP21]], x86_amx [[TMP20]])
 ; CHECK-NEXT:    ret void
 ;
   entry:
 
-  %0 =  call { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16 %row, i16 %col0, i16 %col1, i8* getelementptr inbounds ([2048 x i8], [2048 x i8]* @buf, i64     0, i64 0), i64 32) #7
+  %0 =  call { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16 %row, i16 %col0, i16 %col1, ptr getelementptr inbounds ([2048 x i8], ptr @buf, i64     0, i64 0), i64 32) #7
   %1 = extractvalue { x86_amx, x86_amx } %0, 0
   %2 =  call <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx %1) #7
-  store <256 x i32> %2, <256 x i32>* %m, align 1024
+  store <256 x i32> %2, ptr %m, align 1024
 
   %3 = extractvalue { x86_amx, x86_amx } %0, 1
   %4 = call <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx %3) #7
-  store <256 x i32> %4, <256 x i32>* %m, align 1024
+  store <256 x i32> %4, ptr %m, align 1024
 
   %5 = call x86_amx @llvm.x86.tilezero.internal(i16 %row, i16 %col0) #7
   %6 = call <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx %5) #7
-  store <256 x i32> %6, <256 x i32>* %m, align 64
+  store <256 x i32> %6, ptr %m, align 64
 
-  %7 = load <256 x i32>, <256 x i32>* %m, align 64
+  %7 = load <256 x i32>, ptr %m, align 64
   %8 = call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32> %7) #7
-  %9 = load <256 x i32>, <256 x i32>* %m, align 64
+  %9 = load <256 x i32>, ptr %m, align 64
   %10 = call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32> %9) #7
-  %11 = load <256 x i32>, <256 x i32>* %m, align 64
+  %11 = load <256 x i32>, ptr %m, align 64
   %12 = call x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32> %11) #7
 
   %13 = call x86_amx @llvm.x86.tdpbssd.internal(i16 %row, i16 %col0, i16 %col1, x86_amx %8, x86_amx %10, x86_amx %12) #7
   %14 = call <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx %13) #7
-  store <256 x i32> %14, <256 x i32>* %m, align 64
+  store <256 x i32> %14, ptr %m, align 64
 
   ret void
   }
 
   ; Function Attrs: argmemonly nounwind readonly
-  declare { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16, i16, i16, i8*, i64) #2
+  declare { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal(i16, i16, i16, ptr, i64) #2
 
   ; Function Attrs: nounwind readnone
   declare <256 x i32> @llvm.x86.cast.tile.to.vector.v256i32(x86_amx) #3
@@ -81,7 +74,7 @@
   declare x86_amx @llvm.x86.cast.vector.to.tile.v256i32(<256 x i32>) #3
 
   ; Function Attrs: argmemonly nounwind writeonly
-  declare void @llvm.x86.tilestored64.internal(i16, i16, i8*, i64, x86_amx) #5
+  declare void @llvm.x86.tilestored64.internal(i16, i16, ptr, i64, x86_amx) #5
 
   attributes #0 = { noinline nounwind optnone uwtable "frame-pointer"="all" "min-legal-vector-width"="8192" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+amx-avx512,+amx-bf16,+amx-int8,+amx-tile,+amx-transpose,+avx,+avx2,+avx512f,+crc32,+cx8,+f16c,+fma,+fxsr,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+amx-tile,+amx-bf16,+avx512f,+amx-transpose,+amx-avx512" "tune-cpu"="generic" }
   attributes #1 = { argmemonly nofree nounwind willreturn writeonly "target-features"="+amx-tile,+amx-bf16,+avx512f,+amx-transpose,+amx-avx512" }

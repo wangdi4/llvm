@@ -442,9 +442,9 @@ struct PendingCtorDtorListsTy {
 };
 typedef std::map<__tgt_bin_desc *, PendingCtorDtorListsTy>
     PendingCtorsDtorsPerLibrary;
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 typedef llvm::SmallVector<std::set<void *>> UsedPtrsTy;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 struct DeviceTy {
   int32_t DeviceID;
@@ -471,13 +471,13 @@ struct DeviceTy {
   PendingCtorsDtorsPerLibrary PendingCtorsDtors;
 
   std::mutex PendingGlobalsMtx;
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   std::map<int32_t, UsedPtrsTy> UsedPtrs;
   std::mutex UsedPtrsMtx;
   std::map<int32_t, llvm::SmallVector<void *>> LambdaPtrs;
   std::mutex LambdaPtrsMtx;
   std::map<uint64_t, uint64_t> FnPtrMap;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   DeviceTy(RTLInfoTy *RTL);
   // DeviceTy is not copyable
@@ -511,11 +511,11 @@ struct DeviceTy {
       bool HasFlagTo, bool HasFlagAlways, bool IsImplicit, bool UpdateRefCount,
       bool HasCloseModifier, bool HasPresentModifier, bool HasHoldModifier,
       AsyncInfoTy &AsyncInfo, HostDataToTargetTy *OwnedTPR = nullptr,
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
       bool ReleaseHDTTMap = true, bool UseHostMem = false);
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
       bool ReleaseHDTTMap = true);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   /// Return the target pointer for \p HstPtrBegin in \p HDTTMap. The accessor
   /// ensures exclusive access to the HDTT map.
@@ -602,7 +602,7 @@ struct DeviceTy {
   int32_t launchKernel(void *TgtEntryPtr, void **TgtVarsPtr,
                        ptrdiff_t *TgtOffsets, const KernelArgsTy &KernelArgs,
                        AsyncInfoTy &AsyncInfo);
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   int32_t manifestDataForRegion(void *TgtEntryPtr);
   char *getDeviceName(char *Buffer, size_t BufferMaxSize);
   void *dataAllocBase(int64_t Size, void *HstPtrBegin, void *HstPtrBase,
@@ -622,7 +622,6 @@ struct DeviceTy {
   int32_t popSubDevice(void);
   int32_t getNumSubDevices(int32_t Level);
   int32_t isSupportedDevice(void *DeviceType);
-#if INTEL_CUSTOMIZATION
   __tgt_interop *createInterop(int32_t InteropContext, int32_t NumPrefers,
                                int32_t *PreferIDs);
   int32_t releaseInterop(__tgt_interop *Interop);
@@ -633,14 +632,11 @@ struct DeviceTy {
                                   size_t Size, void *Value);
   const char *getInteropPropertyInfo(int32_t Property, int32_t InfoType);
   const char *getInteropRcDesc(int32_t RetCode);
-#endif // INTEL_CUSTOMIZATION
   int32_t setSubDevice(int32_t Level);
   void unsetSubDevice(void);
   void addLambdaPtr(void *TgtPtr);
   int32_t isAccessibleAddrRange(const void *Ptr, size_t Size);
-#if INTEL_CUSTOMIZATION
   int32_t notifyIndirectAccess(const void *Ptr, size_t Offset);
-#endif // INTEL_CUSTOMIZATION
   int32_t isPrivateArgOnHost(const void *TgtEntryPtr, uint32_t Idx);
   // BatchLevel 1 enables data batching within a target region
   // BatchLevel 2 enables full batching within a target region
@@ -656,14 +652,16 @@ struct DeviceTy {
   void *dataAlignedAllocShared(size_t Align, size_t Size, int32_t AccessHint);
   /// Prefetch shared memory
   int prefetchSharedMem(size_t NumPtrs, void **Ptrs, size_t *Sizes);
-#if INTEL_CUSTOMIZATION
   /// 3D memory copy if device supports
   int32_t memcpyRect3D(void *Dst, const void *Src, size_t ElementSize,
                        int32_t NumDims, const size_t *Volume,
                        const size_t *DstOffsets, const size_t *SrcOffsets,
                        const size_t *DstDims, const size_t *SrcDims);
+  int32_t getGroupsShape(void *TgtEntryPtr, int32_t NumTeams,
+                         int32_t ThreadLimit, void *GroupSizes,
+                         void *GroupCounts, void *LoopDesc);
+  void notifyLegacyOffload(void);
 #endif // INTEL_CUSTOMIZATION
-#endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return
   /// OFFLOAD_SUCCESS/OFFLOAD_FAIL when succeeds/fails.
@@ -767,15 +765,13 @@ struct PluginManager {
   /// map clauses or not. Can be modified with an environment variable.
   const bool UseEventsForAtomicTransfers;
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   /// Root device ID and sub-device mask set by user
   /// These should be global to all threads.
   int64_t RootDeviceID = -1;
   int64_t SubDeviceMask = 0;
-#endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
   InteropTblTy InteropTbl;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Work around for plugins that call dlopen on shared libraries that call
   // tgt_register_lib during their initialisation. Stash the pointers in a

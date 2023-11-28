@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -57,6 +57,7 @@ MODULE_ANALYSIS("module-summary", ModuleSummaryIndexAnalysis())
 MODULE_ANALYSIS("no-op-module", NoOpModuleAnalysis())
 MODULE_ANALYSIS("profile-summary", ProfileSummaryAnalysis())
 MODULE_ANALYSIS("stack-safety", StackSafetyGlobalAnalysis())
+MODULE_ANALYSIS("dopevectortype", DopeVectorTypeAnalysis())     // INTEL
 MODULE_ANALYSIS("wholeprogram", WholeProgramAnalysis(WPUtils))     // INTEL
 MODULE_ANALYSIS("xm-module-opt-level", XmainOptLevelAnalysis()) // INTEL
 MODULE_ANALYSIS("verify", VerifierAnalysis())
@@ -176,6 +177,7 @@ MODULE_PASS("sycl-kernel-convert-vplan-mask", HandleVPlanMask())
 #endif // INTEL_CUSTOMIZATION
 MODULE_PASS("sycl-kernel-wg-loop-bound", WGLoopBoundariesPass())
 MODULE_PASS("sycl-kernel-remove-atexit", RemoveAtExitPass())
+MODULE_PASS("sycl-kernel-remove-devicelib-assert-fallback", RemoveDeviceLibAssertFallbackPass())
 MODULE_PASS("sycl-kernel-set-prefer-vector-width", SetPreferVectorWidthPass())
 
 MODULE_PASS("print<sycl-kernel-builtin-info-analysis>", BuiltinLibInfoAnalysisPrinter(dbgs()))
@@ -192,6 +194,7 @@ MODULE_PASS("agginliner", AggInlinerPass()) // INTEL
 MODULE_PASS("always-inline", AlwaysInlinerPass())
 MODULE_PASS("arg-noalias-prop", ArgNoAliasPropPass()) // INTEL
 MODULE_PASS("attributor", AttributorPass())
+MODULE_PASS("attributor-light", AttributorLightPass())
 MODULE_PASS("annotation2metadata", Annotation2MetadataPass())
 #if INTEL_CUSTOMIZATION
 MODULE_PASS("auto-cpu-clone", AutoCPUClonePass())
@@ -250,6 +253,7 @@ MODULE_PASS("dtrans-annotator-cleaner", dtrans::AnnotatorCleanerPass()) // INTEL
 MODULE_PASS("set-intel-prop", dtrans::SetIntelPropPass()) // INTEL
 #endif // INTEL_FEATURE_SW_DTRANS
 MODULE_PASS("dot-callgraph", CallGraphDOTPrinterPass())
+MODULE_PASS("dxil-upgrade", DXILUpgradePass())
 MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("extract-blocks", BlockExtractorPass({}, false))
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
@@ -257,6 +261,9 @@ MODULE_PASS("function-import", FunctionImportPass())
 MODULE_PASS("function-splitting", FunctionSplittingPass()) // INTEL
 MODULE_PASS("globalopt", GlobalOptPass())
 MODULE_PASS("globalsplit", GlobalSplitPass())
+MODULE_PASS("hipstdpar-select-accelerator-code",
+  HipStdParAcceleratorCodeSelectionPass())
+MODULE_PASS("hipstdpar-interpose-alloc", HipStdParAllocationInterpositionPass())
 MODULE_PASS("hotcoldsplit", HotColdSplittingPass())
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -344,6 +351,7 @@ MODULE_PASS("rpo-function-attrs", ReversePostOrderFunctionAttrsPass())
 MODULE_PASS("sample-profile", SampleProfileLoaderPass())
 MODULE_PASS("scc-oz-module-inliner",
   buildInlinerPipeline(OptimizationLevel::Oz, ThinOrFullLTOPhase::None))
+MODULE_PASS("spi-emitter", SPIEmitter()) // INTEL
 MODULE_PASS("strip", StripSymbolsPass())
 MODULE_PASS("strip-dead-debug-info", StripDeadDebugInfoPass())
 MODULE_PASS("pseudo-probe", SampleProfileProbePass(TM))
@@ -371,7 +379,6 @@ MODULE_PASS("memprof-module", ModuleMemProfilerPass())
 MODULE_PASS("poison-checking", PoisonCheckingPass())
 MODULE_PASS("pseudo-probe-update", PseudoProbeUpdatePass())
 MODULE_PASS("LowerESIMD", SYCLLowerESIMDPass())
-MODULE_PASS("ESIMDLowerVecArg", ESIMDLowerVecArgPass())
 MODULE_PASS("esimd-opt-call-conv", ESIMDOptimizeVecArgCallConvPass())
 MODULE_PASS("esimd-verifier", ESIMDVerifierPass())
 MODULE_PASS("lower-invoke-simd", SYCLLowerInvokeSimdPass())
@@ -380,6 +387,8 @@ MODULE_PASS("SPIRITTAnnotations", SPIRITTAnnotationsPass())
 MODULE_PASS("deadargelim-sycl", DeadArgumentEliminationSYCLPass())
 MODULE_PASS("sycllowerwglocalmemory", SYCLLowerWGLocalMemoryPass())
 MODULE_PASS("lower-esimd-kernel-attrs", SYCLFixupESIMDKernelWrapperMDPass())
+MODULE_PASS("esimd-remove-host-code", ESIMDRemoveHostCodePass());
+MODULE_PASS("inlineforceinline", InlineForceInlinePass()) // INTEL
 MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("inlinereportsetup", InlineReportSetupPass()) // INTEL
 MODULE_PASS("inlinereportemitter", InlineReportEmitterPass()) // INTEL
@@ -400,8 +409,10 @@ MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass())
 #endif // INTEL_COLLAB
 MODULE_PASS("vpo-paropt-target-inline", VPOParoptTargetInlinePass()) // INTEL
 MODULE_PASS("sycl-propagate-aspects-usage", SYCLPropagateAspectsUsagePass())
+MODULE_PASS("sycl-propagate-joint-matrix-usage", SYCLPropagateJointMatrixUsagePass())
 MODULE_PASS("sycl-add-opt-level-attribute", SYCLAddOptLevelAttributePass())
 MODULE_PASS("compile-time-properties", CompileTimePropertiesPass())
+MODULE_PASS("cleanup-sycl-metadata", CleanupSYCLMetadataPass())
 #undef MODULE_PASS
 
 #ifndef MODULE_PASS_WITH_PARAMS
@@ -465,6 +476,15 @@ MODULE_PASS_WITH_PARAMS("memprof-use",
                         },
                         parseMemProfUsePassOptions,
                         "profile-filename=S")
+MODULE_PASS_WITH_PARAMS("print<structural-hash>",
+                        "StructuralHashPrinterPass",
+                        [](bool EnableDetailedStructuralHash) {
+                          return StructuralHashPrinterPass(
+                              dbgs(),
+                              EnableDetailedStructuralHash);
+                        },
+                        parseStructuralHashPrinterPassOptions,
+                        "detailed")
 #undef MODULE_PASS_WITH_PARAMS
 
 #ifndef CGSCC_ANALYSIS
@@ -481,6 +501,7 @@ CGSCC_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 CGSCC_PASS("argpromotion", ArgumentPromotionPass())
 CGSCC_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 CGSCC_PASS("attributor-cgscc", AttributorCGSCCPass())
+CGSCC_PASS("attributor-light-cgscc", AttributorLightCGSCCPass())
 CGSCC_PASS("openmp-opt-cgscc", OpenMPOptCGSCCPass())
 CGSCC_PASS("no-op-cgscc", NoOpCGSCCPass())
 #undef CGSCC_PASS
@@ -508,7 +529,7 @@ CGSCC_PASS_WITH_PARAMS("function-attrs",
                          return PostOrderFunctionAttrsPass(SkipNonRecursive);
                        },
                        parsePostOrderFunctionAttrsPassOptions,
-                       "skip-non-recursive")
+                       "skip-non-recursive-function-attrs")
 #undef CGSCC_PASS_WITH_PARAMS
 
 #ifndef FUNCTION_ANALYSIS
@@ -641,7 +662,7 @@ FUNCTION_PASS("gvn-sink", GVNSinkPass())
 FUNCTION_PASS("helloworld", HelloWorldPass())
 FUNCTION_PASS("infer-address-spaces", InferAddressSpacesPass())
 FUNCTION_PASS("inlinereportmakecurrent", InlineReportMakeCurrentPass()) // INTEL
-FUNCTION_PASS("instcombine", InstCombinePass())
+FUNCTION_PASS("infer-alignment", InferAlignmentPass())
 FUNCTION_PASS("instcount", InstCountPass())
 FUNCTION_PASS("instsimplify", InstSimplifyPass())
 FUNCTION_PASS("intel-loop-attrs", IntelLoopAttrsPass())  // INTEL
@@ -653,6 +674,7 @@ FUNCTION_PASS("libcalls-shrinkwrap", LibCallsShrinkWrapPass())
 FUNCTION_PASS("lint", LintPass())
 FUNCTION_PASS("inject-tli-mappings", InjectTLIMappings())
 FUNCTION_PASS("instnamer", InstructionNamerPass())
+FUNCTION_PASS("local-array-transpose", LocalArrayTransposePass()) // INTEL
 FUNCTION_PASS("localdvprop", DopeVectorConstPropPass()) // INTEL
 FUNCTION_PASS("loweratomic", LowerAtomicPass())
 FUNCTION_PASS("lower-expect", LowerExpectIntrinsicPass())
@@ -739,7 +761,6 @@ FUNCTION_PASS("sccp", SCCPPass())
 FUNCTION_PASS("sink", SinkingPass())
 FUNCTION_PASS("slp-vectorizer", SLPVectorizerPass())
 FUNCTION_PASS("slsr", StraightLineStrengthReducePass())
-FUNCTION_PASS("speculative-execution", SpeculativeExecutionPass())
 #if INTEL_CUSTOMIZATION
 FUNCTION_PASS("std-container-opt", StdContainerOptPass())
 #endif // INTEL_CUSTOMIZATION
@@ -818,6 +839,7 @@ FUNCTION_PASS("hir-special-opt-predicate", loopopt::HIRSpecialOptPredicatePass()
 FUNCTION_PASS("hir-post-vec-complete-unroll", loopopt::HIRPostVecCompleteUnrollPass())
 FUNCTION_PASS("hir-pre-vec-complete-unroll", loopopt::HIRPreVecCompleteUnrollPass())
 FUNCTION_PASS("hir-runtime-dd", loopopt::HIRRuntimeDDPass())
+FUNCTION_PASS("hir-preprocess-nonunit-stride-access", loopopt::HIRPreprocessNonUnitStrideAccess())
 FUNCTION_PASS("hir-scalarrepl-array", loopopt::HIRScalarReplArrayPass())
 FUNCTION_PASS("hir-pm-symbolic-tripcount-completeunroll", loopopt::HIRPMSymbolicTripCountCompleteUnrollPass())
 FUNCTION_PASS("hir-unroll-and-jam", loopopt::HIRUnrollAndJamPass())
@@ -827,7 +849,7 @@ FUNCTION_PASS("hir-pragma-loop-blocking", loopopt::HIRPragmaLoopBlockingPass())
 FUNCTION_PASS("hir-generate-mkl-call", loopopt::HIRGenerateMKLCallPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", OptReportEmitterPass())
 FUNCTION_PASS("vplan-pragma-omp-simd-if", VPlanPragmaOmpSimdIfPass())
-FUNCTION_PASS("vplan-vec", vpo::VPlanDriverPass());
+FUNCTION_PASS("vplan-vec", vpo::VPlanDriverLLVMPass());
 FUNCTION_PASS("vplan-func-vec", vpo::VPlanFunctionVectorizerPass());
 FUNCTION_PASS("vpo-directive-cleanup", VPODirectiveCleanupPass())
 FUNCTION_PASS("map-intrin-to-iml",vpo::MapIntrinToImlPass())
@@ -896,11 +918,16 @@ FUNCTION_PASS("vpo-paropt-loop-collapse", VPOParoptLoopCollapsePass())
 FUNCTION_PASS("vpo-paropt-loop-transform", VPOParoptLoopTransformPass())
 FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+FUNCTION_PASS("vpo-paropt-loop-fuse-collapse", VPOParoptLoopFuseCollapsePass())
+#endif // INTEL_CUSTOMIZATION
 FUNCTION_PASS("tsan", ThreadSanitizerPass())
 FUNCTION_PASS("memprof", MemProfilerPass())
 FUNCTION_PASS("LowerWGScope", SYCLLowerWGScopePass())
 FUNCTION_PASS("ESIMDLowerLoadStore", ESIMDLowerLoadStorePass())
 FUNCTION_PASS("declare-to-assign", llvm::AssignmentTrackingPass())
+FUNCTION_PASS("expand-large-div-rem", ExpandLargeDivRemPass(TM));
+FUNCTION_PASS("expand-large-fp-convert", ExpandLargeFpConvertPass(TM));
 #undef FUNCTION_PASS
 
 #ifndef FUNCTION_PASS_WITH_PARAMS
@@ -989,6 +1016,7 @@ FUNCTION_PASS_WITH_PARAMS("instcombine",
                            },
                           parseInstCombineOptions,
                           "no-use-loop-info;use-loop-info;"
+                          "no-verify-fixpoint;verify-fixpoint;"
                           "max-iterations=N"
                           )
 FUNCTION_PASS_WITH_PARAMS("mldst-motion",
@@ -1051,6 +1079,13 @@ FUNCTION_PASS_WITH_PARAMS("print<memoryssa>",
                            },
                           parseMemorySSAPrinterPassOptions,
                           "no-ensure-optimized-uses")
+FUNCTION_PASS_WITH_PARAMS("speculative-execution",
+                          "SpeculativeExecutionPass",
+                          [](bool OnlyIfDivergentTarget) {
+                            return SpeculativeExecutionPass(OnlyIfDivergentTarget);
+                          },
+                          parseSpeculativeExecutionPassOptions,
+                          "only-if-divergent-target")
 #undef FUNCTION_PASS_WITH_PARAMS
 
 #ifndef LOOPNEST_PASS

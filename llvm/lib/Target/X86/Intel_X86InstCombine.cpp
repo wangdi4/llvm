@@ -1,6 +1,6 @@
 //===--------- Intel_X86InstCombine.cpp - X86 Instruction Combine ---------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -59,11 +59,12 @@ public:
     AU.setPreservesCFG();
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<TargetPassConfig>();
     FunctionPass::getAnalysisUsage(AU);
   }
 
   bool doInitialization(Module &M) override {
-    auto *TPC = getAnalysisIfAvailable<TargetPassConfig>();
+    TPC = getAnalysisIfAvailable<TargetPassConfig>();
     if (!TPC)
       return false;
 
@@ -77,8 +78,6 @@ private:
   bool replaceFRem(Instruction &I);
   bool replaceX86IntrinsicToIR(Instruction &I);
   bool replaceLibmToSVML(Instruction &I);
-  bool replaceCall(Instruction &I);
-  bool replaceICmp(Instruction &I);
   bool replaceFDTest(Instruction &I);
 
   X86TargetMachine *TM = nullptr;
@@ -86,6 +85,7 @@ private:
   DominatorTree *DT = nullptr;
   TargetTransformInfo *TTI = nullptr;
   AssumptionCache *AC = nullptr;
+  TargetPassConfig *TPC = nullptr;
 };
 
 } // end anonymous namespace
@@ -138,7 +138,7 @@ bool X86InstCombine::replaceOrToAdd(Instruction &I) {
   }
 
   // Check if 'or' can be transformed to 'add'.
-  if (!haveNoCommonBitsSet(LHS, RHS, DL, AC, &I, DT))
+  if (!haveNoCommonBitsSet(LHS, RHS, SimplifyQuery(DL, DT, AC, &I)))
     return false;
 
   IRBuilder<> Builder(&I);
@@ -193,8 +193,7 @@ bool X86InstCombine::replaceFRem(Instruction &I) {
   return true;
 }
 
-static Value* replaceX86GatherToGather(IntrinsicInst* II) {
-
+static Value *replaceX86GatherToGather(IntrinsicInst *II) {
   switch (II->getIntrinsicID()) {
   case Intrinsic::x86_avx2_gather_d_d:
   case Intrinsic::x86_avx2_gather_d_d_256:
@@ -333,13 +332,6 @@ static Value* replaceX86GatherToGather(IntrinsicInst* II) {
   return NewGather;
 }
 
-bool X86InstCombine::replaceCall(Instruction &I) {
-  bool Changed = false;
-  Changed |= replaceLibmToSVML(I);
-  Changed |= replaceX86IntrinsicToIR(I);
-  return Changed;
-}
-
 // SVML's performance is better than libm for some math functions.
 // Try to use SVML version if possible.
 bool X86InstCombine::replaceLibmToSVML(Instruction &I) {
@@ -368,14 +360,12 @@ bool X86InstCombine::replaceX86IntrinsicToIR(Instruction &I) {
   if (!II)
     return false;
 
-  if (TTI->isAdvancedOptEnabled(
-    TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2) &&
-    (!TTI->isAdvancedOptEnabled(
-    TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512))) {
-    if (auto V = replaceX86GatherToGather(II)) {
-      replaceValue(I, *V);
-      return true;
-    }
+  if (ST && ST->preferGather())
+    return false;
+
+  if (auto V = replaceX86GatherToGather(II)) {
+    replaceValue(I, *V);
+    return true;
   }
 
   return false;
@@ -503,12 +493,6 @@ bool X86InstCombine::replaceFDTest(Instruction &I) {
   return true;
 }
 
-bool X86InstCombine::replaceICmp(Instruction &I) {
-  bool Changed = false;
-  Changed |= replaceFDTest(I);
-  return Changed;
-}
-
 bool X86InstCombine::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
@@ -523,6 +507,15 @@ bool X86InstCombine::runOnFunction(Function &F) {
 
   for (Instruction &I : make_early_inc_range(instructions(F))) {
     switch (I.getOpcode()) {
+    case Instruction::Call:
+      MadeChange |= replaceX86IntrinsicToIR(I);
+      break;
+    }
+  }
+
+  if (TPC && TPC->getOptLevel() >= CodeGenOptLevel::Aggressive) {
+    for (Instruction &I : make_early_inc_range(instructions(F))) {
+      switch (I.getOpcode()) {
       case Instruction::Or:
         MadeChange |= replaceOrToAdd(I);
         break;
@@ -530,11 +523,12 @@ bool X86InstCombine::runOnFunction(Function &F) {
         MadeChange |= replaceFRem(I);
         break;
       case Instruction::Call:
-        MadeChange |= replaceCall(I);
+        MadeChange |= replaceLibmToSVML(I);
         break;
       case Instruction::ICmp:
-        MadeChange |= replaceICmp(I);
+        MadeChange |= replaceFDTest(I);
         break;
+      }
     }
   }
 
@@ -545,4 +539,3 @@ bool X86InstCombine::runOnFunction(Function &F) {
 
   return MadeChange;
 }
-

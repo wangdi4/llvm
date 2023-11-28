@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,13 +14,11 @@
 
 #pragma once
 
-#include "cl_dev_backend_api.h"
-
 #include "CPUProgramBuilder.h"
 #include "CompileService.h"
 #include "ICompilerConfig.h"
 #include "ProgramBuilder.h"
-
+#include "cl_dev_backend_api.h"
 #include <string>
 
 namespace Intel {

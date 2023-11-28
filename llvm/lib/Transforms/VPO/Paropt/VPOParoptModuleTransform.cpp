@@ -318,7 +318,7 @@ void VPOParoptModuleTransform::createOCLPrintfDecl(Function *F) {
 
   // Create FunctionType for OCLPrintfDecl
   Type *ReturnTy = Type::getInt32Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C, ADDRESS_SPACE_CONSTANT /*=2*/);
+  Type *Int8PtrTy = PointerType::get(C, ADDRESS_SPACE_CONSTANT /*=2*/);
   FunctionType *FnTy = FunctionType::get(ReturnTy, {Int8PtrTy},
                                          /* varargs= */ true);
 
@@ -368,11 +368,11 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
   StringRef NewName;
   if (IsDouble) {
     FpTy = Type::getDoubleTy(C);
-    FpPtrTy = Type::getDoublePtrTy(C, ADDRESS_SPACE_GENERIC /*=4*/);
+    FpPtrTy = PointerType::get(C, ADDRESS_SPACE_GENERIC /*=4*/);
     NewName = "_Z18__spirv_ocl_sincosdPd";
   } else {
     FpTy = Type::getFloatTy(C);
-    FpPtrTy = Type::getFloatPtrTy(C, ADDRESS_SPACE_GENERIC /*=4*/);
+    FpPtrTy = PointerType::get(C, ADDRESS_SPACE_GENERIC /*=4*/);
     NewName = "_Z18__spirv_ocl_sincosfPf";
   }
   FunctionType *FnTy = FunctionType::get(FpTy, {FpTy, FpPtrTy}, false);
@@ -523,7 +523,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
                  dbgs() << "\n";);
       continue;
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass func: " << F->getName() << "\n");
     FnList.push_back(&*F);
   }
@@ -560,14 +560,18 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass before ParoptTransformer{\n");
 
     // AUTOPAR | OPENMP | SIMD | OFFLOAD
-    VPOParoptTransform VP(
-        this, F, &WI, WI.getDomTree(), WI.getLoopInfo(), WI.getSE(),
-        WI.getTargetTransformInfo(), WI.getAssumptionCache(),
-        WI.getTargetLibraryInfo(), WI.getAliasAnalysis(), Mode,
+    VPOParoptTransform VP(this, F, &WI, WI.getDomTree(), WI.getLoopInfo(),
+                          WI.getSE(), WI.getTargetTransformInfo(),
+                          WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
 #if INTEL_CUSTOMIZATION
-        ORVerbosity,
+                          WI.getAliasAnalysis(),
+                          /*MemorySSA=*/nullptr, Mode, ORVerbosity, WI.getORE(),
+                          OptLevel, DisableOffload);
+#else
+                          WI.getAliasAnalysis(), Mode, WI.getORE(), OptLevel,
+                          DisableOffload);
 #endif // INTEL_CUSTOMIZATION
-        WI.getORE(), OptLevel, DisableOffload);
+
     Changed = Changed | VP.paroptTransforms();
 
     LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");
@@ -591,7 +595,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
 #if INTEL_CUSTOMIZATION
   if (IsTargetSPIRV)
     Changed |= InferAddrSpacesForGlobals(vpo::ADDRESS_SPACE_GENERIC, M);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   if (!DisableOffload) {
     // Emit offload entries table.
@@ -958,8 +962,8 @@ StructType *VPOParoptModuleTransform::getTgtOffloadEntryTy() {
   bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
 
   SmallVector<Type *, 6> TyArgs = {
-    Type::getInt8PtrTy(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_GENERIC : 0),
-    Type::getInt8PtrTy(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_CONSTANT : 0),
+    PointerType::get(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_GENERIC : 0),
+    PointerType::get(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_CONSTANT : 0),
     GeneralUtils::getSizeTTy(&M),
     Type::getInt32Ty(C),
     Type::getInt32Ty(C)

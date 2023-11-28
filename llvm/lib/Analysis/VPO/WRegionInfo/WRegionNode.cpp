@@ -41,6 +41,8 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+extern cl::opt<bool> ParseTileAsInterleave;
+
 unsigned WRegionNode::UniqueNum(0);
 
 DenseMap<int, StringRef> llvm::vpo::WRNName = {
@@ -85,6 +87,7 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNTaskyield, "taskyield"},
     {WRegionNode::WRNScope, "scope"},
     {WRegionNode::WRNTile, "tile"},
+    {WRegionNode::WRNInterleave, "interleave"},
     {WRegionNode::WRNScan, "scan"},
 };
 
@@ -288,11 +291,13 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
     // before Paropt may have optimized away the loop.
     getWRNLoopInfo().setLoop(Lp);
 
-    if (Lp)
+    if (Lp) {
       LLVM_DEBUG(dbgs() << "\n=== finalize WRN: found loop : " << *Lp << "\n");
-    else
+    } else {
+      getWRNLoopInfo().setLoopOptimizedAway();
       LLVM_DEBUG(
-          dbgs() << "\n=== finalize WRN: loop not found. Optimized away?\n");
+          dbgs() << "\n=== finalize WRN: loop not found. Optimized away\n");
+    }
 
     // For taskloop, the runtime has a parameter for either Grainsize or
     // NumTasks, which is chosen by the parameter SchedCode:
@@ -543,6 +548,11 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
     PrintedSomething = true;
   }
 
+  if (getIsPerfectlyNested()) {
+    printBool("PEFECTLY_NESTED", true, OS, 2 * Depth, Verbosity);
+    PrintedSomething = true;
+  }
+
   if (canHaveDistSchedule())
     PrintedSomething |= getDistSchedule().print(OS, Depth, Verbosity);
 
@@ -647,6 +657,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveSizes())
     PrintedSomething |= getSizes().print(OS, Depth, Verbosity);
+
+  if (canHaveStrides())
+    PrintedSomething |= getStrides().print(OS, Depth, Verbosity);
 
   if (PrintedSomething)
     OS << "\n";
@@ -846,8 +859,9 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_NOGROUP:
     setNogroup(true);
     break;
-  case QUAL_OMP_PROC_BIND_MASTER:
-    setProcBind(WRNProcBindMaster);
+  case QUAL_OMP_PROC_BIND_PRIMARY:
+  case QUAL_OMP_PROC_BIND_MASTER: // TODO: remove when FE stop emiting master
+    setProcBind(WRNProcBindPrimary);
     break;
   case QUAL_OMP_PROC_BIND_CLOSE:
     setProcBind(WRNProcBindClose);
@@ -893,6 +907,9 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   }
   case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
     setHasTeamsReduction();
+    break;
+  case QUAL_OMP_PERFECTLY_NESTED:
+    setIsPerfectlyNested(true);
     break;
 #if INTEL_CUSTOMIZATION
   case QUAL_EXT_DO_CONCURRENT:
@@ -1034,17 +1051,12 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
   int ClauseID = ClauseInfo.getId();
   bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
   bool IsTyped = ClauseInfo.getIsTyped();
+  bool IsSubObject = ClauseInfo.getIsSubObject();
   if (ClauseID == QUAL_OMP_USE_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_USE_DEVICE_PTR;
     IsUseDeviceAddr = true;
-    if (ClauseInfo.getIsArraySection()) {
-      // With opaque pointers, the frontend should convert a
-      // "USE_DEVICE_ADDR:ARRSECT" into "MAP + USE_DEVICE_ADDR".
-      if (PointerType *PtrTy = cast<PointerType>(Args[0]->getType()))
-        if (!PtrTy->isOpaquePointerTy() &&
-            isa<PointerType>(PtrTy->getNonOpaquePointerElementType()))
-          IsPointerToPointer = true;
-    }
+    // With opaque pointers, the frontend should convert a
+    // "USE_DEVICE_ADDR:ARRSECT" into "MAP + USE_DEVICE_ADDR".
   } else if (ClauseID == QUAL_OMP_HAS_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_IS_DEVICE_PTR;
   }
@@ -1053,6 +1065,8 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
   for (unsigned I = 0; I < NumArgs; ++I) {
     Value *V = Args[I];
     C.add(V);
+    if (IsSubObject)
+      C.back()->setIsSubObject(true);
     if (IsByRef)
       C.back()->setIsByRef(true);
     if (IsPointerToPointer)
@@ -1115,6 +1129,7 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   int ClauseID = ClauseInfo.getId();
   C.setClauseID(ClauseID);
   bool IsTyped = ClauseInfo.getIsTyped();
+  bool IsSubObject = ClauseInfo.getIsSubObject();
   // Example of a non-Typed POD clause: "QUAL.OMP.PRIVATE"(var)
   // Example of a Typed POD clause: "QUAL.OMP.PRIVATE:TYPED"(var, type, number
   // of elements) Example of a non-Typed nonPOD clause: "QUAL.OMP.PRIVATE"(var,
@@ -1150,6 +1165,8 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
          "NonPod can't be conditional by OMP standard.");
 
   auto addModifiersToItem = [&](ClauseItemTy *I) {
+    if (IsSubObject)
+      I->setIsSubObject(true);
     if (IsByRef)
       I->setIsByRef(true);
     if (IsConditional)
@@ -1384,6 +1401,7 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
       MI->setIsByRef(ClauseInfo.getIsByRef());
       MI->setIsFunctionPointer(ClauseInfo.getIsFunctionPointer());
       MI->setIsVarLen(ClauseInfo.getIsVarLen());
+      MI->setIsSubObject(ClauseInfo.getIsSubObject());
       C.add(MI);
     } else {         // Continue the chain for the last MapItem
       MI = C.back(); // Get the last MapItem in the MapClause
@@ -1460,6 +1478,20 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
   }
 }
 
+void WRegionNode::extractLiveinOpndList(const Use *Args, unsigned NumArgs,
+                                        const ClauseSpecifier &ClauseInfo,
+                                        LiveinClause &C) {
+  // TODO: Assert to ensure only one LIVEIN operand per bundle.
+  C.setClauseID(ClauseInfo.getId());
+  bool IsSubObject = ClauseInfo.getIsSubObject();
+  for (unsigned I = 0; I < NumArgs; ++I) {
+    Value *V = Args[I];
+    C.add(V);
+    if (IsSubObject)
+      C.back()->setIsSubObject(true);
+  }
+}
+
 void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
                                         const ClauseSpecifier &ClauseInfo,
                                         LinearClause &C) {
@@ -1492,6 +1524,7 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
     LinearItem *LI = C.back();
     LI->setStep(StepValue);
     LI->setIsByRef(ClauseInfo.getIsByRef());
+    LI->setIsSubObject(ClauseInfo.getIsSubObject());
     LI->setIsIV(ClauseInfo.getIsIV());
     if (ClauseInfo.getIsPointerToPointer()) {
       LI->setIsPointerToPointer(true);
@@ -1586,6 +1619,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setIsInReduction(IsInReduction);
     RI->setIsPointerToPointer(ClauseInfo.getIsPointerToPointer());
     RI->setIsByRef(ClauseInfo.getIsByRef());
+    RI->setIsSubObject(ClauseInfo.getIsSubObject());
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(C.getClauseID()))
@@ -1693,6 +1727,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       RI->setIsComplex(IsComplex);
       RI->setIsInReduction(IsInReduction);
       RI->setIsByRef(ClauseInfo.getIsByRef());
+      RI->setIsSubObject(ClauseInfo.getIsSubObject());
 
 #if INTEL_CUSTOMIZATION
       if (!CurrentBundleDDRefs.empty() &&
@@ -2068,11 +2103,21 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_SIZES: {
-    extractQualOpndList<SizesClause>(Args, NumArgs, ClauseID, getSizes());
+    if (ParseTileAsInterleave) {
+      extractQualOpndList<StridesClause>(Args, NumArgs, QUAL_OMP_STRIDES,
+                                         getStrides());
+      LLVM_DEBUG(dbgs() << "Parsed SIZES as a STRIDES clause.\n");
+    } else {
+      extractQualOpndList<SizesClause>(Args, NumArgs, ClauseID, getSizes());
+    }
+    break;
+  }
+  case QUAL_OMP_STRIDES: {
+    extractQualOpndList<StridesClause>(Args, NumArgs, ClauseID, getStrides());
     break;
   }
   case QUAL_OMP_LIVEIN: {
-    extractQualOpndList<LiveinClause>(Args, NumArgs, ClauseID, getLivein());
+    extractLiveinOpndList(Args, NumArgs, ClauseInfo, getLivein());
     break;
   }
   case QUAL_OMP_ALLOCATE: {
@@ -2241,12 +2286,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         break;
       }
       Type *VTy = nullptr;
-      if (ClauseInfo.getIsTyped())
+      if (ClauseInfo.getIsTyped()) {
         VTy = Args[++I]->getType();
-      else
-        VTy = isa<PointerType>(V->getType())
-                  ? V->getType()->getNonOpaquePointerElementType()
-                  : V->getType();
+      } else {
+        assert(!isa<PointerType>(V->getType()) &&
+               "Only typed clauses are supported for pointer Norm IVs.");
+        VTy = V->getType();
+      }
       getWRNLoopInfo().addNormIV(V, VTy);
     }
     break;
@@ -2259,12 +2305,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         break;
       }
       Type *VTy = nullptr;
-      if (ClauseInfo.getIsTyped())
+      if (ClauseInfo.getIsTyped()) {
         VTy = Args[++I]->getType();
-      else
-        VTy = isa<PointerType>(V->getType())
-                  ? V->getType()->getNonOpaquePointerElementType()
-                  : V->getType();
+      } else {
+        assert(!isa<PointerType>(V->getType()) &&
+               "Only typed clauses are supported for pointer Norm UBs.");
+        VTy = V->getType();
+      }
       getWRNLoopInfo().addNormUB(V, VTy);
     }
     break;
@@ -2299,12 +2346,8 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       assert(NumArgs == 1 && "NUM_TEAMS must have one argument.");
       setNumTeams(Args[0]);
       Type *ItemTy = Args[0]->getType();
-      if (auto *PtrTy = dyn_cast<PointerType>(ItemTy)) {
-        // OPAQUEPOINTER: replace this with llvm_unreachable.
-        assert(!PtrTy->isOpaque() &&
-               "NUM_TEAMS must be typed, when opaque pointers are enabled.");
-        ItemTy = PtrTy->getNonOpaquePointerElementType();
-      }
+      if (auto *PtrTy = dyn_cast<PointerType>(ItemTy))
+        llvm_unreachable("NUM_TEAMS must be typed");
       setNumTeamsType(ItemTy);
       break;
     }
@@ -2317,12 +2360,8 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       assert(NumArgs == 1 && "THREAD_LIMIT must have one argument.");
       setThreadLimit(Args[0]);
       Type *ItemTy = Args[0]->getType();
-      if (auto *PtrTy = dyn_cast<PointerType>(ItemTy)) {
-        // OPAQUEPOINTER: replace this with llvm_unreachable.
-        assert(!PtrTy->isOpaque() &&
-               "THREAD_LIMIT must be typed, when opaque pointers are enabled.");
-        ItemTy = PtrTy->getNonOpaquePointerElementType();
-      }
+      if (auto *PtrTy = dyn_cast<PointerType>(ItemTy))
+        llvm_unreachable("THREAD_LIMIT must be typed!");
       setThreadLimitType(ItemTy);
       break;
     }
@@ -2473,7 +2512,8 @@ bool WRegionNode::canHavePrivate() const {
 
 bool WRegionNode::canHaveFirstprivate() const {
   unsigned SubClassID = getWRegionKindID();
-  if (SubClassID == WRNTile) // TODO: remove Firstprivate from Tile
+  if (SubClassID == WRNTile ||     // TODO: remove Firstprivate from Tile
+      SubClassID == WRNInterleave) // TODO: remove Firstprivate from Interleave
     return true;
   if (SubClassID == WRNVecLoop)
     return false;
@@ -2855,6 +2895,15 @@ bool WRegionNode::canHaveSizes() const {
   return false;
 }
 
+bool WRegionNode::canHaveStrides() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNInterleave:
+    return true;
+  }
+  return false;
+}
+
 bool WRegionNode::canHaveLivein() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
@@ -2864,6 +2913,7 @@ bool WRegionNode::canHaveLivein() const {
   case WRNTarget:
   case WRNTargetData:
   case WRNTile:
+  case WRNInterleave:
   case WRNGuardMemMotion:
   case WRNTask:
     return true;

@@ -13,7 +13,7 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
-//==------------- math.hpp - Intel specific math API -----------------------==//
+//==-------------- math.hpp - Intel specific math API ----------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -24,11 +24,6 @@
 //===----------------------------------------------------------------------===//
 
 #pragma once
-#include <sycl/builtins.hpp>
-#include <sycl/ext/intel/math/imf_half_trivial.hpp>
-#include <sycl/ext/intel/math/imf_simd.hpp>
-#include <sycl/half_type.hpp>
-#include <type_traits>
 
 // _iml_half_internal is internal representation for fp16 type used in intel
 // math device library. The definition here should align with definition in
@@ -36,8 +31,18 @@
 #if defined(__SPIR__)
 using _iml_half_internal = _Float16;
 #else
+#include <cstdint> // for uint16_t
 using _iml_half_internal = uint16_t;
 #endif
+
+#include <sycl/builtins.hpp>
+#include <sycl/ext/intel/math/imf_fp_conversions.hpp>
+#include <sycl/ext/intel/math/imf_half_trivial.hpp>
+#include <sycl/ext/intel/math/imf_rounding_math.hpp>
+#include <sycl/ext/intel/math/imf_simd.hpp>
+#include <sycl/ext/oneapi/bfloat16.hpp>
+#include <sycl/half_type.hpp>
+#include <type_traits>
 
 extern "C" {
 float __imf_saturatef(float);
@@ -91,10 +96,12 @@ float __imf_j0f(float);
 double __imf_j0(double);
 float __imf_j1f(float);
 double __imf_j1(double);
+float __imf_jnf(int, float);
 float __imf_y0f(float);
 double __imf_y0(double);
 float __imf_y1f(float);
 double __imf_y1(double);
+float __imf_ynf(int, float);
 /* end INTEL_CUSTOMIZATION */
 float __imf_ceilf(float);
 double __imf_ceil(double);
@@ -431,6 +438,11 @@ std::enable_if_t<std::is_same_v<Tp, double>, double> j1(Tp x) {
 }
 
 template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, float>, float> jn(int n, Tp x) {
+  return __imf_jnf(n, x);
+}
+
+template <typename Tp>
 std::enable_if_t<std::is_same_v<Tp, float>, float> y0(Tp x) {
   return __imf_y0f(x);
 }
@@ -448,6 +460,11 @@ std::enable_if_t<std::is_same_v<Tp, float>, float> y1(Tp x) {
 template <typename Tp>
 std::enable_if_t<std::is_same_v<Tp, double>, double> y1(Tp x) {
   return __imf_y1(x);
+}
+
+template <typename Tp>
+std::enable_if_t<std::is_same_v<Tp, float>, float> yn(int n, Tp x) {
+  return __imf_ynf(n, x);
 }
 
 /* end INTEL_CUSTOMIZATION */

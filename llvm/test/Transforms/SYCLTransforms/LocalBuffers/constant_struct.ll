@@ -7,7 +7,7 @@ define void @test() {
 ; CHECK-LABEL: define void @test
 ; CHECK-NEXT: [[GEP:%[0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
 ; CHECK-NEXT: [[ASC:%[0-9]+]] = addrspacecast ptr addrspace(3) [[GEP]] to ptr
-; CHECK-NEXT: %[[INSERT:.*]] = insertvalue { ptr, i8 } undef, ptr [[ASC]], 0
+; CHECK-NEXT: %[[INSERT:.*]] = insertvalue { ptr, i8 } poison, ptr [[ASC]], 0
 ; CHECK-NEXT: %[[INSERT1:.*]] = insertvalue { ptr, i8 } %[[INSERT]], i8 0, 1
 ; CHECK-NEXT: extractvalue { ptr, i8 } %[[INSERT1]], 0
 ; CHECK-NEXT: ret void

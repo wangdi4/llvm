@@ -1,6 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-pc-windows-msvc -emit-dtrans-info -fintel-compatibility -emit-llvm -no-opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-pc-windows-msvc -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-pc-windows-msvc -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
 class HasPMFToCompleteClass {
 public:
@@ -111,20 +110,8 @@ void use() {
 
 // If these ever change (beyond to opaque-ptr) we need to confirm that the
 // dtrans info matches.
-// PTR: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" = type { { i8*, i32, i32, i32 } }
-// PTR: %"struct..?AUContainsBoth@@.ContainsBoth" = type 
 // PTR-SAME: { %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass", 
 // PTR-SAME: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" }
-// PTR: %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass" = type { i8* } 
-// PTR: %"class..?AVVirtualWithBase@@.VirtualWithBase" = type { i32 (...)** }
-// PTR: %"class..?AVVirtual@@.Virtual" = type { i32 (...)** } 
-// PTR: %"class..?AVPtrToHas1Base@@.PtrToHas1Base" = type { i8* } 
-// PTR: %"class..?AVPtrToHas2Base@@.PtrToHas2Base" = type { { i8*, i32 } } 
-// PTR: %"class..?AVPtrToHas3Base@@.PtrToHas3Base" = type { { i8*, i32 } } 
-// PTR: %"class..?AVPtrToHas4Base@@.PtrToHas4Base" = type { { i8*, i32 } } 
-// PTR: %"class..?AVPtrToHas5Base@@.PtrToHas5Base" = type { { i8*, i32 } } 
-// PTR: %"class..?AVPtrToHas6Base@@.PtrToHas6Base" = type { { i8*, i32 } } 
-// PTR: %"class..?AVPtrToHas7Base@@.PtrToHas7Base" = type { { i8*, i32 } } 
 
 // Order changes for Opaque Ptr?
 // OPQ: %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass" = type { ptr } 
@@ -143,26 +130,26 @@ void use() {
 // OPQ: %"class..?AVVirtual@@.Virtual" = type { ptr } 
 
 // DTrans info for the above classes:
-// CHECK: !intel.dtrans.types = !{![[INCOMPLETE:[0-9]+]], ![[BOTH:[0-9]+]], 
-// CHECK-SAME: ![[COMPLETE:[0-9]+]], ![[VIRT_W_BASE:[0-9]+]], ![[VIRT:[0-9]+]],
+// CHECK: !intel.dtrans.types = !{![[COMPLETE:[0-9]+]], ![[INCOMPLETE:[0-9]+]], 
+// CHECK-SAME: ![[BOTH:[0-9]+]], ![[VIRT_W_BASE:[0-9]+]], ![[VIRT:[0-9]+]],
 // CHECK-SAME: ![[PTR1BASE:[0-9]+]], ![[PTR2BASE:[0-9]+]], ![[PTR3BASE:[0-9]+]],
 // CHECK-SAME: ![[PTR4BASE:[0-9]+]], ![[PTR5BASE:[0-9]+]], ![[PTR6BASE:[0-9]+]],
 // CHECK-SAME: ![[PTR7BASE:[0-9]+]]}
 
+// HasPMFToIncompleteClass is represented as just an i8*.
+// CHECK: ![[COMPLETE]] = !{!"S", %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass" zeroinitializer, i32 1, ![[I8PTR:[0-9]+]]}
+// CHECK: ![[I8PTR]] = !{i8 0, i32 1}
 // CHECK: ![[INCOMPLETE]] = !{!"S", %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" zeroinitializer, i32 1, ![[PMF_STRUCT_PTR:[0-9]+]]}
 // CHECK: ![[PMF_STRUCT_PTR]] = !{![[PMF_STRUCT:[0-9]+]], i32 0}
+
 // HasPMFToIncompleteClass is represented as a literal struct of { i8*, i32, i32, i32 }
-// CHECK: ![[PMF_STRUCT]] = !{!"L", i32 4, ![[I8PTR:[0-9]+]], ![[I32:[0-9]+]], ![[I32]], ![[I32]]}
-// CHECK: ![[I8PTR]] = !{i8 0, i32 1}
+// CHECK: ![[PMF_STRUCT]] = !{!"L", i32 4, ![[I8PTR]], ![[I32:[0-9]+]], ![[I32]], ![[I32]]}
 // CHECK: ![[I32]] = !{i32 0, i32 0}
 
 // ContainsBoth just has an element of the complete, and incomplete types.
 // CHECK: ![[BOTH]] = !{!"S", %"struct..?AUContainsBoth@@.ContainsBoth" zeroinitializer, i32 2, ![[COMPLETE_ELEM:[0-9]+]], ![[INCOMPLETE_ELEM:[0-9]+]]}
 // CHECK: ![[COMPLETE_ELEM]] = !{%"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass" zeroinitializer, i32 0}
 // CHECK: ![[INCOMPLETE_ELEM]] = !{%"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" zeroinitializer, i32 0}
-
-// HasPMFToIncompleteClass is represented as just an i8*.
-// CHECK: ![[COMPLETE]] = !{!"S", %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass" zeroinitializer, i32 1, ![[I8PTR]]}
 
 // VirtualWithBase should be an i32 (...)**.
 // CHECK: ![[VIRT_W_BASE]] = !{!"S", %"class..?AVVirtualWithBase@@.VirtualWithBase" zeroinitializer, i32 1, ![[FUNC_PTR:[0-9]+]]}

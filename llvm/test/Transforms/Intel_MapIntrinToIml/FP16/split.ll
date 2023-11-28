@@ -1,5 +1,5 @@
 ; Check split FP16 SVML calls are generated correctly when needed
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vector-library=SVML -iml-trans -S < %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -192,15 +192,15 @@ entry:
 ; CHECK: [[COS:%.*]] = shufflevector <8 x half> [[COS1]], <8 x half> [[COS2]], <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; CHECK: [[RESULT:%.*]] = insertvalue { <16 x half>, <16 x half> } [[TMP1]], <16 x half> [[COS]], 1
 ; CHECK: [[COS_RET:%.*]] = extractvalue { <16 x half>, <16 x half> } [[RESULT]], 1
-; CHECK: store <16 x half> [[COS_RET]], <16 x half>* %p, align 32
+; CHECK: store <16 x half> [[COS_RET]], ptr %p, align 32
 ; CHECK: [[SIN_RET:%.*]] = extractvalue { <16 x half>, <16 x half> } [[RESULT]], 0
 ; CHECK: ret <16 x half> [[SIN_RET]]
 
-define <16 x half> @test_sincoss16(<16 x half>* nocapture %p, <16 x half> %a) #0 {
+define <16 x half> @test_sincoss16(ptr nocapture %p, <16 x half> %a) #0 {
 entry:
   %0 = tail call svml_cc { <16 x half>, <16 x half> } @__svml_sincoss16(<16 x half> %a)
   %1 = extractvalue { <16 x half>, <16 x half> } %0, 1
-  store <16 x half> %1, <16 x half>* %p, align 32
+  store <16 x half> %1, ptr %p, align 32
   %2 = extractvalue { <16 x half>, <16 x half> } %0, 0
   ret <16 x half> %2
 }
@@ -231,15 +231,15 @@ entry:
 ; CHECK: [[COS:%.*]] = shufflevector <16 x half> [[COS12]], <16 x half> [[COS34]], <32 x i32>  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
 ; CHECK: [[RESULT:%.*]] = insertvalue { <32 x half>, <32 x half> } [[TMP1]], <32 x half> [[COS]], 1
 ; CHECK: [[COS_RET:%.*]] = extractvalue { <32 x half>, <32 x half> } [[RESULT]], 1
-; CHECK: store <32 x half> [[COS_RET]], <32 x half>* %p, align 32
+; CHECK: store <32 x half> [[COS_RET]], ptr %p, align 32
 ; CHECK: [[SIN_RET:%.*]] = extractvalue { <32 x half>, <32 x half> } [[RESULT]], 0
 ; CHECK: ret <32 x half> [[SIN_RET]]
 
-define <32 x half> @test_sincoss32(<32 x half>* nocapture %p, <32 x half> %a) #0 {
+define <32 x half> @test_sincoss32(ptr nocapture %p, <32 x half> %a) #0 {
 entry:
   %0 = tail call svml_cc { <32 x half>, <32 x half> } @__svml_sincoss32(<32 x half> %a)
   %1 = extractvalue { <32 x half>, <32 x half> } %0, 1
-  store <32 x half> %1, <32 x half>* %p, align 32
+  store <32 x half> %1, ptr %p, align 32
   %2 = extractvalue { <32 x half>, <32 x half> } %0, 0
   ret <32 x half> %2
 }
@@ -282,18 +282,18 @@ entry:
 ; CHECK: [[COS_COMBINED:%.*]] = select <32 x i1> [[MASK]], <32 x half> [[COS]], <32 x half> [[COS_SRC]]
 ; CHECK: [[RESULT:%.*]] = insertvalue { <32 x half>, <32 x half> } [[TMP2]], <32 x half> [[COS_COMBINED]], 1
 ; CHECK: [[COS_RET:%.*]] = extractvalue { <32 x half>, <32 x half> } [[RESULT]], 1
-; CHECK: store <32 x half> [[COS_RET]], <32 x half>* %A, align 64
+; CHECK: store <32 x half> [[COS_RET]], ptr %A, align 64
 ; CHECK: [[SIN_RET:%.*]] = extractvalue { <32 x half>, <32 x half> } [[RESULT]], 0
 ; CHECK: ret <32 x half> [[SIN_RET]]
 
-define <32 x half> @test_sincoss32_mask(<32 x half>* nocapture %A, <32 x half> %B, <32 x half> %C, i32 zeroext %D, <32 x half> %E) #0 {
+define <32 x half> @test_sincoss32_mask(ptr nocapture %A, <32 x half> %B, <32 x half> %C, i32 zeroext %D, <32 x half> %E) #0 {
 entry:
   %0 = bitcast i32 %D to <32 x i1>
   %1 = insertvalue { <32 x half>, <32 x half> } undef, <32 x half> %B, 0
   %2 = insertvalue { <32 x half>, <32 x half> } %1, <32 x half> %C, 1
   %3 = tail call svml_cc { <32 x half>, <32 x half> } @__svml_sincoss32_mask({ <32 x half>, <32 x half> } %2, <32 x i1> %0, <32 x half> %E)
   %4 = extractvalue { <32 x half>, <32 x half> } %3, 1
-  store <32 x half> %4, <32 x half>* %A, align 64
+  store <32 x half> %4, ptr %A, align 64
   %5 = extractvalue { <32 x half>, <32 x half> } %3, 0
   ret <32 x half> %5
 }
@@ -327,18 +327,18 @@ entry:
 ; CHECK: [[COS:%.*]] = shufflevector <32 x half> [[COS1]], <32 x half> [[COS2]], <64 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31, i32 32, i32 33, i32 34, i32 35, i32 36, i32 37, i32 38, i32 39, i32 40, i32 41, i32 42, i32 43, i32 44, i32 45, i32 46, i32 47, i32 48, i32 49, i32 50, i32 51, i32 52, i32 53, i32 54, i32 55, i32 56, i32 57, i32 58, i32 59, i32 60, i32 61, i32 62, i32 63>
 ; CHECK: [[RESULT:%.*]] = insertvalue { <64 x half>, <64 x half> } [[RESULT_TMP]], <64 x half> [[COS]], 1
 ; CHECK: [[COS_RET:%.*]] = extractvalue { <64 x half>, <64 x half> } [[RESULT]], 1
-; CHECK: store <64 x half> [[COS_RET]], <64 x half>* %A, align 64
+; CHECK: store <64 x half> [[COS_RET]], ptr %A, align 64
 ; CHECK: [[SIN_RET:%.*]] = extractvalue { <64 x half>, <64 x half> } [[RESULT]], 0
 ; CHECK: ret <64 x half> [[SIN_RET]]
 
-define <64 x half> @test_sincoss64_mask_split_to_avx512(<64 x half>* nocapture %A, <64 x half> %B, <64 x half> %C, i64 zeroext %D, <64 x half> %E) #1 {
+define <64 x half> @test_sincoss64_mask_split_to_avx512(ptr nocapture %A, <64 x half> %B, <64 x half> %C, i64 zeroext %D, <64 x half> %E) #1 {
 entry:
   %0 = bitcast i64 %D to <64 x i1>
   %1 = insertvalue { <64 x half>, <64 x half> } undef, <64 x half> %B, 0
   %2 = insertvalue { <64 x half>, <64 x half> } %1, <64 x half> %C, 1
   %3 = tail call svml_cc { <64 x half>, <64 x half> } @__svml_sincoss64_mask({ <64 x half>, <64 x half> } %2, <64 x i1> %0, <64 x half> %E)
   %4 = extractvalue { <64 x half>, <64 x half> } %3, 1
-  store <64 x half> %4, <64 x half>* %A, align 64
+  store <64 x half> %4, ptr %A, align 64
   %5 = extractvalue { <64 x half>, <64 x half> } %3, 0
   ret <64 x half> %5
 }

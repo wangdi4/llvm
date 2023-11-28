@@ -25,10 +25,10 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @main() {
 ; CHECK-LABEL:  Idiom List
 ; CHECK-NEXT:    No idioms detected.
-; CHECK-NEXT:  9:14 ([[DN0:%.*]])[0][i1 + 3] --> ([[DN0]])[0][i1 + 2] FLOW (<) (1)
-; CHECK-NEXT:    DV is not refinable - unsafe to vectorize
-; CHECK-NEXT:  9:16 ([[DN0]])[0][i1 + 3] --> ([[DN0]])[0][i1 + 2] OUTPUT (<) (1)
-; CHECK-NEXT:    DV is not refinable - unsafe to vectorize
+; CHECK-NEXT:  ([[DN0:%.*]])[0][i1 + 3] --> ([[DN0]])[0][i1 + 2] FLOW (<) (1)
+; CHECK-NEXT:    is unsafe to vectorize
+; CHECK-NEXT:  ([[DN0]])[0][i1 + 3] --> ([[DN0]])[0][i1 + 2] OUTPUT (<) (1)
+; CHECK-NEXT:    is unsafe to vectorize
 
 entry:
   %dn = alloca [100 x i32], align 16

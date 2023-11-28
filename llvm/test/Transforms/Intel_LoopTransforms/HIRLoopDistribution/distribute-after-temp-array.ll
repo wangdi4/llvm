@@ -80,7 +80,7 @@
 ;         {
 ;           if (%tmp443 == 0)
 ;           {
-; CHECK:      %call = @llvm.stacksave();
+; CHECK:      %call = @llvm.stacksave.p0();
 ;             %array_size = zext.i32.i64((1 + %arg3)) + -1 *  zext.i32.i64((1 + %arg2)) + -1;
 ;             %array_size3 = zext.i32.i64((1 + %tmp578a)) + -1  *  %array_size;
 ;             %TempArray = alloca %array_size3;
@@ -135,7 +135,7 @@
 ;             |   + END LOOP
 ;             + END LOOP
 ;
-; CHECK:      @llvm.stackrestore(&((%call)[0]));
+; CHECK:      @llvm.stackrestore.p0(&((%call)[0]));
 ;           }
 ;         }
 ; CHECK:END REGION

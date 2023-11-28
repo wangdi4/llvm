@@ -3,7 +3,7 @@
 ;
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-soa-hir=0 -vplan-enable-hir-private-arrays < %s 2>&1 | FileCheck %s --check-prefix=NOSOA
 ;
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -disable-output -vplan-force-vf=4 -intel-opt-report=high -vplan-enable-hir-private-arrays < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -disable-output -vplan-force-vf=4 -intel-opt-report=high -vplan-enable-hir-private-arrays < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
 ;
 ; SOA transformation for privates is not implemented currently in the VPlan HIR
 ; path. This can lead to performance regressions in cases where we go through

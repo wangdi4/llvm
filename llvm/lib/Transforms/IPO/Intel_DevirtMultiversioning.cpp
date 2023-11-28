@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_DTRANS
 //=- Intel_DevirtMultiversioning.cpp - Intel Devirtualization Multiversion --=//
 //
-// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -148,11 +148,6 @@ static cl::opt<unsigned>
 static cl::opt<bool>
     WPDevirtMultiversionVerify("wholeprogramdevirt-multiversion-verify",
                                cl::init(false), cl::ReallyHidden);
-
-// Enable downcasting filtering for opaque pointers and DTrans metadata
-static cl::opt<bool>
-    WPDevirtDownCastingFilteringForOP("wholeprogramdevirt-downcasting-filter",
-                                      cl::init(true), cl::ReallyHidden);
 
 IntelDevirtMultiversion::IntelDevirtMultiversion(
     Module &M, WholeProgramInfo &WPInfo,
@@ -333,20 +328,16 @@ bool IntelDevirtMultiversion::createCallSiteBasicBlocks(
     if (TargetFunc->getFunctionType() != VCallSite->getFunctionType())
       NewCB->setCalledOperand(ConstantExpr::getBitCast(
           TargetFunc, VCallSite->getCalledOperand()->getType()));
-
     else
       NewCB->setCalledFunction(TargetFunc);
 
-    if (!M.getContext().supportsTypedPointers() ||
-        TargetFunc->getFunctionType() != VCallSite->getFunctionType()) {
-      // Because a bitcast operation has been performed to match the callsite to
-      // the call target for the object type, mark the call to allow DTrans
-      // analysis to treat the 'this' pointer argument as being the expected
-      // type for the call, rather than a mismatched argument type. The
-      // devirtualizer has proven the types to match, so this marking avoids
-      // needing to try to prove the types match again during DTrans analysis.
-      NewCB->setMetadata("_Intel.Devirt.Call", DevirtCallMDNode);
-    }
+    // Because a bitcast operation has been performed to match the callsite to
+    // the call target for the object type, mark the call to allow DTrans
+    // analysis to treat the 'this' pointer argument as being the expected
+    // type for the call, rather than a mismatched argument type. The
+    // devirtualizer has proven the types to match, so this marking avoids
+    // needing to try to prove the types match again during DTrans analysis.
+    NewCB->setMetadata("_Intel.Devirt.Call", DevirtCallMDNode);
 
     // Save the new instruction for PHINode
     NewTarget->CallInstruction = NewCB;
@@ -532,10 +523,7 @@ void IntelDevirtMultiversion::generateBranching(
 
   Builder.SetInsertPoint(MainBB);
 
-  // NOTE: For now we are going to use getInt8PtrTy to create an i8* pointer.
-  // It also supports opaque pointers. If the community decides to remove its
-  // support then we need to update it.
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(M.getContext());
+  PointerType *Int8PtrTy = PointerType::getUnqual(M.getContext());
 
   BitCastInst *DefaultAddress =
       new BitCastInst(DefaultTarget->TargetFunc, Int8PtrTy);
@@ -843,96 +831,6 @@ static bool DowncastingFound(StructType *SrcType, StructType *DestType) {
 }
 
 // Collect the calls to the assume function that may produce a downcasting.
-// This is used in the case of non-opaque pointers where we can identify
-// the pointer types casting.
-void IntelDevirtMultiversion::collectAssumeCallSitesNonOpaque(
-    Function *AssumeFunc, std::vector<CallBase *> &AssumesVector) {
-
-  // Given a Type, find the first non-pointer type that it points-to.
-  auto GetElemType = [](llvm::Type *InputType) {
-    Type *RootType = nullptr;
-
-    if (!InputType)
-      return RootType;
-
-    RootType = InputType;
-
-    // We can use getElementType here since we have typed pointers.
-    while (RootType && RootType->isPointerTy()) {
-      RootType = RootType->getNonOpaquePointerElementType();
-    }
-
-    return RootType;
-  };
-
-  if (!AssumeFunc || !AssumeFunc->isIntrinsic() ||
-      AssumeFunc->getIntrinsicID() != Intrinsic::assume)
-    return;
-
-  // This process is for typed pointers only
-  if (!AssumeFunc->getParent()->getContext().supportsTypedPointers())
-    return;
-
-  // Go through each of the users for the intrinsic assume
-  for (User *User : AssumeFunc->users()) {
-
-    CallBase *AssumeCall = dyn_cast<CallBase>(User);
-    if (!AssumeCall)
-      continue;
-
-    // Collect type.test intrinsic
-    CallBase *TestCall = dyn_cast<CallBase>(AssumeCall->getArgOperand(0));
-    if (!TestCall)
-      continue;
-
-    // Collect the VTable that the metadata is being assigned to
-    BitCastInst *VTableBCInst =
-        dyn_cast<BitCastInst>(TestCall->getArgOperand(0));
-    if (!VTableBCInst)
-      continue;
-
-    // Get the pointer loaded
-    LoadInst *LoadPtr = dyn_cast<LoadInst>(VTableBCInst->getOperand(0));
-    if (!LoadPtr)
-      continue;
-
-    // Collect the bitcasting from base to derived
-    BitCastInst *TypeCasting = dyn_cast<BitCastInst>(LoadPtr->getOperand(0));
-    if (!TypeCasting)
-      continue;
-
-    // Get the source
-    StructType *SrcType =
-        dyn_cast<StructType>(GetElemType(TypeCasting->getSrcTy()));
-    if (!SrcType)
-      continue;
-
-    // Get the destination
-    FunctionType *DestType =
-        dyn_cast<FunctionType>(GetElemType(TypeCasting->getDestTy()));
-    if (!DestType)
-      continue;
-    // Go through each parameter of the virtual function and check
-    // if there is a possible downcasting
-    unsigned NumParams = DestType->getNumParams();
-    for (unsigned CurrParam = 0; CurrParam < NumParams; CurrParam++) {
-      StructType *ParamStruct =
-          dyn_cast<StructType>(GetElemType(DestType->getParamType(CurrParam)));
-
-      if (!ParamStruct)
-        continue;
-
-      // If SrcType is in ParamStruct's element types list then
-      // we found a possible downcasting (Base -> Derived).
-      if (DowncastingFound(SrcType, ParamStruct)) {
-        AssumesVector.push_back(AssumeCall);
-        break;
-      }
-    }
-  }
-}
-
-// Collect the calls to the assume function that may produce a downcasting.
 // This is used in the case of opaque pointers where we need to do a pointer
 // analysis in order to collect the information.
 void IntelDevirtMultiversion::collectAssumeCallSitesOpaque(
@@ -1120,44 +1018,35 @@ void IntelDevirtMultiversion::filterDowncasting(Function *AssumeFunc) {
   // Vector that holds the assume callsites that will be removed
   std::vector<CallBase *> AssumesVector;
 
-  if (WPDevirtDownCastingFilteringForOP) {
-    // If we have DTrans metadata then we are going to collect the information
-    // from the DTrans pointer analyzer. In the case of opaque pointers the
-    // pattern will look as follows:
-    //
-    //   %tmp = load ptr, ptr %p, align 8, !tbaa !75
-    //   %tmp2 = tail call i1 @llvm.type.test(ptr %tmp,
-    //                                        metadata !"_ZTS8DerivedB")
-    //   tail call void @llvm.assume(i1 %tmp2)
-    //   %tmp3 = load ptr, ptr %tmp, align 8
-    //   tail call void %tmp3(ptr nonnull align 8 dereferenceable(8) %p)
-    //
-    // Basically, there is going to be a loaded pointer (vtable %tmp) and will
-    // be used to check the type.test metadata. Then the virtual function is
-    // loaded (%tmp3). What we are looking for is if we have a dominant type
-    // for the vtable, then the derived type should not be in the list of
-    // dominant types. If we can't prove that there is a dominant type, then
-    // the virtual call will be multiversioned with the default case included.
-    NamedMDNode *DTransMDTypes = M.getNamedMetadata("intel.dtrans.types");
-    if (DTransMDTypes) {
-      LLVMContext &Ctx = M.getContext();
-      DTransTypeManager TM(Ctx);
-      TypeMetadataReader Reader(TM);
-      if (Reader.initialize(M)) {
-        const DataLayout &DL = M.getDataLayout();
-        dtransOP::PtrTypeAnalyzer Analyzer(Ctx, TM, Reader, DL, GetTLI);
-        Analyzer.run(M);
-        collectAssumeCallSitesOpaque(AssumeFunc, AssumesVector, Analyzer,
-                                     Reader);
-      }
+  // If we have DTrans metadata then we are going to collect the information
+  // from the DTrans pointer analyzer. In the case of opaque pointers the
+  // pattern will look as follows:
+  //
+  //   %tmp = load ptr, ptr %p, align 8, !tbaa !75
+  //   %tmp2 = tail call i1 @llvm.type.test(ptr %tmp,
+  //                                        metadata !"_ZTS8DerivedB")
+  //   tail call void @llvm.assume(i1 %tmp2)
+  //   %tmp3 = load ptr, ptr %tmp, align 8
+  //   tail call void %tmp3(ptr nonnull align 8 dereferenceable(8) %p)
+  //
+  // Basically, there is going to be a loaded pointer (vtable %tmp) and will
+  // be used to check the type.test metadata. Then the virtual function is
+  // loaded (%tmp3). What we are looking for is if we have a dominant type
+  // for the vtable, then the derived type should not be in the list of
+  // dominant types. If we can't prove that there is a dominant type, then
+  // the virtual call will be multiversioned with the default case included.
+  NamedMDNode *DTransMDTypes = M.getNamedMetadata("intel.dtrans.types");
+  if (DTransMDTypes) {
+    LLVMContext &Ctx = M.getContext();
+    DTransTypeManager TM(Ctx);
+    TypeMetadataReader Reader(TM);
+    if (Reader.initialize(M)) {
+      const DataLayout &DL = M.getDataLayout();
+      dtransOP::PtrTypeAnalyzer Analyzer(Ctx, TM, Reader, DL, GetTLI);
+      Analyzer.run(M);
+      collectAssumeCallSitesOpaque(AssumeFunc, AssumesVector, Analyzer, Reader);
     }
   }
-
-  // Collect the calls to the assume function in the case of typed pointers.
-  // This function will look for the pattern mentioned before that produces
-  // a downcasting.
-  if (AssumesVector.empty() && VCallsWithDefaultCase.empty())
-    collectAssumeCallSitesNonOpaque(AssumeFunc, AssumesVector);
 
   // Remove the assumes related to downcasting
   for (CallBase *AssumeCall : AssumesVector) {

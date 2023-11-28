@@ -18,7 +18,7 @@
 ;
 ; CHECK:  DO i64 i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK:    (<4 x float>*)(@r)[0] = %.vec, Mask = @{%.vec1};
-; CHECK:     <LVAL-REG> {al:4}(<4 x float>*)(LINEAR float* @r)[<4 x i64> 0]
+; CHECK:     <LVAL-REG> {al:4}(<4 x float>*)(LINEAR ptr @r)[<4 x i64> 0]
 ; CHECK:  END LOOP
 ;
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -34,13 +34,13 @@ entry:
 
 for.body:                                         ; preds = %for.inc, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @S, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @S, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
   %cmp1 = fcmp ult float %0, 0.000000e+00
   br i1 %cmp1, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  store float %0, float* @r, align 4
+  store float %0, ptr @r, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
@@ -69,16 +69,16 @@ for.end:                                          ; preds = %for.inc
 ; CHECK:    <RVAL-REG> NON-LINEAR <1 x double> %copy
 ; CHECK:  END LOOP
 
-define dso_local void @foo(double* nocapture %arr) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %arr) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %l1.08 = phi i64 [ %inc, %for.body ], [ 0, %entry ]
-  %ptridx = getelementptr inbounds double, double* %arr, i64 %l1.08
-  %0 = load double, double* %ptridx, align 8
+  %ptridx = getelementptr inbounds double, ptr %arr, i64 %l1.08
+  %0 = load double, ptr %ptridx, align 8
   %1 = tail call fast double @llvm.exp.f64(double %0)
-  store double %1, double* %ptridx, align 8
+  store double %1, ptr %ptridx, align 8
   %inc = add nuw nsw i64 %l1.08, 1
   %exitcond = icmp eq i64 %inc, 98
   br i1 %exitcond, label %for.end.loopexit, label %for.body

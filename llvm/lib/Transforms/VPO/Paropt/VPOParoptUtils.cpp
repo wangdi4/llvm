@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -299,7 +299,7 @@ StructType *VPOParoptUtils::getIdentStructType(Function *F) {
                          Type::getInt32Ty(C),        // flags
                          Type::getInt32Ty(C),        // reserved_2
                          Type::getInt32Ty(C),        // reserved_3
-                         Type::getInt8PtrTy(C, AS)}; // *psource
+                         PointerType::get(C, AS)}; // *psource
 
   StructType *IdentTy = getOrCreateStructType(F, "struct.ident_t",
                                               IdentTyArgs);
@@ -844,7 +844,7 @@ void VPOParoptUtils::genSPIRVLscPrefetchBuiltIn(
     assert(OriginalElementTy->isPointerTy() &&
            "The data address should be a pointer.");
     unsigned AS = cast<PointerType>(OriginalElementTy)->getAddressSpace();
-    Type *PrefetchPtrTy = Type::getIntNPtrTy(C, ElementSize, AS);
+    Type *PrefetchPtrTy = PointerType::get(C, AS);
 
     IRBuilder<> Builder(InsertPt);
     Value *ElemOffset = ConstantInt::get(ElemOffsetTy, 0);
@@ -876,13 +876,13 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
 
   Value *RedGetNthDataArgs[] = {
       Builder.CreateLoad(Builder.getInt32Ty(), TidPtr),
-      ConstantPointerNull::get(Type::getInt8PtrTy(C)),
-      Builder.CreateBitCast(SharedGep, Type::getInt8PtrTy(C))};
+      ConstantPointerNull::get(PointerType::getUnqual(C)),
+      Builder.CreateBitCast(SharedGep, PointerType::getUnqual(C))};
 
-  Type *TypeParams[] = {Type::getInt32Ty(C), Type::getInt8PtrTy(C),
-                        Type::getInt8PtrTy(C)};
+  Type *TypeParams[] = {Type::getInt32Ty(C), PointerType::getUnqual(C),
+                        PointerType::getUnqual(C)};
   FunctionType *FnTy =
-      FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
+      FunctionType::get(PointerType::getUnqual(C), TypeParams, false);
 
   StringRef FnName = UseTbb ? "__tbb_omp_task_reduction_get_th_data" :
                               "__kmpc_task_reduction_get_th_data";
@@ -1180,7 +1180,7 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
   Type *ReturnTy; // void for _tgt_target_data_*(); i32 otherwise
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   Value *NumTeams = nullptr;
   Value *ThreadLimit = nullptr;
@@ -1330,7 +1330,7 @@ CallInst *VPOParoptUtils::genTgtPushCodeLocation(Instruction *Location,
   BasicBlock *B = Location->getParent();
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   DILocation *Loc1 = Location->getDebugLoc();
   DILocation *Loc2 = nullptr;
@@ -1551,7 +1551,7 @@ CallInst *VPOParoptUtils::genCxaAtExit(Value *TgtDescUnregFn, Value *Desc,
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
 
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
   Value *BitCast = Builder.CreateBitCast(Desc, Int8PtrTy);
 
   SmallVector<Value *, 3> Args    = { TgtDescUnregFn, BitCast, Handle };
@@ -1572,7 +1572,7 @@ CallInst *VPOParoptUtils::genTgtIsDeviceAvailable(Value *DeviceNum,
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   assert(DeviceType && DeviceType->getType()->isPointerTy() &&
          "DeviceType expected to be pointer");
@@ -1592,7 +1592,7 @@ CallInst *VPOParoptUtils::genTgtCreateBuffer(Value *DeviceNum, Value *HostPtr,
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
   Type *Int64Ty = Type::getInt64Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   assert(HostPtr && HostPtr->getType() == Int8PtrTy &&
          "HostPtr expected to be void*");
@@ -1614,7 +1614,7 @@ CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   assert(TgtBuffer && TgtBuffer->getType() == Int8PtrTy &&
          "TgtBuffer expected to be void*");
@@ -1633,7 +1633,7 @@ static Value *genPreferArray(const SmallVectorImpl<unsigned> &PreferList,
   BasicBlock *B = InsertPt->getParent();
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  PointerType *Int8PtrTy = PointerType::getUnqual(C);
 
   if (PreferList.empty()) {
     ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
@@ -1665,7 +1665,7 @@ VPOParoptUtils::genTgtCreateInterop(Value *DeviceNum, int OmpInteropContext,
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  PointerType *Int8PtrTy = PointerType::getUnqual(C);
   IRBuilder<> Builder(InsertPt);
 
   DeviceNum = Builder.CreateSExt(DeviceNum, Int64Ty);
@@ -1705,7 +1705,7 @@ CallInst *VPOParoptUtils::genTgtCreateInteropObj(Value *DeviceNum, bool IsAsync,
   LLVMContext &C = F->getContext();
   Type *Int8Ty = Type::getInt8Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   assert((IsAsync && AsyncObj || !IsAsync && !AsyncObj) &&
          "AsyncObj must be null iff IsAsync is false");
@@ -1742,7 +1742,7 @@ CallInst *VPOParoptUtils::genTgtReleaseInterop(Value* InteropObj,
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+  Type *Int8PtrTy = PointerType::getUnqual(C);
 
   assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
          "InteropObj expected to be void*");
@@ -1765,7 +1765,7 @@ CallInst* VPOParoptUtils::genTgtUseInterop(Value* InteropObj,
   Function* F = B->getParent();
   LLVMContext& C = F->getContext();
   Type* Int32Ty = Type::getInt32Ty(C);
-  Type* Int8PtrTy = Type::getInt8PtrTy(C);
+  Type* Int8PtrTy = PointerType::getUnqual(C);
 
   assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
          "InteropObj expected to be void*");
@@ -1845,7 +1845,7 @@ CallInst *VPOParoptUtils::genTgtGetInteropObj(
   LLVMContext &C = F->getContext();
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  PointerType *Int8PtrTy = PointerType::getUnqual(C);
 
   SmallVector<Value *, 7> Args;
   SmallVector<Type *, 7> ArgTypes;
@@ -1902,7 +1902,7 @@ CallInst *VPOParoptUtils::genTgtTargetSync(WRegionNode *W, StructType *IdentTy,
   LLVMContext &C = F->getContext();
   Type *VoidTy = Type::getVoidTy(C);
   Type *Int32Ty = Type::getInt32Ty(C);
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  PointerType *Int8PtrTy = PointerType::getUnqual(C);
 
   SmallVector<Value *, 4> Args;
   SmallVector<Type *, 4> ArgTypes;
@@ -2180,17 +2180,17 @@ CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
   TaskArgs.push_back(NumDeps);
   TaskArgs.push_back(Dep);
   TaskArgs.push_back(Builder.getInt32(0));
-  TaskArgs.push_back(ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+  TaskArgs.push_back(ConstantPointerNull::get(PointerType::getUnqual(C)));
 
   std::vector<Type *> TypeParams;
   TypeParams.push_back(Loc->getType());
   TypeParams.push_back(Type::getInt32Ty(C));
   if (TaskAlloc)
-    TypeParams.push_back(Type::getInt8PtrTy(C));
+    TypeParams.push_back(PointerType::getUnqual(C));
   TypeParams.push_back(Type::getInt32Ty(C));
-  TypeParams.push_back(Type::getInt8PtrTy(C));
+  TypeParams.push_back(PointerType::getUnqual(C));
   TypeParams.push_back(Type::getInt32Ty(C));
-  TypeParams.push_back(Type::getInt8PtrTy(C));
+  TypeParams.push_back(PointerType::getUnqual(C));
 
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
@@ -2281,7 +2281,7 @@ CallInst *VPOParoptUtils::genKmpcTaskGeneric(WRegionNode *W,
   Value *TaskArgs[] = {
       Loc, Builder.CreateLoad(Builder.getInt32Ty(), TidPtr), TaskAlloc};
   Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C),
-                        Type::getInt8PtrTy(C)};
+                        PointerType::getUnqual(C)};
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
   Function *FnTask = M->getFunction(FnName);
@@ -2314,8 +2314,8 @@ CallInst *VPOParoptUtils::genKmpcCopyPrivate(WRegionNode *W,
   LLVMContext &C = F->getContext();
   Value *CprivArgs[] = {
       Builder.getInt32(Size),
-      Builder.CreateBitCast(CpyData, Type::getInt8PtrTy(C)),
-      Builder.CreateBitCast(FnCopyPriv, Type::getInt8PtrTy(C)), IsSingleThread};
+      Builder.CreateBitCast(CpyData, PointerType::getUnqual(C)),
+      Builder.CreateBitCast(FnCopyPriv, PointerType::getUnqual(C)), IsSingleThread};
   CallInst *CprivCall =
       genKmpcCallWithTid(W, IdentTy, TidPtr, InsertPt, "__kmpc_copyprivate",
                          Type::getVoidTy(C), CprivArgs);
@@ -2441,6 +2441,98 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
 }
 
 // This function generates a call as follows.
+// i8* @__kmpc_taskred_modifier_init((%ident_t*, i32, i32, i32, i8*)
+CallInst *VPOParoptUtils::genKmpcTaskRedModifierInit(
+    WRegionNode *W, StructType *IdentTy, Value *TidPtr, int ParmNum,
+    Value *RedRecord, Instruction *InsertPt, bool UseTbb) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  IRBuilder<> Builder(InsertPt);
+  int Flags = KMP_IDENT_KMPC;
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
+  ConstantInt *IsWs = isa<WRNParallelLoopNode>(W) ||
+                              isa<WRNParallelSectionsNode>(W) ||
+                              isa<WRNSectionsNode>(W) || isa<WRNWksLoopNode>(W)
+                          ? ConstantInt::get(Type::getInt32Ty(C), 1)
+                          : ConstantInt::get(Type::getInt32Ty(C), 0);
+
+  Value *TaskRedModifierInitArgs[] = {
+      Loc, Builder.CreateLoad(Builder.getInt32Ty(), TidPtr), IsWs,
+      Builder.getInt32(ParmNum),
+      Builder.CreatePointerCast(RedRecord, Builder.getInt8PtrTy())};
+  Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C),
+                        Type::getInt32Ty(C), Type::getInt32Ty(C),
+                        PointerType::getUnqual(C)};
+  FunctionType *FnTy =
+      FunctionType::get(PointerType::getUnqual(C), TypeParams, false);
+
+  StringRef FnName = UseTbb ? "__tbb_omp_taskred_modifier_init"
+                            : "__kmpc_taskred_modifier_init";
+
+  Function *FnTaskRedModifierInit = M->getFunction(FnName);
+
+  if (!FnTaskRedModifierInit)
+    FnTaskRedModifierInit =
+        Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+
+  CallInst *TaskRedModifierInitCall =
+      CallInst::Create(FnTy, FnTaskRedModifierInit, TaskRedModifierInitArgs,
+                       "task.reduction.modifier.init", InsertPt);
+  setFuncCallingConv(TaskRedModifierInitCall, M);
+  TaskRedModifierInitCall->setTailCall(false);
+  addFuncletOperandBundle(TaskRedModifierInitCall, W->getDT(), InsertPt);
+
+  return TaskRedModifierInitCall;
+}
+
+// This function generates a call as follows.
+// void __kmpc_task_reduction_modifier_fini(ident_t *loc, int gtid, int is_ws)
+CallInst *VPOParoptUtils::genKmpcTaskRedModifierFini(WRegionNode *W,
+                                                     StructType *IdentTy,
+                                                     Value *TidPtr,
+                                                     Instruction *InsertPt) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  IRBuilder<> Builder(InsertPt);
+  int Flags = KMP_IDENT_KMPC;
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
+  ConstantInt *IsWs = isa<WRNParallelLoopNode>(W) ||
+                              isa<WRNParallelSectionsNode>(W) ||
+                              isa<WRNSectionsNode>(W) || isa<WRNWksLoopNode>(W)
+                          ? ConstantInt::get(Type::getInt32Ty(C), 1)
+                          : ConstantInt::get(Type::getInt32Ty(C), 0);
+
+  Value *TaskRedModifierFiniArgs[] = {
+      Loc, Builder.CreateLoad(Builder.getInt32Ty(), TidPtr), IsWs};
+  Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C),
+                        Type::getInt32Ty(C)};
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
+
+
+  StringRef FnName = "__kmpc_task_reduction_modifier_fini";
+
+  Function *FnTaskRedModifierFini = M->getFunction(FnName);
+
+  if (!FnTaskRedModifierFini)
+    FnTaskRedModifierFini =
+        Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+
+  CallInst *TaskRedModifierFiniCall = CallInst::Create(
+      FnTy, FnTaskRedModifierFini, TaskRedModifierFiniArgs, "", InsertPt);
+  setFuncCallingConv(TaskRedModifierFiniCall, M);
+  TaskRedModifierFiniCall->setTailCall(false);
+  addFuncletOperandBundle(TaskRedModifierFiniCall, W->getDT(), InsertPt);
+
+  return TaskRedModifierFiniCall;
+}
+
+// This function generates a call as follows.
 //    i8* @__kmpc_taskred_init(i32, i32, i8*)
 CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
                                                    Value *TidPtr, int ParmNum,
@@ -2457,9 +2549,9 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
       Builder.getInt32(ParmNum),
       Builder.CreatePointerCast(RedRecord, Builder.getInt8PtrTy())};
   Type *TypeParams[] = {Type::getInt32Ty(C), Type::getInt32Ty(C),
-                        Type::getInt8PtrTy(C)};
+                        PointerType::getUnqual(C)};
   FunctionType *FnTy =
-      FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
+      FunctionType::get(PointerType::getUnqual(C), TypeParams, false);
 
   StringRef FnName = UseTbb ? "__tbb_omp_task_reduction_init" :
                               "__kmpc_taskred_init";
@@ -2554,7 +2646,7 @@ CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
                         SizeTTy,        TaskEntryPtr->getType()};
 
   FunctionType *FnTy =
-      FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
+      FunctionType::get(PointerType::getUnqual(C), TypeParams, false);
 
   StringRef FnName = UseTbb? "__tbb_omp_task_alloc" : "__kmpc_omp_task_alloc";
   Function *FnTaskAlloc = M->getFunction(FnName);
@@ -3042,6 +3134,28 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
 
   int Flags = KMP_IDENT_KMPC;
 
+  // Set ident_t flag
+  switch (W->getWRegionKindID()) {
+
+  case WRegionNode::WRNWksLoop:
+  case WRegionNode::WRNParallelLoop:
+    Flags |= KMP_IDENT_WORK_LOOP;
+    break;
+
+  case WRegionNode::WRNSections:
+  case WRegionNode::WRNParallelSections:
+    Flags |= KMP_IDENT_WORK_SECTIONS;
+    break;
+
+  case WRegionNode::WRNDistribute:
+  case WRegionNode::WRNDistributeParLoop:
+    Flags |= KMP_IDENT_WORK_DISTRIBUTE;
+    break;
+
+  default:
+    break;
+  }
+
   Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
@@ -3314,7 +3428,7 @@ CallInst *VPOParoptUtils::genKmpcThreadPrivateCachedCall(
   FnGetTpvArgs.push_back(GVSize);
   FnGetTpvArgs.push_back(TpvGV);
 
-  auto ReturnTy = Type::getInt8PtrTy(C);
+  auto ReturnTy = PointerType::getUnqual(C);
   return genCall(M, "__kmpc_threadprivate_cached", ReturnTy, FnGetTpvArgs);
 }
 
@@ -3871,7 +3985,7 @@ CallInst *VPOParoptUtils::genKmpcScopeOrEndScopeCall(
   BasicBlock *B = W->getEntryBBlock();
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  PointerType *Int8PtrTy = PointerType::getUnqual(C);
 
   Type *RetTy = nullptr;
   StringRef FnName;
@@ -4768,38 +4882,30 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
   FunctionCallee FnC = M->getOrInsertFunction(FnName, NewFnTy);
 
   auto NewAndExistingFunctionsAreSameOrDifferOnlyByPointerTypeOfArgs =
-      [&NewFnTy, &ExistingFn, &AllowMismatchingPointerArgs, &FnC]() {
+      [&NewFnTy, &ExistingFn, &AllowMismatchingPointerArgs]() {
+        FunctionType *ExistingFnTy = ExistingFn->getFunctionType();
 
-    Value *FnCallee = FnC.getCallee();
-
-    // For typed pointers, if NewFnTyCallee is not a bitcast, then we can assume
-    // that ExistingFn's type matches NewFnTy. However, the bitcast won't be
-    // generated even in the case of a mismatch for opaque pointers.
-    if (isa<Function>(FnCallee) &&
-            !FnCallee->getType()->isOpaquePointerTy())
-          return true;
-
-    FunctionType *ExistingFnTy = ExistingFn->getFunctionType();
-
-    // In case of vararg function, isVarArg must be true for both ExistingFn and NewFn
-    if (ExistingFnTy->isVarArg() != NewFnTy->isVarArg())
+        // In case of vararg function, isVarArg must be true for both ExistingFn
+        // and NewFn
+        if (ExistingFnTy->isVarArg() != NewFnTy->isVarArg())
           return false;
 
-    // getNumParams returns the number of fixed params for function type
-    // For non-vararg function, number of fixed param must be equal
-    // For vararg function, param list size for NewFnTy can be greater than ExistingFnTy
-    if (ExistingFnTy->getNumParams() > NewFnTy->getNumParams())
-      return false;
- 
-    if (!ExistingFnTy->isVarArg() &&
-       (ExistingFnTy->getNumParams() != NewFnTy->getNumParams()))
-       return false;
+        // getNumParams returns the number of fixed params for function type
+        // For non-vararg function, number of fixed param must be equal
+        // For vararg function, param list size for NewFnTy can be greater than
+        // ExistingFnTy
+        if (ExistingFnTy->getNumParams() > NewFnTy->getNumParams())
+          return false;
 
-    // Check ExistingFnTy param list matches NewFnTy up to ExistingFnTy param_end
-    // For typed pointers, if AllowMismatchingPointerArgs=true, different pointer types
-    // allowed when using a cast
-    return std::equal(ExistingFnTy->param_begin(), ExistingFnTy->param_end(),
-                          NewFnTy->param_begin(),
+        if (!ExistingFnTy->isVarArg() &&
+            (ExistingFnTy->getNumParams() != NewFnTy->getNumParams()))
+          return false;
+
+        // Check ExistingFnTy param list matches NewFnTy up to ExistingFnTy
+        // param_end For typed pointers, if AllowMismatchingPointerArgs=true,
+        // different pointer types allowed when using a cast
+        return std::equal(ExistingFnTy->param_begin(),
+                          ExistingFnTy->param_end(), NewFnTy->param_begin(),
                           [&AllowMismatchingPointerArgs](Type *T1, Type *T2) {
                             return (T1 == T2) || (AllowMismatchingPointerArgs &&
                                                   (isa<PointerType>(T1) &&
@@ -4894,7 +5000,7 @@ CallInst *VPOParoptUtils::genVariantCall(
   Module *M = BaseCall->getModule();
   Function *F = BaseCall->getFunction();
   LLVMContext &C = F->getContext();
-  Type *Int8PtrTy = Type::getInt8PtrTy(C); // void*
+  Type *Int8PtrTy = PointerType::getUnqual(C); // void*
 
   Type *ReturnTy = BaseCall->getType();
   FunctionType *BaseFnTy = BaseCall->getFunctionType();
@@ -5099,7 +5205,7 @@ GlobalVariable *VPOParoptUtils::genKmpcCriticalLockVar(
         isa<WRNParallelLoopNode>(W))
       AddressSpace = vpo::ADDRESS_SPACE_LOCAL;
 #endif
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   }
 
   // We first get the lock name prefix for the lock var based on the target.
@@ -6038,7 +6144,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
     // FIXME: either re-enable this or come up with a solution.
     report_fatal_error("VLA alloca is not supported for this target.");
 #endif
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   }
 
   Value *V = AI;
@@ -7012,8 +7118,9 @@ Function *VPOParoptUtils::genOutlineFunction(
                    /* AssumptionCache */ AC,
                    /* AllowVarArgs */ false,
                    /* AllowAlloca */ true,
-                   /* AllocationBlock */ nullptr, // INTEL
+                   /* AllocationBlock */ nullptr,
                    /* Suffix */ Suffix,
+                   /* ArgsInZeroAddressSpace */ false,
                    /* AllowEHTypeID */ true,
                    /* AllowUnreachableBlocks */
                    MoveUnreachableRegionBlocksToExtractedFunction,
@@ -7413,7 +7520,7 @@ VPOParoptUtils::storeIntToThreadLocalGlobal(Value *V, Instruction *InsertBefore,
   Module *M = InsertBefore->getModule();
 
   GlobalVariable *GV = new GlobalVariable(
-      *M, V->getType(), false, GlobalValue::CommonLinkage,
+      *M, V->getType(), false, GlobalValue::PrivateLinkage,
       Builder.getIntN(V->getType()->getIntegerBitWidth(), 0), VarName, nullptr,
       GlobalVariable::ThreadLocalMode::GeneralDynamicTLSModel);
   Builder.CreateStore(V, GV);
@@ -7526,8 +7633,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     return true;
   };
 
-  auto getItemInfoIfOpaquePtrToPtr = [&]() -> bool {
-    if (!I->getIsPointerToPointer() || !Orig->getType()->isOpaquePointerTy())
+  auto getItemInfoIfPtrToPtr = [&]() -> bool {
+    if (!I->getIsPointerToPointer())
       return false;
 
     // A PTR_TO_PTR clause operand's pointee type is a pointer. e.g.
@@ -7540,8 +7647,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
   };
 
 #if INTEL_CUSTOMIZATION
-  auto getItemInfoIfOpaqueCPtr = [&]() -> bool {
-    if (!I->getIsCptr() || !Orig->getType()->isOpaquePointerTy())
+  auto getItemInfoIfCPtr = [&]() -> bool {
+    if (!I->getIsCptr())
       return false;
 
     // A CPTR clause operand's pointee type is a named struct with one
@@ -7560,9 +7667,9 @@ VPOParoptUtils::getItemInfo(const Item *I) {
 
   if (!getItemInfoIfArraySection() && !getItemInfoIfTyped() &&
 #if INTEL_CUSTOMIZATION
-      !getItemInfoIfOpaqueCPtr() &&
+      !getItemInfoIfCPtr() &&
 #endif // INTEL_CUSTOMIZATION
-      !getItemInfoIfOpaquePtrToPtr()) {
+      !getItemInfoIfPtrToPtr()) {
     // OPAQUEPOINTER: this code must be removed, when we switch
     //                to TYPED clauses.
     Type *OrigElemTy = I->getOrig()->getType();
@@ -7786,39 +7893,279 @@ bool VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() {
          (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Global);
 }
 
-// Since zero-offset TYPED.ARRSECT clauses are not treated
-// as an actual array sections, RedElemType doesn't match
-// ReductionVar's pointee type (which is an array).
-// But as it may only happen for zero-offset items, we can
-// just generate a corresponding bitcast.
-// Obviously that's not an issue for opaque pointers.
-Value *VPOParoptUtils::genZeroOffsetArrsecReductionItemCastIfNeeded(
-    const ReductionItem *RedI, const WRegionNode *W, Value *ReductionVar,
-    DominatorTree *DT) {
-  Type *RedElemType = nullptr;
-  Value *NumElements = nullptr;
-  unsigned Addrspace = 0;
-  std::tie(RedElemType, NumElements, Addrspace) =
-      VPOParoptUtils::getItemInfo(RedI);
+LoadInst *VPOParoptUtils::getLoadFromLB(WRegionNode *W,
+                                        unsigned LoopDepthIndex) {
+  auto *L = W->getWRNLoopInfo().getLoop(LoopDepthIndex);
+  auto *Header = L->getHeader();
+  assert(Header && Header->hasNPredecessors(2) && "Invalid loop header.");
 
-  bool IsArrayOrArraySection =
-      RedI->getIsArraySection() || RedElemType->isArrayTy() || NumElements;
-  if (!RedI->getIsF90DopeVector() && !IsArrayOrArraySection &&
-      !ReductionVar->getType()->isOpaquePointerTy() &&
-      ReductionVar->getType()->getNonOpaquePointerElementType()->isArrayTy()) {
-    assert(RedI->getIsTyped() &&
-           "Unexpected type mismatch for non-typed reduction item");
-    Instruction *ReductionVarInst = dyn_cast<Instruction>(ReductionVar);
-    auto *InsertPt = ReductionVarInst && DT->dominates(W->getEntryDirective(),
-                                                       ReductionVarInst)
-                         ? ReductionVarInst
-                         : W->getEntryDirective();
-    assert(InsertPt &&
-           "No valid insertion point found for 0-offset arrsect bitcast");
-    IRBuilder<> Builder(InsertPt->getNextNode());
-    ReductionVar = Builder.CreateBitOrPointerCast(
-        ReductionVar, PointerType::get(RedElemType, Addrspace));
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": header block: " << Header->getName()
+                    << "\n");
+
+  BasicBlock *AssignmentBB = nullptr;
+  for (auto *BB : predecessors(Header)) {
+    if (!L->contains(BB)) {
+      assert(!AssignmentBB &&
+             "Neither predecessor of the header belongs to the Loop.");
+      // Consider the follwoing example:
+      //
+      // int main() {
+      // #pragma omp parallel for collapse(2)
+      //     for (x = 0; x < 1024; ++x) {
+      //       for (y = 0; y < 512; ++y) {
+      //       }
+      //     }
+      //   return 0;
+      // }
+      //
+      // The rotated and unrotated for of this loops are as follows:
+      //
+      // =============
+      // Rotated Loops
+      // =============
+      //
+      // define dso_local i32 @main() {
+      // entry:
+      //   %retval = alloca i32, align 4
+      //   %.omp.uncollapsed.iv = alloca i32, align 4
+      //   %.omp.uncollapsed.iv2 = alloca i32, align 4
+      //   %.omp.uncollapsed.lb = alloca i32, align 4
+      //   %.omp.uncollapsed.ub = alloca i32, align 4
+      //   %.omp.uncollapsed.lb3 = alloca i32, align 4
+      //   %.omp.uncollapsed.ub4 = alloca i32, align 4
+      //   store i32 0, ptr %retval, align 4
+      //   store i32 0, ptr %.omp.uncollapsed.lb, align 4
+      //   store i32 1023, ptr %.omp.uncollapsed.ub, align 4
+      //   store i32 0, ptr %.omp.uncollapsed.lb3, align 4
+      //   store i32 511, ptr %.omp.uncollapsed.ub4, align 4
+      //   %0 = call token @llvm.directive.region.entry() [
+      //   "DIR.OMP.PARALLEL.LOOP"(),
+      //     "QUAL.OMP.COLLAPSE"(i32 2),
+      //     "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.uncollapsed.iv, i32 0,
+      //     ptr %.omp.uncollapsed.iv2, i32 0),
+      //     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.uncollapsed.lb, i32 0,
+      //     i32 1), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.uncollapsed.ub,
+      //     i32 0, ptr %.omp.uncollapsed.ub4, i32 0),
+      //     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.uncollapsed.lb3, i32 0,
+      //     i32 1) ]
+      //
+      //   %1 = load i32, ptr %.omp.uncollapsed.lb, align 4
+      //   store i32 %1, ptr %.omp.uncollapsed.iv, align 4                (1)
+      //   %2 = load i32, ptr %.omp.uncollapsed.iv, align 4
+      //   %3 = load i32, ptr %.omp.uncollapsed.ub, align 4
+      //   %cmp = icmp sle i32 %2, %3
+      //   br i1 %cmp, label %omp.uncollapsed.loop.lh, label
+      //   %omp.uncollapsed.loop.end16
+      //
+      // omp.uncollapsed.loop.lh:                   ; preds = %entry      (2)
+      //   br label %omp.uncollapsed.loop.body
+      //
+      // omp.uncollapsed.loop.body:                        ; preds =
+      // %omp.uncollapsed.loop.inc12, %omp.uncollapsed.loop.lh
+      //   %4 = load i32, ptr %.omp.uncollapsed.lb3, align 4
+      //   store i32 %4, ptr %.omp.uncollapsed.iv2, align 4               (3)
+      //   %5 = load i32, ptr %.omp.uncollapsed.iv2, align 4
+      //   %6 = load i32, ptr %.omp.uncollapsed.ub4, align 4
+      //   %cmp5 = icmp sle i32 %5, %6
+      //   br i1 %cmp5, label %omp.uncollapsed.loop.lh6, label
+      //   %omp.uncollapsed.loop.end
+      //
+      // omp.uncollapsed.loop.lh6:                         ; preds =
+      // %omp.uncollapsed.loop.body                                       (4)
+      //   br label %omp.uncollapsed.loop.body7
+      //
+      // omp.uncollapsed.loop.body7:                       ; preds =
+      // %omp.uncollapsed.loop.inc, %omp.uncollapsed.loop.lh6
+      //   %7 = load i32, ptr %.omp.uncollapsed.iv, align 4
+      //   %mul = mul nsw i32 %7, 1
+      //   %add = add nsw i32 0, %mul
+      //   store i32 %add, ptr %x, align 4
+      //   %8 = load i32, ptr %.omp.uncollapsed.iv2, align 4
+      //   %mul8 = mul nsw i32 %8, 1
+      //   %add9 = add nsw i32 0, %mul8
+      //   store i32 %add9, ptr %y, align 4
+      //   br label %omp.body.continue
+      //
+      // omp.body.continue:                                ; preds =
+      // %omp.uncollapsed.loop.body7
+      //   br label %omp.uncollapsed.loop.inc
+      //
+      // omp.uncollapsed.loop.inc:                         ; preds =
+      // %omp.body.continue
+      //   %9 = load i32, ptr %.omp.uncollapsed.iv2, align 4
+      //   %add10 = add nsw i32 %9, 1
+      //   store i32 %add10, ptr %.omp.uncollapsed.iv2, align 4
+      //   %10 = load i32, ptr %.omp.uncollapsed.iv2, align 4
+      //   %11 = load i32, ptr %.omp.uncollapsed.ub4, align 4
+      //   %cmp11 = icmp sle i32 %10, %11
+      //   br i1 %cmp11, label %omp.uncollapsed.loop.body7, label
+      //   %omp.uncollapsed.loop.end_crit_edge
+      //
+      // omp.uncollapsed.loop.end_crit_edge:               ; preds =
+      // %omp.uncollapsed.loop.inc
+      //   br label %omp.uncollapsed.loop.end
+      //
+      // omp.uncollapsed.loop.end:                         ; preds =
+      // %omp.uncollapsed.loop.end_crit_edge, %omp.uncollapsed.loop.body
+      //   br label %omp.uncollapsed.loop.inc12
+      //
+      // omp.uncollapsed.loop.inc12:                       ; preds =
+      // %omp.uncollapsed.loop.end
+      //   %12 = load i32, ptr %.omp.uncollapsed.iv, align 4
+      //   %add13 = add nsw i32 %12, 1
+      //   store i32 %add13, ptr %.omp.uncollapsed.iv, align 4
+      //   %13 = load i32, ptr %.omp.uncollapsed.iv, align 4
+      //   %14 = load i32, ptr %.omp.uncollapsed.ub, align 4
+      //   %cmp14 = icmp sle i32 %13, %14
+      //   br i1 %cmp14, label %omp.uncollapsed.loop.body, label
+      //   %omp.uncollapsed.loop.end_crit_edge15
+      //
+      // omp.uncollapsed.loop.end_crit_edge15:             ; preds =
+      // %omp.uncollapsed.loop.inc12
+      //   br label %omp.uncollapsed.loop.end16
+      //
+      // omp.uncollapsed.loop.end16:                       ; preds =
+      // %omp.uncollapsed.loop.end_crit_edge15, %entry
+      //   call void @llvm.directive.region.exit(token %0) [
+      //   "DIR.OMP.END.PARALLEL.LOOP"() ]
+      //
+      //   ret i32 0
+      // }
+      //
+      // ===============
+      // Unrotated Loops
+      // ===============
+      //
+      //
+      // define dso_local i32 @main() {
+      // entry:
+      //   %retval = alloca i32, align 4
+      //   .........
+      //   %.omp.uncollapsed.iv = alloca i32, align 4
+      //   %.omp.uncollapsed.iv2 = alloca i32, align 4
+      //   %.omp.uncollapsed.lb = alloca i32, align 4
+      //   %.omp.uncollapsed.ub = alloca i32, align 4
+      //   %.omp.uncollapsed.lb3 = alloca i32, align 4
+      //   %.omp.uncollapsed.ub4 = alloca i32, align 4
+      //   store i32 0, ptr %.omp.uncollapsed.lb, align 4
+      //   store i32 1023, ptr %.omp.uncollapsed.ub, align 4
+      //   store i32 0, ptr %.omp.uncollapsed.lb3, align 4
+      //   store i32 511, ptr %.omp.uncollapsed.ub4, align 4
+      //   %0 = call token @llvm.directive.region.entry() [
+      //   "DIR.OMP.PARALLEL.LOOP"(),
+      //     "QUAL.OMP.COLLAPSE"(i32 2),
+      //     "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.uncollapsed.iv, i32 0,
+      //     ptr %.omp.uncollapsed.iv2, i32 0),
+      //     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.uncollapsed.lb, i32 0,
+      //     i32 1), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.uncollapsed.ub,
+      //     i32 0, ptr %.omp.uncollapsed.ub4, i32 0),
+      //     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.uncollapsed.lb3, i32 0,
+      //     i32 1) ]
+      //
+      //   %1 = load i32, ptr %.omp.uncollapsed.lb, align 4
+      //   store i32 %1, ptr %.omp.uncollapsed.iv, align 4                (5)
+      //   br label %omp.uncollapsed.loop.cond
+      //
+      // omp.uncollapsed.loop.cond:                        ; preds =
+      // %omp.uncollapsed.loop.inc11, %entry
+      //   %2 = load i32, ptr %.omp.uncollapsed.iv, align 4
+      //   %3 = load i32, ptr %.omp.uncollapsed.ub, align 4
+      //   %cmp = icmp sle i32 %2, %3
+      //   br i1 %cmp, label %omp.uncollapsed.loop.body, label
+      //   %omp.uncollapsed.loop.end13
+      //
+      // omp.uncollapsed.loop.body:                        ; preds =
+      // %omp.uncollapsed.loop.cond                                       (6)
+      //   %4 = load i32, ptr %.omp.uncollapsed.lb3, align 4
+      //   store i32 %4, ptr %.omp.uncollapsed.iv2, align 4
+      //   br label %omp.uncollapsed.loop.cond5
+      //
+      // omp.uncollapsed.loop.cond5:                       ; preds =
+      // %omp.uncollapsed.loop.inc, %omp.uncollapsed.loop.body
+      //   %5 = load i32, ptr %.omp.uncollapsed.iv2, align 4
+      //   %6 = load i32, ptr %.omp.uncollapsed.ub4, align 4
+      //   %cmp6 = icmp sle i32 %5, %6
+      //   br i1 %cmp6, label %omp.uncollapsed.loop.body7, label
+      //   %omp.uncollapsed.loop.end
+      //
+      // omp.uncollapsed.loop.body7:                       ; preds =
+      // %omp.uncollapsed.loop.cond5
+      //   %7 = load i32, ptr %.omp.uncollapsed.iv, align 4
+      //   %mul = mul nsw i32 %7, 1
+      //   %add = add nsw i32 0, %mul
+      //   store i32 %add, ptr %x, align 4
+      //   %8 = load i32, ptr %.omp.uncollapsed.iv2, align 4
+      //   %mul8 = mul nsw i32 %8, 1
+      //   %add9 = add nsw i32 0, %mul8
+      //   store i32 %add9, ptr %y, align 4
+      //   br label %omp.body.continue
+      //
+      // omp.body.continue:                                ; preds =
+      // %omp.uncollapsed.loop.body7
+      //   br label %omp.uncollapsed.loop.inc
+      //
+      // omp.uncollapsed.loop.inc:                         ; preds =
+      // %omp.body.continue
+      //   %9 = load i32, ptr %.omp.uncollapsed.iv2, align 4
+      //   %add10 = add nsw i32 %9, 1
+      //   store i32 %add10, ptr %.omp.uncollapsed.iv2, align 4
+      //   br label %omp.uncollapsed.loop.cond5
+      //
+      // omp.uncollapsed.loop.end:                         ; preds =
+      // %omp.uncollapsed.loop.cond5
+      //   br label %omp.uncollapsed.loop.inc11
+      //
+      // omp.uncollapsed.loop.inc11:                       ; preds =
+      // %omp.uncollapsed.loop.end
+      //   %10 = load i32, ptr %.omp.uncollapsed.iv, align 4
+      //   %add12 = add nsw i32 %10, 1
+      //   store i32 %add12, ptr %.omp.uncollapsed.iv, align 4
+      //   br label %omp.uncollapsed.loop.cond
+      //
+      // omp.uncollapsed.loop.end13:                       ; preds =
+      // %omp.uncollapsed.loop.cond
+      //   call void @llvm.directive.region.exit(token %0) [
+      //   "DIR.OMP.END.PARALLEL.LOOP"() ]
+      //
+      //   ret i32 0
+      // }
+      //
+      // As we can see the CFE, FFE and llvm loop-rotate pass always insert a
+      // new preheader [(2),(4)] when rotating an OMP loop. This change
+      // puts the store IV instructions [(1), (3)] in the predecessor bblock
+      // of the preheader in the rotated loop form. This is not the case in
+      // unrotated form of the loops and store IV instructions are always
+      // placed in the preheader of the loops [(5), (6)].
+      if (L->isRotatedForm())
+        AssignmentBB = BB->getSinglePredecessor(); // (1), (3)
+      else
+        AssignmentBB = BB; // (5), (6)
+    }
   }
-  return ReductionVar;
+
+  assert(AssignmentBB && "Both predecessors of the header belong to the Loop.");
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": IV assignment block: "
+                    << AssignmentBB->getName() << "\n");
+
+  // Look for an instruction storing into IV.
+  Value *IVPtrDef = W->getWRNLoopInfo().getNormIV(LoopDepthIndex);
+  StoreInst *StoreToIV = nullptr;
+  for (auto I = AssignmentBB->rbegin(), IE = AssignmentBB->rend(); I != IE; ++I)
+    if (auto *SI = dyn_cast<StoreInst>(&*I))
+      if (SI->getPointerOperand() == IVPtrDef) {
+        StoreToIV = SI;
+        break;
+      }
+
+  assert(StoreToIV && "Cannot find store to IV.");
+  LoadInst *LoadFromLB = dyn_cast<LoadInst>(StoreToIV->getOperand(0));
+  assert(LoadFromLB && "Value stored into IV is not a load.");
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": OrigLB in IV assignment value: "
+                    << *LoadFromLB << "\n");
+
+  return LoadFromLB;
 }
+
 #endif // INTEL_COLLAB

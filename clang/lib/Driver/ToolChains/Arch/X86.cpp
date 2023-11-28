@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -32,6 +32,7 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/X86TargetParser.h" // INTEL
 
 using namespace clang::driver;
 using namespace clang::driver::tools;
@@ -42,7 +43,8 @@ using namespace llvm::opt;
 std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
                                 bool IsArchOpt) {
   StringRef CPU;
-  if (Triple.getArch() == llvm::Triple::x86 && !IsArchOpt) { // 32-bit-only
+  bool Only64Bit = Triple.getArch() != llvm::Triple::x86;
+  if (!Only64Bit && !IsArchOpt) { // 32-bit-only
     CPU = llvm::StringSwitch<StringRef>(Arch)
               .Case("A", "pentium")
               .CaseLower("sse", "pentium3")
@@ -91,15 +93,18 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
               .CaseLower("sierraforest", "sierraforest")
               .CaseLower("grandridge", "grandridge")
               .CaseLower("emeraldrapids", "emeraldrapids")
+              .CaseLower("arrowlake", "arrowlake")
+              .CasesLower("graniterapids-d", "graniterapids_d", "graniterapids-d")
+              .CasesLower("arrowlake-s", "arrowlake_s", "arrowlake-s")
+              .CaseLower("lunarlake", "lunarlake")
+              .CaseLower("pantherlake", "pantherlake")
+              .CaseLower("clearwaterforest", "clearwaterforest")
 #if INTEL_FEATURE_CPU_DMR
               .CaseLower("diamondrapids", "diamondrapids")
 #endif // INTEL_FEATURE_CPU_DMR
 #if INTEL_FEATURE_CPU_RYL
               .CaseLower("royal", "royal")
 #endif // INTEL_FEATURE_CPU_RYL
-#if INTEL_FEATURE_CPU_LNL
-              .CaseLower("lunarlake", "lunarlake")
-#endif // INTEL_FEATURE_CPU_LNL
               .CaseLower("host", llvm::sys::getHostCPUName())
               .Default("");
   }
@@ -109,6 +114,13 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
     CPU = llvm::StringSwitch<StringRef>(Arch)
               .CaseLower("avx", "corei7-avx")
               .Default("");
+  }
+  if (CPU.empty()) {
+    // Check if the lowercase is valid - if so, use that.  This is allows
+    // for a more generic use case for newly entered values that we don't
+    // explicity check above.
+    if (llvm::X86::parseArchX86(Arch.lower(), Only64Bit))
+      return Arch.lower();
   }
   if (CPU.empty()) {
     // No match found.  Instead of erroring out with a bad language type, we
@@ -162,7 +174,7 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
           types::lookupTypeForTypeSpecifier(A->getValue());
       if (Previous && !IsSourceTypeOpt &&
           A->getAsString(Args) != Previous->getAsString(Args))
-        D.Diag(clang::diag::warn_drv_overriding_flag_option)
+        D.Diag(clang::diag::warn_drv_overriding_option)
             << Previous->getAsString(Args) << A->getAsString(Args);
       // Only capture the -x option if it is for arch setting
       if (IsSourceTypeOpt)
@@ -429,6 +441,29 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
         << D.getOpts().getOptionName(LVIOpt);
   }
 
+  for (const Arg *A : Args.filtered(options::OPT_m_x86_AVX10_Features_Group)) {
+    StringRef Name = A->getOption().getName();
+    A->claim();
+
+    // Skip over "-m".
+    assert(Name.startswith("m") && "Invalid feature name.");
+    Name = Name.substr(1);
+
+    bool IsNegative = Name.startswith("no-");
+    if (IsNegative)
+      Name = Name.substr(3);
+
+#ifndef NDEBUG
+    assert(Name.startswith("avx10.") && "Invalid AVX10 feature name.");
+    StringRef Version, Width;
+    std::tie(Version, Width) = Name.substr(6).split('-');
+    assert(Version == "1" && "Invalid AVX10 feature name.");
+    assert((Width == "256" || Width == "512") && "Invalid AVX10 feature name.");
+#endif
+
+    Features.push_back(Args.MakeArgString((IsNegative ? "-" : "+") + Name));
+  }
+
   // Now add any that the user explicitly requested on the command line,
   // which may override the defaults.
   for (const Arg *A : Args.filtered(options::OPT_m_x86_Features_Group,
@@ -441,7 +476,6 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
     assert(Name.startswith("m") && "Invalid feature name.");
     Name = Name.substr(1);
     bool IsNegative = Name.startswith("no-");
-#if INTEL_FEATURE_ISA_APX_F
     if (A->getOption().matches(options::OPT_mapx_features_EQ) ||
         A->getOption().matches(options::OPT_mno_apx_features_EQ)) {
 
@@ -457,7 +491,6 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
       }
       continue;
     }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
     // Replace -mgeneral-regs-only with -x87, -mmx, -sse
@@ -466,6 +499,9 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
       continue;
     }
 
+#if !INTEL_CUSTOMIZATION
+    bool IsNegative = Name.startswith("no-");
+#endif // !INTEL_CUSTOMIZATION
     if (IsNegative)
       Name = Name.substr(3);
     Features.push_back(Args.MakeArgString((IsNegative ? "-" : "+") + Name));
@@ -486,4 +522,10 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
           << A->getSpelling() << Scope;
     }
   }
+
+  // -mno-gather, -mno-scatter support
+  if (Args.hasArg(options::OPT_mno_gather))
+    Features.push_back("+prefer-no-gather");
+  if (Args.hasArg(options::OPT_mno_scatter))
+    Features.push_back("+prefer-no-scatter");
 }

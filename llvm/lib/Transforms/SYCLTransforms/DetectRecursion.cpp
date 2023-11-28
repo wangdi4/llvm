@@ -18,6 +18,8 @@
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/DiagnosticInfo.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
@@ -50,15 +52,24 @@ static bool detectRecursionInFunction(Function *Fn, CallGraph *CG) {
 }
 
 bool DetectRecursionPass::runImpl(Module &M, CallGraph *CG) {
-  bool RecursionExists = false;
-  // for each function
-  Module::FunctionListType &FL = M.getFunctionList();
-  for (auto &F : FL) {
+  SmallVector<Function *, 8> RecursiveFuncs;
+  for (auto &F : M) {
     if (!F.isDeclaration() &&
         detectRecursionInFunction(&F, CG)) {
       FunctionMetadataAPI(&F).RecursiveCall.set(true);
-      RecursionExists = true;
+      RecursiveFuncs.push_back(&F);
     }
   }
+
+  bool RecursionExists = !RecursiveFuncs.empty();
+  if (RecursionExists && !CompilationUtils::isGeneratedFromOCLCPP(M)) {
+    std::string ErrMsg;
+    raw_string_ostream OS(ErrMsg);
+    OS << "Unsupported recursive call in function:";
+    for (Function *F : RecursiveFuncs)
+      OS << "\n  " << F->getName();
+    M.getContext().diagnose(OptimizationErrorDiagInfo(ErrMsg));
+  }
+
   return RecursionExists;
 }

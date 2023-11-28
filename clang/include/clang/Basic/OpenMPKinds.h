@@ -113,6 +113,15 @@ enum OpenMPMapModifierKind {
   OMPC_MAP_MODIFIER_last
 };
 
+#if INTEL_CUSTOMIZATION
+/// OpenMP mode kind for 'ompx_register_alloc_mode' clause.
+enum OpenMPXRegisterAllocModeKind {
+#define OPENMPX_REGISTER_ALLOC_MODE_KIND(NAME) OMPC_REGISTER_ALLOC_MODE_##NAME,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_REGISTER_ALLOC_MODE_unknown
+};
+#endif // INTEL_CUSTOMIZATION
+
 /// Number of allowed map-type-modifiers.
 static constexpr unsigned NumberOfOMPMapClauseModifiers =
     OMPC_MAP_MODIFIER_last - OMPC_MAP_MODIFIER_unknown - 1;
@@ -419,6 +428,13 @@ void getOpenMPCaptureRegions(
 /// \return true - if the above condition is met for this directive
 /// otherwise - false.
 bool isOpenMPCombinedParallelADirective(OpenMPDirectiveKind DKind);
+
+/// Checks if the specified target directive, combined or not, needs task based
+/// thread_limit
+/// \param DKind Specified directive.
+/// \return true - if the above condition is met for this directive
+/// otherwise - false.
+bool needsTaskBasedThreadLimit(OpenMPDirectiveKind DKind);
 }
 
 #endif

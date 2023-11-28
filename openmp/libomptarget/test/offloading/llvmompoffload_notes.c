@@ -1,4 +1,3 @@
-// INTEL_COLLAB
 // INTEL_CUSTOMIZATION
 // xmain runs intel_llvmompoffload_notes.c instead.
 // XFAIL: *
@@ -8,7 +7,6 @@
 // commands if they are not "generic" target commands, so we mark "*-newDriver"
 // target unsupported.
 // UNSUPPORTED: system-windows, x86_64-pc-linux-gnu-newDriver, x86_64-pc-linux-gnu-oldDriver, x86_64-pc-linux-gnu-LTO
-// end INTEL_CUSTOMIZATION
 // RUN: %libomptarget-compile-x86_64-pc-linux-gnu && env LIBOMPTARGET_DEBUG=1 %libomptarget-run-x86_64-pc-linux-gnu 2>&1 | %fcheck-x86_64-pc-linux-gnu
 
 // CHECK: TARGET Common ELF --> LLVMOMPOFFLOAD ELF note NT_LLVM_OPENMP_OFFLOAD_VERSION with value: '1.0'
@@ -21,4 +19,4 @@ int main() {
 
   return 0;
 }
-// end INTEL_COLLAB
+// end INTEL_CUSTOMIZATION

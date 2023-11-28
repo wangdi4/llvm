@@ -1,14 +1,14 @@
 // RUN: %clang_cc1 -triple x86_64-linux-gnu -emit-llvm \
-// RUN: -mreassociate  -o - %s -opaque-pointers \
+// RUN: -mreassociate  -o - %s \
 // RUN: | FileCheck --check-prefixes CHECK,CHECKFAST %s
 
 // RUN: %clang_cc1 -triple i386-pc-linux-gnu -emit-llvm \
-// RUN: -mreassociate  -o - %s -opaque-pointers \
+// RUN: -mreassociate  -o - %s \
 // RUN: | FileCheck --check-prefixes CHECK,CHECK32 %s
 
 // RUN: %clang_cc1 -triple x86_64-linux-gnu -emit-llvm \
 // RUN: -mreassociate -fprotect-parens -ffp-contract=on \
-// RUN:  -o - %s -opaque-pointers\
+// RUN:  -o - %s \
 // RUN: | FileCheck --check-prefixes CHECK,CHECKFAST %s
 
 template <typename T> T addF(T a, T b) {

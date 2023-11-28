@@ -1,6 +1,6 @@
 //===-- CompilationUtils.h - Function declarations --------------*- C++ -*-===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -104,7 +104,6 @@ extern const StringRef ConvergentCall;
 extern const StringRef HasSubGroups;
 extern const StringRef HasVPlanMask;
 extern const StringRef OCLVecUniformReturn;
-extern const StringRef RecursionWithBarrier;
 extern const StringRef UniformCall;
 extern const StringRef VectorVariantFailure;
 
@@ -332,8 +331,6 @@ Type *getArrayElementType(const ArrayType *ArrTy);
 void getArrayTypeDimensions(const ArrayType *ArrTy,
                             SmallVectorImpl<size_t> &Dimensions);
 
-ArrayType *createMultiDimArray(Type *Ty, const ArrayRef<size_t> &Dimensions);
-
 /// Return true if string is name of work-item pipe builtin.
 bool isWorkItemPipeBuiltin(StringRef S);
 
@@ -349,7 +346,8 @@ bool isWorkGroupReserveWritePipe(StringRef S);
 bool isWorkGroupCommitWritePipe(StringRef S);
 bool isWorkGroupAll(StringRef S);
 bool isWorkGroupAny(StringRef S);
-bool isWorkGroupBroadCast(StringRef S);
+/// Return a <IsBroadcast, IsMaskedBroadcast> pair.
+std::pair<bool, bool> isWorkGroupBroadCast(StringRef S);
 bool isWorkGroupIdentity(StringRef S);
 bool isWorkGroupReduceAdd(StringRef S);
 bool isWorkGroupScanExclusiveAdd(StringRef S);
@@ -384,6 +382,7 @@ bool isWorkGroupMul(StringRef S);
 bool isAsyncWorkGroupCopy(StringRef S);
 bool isAsyncWorkGroupStridedCopy(StringRef S);
 bool isWorkGroupBarrier(StringRef S);
+bool isDeviceBarrier(StringRef S);
 bool isWorkGroupSort(StringRef S);
 bool isWorkGroupKeyOnlySort(StringRef S);
 bool isWorkGroupJointSort(StringRef S);
@@ -432,26 +431,6 @@ std::string getWorkGroupIdentityFinalize(StringRef S);
 ///   * getStructByName('__pipe_t', M) will return '__pipe_t_.2' type
 StructType *getStructByName(StringRef Name, const Module *M);
 
-/// Returns struct type with corresponding name if such exists
-/// The main difference from Module::getTypeByName is that this function
-/// doesn't account '.N' suffixes while comparing type names.
-/// For example, if module contains only '__pipe_t.2' type:
-///   * Module::getTypeByName('__pipe_t') will return nullptr
-///   * getStructByName('__pipe_t', M) will return '__pipe_t_.2' type
-StructType *getStructFromTypePtr(Type *Ty);
-
-/// Check if two types actually have the same opaque ptr type.
-/// Such types appear when 2 or more types were created with the same name.
-/// These types differ only in .N name suffix, e.g.: %opencl.image2d_ro_t and
-/// %opencl.image2d_ro_t.0
-bool isSameStructType(StructType *STy1, StructType *STy2);
-
-/// Check if two types points to the same struct type.
-bool isSameStructPtrType(PointerType *PTy1, PointerType *PTy2);
-
-/// Replaces innermost element type from a pointer to a given struct type.
-PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy);
-
 /// Import a declaration of \p Orig into module \p Dst.
 Function *importFunctionDecl(Module *Dst, const Function *Orig,
                              bool DuplicateIfExists = false);
@@ -488,6 +467,12 @@ std::string mangledGetEnqueuedLocalSize();
 
 /// Returns the mangled name of the function barrier.
 std::string mangledBarrier();
+
+/// Returns the mangled name of the function intel_device_barrier.
+std::string mangledDeviceBarrier();
+
+/// Returns the mangled name of the function intel_device_barrier with scope.
+std::string mangledDeviceBarrierWithScope();
 
 /// Returns the mangled name of the function work_group_barrier.
 std::string mangledWGBarrier(BarrierType BT);
@@ -692,6 +677,9 @@ Type *getWorkGroupInfoElementType(LLVMContext &C,
 /// Get implicit arguments IA_WORK_GROUP_ID element type.
 Type *getWorkGroupIDElementType(Module *M);
 
+/// Return true if the module has TLS global variables.
+bool hasTLSGlobals(Module &M);
+
 /// Retrieves requested TLS global variable in the given module
 /// \param M The module for which global variable needs to be retrieved.
 /// \param Idx The ImplicitArgsUtils::ImplicitArg index of the requested global.
@@ -703,6 +691,37 @@ StringRef getTLSLocalIdsName();
 /// Create GEP of TLS LocalIds.
 Value *createGetPtrToLocalId(Value *LocalIdValues, Type *LIdsTy, Value *Dim,
                              IRBuilderBase &Builder);
+
+/// \brief Add ReadNone attribute to given function.
+/// \param Func the given function.
+void SetFunctionAttributeReadNone(Function *Func);
+
+/// \brief Create function declaration with given name and type specification
+/// \param name the given function name
+/// \param pResult type of return value of the function
+/// \param funcTyArgs types vector of all arguments values of the function
+/// \returns Function new declared function
+Function *createFunctionDeclaration(StringRef name, Type *pResult,
+                                    ArrayRef<Type *> funcTyArgs, Module *M);
+
+/// \brief Create new call instruction to get_nums_group
+/// \param Dim argument of get_nums_group call
+/// \param Builder IRBuilder used to create new instructions.
+/// \returns new created call instruction
+Instruction *createGetNumsGroup(unsigned Dim, IRBuilderBase &Builder,
+                                Module *M);
+
+/// \brief Get nums group linear result
+/// \param Builder IRBuilder used to create new instructions.
+/// \returns The Value of get_nums_group's linear result.
+Value *createGetNumsGroupLinearResult(IRBuilderBase &Builder, Module *M);
+
+/// Collect dependent instructions to move.
+/// \param I The instruction which need to be moved.
+/// \param ToBB The destination block.
+/// \param ToMove Instructions on which I depends, and itself.
+void collectDependentInstsToMove(Instruction *I, BasicBlock *ToBB,
+                                 SmallVectorImpl<Instruction *> &ToMove);
 
 /// @brief Moves alloca instructions from FromBB to ToBB
 void moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB);
@@ -716,9 +735,10 @@ void moveInstructionIf(BasicBlock *FromBB, BasicBlock *ToBB,
 /// level arguments.
 /// \param M The module.
 /// \param F The kernel for which to create argument vector.
+/// \param HasTLSGlobals Whether the module has TLS global variables.
 /// \param Arguments Output KernelArgument vector.
 /// \param MemoryArguments Output memory argument indices.
-void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
+void parseKernelArguments(Module *M, Function *F, bool HasTLSGlobals,
                           std::vector<KernelArgument> &Arguments,
                           std::vector<unsigned int> &MemoryArguments);
 
@@ -876,12 +896,6 @@ void patchNotInlinedTIDUserFunc(
     DenseMap<Function *, Value *> &PatchedFToLocalIds,
     PointerType *LocalIdAllocTy,
     function_ref<Value *(CallInst *CI)> CreateLIDArg);
-
-/// Check opencl.compiler.options for -g flag
-bool getDebugFlagFromMetadata(Module *M);
-
-/// Check opencl.compiler.options for -cl-opt-disable flag
-bool getOptDisableFlagFromMetadata(Module *M);
 
 bool hasFDivWithFastFlag(Module *M);
 

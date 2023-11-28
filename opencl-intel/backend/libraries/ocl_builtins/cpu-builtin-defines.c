@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006 Intel Corporation
 //
 
 // This file contains the builtin-defines used in the CPU-optimized builtins

@@ -1,4 +1,4 @@
-; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-local-buffers -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-local-buffers -S %s | FileCheck %s
 
 ; Check that there is no load from pLocalMemBase in function foo which doesn't
 ; use local variable.
@@ -7,18 +7,18 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 @test.i = external addrspace(3) global i32, !dbg !0
-@LocalIds = linkonce_odr thread_local global [3 x i64] undef, align 16
-@pLocalMemBase = linkonce_odr thread_local global ptr addrspace(3) undef, align 8
-@pWorkDim = linkonce_odr thread_local global ptr undef, align 8
-@pWGId = linkonce_odr thread_local global ptr undef, align 8
-@BaseGlbId = linkonce_odr thread_local global [4 x i64] undef, align 16
-@pSpecialBuf = linkonce_odr thread_local global ptr undef, align 8
-@RuntimeHandle = linkonce_odr thread_local global ptr undef, align 8
+@__LocalIds = linkonce_odr thread_local global [3 x i64] undef, align 16
+@__pLocalMemBase = linkonce_odr thread_local global ptr addrspace(3) undef, align 8
+@__pWorkDim = linkonce_odr thread_local global ptr undef, align 8
+@__pWGId = linkonce_odr thread_local global ptr undef, align 8
+@__BaseGlbId = linkonce_odr thread_local global [4 x i64] undef, align 16
+@__pSpecialBuf = linkonce_odr thread_local global ptr undef, align 8
+@__RuntimeHandle = linkonce_odr thread_local global ptr undef, align 8
 
 ; Function Attrs: convergent
 define dso_local void @foo() #0 !dbg !13 {
 ; CHECK-LABEL: define dso_local void @foo()
-; CHECK-NOT: @pLocalMemBase
+; CHECK-NOT: @__pLocalMemBase
 ;
 entry:
   ret void, !dbg !15
@@ -26,7 +26,7 @@ entry:
 
 define dso_local void @test() !dbg !2 {
 ; CHECK-LABEL: define dso_local void @test()
-; CHECK: %LocalMemBase = load ptr addrspace(3), ptr @pLocalMemBase, align 8, !dbg
+; CHECK: %LocalMemBase = load ptr addrspace(3), ptr @__pLocalMemBase, align 8, !dbg
 ;
 entry:
   store i32 0, ptr addrspace(3) @test.i, align 4, !dbg !16

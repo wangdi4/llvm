@@ -1,7 +1,7 @@
 // RUN: c-index-test -write-pch %t.h.pch %s
 // INTEL RUN: c-index-test -code-completion-at=%s:19:1 %s -include-pch %t.h.pch | FileCheck %s
 
-// <rdar://12316296> clang Code Completion returns nothing but preprocessor macros
+// clang Code Completion returns nothing but preprocessor macros
 
 #ifndef HEADER
 #define HEADER

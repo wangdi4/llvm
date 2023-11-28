@@ -73,7 +73,7 @@
 // STATIC_LIB_NOSRC: llvm-link{{.*}} "--only-needed"{{.*}} "[[OUTFILE1]]"{{.*}} "-o" "[[OUTFILE:.+\.bc]]"
 // STATIC_LIB_NOSRC: sycl-post-link{{.*}} "-o" "[[BCFILE:.+\.bc]]" "[[OUTFILE]]"
 // STATIC_LIB_NOSRC: llvm-spirv{{.*}} "-o" "[[OUTFILE2:.+\.spv]]" {{.*}} "[[BCFILE]]"
-// STATIC_LIB_NOSRC: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[BCFILE2:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OUTFILE2]]"
+// STATIC_LIB_NOSRC: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[BCFILE2:.+\.bc]]" {{.*}} "-kind=openmp" "-target=spir64" "[[OUTFILE2]]"
 // STATIC_LIB_NOSRC: clang{{.*}} "-o" "[[FINALOBJ:.+\.o]]" {{.*}} "[[BCFILE2]]"
 // STATIC_LIB_NOSRC: ld{{.*}} "-L/dummy/dir" {{.*}} "[[FINALOBJ]]"
 
@@ -93,7 +93,7 @@
 // STATIC_LIB_WIN_LIBENV: llvm-link{{.*}} "-o" "[[OUTFILEPRE:.+\.bc]]"
 // STATIC_LIB_WIN_LIBENV: llvm-link{{.*}} "--only-needed"{{.*}} "[[OUTFILEPRE]]"{{.*}} "@[[DEVICELIB]]" "-o" "[[LINKOUT1:.+\.bc]]"
 // STATIC_LIB_WIN_LIBENV: llvm-link{{.*}} "--only-needed"{{.*}} "[[LINKOUT1]]"{{.*}} "-o" "[[LINKOUT:.+\.bc]]"
-// STATIC_LIB_WIN_LIBENV: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-device-globals" "-o" "[[POSTLINKBC:.+\.bc]]" "[[LINKOUT]]"
+// STATIC_LIB_WIN_LIBENV: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=native" "-device-globals" "-o" "[[POSTLINKBC:.+\.bc]]" "[[LINKOUT]]"
 // STATIC_LIB_WIN_LIBENV: llvm-spirv{{.*}} "-o" "[[SPIRVOUT:.+\.spv]]" {{.*}} "[[POSTLINKBC]]"
 // STATIC_LIB_WIN_LIBENV: clang-offload-wrapper{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[WRAPPEROUT:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[SPIRVOUT]]"
 // STATIC_LIB_WIN_LIBENV: clang{{.*}} "-o" "[[WRAPOBJ:.+\.obj]]" "-x" "ir" "[[WRAPPEROUT]]"

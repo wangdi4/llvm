@@ -392,7 +392,7 @@ static bool tryToFPToSat(Instruction &I, TargetTransformInfo &TTI) {
   InstructionCost SatCost = TTI.getIntrinsicInstrCost(
       IntrinsicCostAttributes(Intrinsic::fptosi_sat, SatTy, {In}, {FpTy}),
       TTI::TCK_RecipThroughput);
-  SatCost += TTI.getCastInstrCost(Instruction::SExt, SatTy, IntTy,
+  SatCost += TTI.getCastInstrCost(Instruction::SExt, IntTy, SatTy,
                                   TTI::CastContextHint::None,
                                   TTI::TCK_RecipThroughput);
 
@@ -514,7 +514,8 @@ static bool isCTTZTable(const ConstantDataArray &Table, uint64_t Mul,
 // %shr = lshr i32 %mul, 27
 // %idxprom = zext i32 %shr to i64
 // %arrayidx = getelementptr inbounds [32 x i8], [32 x i8]* @ctz1.table, i64 0,
-// i64 %idxprom %0 = load i8, i8* %arrayidx, align 1, !tbaa !8
+//     i64 %idxprom
+// %0 = load i8, i8* %arrayidx, align 1, !tbaa !8
 //
 // CASE 2:
 // %sub = sub i32 0, %x
@@ -522,8 +523,9 @@ static bool isCTTZTable(const ConstantDataArray &Table, uint64_t Mul,
 // %mul = mul i32 %and, 72416175
 // %shr = lshr i32 %mul, 26
 // %idxprom = zext i32 %shr to i64
-// %arrayidx = getelementptr inbounds [64 x i16], [64 x i16]* @ctz2.table, i64
-// 0, i64 %idxprom %0 = load i16, i16* %arrayidx, align 2, !tbaa !8
+// %arrayidx = getelementptr inbounds [64 x i16], [64 x i16]* @ctz2.table,
+//     i64 0, i64 %idxprom
+// %0 = load i16, i16* %arrayidx, align 2, !tbaa !8
 //
 // CASE 3:
 // %sub = sub i32 0, %x
@@ -531,16 +533,18 @@ static bool isCTTZTable(const ConstantDataArray &Table, uint64_t Mul,
 // %mul = mul i32 %and, 81224991
 // %shr = lshr i32 %mul, 27
 // %idxprom = zext i32 %shr to i64
-// %arrayidx = getelementptr inbounds [32 x i32], [32 x i32]* @ctz3.table, i64
-// 0, i64 %idxprom %0 = load i32, i32* %arrayidx, align 4, !tbaa !8
+// %arrayidx = getelementptr inbounds [32 x i32], [32 x i32]* @ctz3.table,
+//     i64 0, i64 %idxprom
+// %0 = load i32, i32* %arrayidx, align 4, !tbaa !8
 //
 // CASE 4:
 // %sub = sub i64 0, %x
 // %and = and i64 %sub, %x
 // %mul = mul i64 %and, 283881067100198605
 // %shr = lshr i64 %mul, 58
-// %arrayidx = getelementptr inbounds [64 x i8], [64 x i8]* @table, i64 0, i64
-// %shr %0 = load i8, i8* %arrayidx, align 1, !tbaa !8
+// %arrayidx = getelementptr inbounds [64 x i8], [64 x i8]* @table, i64 0,
+//     i64 %shr
+// %0 = load i8, i8* %arrayidx, align 1, !tbaa !8
 //
 // All this can be lowered to @llvm.cttz.i32/64 intrinsic.
 static bool tryToRecognizeTableBasedCttz(Instruction &I) {
@@ -681,8 +685,8 @@ static bool foldLoadsRecursive(Value *V, LoadOps &LOps, const DataLayout &DL,
 #if INTEL_CUSTOMIZATION
   // This optimization is not type-aware; we can only use it as-is on opaque
   // pointers. We could fix it later to add bitcasts, etc.
-  if (!LI1->getPointerOperandType()->isOpaquePointerTy() ||
-      !LI2->getPointerOperandType()->isOpaquePointerTy())
+  if (!LI1->getPointerOperandType()->isPointerTy() ||
+      !LI2->getPointerOperandType()->isPointerTy())
     return false;
   // The load combining optimization can't handle loads with multiple GEP
   // sequences. In llorg, these sequences are folded by InstCombine.
@@ -742,7 +746,10 @@ static bool foldLoadsRecursive(Value *V, LoadOps &LOps, const DataLayout &DL,
        make_range(Start->getIterator(), End->getIterator())) {
     if (Inst.mayWriteToMemory() && isModSet(AA.getModRefInfo(&Inst, Loc)))
       return false;
-    if (++NumScanned > MaxInstrsToScan)
+
+    // Ignore debug info so that's not counted against MaxInstrsToScan.
+    // Otherwise debug info could affect codegen.
+    if (!isa<DbgInfoIntrinsic>(Inst) && ++NumScanned > MaxInstrsToScan)
       return false;
   }
 
@@ -851,14 +858,8 @@ static bool foldConsecutiveLoads(Instruction &I, const DataLayout &DL,
                                  Builder.getInt32(Offset1.getZExtValue()));
   }
   // Generate wider load.
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   NewLoad = Builder.CreateAlignedLoad(WiderType, Load1Ptr, LI1->getAlign(),
                                       LI1->isVolatile(), "");
-#else
-  Value *NewPtr = Builder.CreateBitCast(Load1Ptr, WiderType->getPointerTo(AS));
-  NewLoad = Builder.CreateAlignedLoad(WiderType, NewPtr, LI1->getAlign(),
-                                      LI1->isVolatile(), "");
-#endif
   NewLoad->takeName(LI1);
   // Set the New Load AATags Metadata.
   if (LOps.AATags)
@@ -1264,6 +1265,6 @@ PreservedAnalyses AggressiveInstCombinePass::run(Function &F,
   // Mark all the analyses that instcombine updates as preserved.
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
-  PA.preserve<WholeProgramAnalysis>();   // INTEL
+  PA.preserve<WholeProgramAnalysis>(); // INTEL
   return PA;
 }

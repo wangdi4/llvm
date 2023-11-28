@@ -17,6 +17,8 @@
 ; CHECK-AFTER: call{{.*}}daxpy_
 ; CHECK-AFTER: call{{.*}}daxpy_
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+
 @anon.179c04c108271c6ee1aba768bef6092b.0 = internal unnamed_addr constant i32 2
 @"linpk_$A" = internal unnamed_addr global [2500 x [2501 x double]] zeroinitializer, align 16
 @"linpk_$B" = internal unnamed_addr global [2500 x double] zeroinitializer, align 16

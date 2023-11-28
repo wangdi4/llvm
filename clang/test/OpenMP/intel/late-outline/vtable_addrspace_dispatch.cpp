@@ -1,9 +1,9 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp -fopenmp-version=50 \
+// RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp -fopenmp-version=50 \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-targets=spir64 -emit-llvm-bc %s -o %t-host.bc
 //
-// RUN: %clang_cc1 -opaque-pointers -verify -triple spir64 -fopenmp -fopenmp-version=50 \
+// RUN: %clang_cc1 -verify -triple spir64 -fopenmp -fopenmp-version=50 \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-targets=spir64 -fopenmp-is-device \
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - \
@@ -102,9 +102,9 @@ B::B() {}
 // CHECK: [[THIS1:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[THIS_ADDR_ASCAST]]
 // CHECK: call spir_func void @_ZN1AC2Ev
 // CHECK: call spir_func void @_ZN1CC2Ev
-// CHECK:store ptr addrspace(4) addrspacecast (ptr addrspace(1) getelementptr inbounds ({ [5 x ptr addrspace(4)], [6 x ptr addrspace(4)] }, ptr addrspace(1) [[ZTV1B]], i32 0, inrange i32 0, i32 3) to ptr addrspace(4)), ptr addrspace(4) [[THIS1]]
+// CHECK: store ptr addrspace(1) getelementptr inbounds ({ [5 x ptr addrspace(4)], [6 x ptr addrspace(4)] }, ptr addrspace(1) [[ZTV1B]], i32 0, inrange i32 0, i32 3), ptr addrspace(4) [[THIS1]]
 // CHECK: [[ADD_PTR:%.*]] = getelementptr inbounds i8, ptr addrspace(4) [[THIS1]]
-// CHECK: store ptr addrspace(4) addrspacecast (ptr addrspace(1) getelementptr inbounds ({ [5 x ptr addrspace(4)], [6 x ptr addrspace(4)] }, ptr addrspace(1) [[ZTV1B]], i32 0, inrange i32 1, i32 4) to ptr addrspace(4)), ptr addrspace(4) [[ADD_PTR]],
+// CHECK: store ptr addrspace(1) getelementptr inbounds ({ [5 x ptr addrspace(4)], [6 x ptr addrspace(4)] }, ptr addrspace(1) [[ZTV1B]], i32 0, inrange i32 1, i32 4), ptr addrspace(4) [[ADD_PTR]],
 // CHECK: ret void
 
 void test() {

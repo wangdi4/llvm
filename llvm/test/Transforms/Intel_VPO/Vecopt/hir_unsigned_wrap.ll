@@ -45,8 +45,7 @@ for.body:                                         ; preds = %for.body, %entry
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  %arrayidx4 = getelementptr inbounds [255 x i32], ptr %ar, i64 0, i64 0
-  %1 = load i32, ptr %arrayidx4, align 16, !tbaa !2
+  %1 = load i32, ptr %ar, align 16, !tbaa !2
   %arrayidx6 = getelementptr inbounds [255 x i32], ptr %ar, i64 0, i64 255
   %2 = load i32, ptr %arrayidx6, align 4, !tbaa !2
   %add7 = add nsw i32 %1, %2

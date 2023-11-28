@@ -109,9 +109,12 @@ static void MLPGOInferFunction(Module *M, Function &F, CallGraph &CG,
     IF->getSrcBBFeatures().srcFunctionEdgesSize = EdgesCountInCFG;
 
     MDBuilder MDB(M->getContext());
-    /* std::vector<unsigned int> Probs = llvm::mlpgo::Inference(*IF); */
 
     std::vector<unsigned int> Probs = Model->inference(*IF);
+
+    // Probabilities vector might be empty if there is an issue with inferencing
+    if (Probs.empty())
+      continue;
 
     TI->setMetadata(LLVMContext::MD_prof,
                     MDB.createBranchWeights(ArrayRef<uint32_t>(Probs)));

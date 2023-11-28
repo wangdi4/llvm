@@ -1,17 +1,17 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp \
 // RUN:  -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s \
 // RUN:  --check-prefixes=CHECK,ALL
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp \
 // RUN:  -fopenmp-late-outline \
 // RUN:  -fopenmp-declare-target-scalar-defaultmap-firstprivate \
 // RUN:  -fopenmp-declare-target-global-default-map \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s \
 // RUN:  --check-prefixes=FPRIVATE,ALL
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp \
 // RUN:  -fopenmp-late-outline -fopenmp-targets=spir64 \
 // RUN:  -fopenmp-declare-target-scalar-defaultmap-firstprivate \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s \
@@ -36,27 +36,27 @@ void foo2_global2() {
 // ALL-DAG: [[UB:%.omp.ub]] = alloca i32
 //CHECK: "DIR.OMP.TARGET"
 //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr [[GLOBSIX]])
-//CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[CE1]])
-//CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[IV]])
-//CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[LB]])
-//CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[UB]])
+//CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[CE1]]
+//CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[IV]]
+//CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[LB]]
+//CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[UB]]
 //CHECK: "DIR.OMP.PARALLEL.LOOP"
 //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
 //CHECK: "DIR.OMP.END.TARGET"
 //FPRIVATE: "DIR.OMP.TARGET"
-//FPRIVATE-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[GLOBSIX]])
-//FPRIVATE-SAME: "QUAL.OMP.PRIVATE"(ptr [[CE1]])
-//FPRIVATE-SAME: "QUAL.OMP.PRIVATE"(ptr [[IV]])
-//FPRIVATE-SAME: "QUAL.OMP.PRIVATE"(ptr [[LB]])
-//FPRIVATE-SAME: "QUAL.OMP.PRIVATE"(ptr [[UB]])
+//FPRIVATE-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[GLOBSIX]]
+//FPRIVATE-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[CE1]]
+//FPRIVATE-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[IV]]
+//FPRIVATE-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[LB]]
+//FPRIVATE-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[UB]]
 //FPRIVATE: "DIR.OMP.PARALLEL.LOOP"
 //FPRIVATE: "DIR.OMP.END.PARALLEL.LOOP"
 //FPRIVATE-CHECK: "DIR.OMP.TARGET"
 //FPRIVATE-CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr [[GLOBSIX]])
-//FPRIVATE-CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[IV]])
-//FPRIVATE-CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[LB]])
-//FPRIVATE-CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[UB]])
-//FPRIVATE-CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[CE]])
+//FPRIVATE-CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[IV]]
+//FPRIVATE-CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[LB]]
+//FPRIVATE-CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[UB]]
+//FPRIVATE-CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[CE]]
 //FPRIVATE-CHECK: "DIR.OMP.PARALLEL.LOOP"
 //FPRIVATE-CHECK: "DIR.OMP.END.PARALLEL.LOOP"
 //FPRIVATE-CHECK: "DIR.OMP.END.TARGET"

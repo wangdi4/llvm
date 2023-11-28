@@ -32,6 +32,7 @@
 ; GCN-O0-NEXT:    FunctionPass Manager
 ; GCN-O0-NEXT:      Expand large div/rem
 ; GCN-O0-NEXT:      Expand large fp convert
+; GCN-O0-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O0-NEXT:    AMDGPU Printf lowering
 ; GCN-O0-NEXT:    Lower ctors and dtors for AMDGPU
 ; GCN-O0-NEXT:    AMDGPU Inline All Functions
@@ -53,7 +54,6 @@
 ; GCN-O0-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O0-NEXT:    FunctionPass Manager
 ; GCN-O0-NEXT:      FPBuiltin Function Selection
-; GCN-O0-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O0-NEXT:    CallGraph Construction
 ; GCN-O0-NEXT:    Call Graph SCC Pass Manager
 ; GCN-O0-NEXT:      AMDGPU Annotate Kernel Features
@@ -68,8 +68,6 @@
 ; GCN-O0-NEXT:        Cycle Info Analysis
 ; GCN-O0-NEXT:        Uniformity Analysis
 ; GCN-O0-NEXT:        Unify divergent function exit nodes
-; GCN-O0-NEXT:        Lazy Value Information Analysis
-; GCN-O0-NEXT:        Lower SwitchInst's to branches
 ; GCN-O0-NEXT:        Dominator Tree Construction
 ; GCN-O0-NEXT:        Natural Loop Information
 ; GCN-O0-NEXT:        Convert irreducible control-flow into natural loops
@@ -115,14 +113,15 @@
 ; GCN-O0-NEXT:        MachineDominator Tree Construction
 ; GCN-O0-NEXT:        Slot index numbering
 ; GCN-O0-NEXT:        Live Interval Analysis
-; GCN-O0-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O0-NEXT:        SI Whole Quad Mode
-; GCN-O0-NEXT:        Virtual Register Map
-; GCN-O0-NEXT:        Live Register Matrix
-; GCN-O0-NEXT:        SI Pre-allocate WWM Registers
 ; GCN-O0-NEXT:        AMDGPU Pre-RA Long Branch Reg
 ; GCN-O0-NEXT:        Fast Register Allocator
 ; GCN-O0-NEXT:        SI lower SGPR spill instructions
+; GCN-O0-NEXT:        Slot index numbering
+; GCN-O0-NEXT:        Live Interval Analysis
+; GCN-O0-NEXT:        Virtual Register Map
+; GCN-O0-NEXT:        Live Register Matrix
+; GCN-O0-NEXT:        SI Pre-allocate WWM Registers
 ; GCN-O0-NEXT:        Fast Register Allocator
 ; GCN-O0-NEXT:        SI Lower WWM Copies
 ; GCN-O0-NEXT:        SI Fix VGPR copies
@@ -178,6 +177,7 @@
 ; GCN-O1-NEXT:    FunctionPass Manager
 ; GCN-O1-NEXT:      Expand large div/rem
 ; GCN-O1-NEXT:      Expand large fp convert
+; GCN-O1-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O1-NEXT:    AMDGPU Printf lowering
 ; GCN-O1-NEXT:    Lower ctors and dtors for AMDGPU
 ; GCN-O1-NEXT:    AMDGPU Inline All Functions
@@ -193,10 +193,13 @@
 ; GCN-O1-NEXT:        Cycle Info Analysis
 ; GCN-O1-NEXT:    FunctionPass Manager
 ; GCN-O1-NEXT:      Infer address spaces
+; GCN-O1-NEXT:      Dominator Tree Construction
+; GCN-O1-NEXT:      Cycle Info Analysis
+; GCN-O1-NEXT:      Uniformity Analysis
+; GCN-O1-NEXT:      AMDGPU atomic optimizations
 ; GCN-O1-NEXT:      Expand Atomic instructions
 ; GCN-O1-NEXT:      AMDGPU Promote Alloca
 ; GCN-O1-NEXT:      Dominator Tree Construction
-; GCN-O1-NEXT:      SROA
 ; GCN-O1-NEXT:      Cycle Info Analysis
 ; GCN-O1-NEXT:      Uniformity Analysis
 ; GCN-O1-NEXT:      AMDGPU IR optimizations
@@ -233,7 +236,6 @@
 ; GCN-O1-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O1-NEXT:    FunctionPass Manager
 ; GCN-O1-NEXT:      FPBuiltin Function Selection
-; GCN-O1-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O1-NEXT:    CallGraph Construction
 ; GCN-O1-NEXT:    Call Graph SCC Pass Manager
 ; GCN-O1-NEXT:      AMDGPU Annotate Kernel Features
@@ -254,17 +256,12 @@
 ; GCN-O1-NEXT:        Cycle Info Analysis
 ; GCN-O1-NEXT:        Uniformity Analysis
 ; GCN-O1-NEXT:        AMDGPU IR late optimizations
-; GCN-O1-NEXT:        AMDGPU atomic optimizations
 ; GCN-O1-NEXT:        Basic Alias Analysis (stateless AA impl)
 ; GCN-O1-NEXT:        Function Alias Analysis Results
 ; GCN-O1-NEXT:        Natural Loop Information
 ; GCN-O1-NEXT:        Code sinking
 ; GCN-O1-NEXT:        Post-Dominator Tree Construction
-; GCN-O1-NEXT:        Cycle Info Analysis
-; GCN-O1-NEXT:        Uniformity Analysis
 ; GCN-O1-NEXT:        Unify divergent function exit nodes
-; GCN-O1-NEXT:        Lazy Value Information Analysis
-; GCN-O1-NEXT:        Lower SwitchInst's to branches
 ; GCN-O1-NEXT:        Dominator Tree Construction
 ; GCN-O1-NEXT:        Natural Loop Information
 ; GCN-O1-NEXT:        Convert irreducible control-flow into natural loops
@@ -350,11 +347,7 @@
 ; GCN-O1-NEXT:        Register Coalescer
 ; GCN-O1-NEXT:        Rename Disconnected Subregister Components
 ; GCN-O1-NEXT:        Machine Instruction Scheduler
-; GCN-O1-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O1-NEXT:        SI Whole Quad Mode
-; GCN-O1-NEXT:        Virtual Register Map
-; GCN-O1-NEXT:        Live Register Matrix
-; GCN-O1-NEXT:        SI Pre-allocate WWM Registers
 ; GCN-O1-NEXT:        SI optimize exec mask operations pre-RA
 ; GCN-O1-NEXT:        AMDGPU Pre-RA Long Branch Reg
 ; GCN-O1-NEXT:        Machine Natural Loop Construction
@@ -372,6 +365,7 @@
 ; GCN-O1-NEXT:        SI lower SGPR spill instructions
 ; GCN-O1-NEXT:        Virtual Register Map
 ; GCN-O1-NEXT:        Live Register Matrix
+; GCN-O1-NEXT:        SI Pre-allocate WWM Registers
 ; GCN-O1-NEXT:        Greedy Register Allocator
 ; GCN-O1-NEXT:        SI Lower WWM Copies
 ; GCN-O1-NEXT:        GCN NSA Reassign
@@ -454,6 +448,7 @@
 ; GCN-O1-OPTS-NEXT:    FunctionPass Manager
 ; GCN-O1-OPTS-NEXT:      Expand large div/rem
 ; GCN-O1-OPTS-NEXT:      Expand large fp convert
+; GCN-O1-OPTS-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O1-OPTS-NEXT:    AMDGPU Printf lowering
 ; GCN-O1-OPTS-NEXT:    Lower ctors and dtors for AMDGPU
 ; GCN-O1-OPTS-NEXT:    AMDGPU Inline All Functions
@@ -469,10 +464,13 @@
 ; GCN-O1-OPTS-NEXT:        Cycle Info Analysis
 ; GCN-O1-OPTS-NEXT:    FunctionPass Manager
 ; GCN-O1-OPTS-NEXT:      Infer address spaces
+; GCN-O1-OPTS-NEXT:      Dominator Tree Construction
+; GCN-O1-OPTS-NEXT:      Cycle Info Analysis
+; GCN-O1-OPTS-NEXT:      Uniformity Analysis
+; GCN-O1-OPTS-NEXT:      AMDGPU atomic optimizations
 ; GCN-O1-OPTS-NEXT:      Expand Atomic instructions
 ; GCN-O1-OPTS-NEXT:      AMDGPU Promote Alloca
 ; GCN-O1-OPTS-NEXT:      Dominator Tree Construction
-; GCN-O1-OPTS-NEXT:      SROA
 ; GCN-O1-OPTS-NEXT:      Natural Loop Information
 ; GCN-O1-OPTS-NEXT:      Split GEPs to a variadic base and a constant offset for better CSE
 ; GCN-O1-OPTS-NEXT:      Scalar Evolution Analysis
@@ -517,7 +515,6 @@
 ; GCN-O1-OPTS-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O1-OPTS-NEXT:    FunctionPass Manager
 ; GCN-O1-OPTS-NEXT:      FPBuiltin Function Selection
-; GCN-O1-OPTS-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O1-OPTS-NEXT:    CallGraph Construction
 ; GCN-O1-OPTS-NEXT:    Call Graph SCC Pass Manager
 ; GCN-O1-OPTS-NEXT:      AMDGPU Annotate Kernel Features
@@ -544,17 +541,12 @@
 ; GCN-O1-OPTS-NEXT:        Cycle Info Analysis
 ; GCN-O1-OPTS-NEXT:        Uniformity Analysis
 ; GCN-O1-OPTS-NEXT:        AMDGPU IR late optimizations
-; GCN-O1-OPTS-NEXT:        AMDGPU atomic optimizations
 ; GCN-O1-OPTS-NEXT:        Basic Alias Analysis (stateless AA impl)
 ; GCN-O1-OPTS-NEXT:        Function Alias Analysis Results
 ; GCN-O1-OPTS-NEXT:        Natural Loop Information
 ; GCN-O1-OPTS-NEXT:        Code sinking
 ; GCN-O1-OPTS-NEXT:        Post-Dominator Tree Construction
-; GCN-O1-OPTS-NEXT:        Cycle Info Analysis
-; GCN-O1-OPTS-NEXT:        Uniformity Analysis
 ; GCN-O1-OPTS-NEXT:        Unify divergent function exit nodes
-; GCN-O1-OPTS-NEXT:        Lazy Value Information Analysis
-; GCN-O1-OPTS-NEXT:        Lower SwitchInst's to branches
 ; GCN-O1-OPTS-NEXT:        Dominator Tree Construction
 ; GCN-O1-OPTS-NEXT:        Natural Loop Information
 ; GCN-O1-OPTS-NEXT:        Convert irreducible control-flow into natural loops
@@ -648,11 +640,7 @@
 ; GCN-O1-OPTS-NEXT:        Rename Disconnected Subregister Components
 ; GCN-O1-OPTS-NEXT:        AMDGPU Pre-RA optimizations
 ; GCN-O1-OPTS-NEXT:        Machine Instruction Scheduler
-; GCN-O1-OPTS-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O1-OPTS-NEXT:        SI Whole Quad Mode
-; GCN-O1-OPTS-NEXT:        Virtual Register Map
-; GCN-O1-OPTS-NEXT:        Live Register Matrix
-; GCN-O1-OPTS-NEXT:        SI Pre-allocate WWM Registers
 ; GCN-O1-OPTS-NEXT:        SI optimize exec mask operations pre-RA
 ; GCN-O1-OPTS-NEXT:        AMDGPU Pre-RA Long Branch Reg
 ; GCN-O1-OPTS-NEXT:        Machine Natural Loop Construction
@@ -670,6 +658,7 @@
 ; GCN-O1-OPTS-NEXT:        SI lower SGPR spill instructions
 ; GCN-O1-OPTS-NEXT:        Virtual Register Map
 ; GCN-O1-OPTS-NEXT:        Live Register Matrix
+; GCN-O1-OPTS-NEXT:        SI Pre-allocate WWM Registers
 ; GCN-O1-OPTS-NEXT:        Greedy Register Allocator
 ; GCN-O1-OPTS-NEXT:        SI Lower WWM Copies
 ; GCN-O1-OPTS-NEXT:        GCN NSA Reassign
@@ -752,8 +741,11 @@
 ; GCN-O2-NEXT:    FunctionPass Manager
 ; GCN-O2-NEXT:      Expand large div/rem
 ; GCN-O2-NEXT:      Expand large fp convert
+; GCN-O2-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O2-NEXT:    AMDGPU Printf lowering
 ; GCN-O2-NEXT:    Lower ctors and dtors for AMDGPU
+; GCN-O2-NEXT:    FunctionPass Manager
+; GCN-O2-NEXT:      AMDGPU Image Intrinsic Optimizer
 ; GCN-O2-NEXT:    AMDGPU Inline All Functions
 ; GCN-O2-NEXT:    Inliner for always_inline functions
 ; GCN-O2-NEXT:      FunctionPass Manager
@@ -767,10 +759,13 @@
 ; GCN-O2-NEXT:        Cycle Info Analysis
 ; GCN-O2-NEXT:    FunctionPass Manager
 ; GCN-O2-NEXT:      Infer address spaces
+; GCN-O2-NEXT:      Dominator Tree Construction
+; GCN-O2-NEXT:      Cycle Info Analysis
+; GCN-O2-NEXT:      Uniformity Analysis
+; GCN-O2-NEXT:      AMDGPU atomic optimizations
 ; GCN-O2-NEXT:      Expand Atomic instructions
 ; GCN-O2-NEXT:      AMDGPU Promote Alloca
 ; GCN-O2-NEXT:      Dominator Tree Construction
-; GCN-O2-NEXT:      SROA
 ; GCN-O2-NEXT:      Natural Loop Information
 ; GCN-O2-NEXT:      Split GEPs to a variadic base and a constant offset for better CSE
 ; GCN-O2-NEXT:      Scalar Evolution Analysis
@@ -823,7 +818,6 @@
 ; GCN-O2-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O2-NEXT:    FunctionPass Manager
 ; GCN-O2-NEXT:      FPBuiltin Function Selection
-; GCN-O2-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O2-NEXT:    CallGraph Construction
 ; GCN-O2-NEXT:    Call Graph SCC Pass Manager
 ; GCN-O2-NEXT:      AMDGPU Annotate Kernel Features
@@ -850,17 +844,12 @@
 ; GCN-O2-NEXT:        Cycle Info Analysis
 ; GCN-O2-NEXT:        Uniformity Analysis
 ; GCN-O2-NEXT:        AMDGPU IR late optimizations
-; GCN-O2-NEXT:        AMDGPU atomic optimizations
 ; GCN-O2-NEXT:        Basic Alias Analysis (stateless AA impl)
 ; GCN-O2-NEXT:        Function Alias Analysis Results
 ; GCN-O2-NEXT:        Natural Loop Information
 ; GCN-O2-NEXT:        Code sinking
 ; GCN-O2-NEXT:        Post-Dominator Tree Construction
-; GCN-O2-NEXT:        Cycle Info Analysis
-; GCN-O2-NEXT:        Uniformity Analysis
 ; GCN-O2-NEXT:        Unify divergent function exit nodes
-; GCN-O2-NEXT:        Lazy Value Information Analysis
-; GCN-O2-NEXT:        Lower SwitchInst's to branches
 ; GCN-O2-NEXT:        Dominator Tree Construction
 ; GCN-O2-NEXT:        Natural Loop Information
 ; GCN-O2-NEXT:        Convert irreducible control-flow into natural loops
@@ -955,11 +944,7 @@
 ; GCN-O2-NEXT:        Rename Disconnected Subregister Components
 ; GCN-O2-NEXT:        AMDGPU Pre-RA optimizations
 ; GCN-O2-NEXT:        Machine Instruction Scheduler
-; GCN-O2-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O2-NEXT:        SI Whole Quad Mode
-; GCN-O2-NEXT:        Virtual Register Map
-; GCN-O2-NEXT:        Live Register Matrix
-; GCN-O2-NEXT:        SI Pre-allocate WWM Registers
 ; GCN-O2-NEXT:        SI optimize exec mask operations pre-RA
 ; GCN-O2-NEXT:        SI Form memory clauses
 ; GCN-O2-NEXT:        AMDGPU Pre-RA Long Branch Reg
@@ -978,6 +963,7 @@
 ; GCN-O2-NEXT:        SI lower SGPR spill instructions
 ; GCN-O2-NEXT:        Virtual Register Map
 ; GCN-O2-NEXT:        Live Register Matrix
+; GCN-O2-NEXT:        SI Pre-allocate WWM Registers
 ; GCN-O2-NEXT:        Greedy Register Allocator
 ; GCN-O2-NEXT:        SI Lower WWM Copies
 ; GCN-O2-NEXT:        GCN NSA Reassign
@@ -1060,8 +1046,11 @@
 ; GCN-O3-NEXT:    FunctionPass Manager
 ; GCN-O3-NEXT:      Expand large div/rem
 ; GCN-O3-NEXT:      Expand large fp convert
+; GCN-O3-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O3-NEXT:    AMDGPU Printf lowering
 ; GCN-O3-NEXT:    Lower ctors and dtors for AMDGPU
+; GCN-O3-NEXT:    FunctionPass Manager
+; GCN-O3-NEXT:      AMDGPU Image Intrinsic Optimizer
 ; GCN-O3-NEXT:    AMDGPU Inline All Functions
 ; GCN-O3-NEXT:    Inliner for always_inline functions
 ; GCN-O3-NEXT:      FunctionPass Manager
@@ -1075,10 +1064,13 @@
 ; GCN-O3-NEXT:        Cycle Info Analysis
 ; GCN-O3-NEXT:    FunctionPass Manager
 ; GCN-O3-NEXT:      Infer address spaces
+; GCN-O3-NEXT:      Dominator Tree Construction
+; GCN-O3-NEXT:      Cycle Info Analysis
+; GCN-O3-NEXT:      Uniformity Analysis
+; GCN-O3-NEXT:      AMDGPU atomic optimizations
 ; GCN-O3-NEXT:      Expand Atomic instructions
 ; GCN-O3-NEXT:      AMDGPU Promote Alloca
 ; GCN-O3-NEXT:      Dominator Tree Construction
-; GCN-O3-NEXT:      SROA
 ; GCN-O3-NEXT:      Natural Loop Information
 ; GCN-O3-NEXT:      Split GEPs to a variadic base and a constant offset for better CSE
 ; GCN-O3-NEXT:      Scalar Evolution Analysis
@@ -1143,7 +1135,6 @@
 ; GCN-O3-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O3-NEXT:    FunctionPass Manager
 ; GCN-O3-NEXT:      FPBuiltin Function Selection
-; GCN-O3-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O3-NEXT:    CallGraph Construction
 ; GCN-O3-NEXT:    Call Graph SCC Pass Manager
 ; GCN-O3-NEXT:      AMDGPU Annotate Kernel Features
@@ -1170,17 +1161,12 @@
 ; GCN-O3-NEXT:        Cycle Info Analysis
 ; GCN-O3-NEXT:        Uniformity Analysis
 ; GCN-O3-NEXT:        AMDGPU IR late optimizations
-; GCN-O3-NEXT:        AMDGPU atomic optimizations
 ; GCN-O3-NEXT:        Basic Alias Analysis (stateless AA impl)
 ; GCN-O3-NEXT:        Function Alias Analysis Results
 ; GCN-O3-NEXT:        Natural Loop Information
 ; GCN-O3-NEXT:        Code sinking
 ; GCN-O3-NEXT:        Post-Dominator Tree Construction
-; GCN-O3-NEXT:        Cycle Info Analysis
-; GCN-O3-NEXT:        Uniformity Analysis
 ; GCN-O3-NEXT:        Unify divergent function exit nodes
-; GCN-O3-NEXT:        Lazy Value Information Analysis
-; GCN-O3-NEXT:        Lower SwitchInst's to branches
 ; GCN-O3-NEXT:        Dominator Tree Construction
 ; GCN-O3-NEXT:        Natural Loop Information
 ; GCN-O3-NEXT:        Convert irreducible control-flow into natural loops
@@ -1275,11 +1261,7 @@
 ; GCN-O3-NEXT:        Rename Disconnected Subregister Components
 ; GCN-O3-NEXT:        AMDGPU Pre-RA optimizations
 ; GCN-O3-NEXT:        Machine Instruction Scheduler
-; GCN-O3-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O3-NEXT:        SI Whole Quad Mode
-; GCN-O3-NEXT:        Virtual Register Map
-; GCN-O3-NEXT:        Live Register Matrix
-; GCN-O3-NEXT:        SI Pre-allocate WWM Registers
 ; GCN-O3-NEXT:        SI optimize exec mask operations pre-RA
 ; GCN-O3-NEXT:        SI Form memory clauses
 ; GCN-O3-NEXT:        AMDGPU Pre-RA Long Branch Reg
@@ -1298,6 +1280,7 @@
 ; GCN-O3-NEXT:        SI lower SGPR spill instructions
 ; GCN-O3-NEXT:        Virtual Register Map
 ; GCN-O3-NEXT:        Live Register Matrix
+; GCN-O3-NEXT:        SI Pre-allocate WWM Registers
 ; GCN-O3-NEXT:        Greedy Register Allocator
 ; GCN-O3-NEXT:        SI Lower WWM Copies
 ; GCN-O3-NEXT:        GCN NSA Reassign

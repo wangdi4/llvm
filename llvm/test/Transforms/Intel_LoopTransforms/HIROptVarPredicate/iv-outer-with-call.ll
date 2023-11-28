@@ -1,6 +1,7 @@
 ; RUN: opt -hir-cost-model-throttling=0 -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -S -disable-output  < %s 2>&1 | FileCheck %s
 
-; Check that IV candidate in outer loop will be handled if it contains a user call.
+; Check that IV candidate in outer loop will be handled.
+; The region is not marked modified because the transformed loop is not the innermost.
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 99, 1

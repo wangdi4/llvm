@@ -8,19 +8,18 @@
 #ifndef KERENELEXECUTOR_H_
 #define KERENELEXECUTOR_H_
 
+#include "ArrayParameter.h"
+
+#ifdef WINDOWS
+#include "CL/cl.h"
+#else
+#include "CL/opencl.h"
+#endif
+#include "Execution.h"
+#include "RegularParameter.h"
 #include <list>
 #include <string>
 #include <vector>
-
-#ifdef WINDOWS
-#include <CL/cl.h>
-#else
-#include <opencl.h>
-#endif
-
-#include "ArrayParameter.h"
-#include "Execution.h"
-#include "RegularParameter.h"
 
 using std::list;
 using std::string;

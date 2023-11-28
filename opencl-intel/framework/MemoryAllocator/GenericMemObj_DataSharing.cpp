@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2023 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,14 +12,13 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <Device.h>
-#include <algorithm>
-#include <assert.h>
-
+#include "Device.h"
 #include "GenericMemObj.h"
 #include "cl_logger.h"
 #include "cl_shared_ptr.hpp"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
+#include <algorithm>
+#include <assert.h>
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;

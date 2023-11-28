@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,8 +16,8 @@
 #define WORK_GROUP_STORAGE_H
 
 #include "IWorkItemBuiltins.h"
-#include <llvm/ADT/APInt.h>
-#include <llvm/IR/DerivedTypes.h>
+#include "llvm/ADT/APInt.h"
+#include "llvm/IR/DerivedTypes.h"
 #include <vector>
 
 namespace Validation {

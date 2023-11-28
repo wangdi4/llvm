@@ -41,10 +41,9 @@ void func() {
 //CHECK-DAG: define {{.*}}_Z7executeIZ4funcvEUliE_EvRKT_{{.*}}#[[CONTAINS:[0-9]]]
 //CHECK-DAG: define {{.*}}_ZZ4funcvENKUliE_clEi{{.*}}#[[DECLTARG1:[0-9]]]
 //CHECK-DAG: define {{.*}}_ZN3fooD2Ev{{.*}}#[[DECLTARG2:[0-9]]]
-//CHECK-DAG: define {{.*}}_Z7anotherv{{.*}}#[[DECLTARG3:[0-9]]]
+//CHECK-DAG: define {{.*}}_Z7anotherv{{.*}}#[[DECLTARG2:[0-9]]]
 
 //CHECK-DAG: attributes #[[CONTAINS]] = {{.*}}"contains-openmp-target"="true"
 //CHECK-DAG: attributes #[[DECLTARG1]] = {{.*}}"openmp-target-declare"="true"
 //CHECK-DAG: attributes #[[DECLTARG2]] = {{.*}}"openmp-target-declare"="true"
-//CHECK-DAG: attributes #[[DECLTARG3]] = {{.*}}"openmp-target-declare"="true"
 // end INTEL_COLLAB

@@ -1,9 +1,12 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -disable-output -hir-cost-model-throttling=0 %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -disable-output -hir-cost-model-throttling=0 -hir-loop-distribute-skip-vectorization-profitability-check=true %s 2>&1 | FileCheck %s
 
 ; Check that we can correctly handle scalar expansion when defs/uses are in both
 ; paths of if then/else branch. If a scalar expansion candidate is unconditionally
 ; defined or used, then the scalar expansion load can be done at the beginning
 ; of the use loop.
+
+; Note: we stopped scalar expanding both %tmp524 and %tmp525 as they are defined
+; and used in the same vectorizable loop.
 
 ; Before Transformation:
 
@@ -57,75 +60,75 @@
 ;         + END LOOP
 
 ;Scalar Expansion analysis:
-;%tmp524 (sb:20) (In/Out 0/0) (26,32) -> (74,74,79,79,74,74,79,79) Recompute: 1
-; ( 26 32 -> 74 ) ( 26 32 -> 79 ) ( 26 32 -> 74 ) ( 26 32 -> 79 )
-;%tmp525 (sb:22) (In/Out 0/0) (27,33) -> (65,65) Recompute: 1
-; ( 27 33 -> 65 )
-;%tmp540 (sb:32) (In/Out 0/0) (44) -> (101,65) Recompute: 0
-; ( 44 -> 101 ) ( 44 -> 65 )
+;%tmp540 (sb:32) (In/Out 0/0) (44) -> (133,65) Recompute: 0
+; ( 44 -> 133 ) ( 44 -> 65 )
 
 
 ; HIR after transformation
 
 ; CHECK : BEGIN REGION { modified }
-; CHECK:  |   |   |   + DO i4 = 0, %min, 1
-;         |   |   |   |   %tmp484 = (null)[0]  *  0.000000e+00;
-;         |   |   |   |   %tmp486 = (null)[0]  *  0.000000e+00;
-; CHECK:  |   |   |   |   if (%tmp488 < 0x4013851EC0000000)
-;         |   |   |   |   {
-;         |   |   |   |      %tmp506 = (null)[0]  *  0.000000e+00;
-;         |   |   |   |      %tmp524 = 0.000000e+00;
-; CHECK:  |   |   |   |      (%.TempArray)[0][i4] = %tmp524;
-;         |   |   |   |      %tmp525 = %tmp505;
-; CHECK:  |   |   |   |      (%.TempArray9)[0][i4] = %tmp525;
-;         |   |   |   |   }
-;         |   |   |   |   else
-;         |   |   |   |   {
-;         |   |   |   |      %tmp517 = (null)[0]  *  0.000000e+00;
-;         |   |   |   |      %tmp524 = 0.000000e+00;
-; CHECK:  |   |   |   |      (%.TempArray)[0][i4] = %tmp524;
-;         |   |   |   |      %tmp525 = %tmp516;
-; CHECK:  |   |   |   |      (%.TempArray9)[0][i4] = %tmp525;
-;         |   |   |   |   }
-;         |   |   |   |   %tmp531 = (null)[0]  -  (null)[0];
-;         |   |   |   |   (null)[0] = 0.000000e+00;
-;         |   |   |   |   %tmp534 = 0.000000e+00  -  (null)[0];
-;         |   |   |   |   (null)[0] = 0.000000e+00;
-;         |   |   |   |   %tmp540 = (null)[0];
-; CHECK:  |   |   |   |   (%.TempArray11)[0][i4] = %tmp540;
-;         |   |   |   |   if (%tmp540 > 0.000000e+00)
-;         |   |   |   |   {
-;         |   |   |   |      %tmp547 = (null)[0]  *  0.000000e+00;
-;         |   |   |   |      (%arg4)[0] = 0.000000e+00;
-;         |   |   |   |      (%arg6)[0] = 0.000000e+00;
-;         |   |   |   |      (null)[0] = (null)[0];
-;         |   |   |   |      %tmp585 = (null)[0]  -  (%arg5)[0];
-;         |   |   |   |      %tmp587 = (%tmp446)[0]  *  0.000000e+00;
-;         |   |   |   |      %tmp595 = 0.000000e+00  +  (null)[0];
-;         |   |   |   |   }
-;         |   |   |   |   (null)[0] = 0.000000e+00;
-;         |   |   |   + END LOOP
-;         |   |   |
-; CHECK:  |   |   |   + DO i4 = 0, %min, 1
-; CHECK:  |   |   |   |   %tmp524 = (%.TempArray)[0][i4];
-; CHECK:  |   |   |   |   %tmp525 = (%.TempArray9)[0][i4];
-; CHECK:  |   |   |   |   %tmp540 = (%.TempArray11)[0][i4];
-; CHECK:  |   |   |   |   if (%tmp540 > 0.000000e+00)
-;         |   |   |   |   {
-; CHECK:  |   |   |   |      %tmp600 = %tmp540  *  %tmp525;
-;         |   |   |   |   }
-; CHECK:  |   |   |   |   if (%tmp488 < 0x4013851EC0000000)
-;         |   |   |   |   {
-;         |   |   |   |      %tmp625 = 0.000000e+00  +  0.000000e+00;
-; CHECK:  |   |   |   |      %tmp627 = (%tmp625 > %tmp524) ? %tmp524 : %tmp625;
-;         |   |   |   |   }
-;         |   |   |   |   else
-;         |   |   |   |   {
-;         |   |   |   |      %tmp633 = 0.000000e+00  *  0.000000e+00;
-; CHECK:  |   |   |   |      %tmp635 = (%tmp633 > %tmp524) ? %tmp524 : %tmp633;
-;         |   |   |   |   }
-;         |   |   |   + END LOOP
-
+; CHECK: |   |   |   + DO i4 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+; CHECK: |   |   |   |   %tmp484 = (null)[0]  *  0.000000e+00;
+; CHECK: |   |   |   |   %tmp486 = (null)[0]  *  0.000000e+00;
+; CHECK: |   |   |   + END LOOP
+; CHECK: |   |   |
+; CHECK: |   |   |
+; CHECK: |   |   |   + DO i4 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+; CHECK: |   |   |   |   if (%tmp488 < 0x4013851EC0000000)
+; CHECK: |   |   |   |   {
+; CHECK: |   |   |   |      %tmp506 = (null)[0]  *  0.000000e+00;
+; CHECK: |   |   |   |   }
+; CHECK: |   |   |   |   else
+; CHECK: |   |   |   |   {
+; CHECK: |   |   |   |      %tmp517 = (null)[0]  *  0.000000e+00;
+; CHECK: |   |   |   |   }
+; CHECK: |   |   |   |   %tmp540 = (null)[0];
+; CHECK: |   |   |   |   (%.TempArray)[0][i4] = %tmp540;
+; CHECK: |   |   |   |   if (%tmp540 > 0.000000e+00)
+; CHECK: |   |   |   |   {
+; CHECK: |   |   |   |      (null)[0] = (null)[0];
+; CHECK: |   |   |   |      %tmp585 = (null)[0]  -  (%arg5)[0];
+; CHECK: |   |   |   |   }
+; CHECK: |   |   |   |   (null)[0] = 0.000000e+00;
+; CHECK: |   |   |   + END LOOP
+; CHECK: |   |   |
+; CHECK: |   |   |
+; CHECK: |   |   |   + DO i4 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+; CHECK: |   |   |   |   %tmp540 = (%.TempArray)[0][i4];
+; CHECK: |   |   |   |   if (%tmp488 < 0x4013851EC0000000)
+; CHECK: |   |   |   |   {
+; CHECK: |   |   |   |      %tmp524 = 0.000000e+00;
+; CHECK: |   |   |   |      %tmp525 = %tmp505;
+; CHECK: |   |   |   |   }
+; CHECK: |   |   |   |   else
+; CHECK: |   |   |   |   {
+; CHECK: |   |   |   |      %tmp524 = 0.000000e+00;
+; CHECK: |   |   |   |      %tmp525 = %tmp516;
+; CHECK: |   |   |   |   }
+; CHECK: |   |   |   |   %tmp531 = (null)[0]  -  (null)[0];
+; CHECK: |   |   |   |   (null)[0] = 0.000000e+00;
+; CHECK: |   |   |   |   %tmp534 = 0.000000e+00  -  (null)[0];
+; CHECK: |   |   |   |   (null)[0] = 0.000000e+00;
+; CHECK: |   |   |   |   if (%tmp540 > 0.000000e+00)
+; CHECK: |   |   |   |   {
+; CHECK: |   |   |   |      %tmp547 = (null)[0]  *  0.000000e+00;
+; CHECK: |   |   |   |      (%arg4)[0] = 0.000000e+00;
+; CHECK: |   |   |   |      (%arg6)[0] = 0.000000e+00;
+; CHECK: |   |   |   |      %tmp587 = (%tmp446)[0]  *  0.000000e+00;
+; CHECK: |   |   |   |      %tmp595 = 0.000000e+00  +  (null)[0];
+; CHECK: |   |   |   |      %tmp600 = %tmp540  *  %tmp525;
+; CHECK: |   |   |   |   }
+; CHECK: |   |   |   |   if (%tmp488 < 0x4013851EC0000000)
+; CHECK: |   |   |   |   {
+; CHECK: |   |   |   |      %tmp625 = 0.000000e+00  +  0.000000e+00;
+; CHECK: |   |   |   |      %tmp627 = (%tmp625 > %tmp524) ? %tmp524 : %tmp625;
+; CHECK: |   |   |   |   }
+; CHECK: |   |   |   |   else
+; CHECK: |   |   |   |   {
+; CHECK: |   |   |   |      %tmp633 = 0.000000e+00  *  0.000000e+00;
+; CHECK: |   |   |   |      %tmp635 = (%tmp633 > %tmp524) ? %tmp524 : %tmp633;
+; CHECK: |   |   |   |   }
+; CHECK: |   |   |   + END LOOP
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

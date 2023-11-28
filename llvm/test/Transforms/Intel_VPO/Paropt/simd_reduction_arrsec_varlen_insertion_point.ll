@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug -S %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -debug -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;
@@ -23,10 +23,10 @@
 ; Check in the IR that the allocas and the stacksave call are inserted before the region entry and that the stackrestore is inserted after the region exit.
 ; CHECK:  %a.fast_red.alloca = alloca i32, i64 %conv, align 16
 ; CHECK:  %a.red = alloca i32, i64 %conv, align 16
-; CHECK:  %{{[^,]+}} = call ptr @llvm.stacksave()
+; CHECK:  %{{[^,]+}} = call ptr @llvm.stacksave.p0()
 ; CHECK:  %{{[^,]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"()
 ; CHECK:  call void @llvm.directive.region.exit(token %{{[^,]+}}) [ "DIR.OMP.END.SIMD"() ]
-; CHECK:  call void @llvm.stackrestore(ptr %{{[^,]+}})
+; CHECK:  call void @llvm.stackrestore.p0(ptr %{{[^,]+}})
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

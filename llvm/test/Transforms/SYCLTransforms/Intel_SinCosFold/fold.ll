@@ -272,14 +272,14 @@ if.end:                                           ; preds = %if.else, %if.then
 ; DEBUGIFY: PASS
 
 !0 = !{!"float", !"float", !"float*"}
-!1 = !{float 0.000000e+00, float 0.000000e+00, float* null}
+!1 = !{float 0.000000e+00, float 0.000000e+00, ptr null}
 !2 = !{!"double2", !"double2", !"double*"}
-!3 = !{<2 x double> <double 0.000000e+00, double 0.000000e+00>, <2 x double> <double 0.000000e+00, double 0.000000e+00>, <2 x double>* null}
+!3 = !{<2 x double> <double 0.000000e+00, double 0.000000e+00>, <2 x double> <double 0.000000e+00, double 0.000000e+00>, ptr null}
 !4 = !{!"double", !"double", !"double*"}
-!5 = !{double 0.000000e+00, double 0.000000e+00, double* null}
+!5 = !{double 0.000000e+00, double 0.000000e+00, ptr null}
 !6 = !{!"float4", !"float4", !"float4*"}
-!7 = !{<4 x float> zeroinitializer, <4 x float> zeroinitializer, <4 x float>* null}
+!7 = !{<4 x float> zeroinitializer, <4 x float> zeroinitializer, ptr null}
 !8 = !{!"float8", !"float8", !"float8*"}
-!9 = !{<8 x float> zeroinitializer, <8 x float> zeroinitializer, <8 x float>* null}
+!9 = !{<8 x float> zeroinitializer, <8 x float> zeroinitializer, ptr null}
 !10 = !{!"float8", !"float4", !"float8*"}
-!11 = !{<8 x float> zeroinitializer, <4 x float> zeroinitializer, <8 x float>* null}
+!11 = !{<8 x float> zeroinitializer, <4 x float> zeroinitializer, ptr null}

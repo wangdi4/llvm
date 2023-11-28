@@ -7,6 +7,7 @@ import lit.util
 config.bin_llvm_tools_dir = "@CMAKE_BINARY_DIR@/bin"
 config.test_c_compiler = "@OPENMP_TEST_C_COMPILER@"
 config.test_cxx_compiler = "@OPENMP_TEST_CXX_COMPILER@"
+config.test_fortran_compiler="@OPENMP_TEST_Fortran_COMPILER@"
 config.test_compiler_features = @OPENMP_TEST_COMPILER_FEATURES@
 config.test_openmp_flags = "@OPENMP_TEST_OPENMP_FLAGS@"
 config.test_extra_flags = "@OPENMP_TEST_FLAGS@"
@@ -17,6 +18,7 @@ config.libomptarget_obj_root = "@CMAKE_CURRENT_BINARY_DIR@/@CURRENT_TARGET@"
 # INTEL_CUSTOMIZATION
 config.library_dir = "@CMAKE_LIBRARY_OUTPUT_DIRECTORY@"
 # end INTEL_CUSTOMIZATION
+config.llvm_library_dir = "@LIBOMPTARGET_LLVM_LIBRARY_DIR@"
 config.omp_header_directory = "@LIBOMPTARGET_OPENMP_HEADER_FOLDER@"
 config.omp_host_rtl_directory = "@LIBOMPTARGET_OPENMP_HOST_RTL_FOLDER@"
 config.llvm_lib_directory = "@LIBOMPTARGET_LLVM_LIBRARY_DIR@"
@@ -28,20 +30,13 @@ config.libomptarget_not = "@OPENMP_NOT_EXECUTABLE@"
 config.libomptarget_debug = @LIBOMPTARGET_DEBUG@
 # INTEL_CUSTOMIZATION
 config.has_libomptarget_ompt = lit.util.pythonize_bool("@LIBOMPTARGET_OMPT_SUPPORT@")
-# end INTEL_CUSTOMIZATION
-
-# INTEL_CUSTOMIZATION
+# OMPT test is intentionally disabled until new implementation stabilizes.
+config.has_libomptarget_ompt = False
 config.lit_tools_dir = path("@LLVM_LIT_TOOLS_DIR@")
 import lit.llvm
 lit.llvm.initialize(lit_config, config)
-# end INTEL_CUSTOMIZATION
-config.llvm_enabled_projects = "@LLVM_ENABLE_PROJECTS@".split(";")
-# INTEL_CUSTOMIZATION
 config.libomptarget_has_libc = lit.util.pythonize_bool("@LIBOMPTARGET_GPU_LIBC_SUPPORT@")
 # end INTEL_CUSTOMIZATION
-
-import lit.llvm
-lit.llvm.initialize(lit_config, config)
-
+config.libomptarget_libc_path = "@LIBOMPTARGET_GPU_LIBC_PATH@"
 # Let the main config do the real work.
 lit_config.load_config(config, "@CMAKE_CURRENT_SOURCE_DIR@/lit.cfg")

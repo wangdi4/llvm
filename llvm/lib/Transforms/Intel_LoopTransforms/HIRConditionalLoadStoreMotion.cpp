@@ -1,6 +1,6 @@
 //===----------------- HIRConditionalLoadStoreMotion.cpp ------------------===//
 //
-// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -83,26 +83,6 @@ static cl::opt<bool> PrintEdgeTests{
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 namespace {
-
-/// A wrapper for running HIRConditionalLoadStoreMotion with the old pass
-/// manager.
-class HIRConditionalLoadStoreMotionLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-  HIRConditionalLoadStoreMotionLegacyPass() : HIRTransformPass{ID} {
-    initializeHIRConditionalLoadStoreMotionLegacyPassPass(
-      *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<HIRFrameworkWrapperPass>();
-    AU.addRequired<HIRDDAnalysisWrapperPass>();
-    AU.addRequired<HIRLoopStatisticsWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
 
 /// A type for keeping track of merged sets of loads or stores that should be
 /// hoisted or sunk from both branches of an if.
@@ -1138,30 +1118,6 @@ static bool runConditionalLoadStoreMotion(HIRFramework &HIRF,
   }
 
   return Changed;
-}
-
-char HIRConditionalLoadStoreMotionLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRConditionalLoadStoreMotionLegacyPass, OPT_SWITCH,
-                      OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRConditionalLoadStoreMotionLegacyPass, OPT_SWITCH,
-                    OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIRConditionalLoadStoreMotionPass() {
-  return new HIRConditionalLoadStoreMotionLegacyPass{};
-}
-
-bool HIRConditionalLoadStoreMotionLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    return false;
-  }
-
-  return runConditionalLoadStoreMotion(
-    getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-    getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-    getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS());
 }
 
 PreservedAnalyses HIRConditionalLoadStoreMotionPass::runImpl(

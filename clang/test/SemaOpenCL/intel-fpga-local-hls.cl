@@ -304,8 +304,9 @@ void foo1(void)
   //expected-note@-1 {{conflicting attribute is here}}
   unsigned int sp_one[64];
 
-  //expected-warning@+1{{attribute 'singlepump' is already applied}}
+  //expected-warning@+1{{attribute '__singlepump__' is already applied}}
   __attribute__((singlepump))  __attribute__((__singlepump__))
+  //expected-note@-1 {{previous attribute is here}}
   unsigned int sp_two[64];
 
   //expected-error@+2{{attributes are not compatible}}
@@ -315,8 +316,9 @@ void foo1(void)
   unsigned int sp_three[64];
 
   // **register
-  //expected-warning@+1{{attribute 'register' is already applied}}
+  //expected-warning@+1{{attribute '__register__' is already applied}}
   __attribute__((register)) __attribute__((__register__))
+  //expected-note@-1 {{previous attribute is here}}
   unsigned int reg_one[64];
 
   //expected-error@+2{{attributes are not compatible}}
@@ -585,7 +587,7 @@ void foo1(void)
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int mrg_one[4];
 
-  //expected-error@+1{{attribute requires a string}}
+  //expected-error@+1{{expected string literal as argument of '__merge__' attribute}}
   __attribute__((__merge__(3,9.0f)))
   unsigned int mrg_two[4];
 
@@ -604,8 +606,9 @@ void foo1(void)
   //Last one is applied and others ignored.
   //CHECK: VarDecl{{.*}}mrg_six
   //CHECK: MergeAttr{{.*}}"mrg4" "depth"{{$}}
-  //CHECK: MergeAttr{{.*}}"mrg5" "width"{{$}}
-  //expected-warning@+2{{attribute 'merge' is already applied}}
+  //CHECK-NOT: MergeAttr{{.*}}
+  //expected-note@+2{{previous attribute is here}}
+  //expected-warning@+2{{attribute '__merge__' is already applied with different arguments}}
   __attribute__((__merge__("mrg4","depth")))
   __attribute__((__merge__("mrg5","width")))
   unsigned int mrg_six[4];
@@ -669,7 +672,7 @@ void foo1(void)
   unsigned int bb_ten[4];
 
   // force_pow2_depth
-  //expected-error@+1{{'__force_pow2_depth__' attribute requires integer constant between 0 and 1 inclusive}}
+  //expected-error@+1{{'__force_pow2_depth__' attribute requires integer constant value 0 or 1}}
   __attribute__((__force_pow2_depth__(5))) unsigned int ml_one[4];
 
   //expected-error@+2{{'__memory__' and 'register' attributes are not compatible}}

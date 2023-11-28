@@ -1,6 +1,6 @@
 //===------- DDTest.h - Provides Data Dependence Analysis -*-- C++ --*-----===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -112,12 +112,6 @@ public:
   // Proxy to isDVCrossIterDepAtLevel().
   bool hasCrossIterDepAtLevel(unsigned Level) const {
     return DV.isCrossIterDepAtLevel(Level);
-  }
-
-  // Proxy to isDVRefinableAtLevel().
-  bool isRefinableDepAtLevel(unsigned Level) const {
-    // Cut down compile time for now by adding  more condition
-    return DV.isRefinableAtLevel(Level);
   }
 
   bool isOutput() const { return getEdgeType() == DepType::OUTPUT; }

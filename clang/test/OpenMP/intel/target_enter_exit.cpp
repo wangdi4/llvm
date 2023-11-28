@@ -1,8 +1,4 @@
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | \
-// RUN: FileCheck --check-prefixes CHECK,CHECK-NEW %s
-
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu -fno-openmp-new-depend-ir | \
-// RUN: FileCheck --check-prefixes CHECK,CHECK-OLD %s
+// RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | FileCheck  %s
 
 void foo1() {
   // CHECK: [[X:%.+]] = alloca i32,
@@ -36,14 +32,12 @@ void foo3() {
   // CHECK: [[X1:%.+]] = alloca i32,
   // CHECK: [[Y1:%.+]] = alloca float,
   // CHECK: [[B1:%.+]] = alloca double,
-  // CHECK-NEW: [[DARR:%.*]] = getelementptr inbounds [2 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
+  // CHECK: [[DARR:%.*]] = getelementptr inbounds [2 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
   int x1; float y1; double b1;
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME "QUAL.OMP.IF"(i32 0)
   // CHECK-SAME "QUAL.OMP.TARGET.TASK"
-  // CHECK-OLD-SAME:"QUAL.OMP.DEPEND.IN"(ptr [[X1]])
-  // CHECK-OLD-SAME:"QUAL.OMP.DEPEND.OUT"(ptr [[Y1]])
-  // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 2, ptr [[DARR]])
+  // CHECK-SAME: "QUAL.OMP.DEPARRAY"(i32 2, ptr [[DARR]])
   // CHECK: DIR.OMP.TARGET.ENTER.DATA
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr [[B1]],
   // CHECK: DIR.OMP.END.TARGET.ENTER.DATA
@@ -55,14 +49,12 @@ void foo4() {
   // CHECK: [[X2:%.+]] = alloca i32,
   // CHECK: [[Y2:%.+]] = alloca float,
   // CHECK: [[B2:%.+]] = alloca double,
-  // CHECK-NEW: [[DARR:%.*]] = getelementptr inbounds [2 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
+  // CHECK: [[DARR:%.*]] = getelementptr inbounds [2 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
   int x2; float y2; double b2;
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME "QUAL.OMP.IF"(i32 0)
   // CHECK-SAME "QUAL.OMP.TARGET.TASK"
-  // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.IN"(ptr [[X2]])
-  // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.OUT"(ptr [[Y2]])
-  // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 2, ptr [[DARR]])
+  // CHECK-SAME: "QUAL.OMP.DEPARRAY"(i32 2, ptr [[DARR]])
   // CHECK: DIR.OMP.TARGET.ENTER.DATA
   // CHECK-SAME: "QUAL.OMP.NOWAIT"()
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr [[B2]],
@@ -103,14 +95,12 @@ void foo7() {
   // CHECK: [[X7:%.+]] = alloca i32,
   // CHECK: [[Y7:%.+]] = alloca float,
   // CHECK: [[B7:%.+]] = alloca double,
-  // CHECK-NEW: [[DARR:%.*]] = getelementptr inbounds [2 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
+  // CHECK: [[DARR:%.*]] = getelementptr inbounds [2 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
   int x7; float y7; double b7;
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME "QUAL.OMP.IF"(i32 0)
   // CHECK-SAME "QUAL.OMP.TARGET.TASK"
-  // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.IN"(ptr [[X7]])
-  // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.OUT"(ptr [[Y7]])
-  // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 2, ptr [[DARR]])
+  // CHECK-SAME: "QUAL.OMP.DEPARRAY"(i32 2, ptr [[DARR]])
   // CHECK: DIR.OMP.TARGET.EXIT.DATA
   // CHECK-SAME: "QUAL.OMP.MAP.FROM"(ptr [[B7]],
   // CHECK: DIR.OMP.END.TARGET.EXIT.DATA
@@ -122,13 +112,11 @@ void foo8() {
   // CHECK: [[X8:%.+]] = alloca i32,
   // CHECK: [[Y8:%.+]] = alloca float,
   // CHECK: [[B8:%.+]] = alloca double,
-  // CHECK-NEW: [[DARR:%.*]] = getelementptr inbounds [2 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
+  // CHECK: [[DARR:%.*]] = getelementptr inbounds [2 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
   int x8; float y8; double b8;
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME "QUAL.OMP.TARGET.TASK"
-  // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.IN"(ptr [[X8]])
-  // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.OUT"(ptr [[Y8]])
-  // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 2, ptr [[DARR]])
+  // CHECK-SAME: "QUAL.OMP.DEPARRAY"(i32 2, ptr [[DARR]])
   // CHECK: DIR.OMP.TARGET.EXIT.DATA
   // CHECK-SAME: "QUAL.OMP.NOWAIT"()
   // CHECK-SAME: "QUAL.OMP.MAP.FROM"(ptr [[B8]],

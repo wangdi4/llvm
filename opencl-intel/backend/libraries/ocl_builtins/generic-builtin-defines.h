@@ -1,4 +1,4 @@
-// Copyright (C) 2012-2022 Intel Corporation
+// Copyright (C) 2012 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -42,6 +42,7 @@ extern const constant double generic_inv_pi_180;
 extern const constant short half_const_signMask;
 extern const constant int float_const_signMask;
 extern const constant long double_const_signMask;
+extern const constant short half_const_expMask;
 extern const constant int float_const_expMask;
 extern const constant long double_const_expMask;
 extern const constant float float_const_fractLimit;

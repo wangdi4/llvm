@@ -1,6 +1,5 @@
-; RUN: opt -S -passes="sycl-kernel-reduce-cross-barrier-values,adce" %s | FileCheck %s
-; RUN: opt -S -passes="sycl-kernel-reduce-cross-barrier-values,adce" %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; TODO: Remove -adce pass when this pass can eliminate dead instructions.
+; RUN: opt -S -passes=sycl-kernel-reduce-cross-barrier-values %s | FileCheck %s
+; RUN: opt -S -passes=sycl-kernel-reduce-cross-barrier-values %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ; Checks that the freeze inst is also copied.
 
@@ -46,4 +45,10 @@ attributes #0 = { convergent nounwind readnone willreturn }
 !0 = !{!"char*"}
 !1 = !{ptr null}
 
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: WARNING: Missing line 1
+; DEBUGIFY: WARNING: Missing line 2
+; DEBUGIFY: WARNING: Missing line 3
+; DEBUGIFY: WARNING: Missing line 4
+; DEBUGIFY: WARNING: Missing line 5
 ; DEBUGIFY-NOT: WARNING

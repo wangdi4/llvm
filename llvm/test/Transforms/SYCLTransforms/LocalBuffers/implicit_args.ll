@@ -85,9 +85,9 @@ entry:
 
 !0 = !{ptr @foo, ptr @bar}
 !1 = !{!"int*", !"int*", !"char*", !"float*"}
-!2 = !{i32 addrspace(1)* null, i32 addrspace(1)* null, i8 addrspace(1)* null, float addrspace(1)* null}
+!2 = !{ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null}
 !3 = !{!"int4*", !"long16*"}
-!4 = !{<4 x i32> addrspace(1)* null, <16 x i64> addrspace(1)* null} 
+!4 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: CheckModuleDebugify: PASS

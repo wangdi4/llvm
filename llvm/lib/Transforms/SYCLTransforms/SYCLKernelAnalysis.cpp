@@ -1,6 +1,6 @@
 //==--- SYCLKernelAnalysis.cpp - Analyze SYCL kernel properties - C++ -*--==//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -27,6 +27,10 @@ using namespace CompilationUtils;
 static cl::opt<bool> SYCLKernelAnalysisAssumeIsAMX(
     "sycl-kernel-analysis-assume-isamx", cl::init(false), cl::Hidden,
     cl::desc("make assumption for sycl kernel analysis's isamx"));
+
+static cl::opt<bool> SYCLKernelAnalysisAssumeIsAMXFP16(
+    "sycl-kernel-analysis-assume-isamxfp16", cl::init(false), cl::Hidden,
+    cl::desc("make assumption for sycl kernel analysis's isamxfp16"));
 
 DiagnosticKind SYCLKernelAnalysisDiagInfo::Kind =
     static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
@@ -60,7 +64,20 @@ void SYCLKernelAnalysisPass::fillMatrixCallFuncs() {
             "AMX matrix primitives are being used on an arch older than "
             "Sapphire Rapids! DPC++ joint matrix extension requires presence "
             "of AMX on Sapphire Rapids or later)",
-            DKDK_Error_MatrixIntrinOnUnsupportedCPU));
+            SKDK_Error_MatrixIntrinOnUnsupportedCPU));
+      Type *MatrixElemType =
+          F.getIntrinsicID() != Intrinsic::experimental_matrix_store
+              ? cast<FixedVectorType>(F.getReturnType())->getElementType()
+              : cast<FixedVectorType>(F.getFunctionType()->getParamType(0))
+                    ->getElementType();
+      if (!IsAMXFP16 && MatrixElemType->isHalfTy()) {
+        M->getContext().diagnose(SYCLKernelAnalysisDiagInfo(
+            F,
+            "AMX-FP16 matrix primitives are being used on an arch older than "
+            "Granite Rapids! DPC++ joint matrix extension requires presence "
+            "of AMX on Sapphire Rapids or later)",
+            SKDK_Error_MatrixIntrinOnUnsupportedCPU));
+      }
       MatrixIntrins.insert(&F);
       break;
     }
@@ -122,6 +139,25 @@ static bool hasAtomicBuiltinCall(CallGraph &CG, const RuntimeService &RTS,
       // handle atomic_work_item_fence(cl_mem_fence_flags flags,
       // memory_order order, memory_scope scope) builtin.
       if (isAtomicWorkItemFenceBuiltin(CalledFunc->getName())) {
+        if (auto *MemoryScope = dyn_cast<ConstantInt>(CI->getOperand(2))) {
+          uint64_t MemoryScopeAttr = MemoryScope->getZExtValue();
+          // The memory scope options must be aligned with define in
+          // clang/lib/Headers/opencl-c-base.h
+          static const uint64_t memory_scope_work_item = 0;
+          static const uint64_t memory_scope_work_group = 1;
+          static const uint64_t memory_scope_device = 2;
+          static const uint64_t memory_scope_sub_group = 4;
+          if (MemoryScopeAttr != memory_scope_work_item &&
+              MemoryScopeAttr != memory_scope_work_group &&
+              MemoryScopeAttr != memory_scope_sub_group &&
+              MemoryScopeAttr != memory_scope_device) {
+            F->getContext().diagnose(SYCLKernelAnalysisDiagInfo(
+                *F,
+                "memory_scope::system are not supported on FPGA emulator "
+                "platform!",
+                SKDK_Error_FPGA_UnsupportedMemoryScope, DS_Note));
+          }
+        }
         // !!! MUST be aligned with define in clang/lib/Headers/opencl-c-base.h
         // #define CLK_GLOBAL_MEM_FENCE   0x2
         static const uint64_t CLK_GLOBAL_MEM_FENCE = 2;
@@ -232,8 +268,9 @@ void SYCLKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
 }
 
 PreservedAnalyses SYCLKernelAnalysisPass::run(Module &M,
-                                               ModuleAnalysisManager &AM) {
+                                              ModuleAnalysisManager &AM) {
   IsAMX = SYCLKernelAnalysisAssumeIsAMX || IsAMX;
+  IsAMXFP16 = SYCLKernelAnalysisAssumeIsAMXFP16 || IsAMXFP16;
   RuntimeService &RTS =
       AM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();

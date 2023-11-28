@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -121,7 +121,7 @@ ReplayInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
   if (!hasInlineAdvice(*CB.getFunction())) {
     // If there's a registered original advisor, return its decision
     if (OriginalAdvisor)
-      return OriginalAdvisor->getAdvice(CB, ILIC, WPI);
+      return OriginalAdvisor->getAdvice(CB, ILIC, WPI); // INTEL
 
     // If no decision is made above, return non-decision
     return {};
@@ -172,10 +172,9 @@ ReplayInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
            ReplayInlinerSettings::Fallback::Original);
     // If there's a registered original advisor, return its decision
     if (OriginalAdvisor)
-      return OriginalAdvisor->getAdvice(CB, ILIC, WPI);
+      return OriginalAdvisor->getAdvice(CB, ILIC, WPI); // INTEL
   }
 
   // If no decision is made above, return non-decision
   return {};
 }
-

@@ -20,9 +20,9 @@
  * (5) build program again
  ******************************************************************************/
 
+#include "CL/cl.h"
 #include "FrameworkTestThreads.h"
 #include "TestsHelpClasses.h"
-#include <CL/cl.h>
 
 extern cl_device_type gDeviceType;
 

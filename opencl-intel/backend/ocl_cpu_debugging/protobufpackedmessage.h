@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -27,7 +27,7 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wsuggest-override"
 #endif
-#include <google/protobuf/message.h>
+#include "google/protobuf/message.h"
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif

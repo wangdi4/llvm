@@ -1,6 +1,6 @@
 //===------- OptReport.h ----------------------------------------*- C++ -*-===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -19,6 +19,7 @@
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/Analysis/Intel_OptReport/Diag.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Metadata.h"
 
@@ -26,10 +27,18 @@ namespace llvm {
 
 class DILocation;
 class OptReportRemark;
+class OptRemark;
+
+// This is a forward declaration to break a cyclical include dependence with
+// OptReportPrintUtils.h.
+#ifndef NDEBUG
+namespace OptReportUtils {
+void validateRemarkFormatArguments(OptRemark Remark);
+} // namespace OptReportUtils
+#endif // NDEBUG
 
 struct OptReportTag {
-  static constexpr const char *Root = "intel.optreport.rootnode";
-  static constexpr const char *Proxy = "intel.optreport";
+  static constexpr const char *Report = "intel.optreport";
   static constexpr const char *Title = "intel.optreport.title";
   static constexpr const char *DebugLoc = "intel.optreport.debug_location";
   static constexpr const char *Origin = "intel.optreport.origin";
@@ -73,17 +82,21 @@ public:
   OptRemark(const MDOperand &R) : OptRemark(cast<MDTuple>(R)) {}
 
   template <typename... Args>
-  static OptRemark get(LLVMContext &Context, Args &&...args) {
+  static OptRemark get(LLVMContext &Context, OptRemarkID ID, Args &&...args) {
     SmallVector<Metadata *, 4> Ops;
     populateMDTupleOperands(Ops, Context, OptReportTag::Remark,
+                            static_cast<unsigned>(ID),
                             std::forward<Args>(args)...);
     MDTuple *Tuple = MDTuple::get(Context, Ops);
+#ifndef NDEBUG
+    OptReportUtils::validateRemarkFormatArguments(Tuple);
+#endif // NDEBUG
     return Tuple;
   }
 
   const Metadata *getOperand(unsigned Idx) const;
   unsigned getNumOperands() const;
-  unsigned getRemarkID() const;
+  OptRemarkID getRemarkID() const;
 
   explicit operator bool() const { return Remark; }
   MDTuple *get() const { return Remark; }
@@ -134,28 +147,20 @@ private:
 
     populateMDTupleOperands(V, C, Buf, std::forward<Args>(args)...);
   }
+
+  template <typename... Args>
+  static void populateMDTupleOperands(SmallVectorImpl<Metadata *> &V,
+                                      LLVMContext &C, AuxRemarkID AuxID,
+                                      Args &&...args) {
+    populateMDTupleOperands(V, C, OptReportAuxDiag::getMsg(AuxID),
+                            std::forward<Args>(args)...);
+  }
 };
 
 /// \brief Helper class to simplify processing of OptReport metadata.
 ///
 /// Basically, it is simply a wrapper around a pointer to MDTuple, but it adds a
 /// few convenient methods to populate optreports and to read its content.
-///
-/// Implementation of optimization reports is based on MDTuple class. It is
-/// important to keep in mind that MDTuple does not support resizing. That is,
-/// operations like adding a remark invalidate old tuple of remarks and create a
-/// new one. That's why OptReport keeps a pointer to the root node of
-/// optimization report which points to an additional proxy node and looks like
-///     !{!"intel.optreport.rootnode", !0}
-/// The root node is never extended (pointer is never invalidated), but its
-/// operand is replaced after some operations. That is, pointers to various
-/// internal fields of OptReports may be invalidated by any instance of
-/// OptReport and shouldn't be stored across invocations. Only root node is
-/// safe to keep.
-///
-/// A proper solution to the problem of invalidated metadata would be to add a
-/// new type of resizeable metadata to IR (MDList), but it looks like an
-/// overkill for now.
 class OptReport {
   MDTuple *OptReportMD;
 
@@ -194,7 +199,7 @@ public:
 
   /// \brief Checks if metadata is an instance of OptReport.
   ///
-  /// Checks if metadata \M is a tuple tagged with OptReportTag::Root.
+  /// Checks if metadata \M is a tuple tagged with OptReportTag::Report.
   static bool isOptReportMetadata(const Metadata *M) {
     const MDTuple *T = dyn_cast<MDTuple>(M);
     if (!T)
@@ -207,7 +212,7 @@ public:
     if (!S)
       return false;
 
-    return S->getString() == OptReportTag::Root;
+    return S->getString() == OptReportTag::Report;
   }
 
   /// \brief Construct OptReport object from LoopID.

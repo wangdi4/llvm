@@ -15,6 +15,11 @@ targeted at different audiences:
 
 .. INTEL_CUSTOMIZATION
 
+.. toctree::
+   :hidden:
+
+   Intel/index
+
 Xmain and Open Source Guidelines
 ================================
 

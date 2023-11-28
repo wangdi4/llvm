@@ -54,9 +54,9 @@
 // CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-input={{.*}}libomp-itt-stubs.o" "-output=[[ITT3TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles" "-base-temp-dir={{.*}}"
 // CHK-COMMANDS: llvm-link{{.*}} "[[OFFBCFILE]]" "[[RTLTGT]]" "-o" "[[UNBUNDLED:.+\.bc]]"
 // CHK-COMMANDS: llvm-link{{.*}} "--only-needed" "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[LINKEDBCFILE:.+\.bc]]"
-// CHK-COMMANDS: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-device-globals" "-o" "[[POSTLINKFILE:.+\.bc]]" "[[LINKEDBCFILE]]"
+// CHK-COMMANDS: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=native" "-device-globals" "-o" "[[POSTLINKFILE:.+\.bc]]" "[[LINKEDBCFILE]]"
 // CHK-COMMANDS: llvm-spirv{{.*}}" {{.*}}"-o" {{.*}} "-spirv-allow-unknown-intrinsics"{{.*}} "[[POSTLINKFILE]]"
-// CHK-COMMANDS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64"
+// CHK-COMMANDS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" {{.*}} "-kind=openmp" "-target=spir64"
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
 // CHK-COMMANDS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"
 
@@ -160,6 +160,10 @@
 // RUN:   touch %t.o
 // RUN:   %clang -### -fiopenmp %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -no-canonical-prefixes -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS %s
+// RUN:   %clang -### -fiopenmp %t.o -target x86_64-unknown-linux-gnu \
+// RUN:          -fopenmp-targets=spir64 -i_save-temps \
+// RUN:          -fno-openmp-device-lib=all 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-UBJOBS %s
 // Use of -march should not append to the unbundle value with spir64 targets
 // RUN:   %clang -### -fiopenmp %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -march=native -no-canonical-prefixes -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS %s
@@ -171,11 +175,11 @@
 // CHK-UBJOBS: clang-offload-bundler{{.*}}"-type=o"{{.*}}"-input={{.*}}libomp-itt-stubs.o"{{.*}}"-output=[[ITT3TGT:.+\.o]]" "-unbundle"
 // CHK-UBJOBS: llvm-link{{.*}} "[[OFFBCFILE]]" "[[RTLTGT]]" "-o" "[[UNBUNDLED:.+\.bc]]"
 // CHK-UBJOBS: llvm-link{{.*}} "--only-needed" "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[LINKEDBCFILE:.+\.bc]]"
-// CHK-UBJOBS: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-device-globals" "-o" "[[POSTLINKFILE:.+\.bc]]" "[[LINKEDBCFILE]]"
+// CHK-UBJOBS: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=native" "-device-globals" "-o" "[[POSTLINKFILE:.+\.bc]]" "[[LINKEDBCFILE]]"
 // CHK-UBJOBS: llvm-spirv{{.*}}" "-o" {{.*}} "[[POSTLINKFILE]]"
-// CHK-UBJOBS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64"
-// CHK-UBJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
-// CHK-UBJOBS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"
+// CHK-UBJOBS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" {{.*}} "-kind=openmp" "-target=spir64"
+// CHK-UBJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu"
+// CHK-UBJOBS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" {{.*}} "-lomptarget"
 
 /// ###########################################################################
 
@@ -261,10 +265,10 @@
 // FOFFLOAD_STATIC_LIB_SRC: 31: linker, {0, 5, 30}, image, (host-openmp)
 
 /// check diagnostic when -fiopenmp isn't used
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_ERROR
 // FOPENMP_ERROR: The use of '-fopenmp-targets=spir64' requires '-fiopenmp'
-// RUN: %clang_cl --target=x86_64-pc-windows-msvc -openmp -Qopenmp-targets:spir64 %s -### 2>&1 \
+// RUN: not %clang_cl --target=x86_64-pc-windows-msvc -openmp -Qopenmp-targets:spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=QOPENMP_ERROR
 // QOPENMP_ERROR: The use of '-Qopenmp-targets=spir64' requires '-Qiopenmp'
 
@@ -275,19 +279,19 @@
 // FOPENMP_NOGCC_OPT-NOT: gcc{{.*}} "-fiopenmp" {{.*}} "-fheinous-gnu-extensions" "-fveclib=SVML"
 
 /// -fsycl-device-code-split=per_kernel should not be used for OpenMP
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_NO_SPLIT_KERNEL
 // FOPENMP_NO_SPLIT_KERNEL-NOT: sycl-post-link{{.*}} -split=per_kernel
 
 /// -fsycl-device-code-split=auto should not be default for OpenMP
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_NO_SPLIT_AUTO
 // FOPENMP_NO_SPLIT_AUTO-NOT: sycl-post-link{{.*}} -split=auto
 
 /// check -fopenmp-target-simd behavior
-// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fopenmp -fopenmp-targets=spir64 -fopenmp-target-simd %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu --intel -fopenmp -fopenmp-targets=spir64 -fopenmp-target-simd %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMD
-// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fopenmp -fopenmp-targets=spir64 -qopenmp-target-simd %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu --intel -fopenmp -fopenmp-targets=spir64 -qopenmp-target-simd %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMD
 // RUN: %clang_cl --target=x86_64-pc-windows-msvc --intel -Qopenmp -Qopenmp-targets:spir64 -Qopenmp-target-simd %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMD
@@ -298,7 +302,7 @@
 // FOPENMP_TARGET_SIMD: "-O2"
 // FOPENMP_TARGET_SIMD: sycl-post-link{{.*}} "--ompoffload-explicit-simd"
 // FOPENMP_TARGET_SIMD: llvm-spirv{{.*}}" {{.*}}"-o" {{.*}} "-spirv-allow-unknown-intrinsics" {{.*}}
-// FOPENMP_TARGET_SIMD: clang-offload-wrapper{{.*}} "-compile-opts=-vc-codegen"
+// FOPENMP_TARGET_SIMD: clang-offload-wrapper{{.*}} "-compile-opts=-vc-codegen{{.*}}"
 
 /// check -fopenmp-target-simdlen=n behavior
 // RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simdlen=8 %s -### 2>&1 \
@@ -310,11 +314,11 @@
 // FOPENMP_TARGET_SIMDLEN: clang{{.*}} "-triple" "spir64" {{.*}} "-fopenmp-target-simd" "-mllvm" "-vpo-paropt-enable-device-simd-codegen"
 // FOPENMP_TARGET_SIMDLEN: "-mllvm" "-vplan-target-vf=[[SIMDLEN]]"
 
-// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simdlen=4 %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simdlen=4 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMDLEN_ERROR
-// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simdlen=128 %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simdlen=128 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMDLEN_ERROR
-// RUN: %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simdlen=hello %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu --intel -fiopenmp -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simdlen=hello %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_TARGET_SIMDLEN_ERROR
 // FOPENMP_TARGET_SIMDLEN_ERROR: invalid integral value
 
@@ -327,14 +331,14 @@
 // RUN:  | FileCheck -check-prefix=CHK-TOOLS-OPTS %s
 // RUN: %clang_cl -### --target=x86_64-pc-windows-msvc -Qopenmp -Qopenmp-targets=spir64 -Xopenmp-target-backend=spir64 "-DFOO1 -DFOO2" %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHK-TOOLS-OPTS %s
-// CHK-TOOLS-OPTS: clang-offload-wrapper{{.*}} "-compile-opts=-DFOO1 -DFOO2"
+// CHK-TOOLS-OPTS: clang-offload-wrapper{{.*}} "-compile-opts={{.*}}-DFOO1 -DFOO2"
 
 /// Check for implied options (-g -O0)
 // RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -g -O0 -Xopenmp-target-backend "-DFOO1 -DFOO2" %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHK-TOOLS-IMPLIED-OPTS %s
 // RUN: %clang_cl -### --target=x86_64-pc-windows-msvc -Qopenmp -Qopenmp-targets=spir64 -Zi -Od -Xopenmp-target-backend "-DFOO1 -DFOO2" %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHK-TOOLS-IMPLIED-OPTS %s
-// CHK-TOOLS-IMPLIED-OPTS: clang-offload-wrapper{{.*}} "-compile-opts=-g -cl-opt-disable -DFOO1 -DFOO2"
+// CHK-TOOLS-IMPLIED-OPTS: clang-offload-wrapper{{.*}} "-compile-opts=-g{{.*}}-cl-opt-disable{{.*}}-DFOO1 -DFOO2"
 
 /// Check for proper override (device vs host)
 // RUN: %clang -### -target x86_64-unknown-linux-gnu -g -fiopenmp -fopenmp-targets=spir64="-g0" %s 2>&1 \
@@ -355,7 +359,7 @@
 // CHK-TOOLS-OPTS2: clang-offload-wrapper{{.*}} "-link-opts=-DFOO1 -DFOO2"
 
 /// test llvm-link behavior for fopenmp offload
-// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN: not %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=OMP_LLVM_LINK_DEVICE_LIB
 // OMP_LLVM_LINK_DEVICE_LIB: llvm-link{{.*}} "--only-needed" "{{.*}}"
 
@@ -391,3 +395,19 @@
 // RUN:    -target i386-unknown-linux-gnu -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=NO_SVML_ERROR %s
 // NO_SVML_ERROR-NOT: unsupported option 'SVML' for target
+
+/// Use of -fopenmp-concurrent-host-device-compile requires -fopenmp-targets
+// RUN: %clangxx -### -fiopenmp -fopenmp-concurrent-host-device-compile \
+// RUN:          --target=x86_64-unknown-linux-gnu %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CONCURRENT_WARN %s
+// CONCURRENT_WARN: -fopenmp-concurrent-host-device-compile' should be used only in conjunction with '-fopenmp-targets'
+
+/// Option acceptance
+// RUN: %clangxx -### -fiopenmp -fopenmp-concurrent-host-device-compile \
+// RUN:          -fopenmp-targets=spir64 --target=x86_64-unknown-linux-gnu %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CONCURRENT_NO_WARN %s
+// RUN: %clang_cl -### -Qiopenmp -Qopenmp-concurrent-host-device-compile \
+// RUN:          -Qopenmp-targets=spir64 %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CONCURRENT_NO_WARN %s
+// CONCURRENT_NO_WARN-NOT: unknown argument
+// CONCURRENT_NO_WARN-NOT: should be used only in conjunction

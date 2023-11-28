@@ -41,7 +41,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/ADT/ilist_iterator.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/InstructionSimplify.h"
@@ -320,7 +319,7 @@ static void restoreOptReport(Instruction *OrigLatch, Instruction *ClonedLatch) {
   // Replace the metadata of the cloned latch.
   ClonedLatch->setMetadata(LLVMContext::MD_loop, NewLoopID);
 }
-#endif // INTEL_CUSTOMIZTION
+#endif // INTEL_CUSTOMIZATION
 
 /// Unroll the given loop by Count. The loop must be in LCSSA form.  Unrolling
 /// can only fail when the loop's latch block is not terminated by a conditional
@@ -492,9 +491,10 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   if (ULO.Runtime &&
       !UnrollRuntimeLoopRemainder(L, ULO.Count, ULO.AllowExpensiveTripCount,
                                   EpilogProfitability, ULO.UnrollRemainder,
-                                  ULO.ForgetAllSCEV, LI, SE, DT, AC,
-                                  ORBuilder, // INTEL
+#if INTEL_CUSTOMIZATION
+                                  ULO.ForgetAllSCEV, LI, SE, DT, AC, ORBuilder,
                                   TTI, PreserveLCSSA, RemainderLoop)) {
+#endif // INTEL_CUSTOMIZATION
     if (ULO.Force)
       ULO.Runtime = false;
     else {
@@ -520,7 +520,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     ORBuilder(*L, *LI)
         .addRemark(OptReportVerbosity::Low, OptRemarkID::LLORGFullyUnrolled)
         .preserveLostOptReport();
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   } else {
 #if INTEL_CUSTOMIZATION
     // TODO (vzakhari 5/22/2018): we may want to be more precise
@@ -528,7 +528,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     //       conditional clauses below.
     ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,
                                  OptRemarkID::LLORGUnrolledBy, ULO.Count);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "UNROLLING loop %" << Header->getName() << " by "
                       << ULO.Count);
     if (ULO.Runtime)
@@ -804,7 +804,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     // (if we are not applying complete unroll) will hold
     // the Loop metadata.
     Term->setMetadata(LLVMContext::MD_loop, nullptr);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     Term->eraseFromParent();
 
     DTUpdates.emplace_back(DominatorTree::Delete, Src, DeadSucc);
@@ -920,7 +920,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
                                     DTUToUse ? nullptr : DT)) {
         // Dest has been folded into Fold. Update our worklists accordingly.
         std::replace(Latches.begin(), Latches.end(), Dest, Fold);
-        llvm::erase_value(UnrolledLoopBlocks, Dest);
+        llvm::erase(UnrolledLoopBlocks, Dest);
       }
     }
   }

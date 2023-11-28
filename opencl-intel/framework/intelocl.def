@@ -149,3 +149,4 @@ EXPORTS
   clEnqueueMigrateMemINTEL
   clEnqueueMemAdviseINTEL
   clCreateBufferWithPropertiesINTEL
+  clGetKernelMaxConcurrentWorkGroupCountINTEL

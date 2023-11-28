@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2023 Intel Corporation
+# Copyright (C) 2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -124,10 +124,6 @@ set(CLANG_C_COMPILER_PARAMS
     # Pretend we use LTO as Intel's clang version doesn't allows emitting LLVM
     # bytecode for C/C++ files w/o LTO flag.
     -flto)
-
-if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
-  set(CLANG_C_COMPILER_PARAMS ${CLANG_C_COMPILER_PARAMS} -no-opaque-pointers)
-endif()
 
 # options for clang to compile OpenCL 2.0 image callbacks
 

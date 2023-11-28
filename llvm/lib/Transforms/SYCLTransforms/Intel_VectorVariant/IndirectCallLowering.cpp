@@ -1,6 +1,6 @@
 //=---------------------- IndirectCallLowering.cpp -*- C++ -*----------------=//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -21,6 +21,9 @@ using namespace llvm;
 extern bool SYCLEnableVectorVariantPasses;
 
 namespace llvm {
+
+DiagnosticKind VectorVariantDiagInfo::Kind =
+    static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
 
 PreservedAnalyses IndirectCallLowering::run(Module &M,
                                             ModuleAnalysisManager &MAM) {
@@ -133,8 +136,8 @@ bool IndirectCallLowering::runImpl(Module &M) {
       if (Index >= Variants.size()) {
         // Final function's code will be incorrect, so let's mark it as
         // an invalid one.
-        Fn.addFnAttr(KernelAttribute::VectorVariantFailure,
-                     "failed to find a masked vector variant for an indirect call");
+        Fn.getContext().diagnose(VectorVariantDiagInfo(
+            Fn, "failed to find a masked vector variant for an indirect call"));
         continue;
       }
 

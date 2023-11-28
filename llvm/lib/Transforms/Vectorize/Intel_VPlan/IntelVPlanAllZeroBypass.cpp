@@ -448,10 +448,58 @@ VPValue* VPlanAllZeroBypass::loopWasMadeUniform(VPLoop *VPLp) {
   return nullptr;
 }
 
+bool VPlanAllZeroBypass::checkRegionEnforced(
+    const VPBasicBlock *StartBlock,
+    const SetVector<VPBasicBlock *> &RegionBlocks) {
+
+  // Check whether the region is for masked vector variant.
+  if (Plan.getVecFuncVariant() == VPVectorVariantKind::Masked) {
+    LLVM_DEBUG(dbgs() << "Checking masked variant: " << StartBlock->getName()
+                      << " Block size:" << StartBlock->size()
+                      << " Block count:" << RegionBlocks.size() << "\n";);
+    // Check if the block predicate is calculated in the loop header.
+    const VPBasicBlock *LoopHeader =
+        Plan.getMainLoop(false /*strict check*/)->getHeader();
+    const auto *Pred = dyn_cast<VPInstruction>(StartBlock->getPredicate());
+    if (!Pred)
+      return false;
+    if (const auto *Op = dyn_cast<VPInstruction>(Pred->getOperand(0)))
+      if (Op->getParent() != LoopHeader)
+        return false;
+
+    // Then check whether the starting block predecessor or predecessor of its
+    // predecessor is the loop header. E.g. the following can occur after
+    // predicator:
+    //
+    //  header:
+    //     ...
+    //     %c = i1 cmp ...
+    //     %nc = not i1 %c
+    //     br label %false_succ
+    //
+    //  false-succ: ; empty false successor
+    //     %pnot = block-predicate i1 %nc
+    //     br label %true_succ
+    //
+    //  true_succ:  ; the successor with real code
+    //     %pnot = block-predicate i1 %c
+    //     ... ; other code
+    //
+    auto PredIsHeader = [LoopHeader](const VPBasicBlock *B) {
+      return B->getNumPredecessors() == 1 && B->getPredecessor(0) == LoopHeader;
+    };
+    return (PredIsHeader(StartBlock) ||
+            (StartBlock->getNumPredecessors() == 1 &&
+             PredIsHeader(StartBlock->getPredecessor(0)))) &&
+           StartBlock->size() > 2;
+  }
+  return false;
+}
+
 void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
-    RegionsCollectedTy &RegionsCollected, VPlanCostModelInterface *CM,
-    std::optional<unsigned> VF) {
+    RegionsCollectedTy &RegionsCollected, bool StabilityOnly,
+    VPlanCostModelInterface *CM, std::optional<unsigned> VF) {
 
   // Probability is very low that for large VFs all lanes are 0.
   if (VF && *VF >= 32)
@@ -621,32 +669,38 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
                             RegionsCollected))
       continue;
 
-    // Temporary workaround for CMPLRLLVM-30680:
-    //
-    // Probability of the mask being all-zero should take its part in the
-    // decision to bypass. Ideally, we'd like to keep track of all Selects/ORs
-    // and known non-allzero masks in the expression tree (due to an earlier
-    // bypass), but we're not there. For now, special case for a condition based
-    // on a uniform value.
-    unsigned EffectiveThreshold = RegionThreshold;
-    auto *BlockPredI = dyn_cast<VPInstruction>(CandidateBlockPred);
-    if (!BlockPredI ||
-        (BlockPredI->getOpcode() == Instruction::Select &&
-         (Plan.getVPlanDA()->isUniform(*BlockPredI->getOperand(0)) ||
-          Plan.getVPlanDA()->isUniform(*BlockPredI->getOperand(1)))))
-      if (VF)
-        EffectiveThreshold = EffectiveThreshold * 4 / *VF;
+    // First check whether we need bypass region for stability.
+    bool Enforced = checkRegionEnforced(CandidateBlock, RegionBlocks);
+    if (!Enforced && !StabilityOnly) {
+      // If not needed for stability then check for profitability.
+      //
+      // Temporary workaround for CMPLRLLVM-30680:
+      //
+      // Probability of the mask being all-zero should take its part in the
+      // decision to bypass. Ideally, we'd like to keep track of all Selects/ORs
+      // and known non-allzero masks in the expression tree (due to an earlier
+      // bypass), but we're not there. For now, special case for a condition
+      // based on a uniform value.
+      unsigned EffectiveThreshold = RegionThreshold;
+      auto *BlockPredI = dyn_cast<VPInstruction>(CandidateBlockPred);
+      if (!BlockPredI ||
+          (BlockPredI->getOpcode() == Instruction::Select &&
+           (Plan.getVPlanDA()->isUniform(*BlockPredI->getOperand(0)) ||
+            Plan.getVPlanDA()->isUniform(*BlockPredI->getOperand(1)))))
+        if (VF)
+          EffectiveThreshold = EffectiveThreshold * 4 / *VF;
 
-    // Cost model not yet available for function vectorization pipeline. It's
-    // ok because there's really no reason for it there yet anyway since this
-    // pipeline is only used for testing at the moment.
-    VPInstructionCost RegionCost{EffectiveThreshold};
-    if (CM)
-      RegionCost = CM->getBlockRangeCost(CandidateBlock, LastBB);
-
+      // Cost model not yet available for function vectorization pipeline. It's
+      // ok because there's really no reason for it there yet anyway since this
+      // pipeline is only used for testing at the moment.
+      VPInstructionCost RegionCost{EffectiveThreshold};
+      if (CM)
+        RegionCost = CM->getBlockRangeCost(CandidateBlock, LastBB);
+      Enforced = RegionCost.isValid() && RegionCost >= EffectiveThreshold;
+    }
     // If the region meets minimum cost requirements, record it for later
     // insertion.
-    if (RegionCost.isValid() && RegionCost >= EffectiveThreshold) {
+    if (Enforced) {
       AllZeroBypassRegionsTy::iterator InsertPt = AllZeroBypassRegions.end();
       for (AllZeroBypassRegionsTy::iterator It = AllZeroBypassRegions.begin();
            It != AllZeroBypassRegions.end(); ++It) {

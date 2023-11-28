@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2023 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,13 +15,12 @@
 #ifndef BLT_MISCELLANEOUSVECTOR_H
 #define BLT_MISCELLANEOUSVECTOR_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/IR/DerivedTypes.h"
-
 #include "Helpers.h"
 #include "RefALU.h"
 #include "Utils.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/IR/DerivedTypes.h"
 
 namespace Validation {
 namespace OCLBuiltins {

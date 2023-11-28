@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,40 +14,34 @@
 
 #include "OpenCLBackendRunner.h"
 #include "BackendOptions.h"
-#include "OpenCLArgsBuffer.h"
-#include "OpenCLBackendWrapper.h"
-#include "OpenCLProgramConfiguration.h"
-#include "OpenCLRunConfiguration.h"
-
-#include "Performance.h"
-#include "SATestException.h"
-
 #include "BinaryDataReader.h"
 #include "BinaryDataWriter.h"
+#include "Buffer.h"
 #include "BufferContainerList.h"
 #include "OCLKernelDataGenerator.h"
+#include "OpenCLArgsBuffer.h"
+#include "OpenCLBackendWrapper.h"
 #include "OpenCLKernelArgumentsParser.h"
+#include "OpenCLProgramConfiguration.h"
+#include "OpenCLRunConfiguration.h"
+#include "Performance.h"
+#include "SATestException.h"
 #include "XMLDataReader.h"
 #include "XMLDataWriter.h"
 #include "cpu_dev_limits.h"
-
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/MemoryBuffer.h>
-
+#include "mem_utils.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <string.h>
 #include <vector>
 
-#include "Buffer.h"
-#include "mem_utils.h"
-
+// debug macro
 #define DEBUG_TYPE "OpenCLBackendRunner"
-#include <llvm/Support/raw_ostream.h>
-// debug macros
-#include <llvm/Support/Debug.h>
-
-#include <string.h>
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -120,7 +114,8 @@ void OpenCLBackendRunner::BuildProgram(
                                           injectedObject->getBufferSize());
   }
 
-  if (runConfig->GetValue<bool>(RC_BR_STOP_BEFORE_JIT, false))
+  bool stopBeforeJIT = runConfig->GetValue<bool>(RC_BR_STOP_BEFORE_JIT, false);
+  if (stopBeforeJIT)
     buildProgramOptions.SetStopBeforeJIT();
 
   cl_int ret = pCompileService->BuildProgram(
@@ -133,6 +128,15 @@ void OpenCLBackendRunner::BuildProgram(
     throw Exception::TestRunnerException(
         std::string("Build program failed.\nBack-end build log:\n") +
         pProgram->GetBuildLog());
+  }
+
+  if (!stopBeforeJIT) {
+    ret = pCompileService->FinalizeProgram(pProgram);
+    LLVM_DEBUG(llvm::dbgs() << "Finalize program finished.\n");
+
+    if (CL_DEV_FAILED(ret))
+      throw Exception::TestRunnerException(
+          std::string("Finalize program failed.\n") + pProgram->GetBuildLog());
   }
 
   if (runConfig->GetValue<bool>(RC_BR_PRINT_BUILD_LOG, false)) {

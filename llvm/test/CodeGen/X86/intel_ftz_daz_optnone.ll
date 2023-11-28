@@ -52,10 +52,9 @@ define dso_local i32 @main() #0 {
 ;
 ; X87-P80-INIT-O0-LABEL: main:
 ; X87-P80-INIT-O0:       # %bb.0: # %entry
-; X87-P80-INIT-O0-NEXT:    leaq -{{[0-9]+}}(%rsp), %rax
 ; X87-P80-INIT-O0-NEXT:    movw $4991, -{{[0-9]+}}(%rsp) # imm = 0x137F
 ; X87-P80-INIT-O0-NEXT:    #APP
-; X87-P80-INIT-O0-NEXT:    fldcw (%rax)
+; X87-P80-INIT-O0-NEXT:    fldcw -{{[0-9]+}}(%rsp)
 ; X87-P80-INIT-O0-NEXT:    #NO_APP
 ; X87-P80-INIT-O0-NEXT:    movl $0, -{{[0-9]+}}(%rsp)
 ; X87-P80-INIT-O0-NEXT:    xorl %eax, %eax
@@ -63,10 +62,9 @@ define dso_local i32 @main() #0 {
 ;
 ; X87-P80-INIT-O2-LABEL: main:
 ; X87-P80-INIT-O2:       # %bb.0: # %entry
-; X87-P80-INIT-O2-NEXT:    leaq -{{[0-9]+}}(%rsp), %rax
 ; X87-P80-INIT-O2-NEXT:    movw $4991, -{{[0-9]+}}(%rsp) # imm = 0x137F
 ; X87-P80-INIT-O2-NEXT:    #APP
-; X87-P80-INIT-O2-NEXT:    fldcw (%rax)
+; X87-P80-INIT-O2-NEXT:    fldcw -{{[0-9]+}}(%rsp)
 ; X87-P80-INIT-O2-NEXT:    #NO_APP
 ; X87-P80-INIT-O2-NEXT:    movl $0, -{{[0-9]+}}(%rsp)
 ; X87-P80-INIT-O2-NEXT:    xorl %eax, %eax
@@ -79,7 +77,7 @@ define dso_local i32 @main() #0 {
 ; NO-INIT-NEXT:    retq
 entry:
   %retval = alloca i32, align 4
-  store i32 0, i32* %retval, align 4
+  store i32 0, ptr %retval, align 4
   ret i32 0
 }
 attributes #0 = { noinline nounwind optnone uwtable "denormal-fp-math"="preserve-sign,preserve-sign" }

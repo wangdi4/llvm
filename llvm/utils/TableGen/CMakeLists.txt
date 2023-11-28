@@ -44,8 +44,8 @@ add_llvm_library(LLVMTableGenCommon STATIC OBJECT EXCLUDE_FROM_ALL
 # INTEL_COLLAB
   DirectivesEmitter.cpp
 # end INTEL_COLLAB
-  Intel_SVMLEmitter.cpp       # INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
-  Intel_LibmvecEmitter.cpp    # INTEL_CUSTOMIZATION
+  Intel_SVMLEmitter.cpp       # INTEL -- TODO: VEC to COLLAB
+  Intel_LibmvecEmitter.cpp    # INTEL
   PARTIAL_SOURCES_INTENDED
 
   LINK_COMPONENTS
@@ -101,15 +101,14 @@ add_tablegen(llvm-tblgen LLVM
   DynamicTableEmitter.cpp
   ExegesisEmitter.cpp
   FastISelEmitter.cpp
-  GICombinerEmitter.cpp
-  GlobalISelCombinerMatchTableEmitter.cpp
+  GlobalISelCombinerEmitter.cpp
   GlobalISelEmitter.cpp
   GlobalISelMatchTable.cpp
   GlobalISelMatchTableExecutorEmitter.cpp
   InfoByHwMode.cpp
   InstrInfoEmitter.cpp
   InstrDocsEmitter.cpp
-  Intel_MAPatternsEmitter.cpp # INTEL_CUSTOMIZATION
+  Intel_MAPatternsEmitter.cpp # INTEL
   OptEmitter.cpp
   OptParserEmitter.cpp
   OptRSTEmitter.cpp

@@ -822,7 +822,7 @@ static void computeLikelySuccessors(
   // we detect this loop and multiply back edge weight by factor 3 to increase
   // the loop trip count.
   if (isHotWeightedAveragingPixelsLoop(BB, L)) {
-    LikelyBlocks[BB] = Scaled32::getFraction(3, 1);
+    LikelyBlocks[BB] = Scaled32::getFraction(6, 1);
     return;
   }
 

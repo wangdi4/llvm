@@ -1,6 +1,6 @@
 //===---- HIROptReportEmitter.cpp - Prints Loop Optimization reports ------==//
 //
-// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -110,51 +110,6 @@ bool HIROptReportEmitter::run(Function &F, HIRFramework &HIRF,
   HIRF.getHLNodeUtils().visitAll(ORV);
 
   OS << "=================================================================\n\n";
-  return false;
-}
-
-class HIROptReportEmitterWrapperPass : public HIRTransformPass {
-public:
-  static char ID;
-  HIROptReportEmitterWrapperPass();
-
-  bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-};
-
-char HIROptReportEmitterWrapperPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIROptReportEmitterWrapperPass, "hir-optreport-emitter",
-                      "HIR optimization report emitter", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
-INITIALIZE_PASS_END(HIROptReportEmitterWrapperPass, "hir-optreport-emitter",
-                    "HIR optimization report emitter", false, false)
-
-FunctionPass *llvm::createHIROptReportEmitterWrapperPass() {
-  return new HIROptReportEmitterWrapperPass();
-}
-
-HIROptReportEmitterWrapperPass::HIROptReportEmitterWrapperPass()
-    : HIRTransformPass(ID) {
-  initializeHIROptReportEmitterWrapperPassPass(
-      *PassRegistry::getPassRegistry());
-}
-
-void HIROptReportEmitterWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<HIRFrameworkWrapperPass>();
-  AU.setPreservesAll();
-}
-
-bool HIROptReportEmitterWrapperPass::runOnFunction(Function &F) {
-  if (DisableHIROptReportEmitter)
-    return false;
-
-  HIRFramework &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  const OptReportOptions &Options = getAnalysis<OptReportOptionsPass>().Impl;
-
-  HIROptReportEmitter Emitter;
-  Emitter.run(F, HIRF, Options);
-
   return false;
 }
 

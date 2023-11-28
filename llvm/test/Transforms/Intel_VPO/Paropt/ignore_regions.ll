@@ -1,14 +1,16 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-starting-with=1 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-starting-with=1 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-starting-with=1 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-starting-with=1 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-up-to=14 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-up-to=14 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-up-to=14 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-up-to=14 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-matching=4,8,9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-matching=4,8,9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-matching=4,8,9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-matching=4,8,9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-starting-with=4 -vpo-paropt-ignore-regions-up-to=9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-starting-with=4 -vpo-paropt-ignore-regions-up-to=9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-starting-with=4 -vpo-paropt-ignore-regions-up-to=9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-starting-with=4 -vpo-paropt-ignore-regions-up-to=9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
+
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare),vpo-paropt,function(intel-ir-optreport-emitter)' -vpo-paropt-ignore-regions-starting-with=4 -vpo-paropt-ignore-regions-up-to=9 -intel-opt-report=medium -intel-opt-report-file=stdout -disable-output < %s | FileCheck %s --strict-whitespace --check-prefix=OPTREPORT
 
 ; Test src:
 ;
@@ -41,21 +43,41 @@
 ;   f1(7);
 ; }
 
-; IGNOREALL: remark: <unknown>:0:0: construct 3 (single) ignored on user's direction
-; IGNORERANGE-NOT: remark: <unknown>:0:0: construct 3 (single) ignored on user's direction
+; IGNOREALL: remark: <unknown>:0:0: construct 3 (single) ignored at user's direction
+; IGNORERANGE-NOT: remark: <unknown>:0:0: construct 3 (single) ignored at user's direction
 
-; ALL: remark: <unknown>:0:0: construct 4 (critical) ignored on user's direction
-; ALL: remark: <unknown>:0:0: construct 8 (parallel) ignored on user's direction
-; ALL: remark: <unknown>:0:0: construct 9 (masked) ignored on user's direction
+; ALL: remark: <unknown>:0:0: construct 4 (critical) ignored at user's direction
+; ALL: remark: <unknown>:0:0: construct 8 (parallel) ignored at user's direction
+; ALL: remark: <unknown>:0:0: construct 9 (masked) ignored at user's direction
 
-; IGNOREALL: remark: <unknown>:0:0: construct 10 (barrier) ignored on user's direction
-; IGNORERANGE-NOT: remark: <unknown>:0:0: construct 10 (barrier) ignored on user's direction
+; IGNOREALL: remark: <unknown>:0:0: construct 10 (barrier) ignored at user's direction
+; IGNORERANGE-NOT: remark: <unknown>:0:0: construct 10 (barrier) ignored at user's direction
 
-; IGNOREALL: remark: <unknown>:0:0: construct 13 (task) ignored on user's direction
-; IGNORERANGE-NOT: remark: <unknown>:0:0: construct 13 (task) ignored on user's direction
+; IGNOREALL: remark: <unknown>:0:0: construct 13 (task) ignored at user's direction
+; IGNORERANGE-NOT: remark: <unknown>:0:0: construct 13 (task) ignored at user's direction
 
-; IGNOREALL: remark: <unknown>:0:0: construct 14 (target) ignored on user's direction
-; IGNORERANGE-NOT: remark: <unknown>:0:0: construct 14 (target) ignored on user's direction
+; IGNOREALL: remark: <unknown>:0:0: construct 14 (target) ignored at user's direction
+; IGNORERANGE-NOT: remark: <unknown>:0:0: construct 14 (target) ignored at user's direction
+
+; OPTREPORT: Global optimization report for : _Z3barv
+
+; OPTREPORT-NOT:     remark #30009: Construct 3 (single) ignored at user's direction
+
+; OPTREPORT: OMP CRITICAL BEGIN
+; OPTREPORT:     remark #30009: Construct 4 (critical) ignored at user's direction
+; OPTREPORT: OMP CRITICAL END
+
+; OPTREPORT: Global optimization report for : _Z3foov
+
+; OPTREPORT: OMP PARALLEL BEGIN
+; OPTREPORT:     remark #30009: Construct 8 (parallel) ignored at user's direction
+; OPTREPORT: OMP PARALLEL END
+
+; OPTREPORT: OMP MASKED BEGIN
+; OPTREPORT:     remark #30009: Construct 9 (masked) ignored at user's direction
+; OPTREPORT: OMP MASKED END
+
+; OPTREPORT-NOT:     remark #30009: Construct 10 (barrier) ignored at user's direction
 
 ; Note that the region numbers are like this because collapse pass and
 ; prepare pass, both build WRGraph, and each invocation increases the node
@@ -114,12 +136,11 @@ $__clang_call_terminate = comdat any
 
 @llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 0, ptr @.omp_offloading.requires_reg, ptr null }]
 
-; Function Attrs: mustprogress noinline nounwind optnone uwtable
-define dso_local void @_Z3barv() #0 personality ptr @__gxx_personality_v0 {
+define dso_local void @_Z3barv() personality ptr @__gxx_personality_v0 {
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SINGLE"() ]
   fence acquire
-  call void @_Z2f1i(i32 noundef 1) #1
+  call void @_Z2f1i(i32 noundef 1)
   fence release
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SINGLE"() ]
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.CRITICAL"() ]
@@ -136,36 +157,28 @@ terminate.lpad:                                   ; preds = %entry
   %2 = landingpad { ptr, i32 }
           catch ptr null
   %3 = extractvalue { ptr, i32 } %2, 0
-  call void @__clang_call_terminate(ptr %3) #6
+  call void @__clang_call_terminate(ptr %3)
   unreachable
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-declare dso_local void @_Z2f1i(i32 noundef) #2
-
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
+declare dso_local void @_Z2f1i(i32 noundef)
 declare dso_local i32 @__gxx_personality_v0(...)
 
-; Function Attrs: noinline noreturn nounwind
-define linkonce_odr hidden void @__clang_call_terminate(ptr %0) #3 comdat {
-  %2 = call ptr @__cxa_begin_catch(ptr %0) #1
-  call void @_ZSt9terminatev() #6
+define linkonce_odr hidden void @__clang_call_terminate(ptr %0) comdat {
+  %2 = call ptr @__cxa_begin_catch(ptr %0)
+  call void @_ZSt9terminatev()
   unreachable
 }
 
 declare dso_local ptr @__cxa_begin_catch(ptr)
-
 declare dso_local void @_ZSt9terminatev()
 
-; Function Attrs: mustprogress noinline optnone uwtable
-define dso_local void @_Z3foov() #4 personality ptr @__gxx_personality_v0 {
+define dso_local void @_Z3foov() personality ptr @__gxx_personality_v0 {
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
-  call void @_Z2f1i(i32 noundef 3) #1
+  call void @_Z2f1i(i32 noundef 3)
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.MASTER"() ]
   fence acquire
@@ -185,46 +198,30 @@ terminate.lpad:                                   ; preds = %entry
   %3 = landingpad { ptr, i32 }
           catch ptr null
   %4 = extractvalue { ptr, i32 } %3, 0
-  call void @__clang_call_terminate(ptr %4) #6
+  call void @__clang_call_terminate(ptr %4)
   unreachable
 }
 
-; Function Attrs: mustprogress noinline nounwind optnone uwtable
-define dso_local void @_Z3bazv() #0 {
+define dso_local void @_Z3bazv() {
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"() ]
-  call void @_Z2f1i(i32 noundef 6) #1
+  call void @_Z2f1i(i32 noundef 6)
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TASK"() ]
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
-  call void @_Z2f1i(i32 noundef 7) #1
+  call void @_Z2f1i(i32 noundef 7)
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
 
-; Function Attrs: noinline uwtable
-define internal void @.omp_offloading.requires_reg() #5 section ".text.startup" {
+define internal void @.omp_offloading.requires_reg() section ".text.startup" {
 entry:
   call void @__tgt_register_requires(i64 1)
   ret void
 }
 
-; Function Attrs: nounwind
-declare void @__tgt_register_requires(i64) #1
-
-attributes #0 = { mustprogress noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { nounwind }
-attributes #2 = { "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #3 = { noinline noreturn nounwind }
-attributes #4 = { mustprogress noinline optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #5 = { noinline uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #6 = { noreturn nounwind }
+declare void @__tgt_register_requires(i64)
 
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1, !2, !3, !4}
 
 !0 = !{i32 0, i32 53, i32 -1923893656, !"_Z3bazv", i32 26, i32 0, i32 0}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{i32 7, !"openmp", i32 51}
-!3 = !{i32 7, !"uwtable", i32 2}
-!4 = !{i32 7, !"frame-pointer", i32 2}

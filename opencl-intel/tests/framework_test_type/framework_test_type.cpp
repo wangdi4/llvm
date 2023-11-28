@@ -1,8 +1,3 @@
-#include "CL/cl.h"
-
-#include <map>
-#include <string>
-
 #include "CL.h"
 #include "CL20.h"
 #include "CL21.h"
@@ -14,8 +9,10 @@
 #include "common_utils.h"
 #include "options.hpp"
 
+#include <map>
+#include <string>
+
 // The following tests replace the old "main" function of framework_test_type.
-//
 
 // BC open functions:
 void cpuBCOpen(FILE *&pIRFile) {
@@ -470,8 +467,6 @@ TEST(FrameworkTestType, Test_clGetCommandQueueInfo) { clGetCommandQueueInfo(); }
 TEST(FrameworkTestType, Test_passBuildOptionByEnvTest) {
   passBuildOptionByEnvTest();
 }
-
-TEST(FrameworkTestType, Test_UniformWorkGroupTest) { UniformWorkGroupTest(); }
 
 TEST(FrameworkTestType, Test_clKernelLocalMemSizeQueryTest) {
   clKernelLocalMemSizeQueryTest();

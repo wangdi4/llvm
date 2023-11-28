@@ -38,6 +38,7 @@ if(INTEL_CUSTOMIZATION)
       ${CMAKE_CURRENT_SOURCE_DIR}/interface.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/interop.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/omptarget.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/OmptCallback.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/rtl.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/LegacyAPI.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/xpti_registry.cpp)
@@ -71,9 +72,11 @@ if(INTEL_CUSTOMIZATION)
       LLVMObject)
   if(WIN32)
     libomptarget_add_resource_file(omptarget)
+    target_link_libraries(omptarget PRIVATE
+        "-def:${CMAKE_CURRENT_SOURCE_DIR}/omptarget.def")
   else(WIN32)
     target_link_libraries(omptarget PRIVATE
-        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
+        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports$<$<BOOL:${LLVM_LINKER_IS_LLD}>:,--undefined-version>")
   endif(WIN32)
 
   set_target_properties(omptarget PROPERTIES
@@ -87,7 +90,6 @@ if(INTEL_CUSTOMIZATION)
     # aligning the compile flags.
     llvm_update_compile_flags(omptarget)
     target_compile_definitions(omptarget PUBLIC OMPTARGET_PROFILE_ENABLED)
-    target_link_libraries(omptarget PRIVATE LLVMSupport)
   endif(OPENMP_ENABLE_LIBOMPTARGET_PROFILING)
 
   install(TARGETS omptarget LIBRARY COMPONENT omptarget
@@ -98,15 +100,6 @@ if(INTEL_CUSTOMIZATION)
   # llvm_update_compile_flags properly disables exceptions, so the system
   # headers (which may use EH, e.g MSVC's xlocale) can be properly compiled.
   llvm_update_compile_flags(omptarget)
-  if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
-    # FIXME: we have to use the same C run-time flags (e.g. /MTd) as
-    # the plguins, otherwise standard C++ types will have different
-    # layouts in omptarget.dll and the plugins. We currently have
-    # implicit/opaque C++ interface for ompt between libomptarget
-    # and the plugins: CMPLRLIBS-33675
-    set_msvc_crt_flags(omptarget)
-  endif()
-
 else(INTEL_CUSTOMIZATION)
 add_llvm_library(omptarget
   SHARED
@@ -144,4 +137,4 @@ endif()
 # are now separated in the build directory.
 set_target_properties(omptarget PROPERTIES INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/..")
 install(TARGETS omptarget LIBRARY COMPONENT omptarget DESTINATION "${OPENMP_INSTALL_LIBDIR}")
-endif(INTEL_CUSTOMIZATION)
+endif(INTEL_CUSTOMIZATION) # INTEL

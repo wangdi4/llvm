@@ -3,6 +3,8 @@
 // RUN: %clangxx -std=c++17 -fsycl -Wall -pedantic -Wno-c99-extensions -Wno-deprecated -fsyntax-only -Xclang -verify %s
 // RUN: %clangxx -std=c++20 -fsycl -Wall -pedantic -Wno-c99-extensions -Wno-deprecated -fsyntax-only -Xclang -verify %s
 // RUN: %clangxx            -fsycl -Wall -pedantic -Wno-c99-extensions -Wno-deprecated -fsyntax-only -Xclang -verify %s
+//
+// REQUIRES: c++20 ; INTEL
 
 // The test checks SYCL headers C++ compiance and that a warning is emitted
 // when compiling in < C++17 mode.

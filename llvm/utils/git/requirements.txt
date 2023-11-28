@@ -20,4 +20,3 @@
 # comment.
 #
 # end INTEL_CUSTOMIZATION
-

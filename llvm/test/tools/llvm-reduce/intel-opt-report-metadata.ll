@@ -33,11 +33,9 @@ exit:
 }
 
 !0 = distinct !{!0, !1}
-!1 = distinct !{!"intel.optreport.rootnode", !2}
-!2 = distinct !{!"intel.optreport", !3}
+!1 = distinct !{!"intel.optreport", !3}
 !3 = !{!"intel.optreport.remarks", !4}
 ; CHECK: !{!"intel.optreport.remark", i32 0, !"Dummy remark"}
 !4 = !{!"intel.optreport.remark", i32 0, !"Dummy remark"}
 !5 = distinct !{!5, !6}
-!6 = distinct !{!"intel.optreport.rootnode", !7}
-!7 = distinct !{!"intel.optreport", !3}
+!6 = distinct !{!"intel.optreport", !3}

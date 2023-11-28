@@ -1,4 +1,19 @@
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2023 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
 //===--- abi.cl - Entry points for the compiler ---------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -245,14 +260,7 @@ EXTERN int __kmpc_master_sub_group_leader() {
 }
 
 /// Check if current work is the active sub group leader
-EXTERN int __kmpc_active_sub_group_leader() {
-  if (__kmp_get_active_sub_group_leader_id() ==
-      __spirv_BuiltInSubgroupLocalInvocationId)
-    return KMP_TRUE;
-  else
-    return KMP_FALSE;
-}
-
+EXTERN int __kmpc_active_sub_group_leader() { return __kmp_sub_group_elect(); }
 
 ///
 /// Support for reduction
@@ -528,4 +536,4 @@ EXTERN bool __kmpc_team_reduction_ready_teamzero(int* team_done_counter,
 EXTERN void __kmpc_flush(ident_t *loc) {
   mem_fence(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
 }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION

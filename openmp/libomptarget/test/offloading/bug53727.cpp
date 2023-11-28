@@ -1,5 +1,10 @@
 // RUN: %libomptarget-compilexx-and-run-generic
+// RUN: %libomptarget-compileoptxx-and-run-generic
 
+#if INTEL_CUSTOMIZATION
+// Workaround for non-default GCC environment
+#include <cstdio>
+#endif // INTEL_CUSTOMIZATION
 #include <cassert>
 #include <iostream>
 

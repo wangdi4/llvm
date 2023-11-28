@@ -21,13 +21,13 @@ define hidden void @zran3_.DIR.OMP.PARALLEL.2(ptr nocapture readnone %tid, ptr n
 ; CHECK-NEXT:    .cfi_def_cfa_offset 48
 ; CHECK-NEXT:    pushq %rbx
 ; CHECK-NEXT:    .cfi_def_cfa_offset 56
-; CHECK-NEXT:    subq $760, %rsp # imm = 0x2F8
-; CHECK-NEXT:    .cfi_def_cfa_offset 816
+; CHECK-NEXT:    subq $776, %rsp # imm = 0x308
+; CHECK-NEXT:    .cfi_def_cfa_offset 832
 ; CHECK-NEXT:    vxorps %xmm16, %xmm16, %xmm16
-; CHECK-NEXT:    vmovups %ymm16, 640(%r{{[sb]}}p) # 4-byte Spill
-; CHECK-NEXT:    vmovups %ymm16, 672(%r{{[sb]}}p) # 4-byte Spill
-; CHECK-NEXT:    vmovups %ymm16, 704(%r{{[sb]}}p) # 4-byte Spill
-; CHECK-NEXT:    vmovaps %xmm16, 736(%r{{[sb]}}p) # 4-byte Spill
+; CHECK-NEXT:    vmovups %ymm16, 656(%r{{[sb]}}p) # 4-byte Spill
+; CHECK-NEXT:    vmovups %ymm16, 688(%r{{[sb]}}p) # 4-byte Spill
+; CHECK-NEXT:    vmovups %ymm16, 720(%r{{[sb]}}p) # 4-byte Spill
+; CHECK-NEXT:    vmovaps %xmm16, 752(%r{{[sb]}}p) # 4-byte Spill
 DIR.OMP.PARALLEL.3:
   %"zran3_$J3.priv" = alloca [20 x i32], align 16
   %"zran3_$J2.priv" = alloca [20 x i32], align 16

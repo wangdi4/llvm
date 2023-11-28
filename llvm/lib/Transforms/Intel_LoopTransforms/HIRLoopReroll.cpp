@@ -1,6 +1,6 @@
 //===- HIRLoopReroll.cpp - Implements Loop Reroll transformation ----------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -142,31 +142,6 @@ static cl::opt<float> VecRatioThreshold(
              " if loop body is vectorized at least this much ratio, value "
              "between [0, 1]. To enable rerolling regardless of vectorized "
              "code, give value larger than 1."));
-
-namespace {
-
-class HIRLoopRerollLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRLoopRerollLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRLoopRerollLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override{};
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-
-    AU.setPreservesAll();
-  }
-};
-
-} // namespace
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 std::string llvm::loopopt::reroll::getOpcodeString(unsigned Opcode) {
@@ -745,6 +720,10 @@ SequenceChecker::calcRerollFactor(const VecCEOpSeqTy &VecSeq) const {
     return std::make_pair(0, 0);
   }
 
+  LLVM_DEBUG(dbgs() << "VecSeq for calculating RF: \n";
+             for (auto &Seq
+                  : VecSeq) Seq.printCEs(););
+
   for (unsigned II = 1; II <= VecSize / 2; II++) {
     // Examine each II (Initiation interval)
     if (VecSize % II != 0) {
@@ -996,6 +975,8 @@ bool FastRerollRewriter::reroll() {
   updateCEs();
   invalidate();
 
+  LLVM_DEBUG(dbgs() << "Loop after reroll: "; Loop->dump(););
+
   return true;
 }
 
@@ -1111,6 +1092,9 @@ MoveRerollRewriter::rewriteSelfSR(HLInst *Inst, const SelfSRSeedsTy &Seeds,
   Inst->replaceOperandDDRef(OrigRvalFirst, FirstRef);
   Inst->replaceOperandDDRef(OrigRvalSecond, SecondRef);
 
+  FirstRef->makeConsistent({OrigRvalFirst, OrigRvalSecond});
+  SecondRef->makeConsistent({OrigRvalFirst, OrigRvalSecond});
+
   return Inst;
 }
 
@@ -1122,6 +1106,11 @@ bool MoveRerollRewriter::reroll(const TempToDDRefTy &TempToDDRef) {
 
   // II is the number of seeds to be used in the rerolled loop
   unsigned II = VecSeedInfo.size() / RerollFactor;
+
+  LLVM_DEBUG(dbgs() << "SelfSR reroller VecSeedInfo Size: "
+                    << VecSeedInfo.size() << " Initiation interval: " << II
+                    << "\n";);
+
   VecNodesTy NewAllInsts;
   for (unsigned I = 0; I < II; I++) {
     NewAllInsts.insert(NewAllInsts.end(),
@@ -1130,6 +1119,11 @@ bool MoveRerollRewriter::reroll(const TempToDDRefTy &TempToDDRef) {
   }
 
   HLNodeUtils::sortInTopOrderAndUniq(NewAllInsts);
+
+  LLVM_DEBUG(dbgs() << "Unique and sorted NewAllInsts: \n";
+             for (auto *Inst
+                  : NewAllInsts) Inst->dump();
+             dbgs() << "\n";);
 
   // Should be called before clone. Using SafeRedInfo as Inst a key.
   updateChainSRs();
@@ -1142,11 +1136,27 @@ bool MoveRerollRewriter::reroll(const TempToDDRefTy &TempToDDRef) {
     }
   }
 
-  HLNodeUtils::remove(std::next(NewAllInsts.back()->getIterator()),
-                      Loop->child_end());
+  // Consider the following example.
+  // <22>    + DO i1 = 0, 49, 1   <DO_LOOP>
+  // <4>     |   %0 = (@C)[0][2 * i1];
+  // <6>     |   %1 = (@B)[0][2 * i1];
+  // <11>    |   %3 = (@C)[0][2 * i1 + 1];
+  // <13>    |   %4 = (@B)[0][2 * i1 + 1];
+  // <15>    |   %S.036 = %0 + %1 + %S.036  +  %3 + %4;
+  // <22>    + END LOOP
+  // Unique and sorted NewAllInsts:
+  // <4>   %0 = (@C)[0][2 * i1];
+  // <6>   %1 = (@B)[0][2 * i1];
+  // <15>  %S.036 = %0 + %1 + %S.036  +  %3 + %4; <Safe Reduction>
+  // Replace the loop body with NewAllInsts.
+  HLNodeUtils::remove(Loop->child_begin(), Loop->child_end());
+  for (auto *Inst : NewAllInsts)
+    HLNodeUtils::insertAsLastChild(Loop, Inst);
+
   updateCEs();
   invalidate();
 
+  LLVM_DEBUG(dbgs() << "Loop after reroll (MoveRerollRewriter): \n");
   LLVM_DEBUG(Loop->dump(1));
 
   return true;
@@ -1227,6 +1237,7 @@ public:
       dbgs() << "\n";
     }
 
+    dbgs() << "SCEVTerms: \n";
     for (auto Blob : SCEVTerms) {
       if (!Blob) {
         dbgs() << "nullptr,  ";
@@ -1426,8 +1437,16 @@ public:
     for (const RegDDRef *Ref : make_range(SelfInst->rval_op_ddref_begin(),
                                           SelfInst->rval_op_ddref_end())) {
       if (Ref->isMemRef()) {
+        if (MemRef) {
+          // Current HIR input has at most one memref in a self SR.
+          // E.g.) %t = A[2*i]; S = S + %t + A[2*i + 1];
+          // Thus, this part of the code is not exercized.
+          // If the input form is broken in the future, currently,
+          // reroll doesn't have a support for rerolling those pattern.
+          LLVM_DEBUG(dbgs() << "A self SR has more than one memref addends.\n");
+          return false;
+        }
         MemRef = Ref;
-        break;
       }
     }
 
@@ -1721,6 +1740,9 @@ unsigned buildFromSelfSRInst(HLInst *HInst, const HLLoop *Loop,
   BlobUtils &BU = HInst->getBlobUtils();
   CanonExprUtils &CU = HInst->getCanonExprUtils();
 
+  LLVM_DEBUG(dbgs() << "Init VecSeq: \n"; for (auto &Seq
+                                               : VecSeq) Seq.printCEs(););
+
   bool HasMemRef = SelfTermGathers.hasMemRef();
   if (!HasMemRef) {
     for (BlobTy SCEVTerm : SCEVTerms) {
@@ -1746,6 +1768,9 @@ unsigned buildFromSelfSRInst(HLInst *HInst, const HLLoop *Loop,
         return 0;
       }
     }
+
+    LLVM_DEBUG(dbgs() << "Final VecSeq: \n"; for (auto &Seq
+                                                  : VecSeq) Seq.printCEs(););
 
     return SCEVTerms.size();
   }
@@ -2148,40 +2173,6 @@ unsigned doLoopReroll(HIRFramework &HIRF, HIRDDAnalysis &DDA,
 }
 
 } // namespace
-
-char HIRLoopRerollLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopRerollLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRLoopRerollLegacyPass, OPT_SWITCH, OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIRLoopRerollPass() {
-  return new HIRLoopRerollLegacyPass();
-}
-
-bool HIRLoopRerollLegacyPass::runOnFunction(Function &F) {
-  if (DisablePass || skipFunction(F)) {
-    return false;
-  }
-
-  LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
-
-  auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  auto &DDA = getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  auto &HLS = getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  auto &SRA = getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-
-  unsigned NumRerolled = doLoopReroll(HIRF, DDA, HLS, SRA);
-  LoopsRerolled += NumRerolled;
-  if (NumRerolled > 0) {
-    LLVM_DEBUG(dbgs() << "Reroll happend\n");
-  }
-
-  return NumRerolled > 0;
-}
 
 PreservedAnalyses HIRLoopRerollPass::runImpl(llvm::Function &F,
                                              llvm::FunctionAnalysisManager &AM,

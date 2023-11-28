@@ -1,5 +1,5 @@
 ; RUN: opt %s -S -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' --debug-only=LoopVectorizationPlanner_vec_lengths 2>&1 | FileCheck %s
-; RUN: opt %s -S -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -disable-output -intel-opt-report=medium 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
+; RUN: opt %s -S -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -disable-output -intel-opt-report=medium 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 ; REQUIRES: asserts
 ;
 ; Checks if the code with #pragma vector vectorlength(0) (!{!"llvm.loop.vector.vectorlength", i64 0} metadata)

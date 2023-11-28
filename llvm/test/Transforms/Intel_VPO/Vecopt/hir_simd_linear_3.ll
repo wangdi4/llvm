@@ -16,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; <17>               @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
 ; <0>          END REGION
 
-define void @_Z3fooPl(i64* noundef %lp) {
+define void @_Z3fooPl(ptr noundef %lp) {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: _Z3fooPl:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -26,56 +26,56 @@ define void @_Z3fooPl(i64* noundef %lp) {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i64** [[VP_LP_ADDR_LINEAR:%.*]] = allocate-priv i64*, OrigAlign = 8
+; CHECK-NEXT:     ptr [[VP_LP_ADDR_LINEAR:%.*]] = allocate-priv ptr, OrigAlign = 8
 ; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     i64* [[VP_LOAD:%.*]] = load i64** [[LP_ADDR_LINEAR0:%.*]]
-; CHECK-NEXT:     i64* [[VP_LP_ADDR_LINEAR_IND_INIT:%.*]] = induction-init{getelementptr} i64* [[VP_LOAD]] i64 2
-; CHECK-NEXT:     store i64* [[VP_LP_ADDR_LINEAR_IND_INIT]] i64** [[VP_LP_ADDR_LINEAR]]
-; CHECK-NEXT:     i64 [[VP_LP_ADDR_LINEAR_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 2
+; CHECK-NEXT:     ptr [[VP_LOAD:%.*]] = load ptr [[LP_ADDR_LINEAR0:%.*]]
+; CHECK-NEXT:     ptr [[VP_LP_ADDR_LINEAR_IND_INIT:%.*]] = induction-init{getelementptr} ptr [[VP_LOAD]] i64 16
+; CHECK-NEXT:     store ptr [[VP_LP_ADDR_LINEAR_IND_INIT]] ptr [[VP_LP_ADDR_LINEAR]]
+; CHECK-NEXT:     i64 [[VP_LP_ADDR_LINEAR_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 16
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i64* [[VP4:%.*]] = phi  [ i64* [[VP_LP_ADDR_LINEAR_IND_INIT]], [[BB1]] ],  [ i64* [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     store i64* [[VP4]] i64** [[VP_LP_ADDR_LINEAR]]
-; CHECK-NEXT:     i64** [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64** [[VP_LP_ADDR_LINEAR]]
-; CHECK-NEXT:     call i64** [[VP_SUBSCRIPT]] void (i64**)* @_Z3bazPPl
-; CHECK-NEXT:     i64** [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64** [[VP_LP_ADDR_LINEAR]]
-; CHECK-NEXT:     i64* [[VP_LOAD_1:%.*]] = load i64** [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i64* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i64* [[VP_LOAD_1]] i64 2
-; CHECK-NEXT:     i64** [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i64** [[VP_LP_ADDR_LINEAR]]
-; CHECK-NEXT:     store i64* [[VP_SUBSCRIPT_2]] i64** [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     ptr [[VP4:%.*]] = phi  [ ptr [[VP_LP_ADDR_LINEAR_IND_INIT]], [[BB1]] ],  [ ptr [[VP5:%.*]], [[BB2]] ]
+; CHECK-NEXT:     store ptr [[VP4]] ptr [[VP_LP_ADDR_LINEAR]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[VP_LP_ADDR_LINEAR]]
+; CHECK-NEXT:     call ptr [[VP_SUBSCRIPT]] ptr @_Z3bazPPl
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[VP_LP_ADDR_LINEAR]]
+; CHECK-NEXT:     ptr [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[VP_LOAD_1]] i64 2
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[VP_LP_ADDR_LINEAR]]
+; CHECK-NEXT:     store ptr [[VP_SUBSCRIPT_2]] ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     i64* [[VP5]] = getelementptr inbounds i64* [[VP4]] i64 [[VP_LP_ADDR_LINEAR_IND_INIT_STEP]]
+; CHECK-NEXT:     ptr [[VP5]] = getelementptr inbounds i8, ptr [[VP4]] i64 [[VP_LP_ADDR_LINEAR_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp slt i64 [[VP3]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     i64* [[VP_LOAD_2:%.*]] = load i64** [[VP_LP_ADDR_LINEAR]]
-; CHECK-NEXT:     i64* [[VP_LP_ADDR_LINEAR_IND_FINAL:%.*]] = induction-final{getelementptr} i64* [[VP_LOAD]] i64 2
-; CHECK-NEXT:     store i64* [[VP_LP_ADDR_LINEAR_IND_FINAL]] i64** [[LP_ADDR_LINEAR0]]
+; CHECK-NEXT:     ptr [[VP_LOAD_2:%.*]] = load ptr [[VP_LP_ADDR_LINEAR]]
+; CHECK-NEXT:     ptr [[VP_LP_ADDR_LINEAR_IND_FINAL:%.*]] = induction-final{getelementptr} ptr [[VP_LOAD]] i64 16
+; CHECK-NEXT:     store ptr [[VP_LP_ADDR_LINEAR_IND_FINAL]] ptr [[LP_ADDR_LINEAR0]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br <External Block>
 ;
 DIR.OMP.SIMD.1:
-  %lp.addr.linear = alloca i64*, align 8
-  store i64* %lp, i64** %lp.addr.linear, align 8
+  %lp.addr.linear = alloca ptr, align 8
+  store ptr %lp, ptr %lp.addr.linear, align 8
   br label %DIR.OMP.SIMD.116
 
 DIR.OMP.SIMD.116:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(i64** %lp.addr.linear, i64 0, i32 1, i32 2) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(ptr %lp.addr.linear, i64 0, i32 1, i32 2) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.116
   %.omp.iv.local.010 = phi i64 [ 0, %DIR.OMP.SIMD.116 ], [ %add1, %omp.inner.for.body ]
-  call void @_Z3bazPPl(i64** noundef nonnull %lp.addr.linear)
-  %1 = load i64*, i64** %lp.addr.linear, align 8
-  %add.ptr = getelementptr inbounds i64, i64* %1, i64 2
-  store i64* %add.ptr, i64** %lp.addr.linear, align 8
+  call void @_Z3bazPPl(ptr noundef nonnull %lp.addr.linear)
+  %1 = load ptr, ptr %lp.addr.linear, align 8
+  %add.ptr = getelementptr inbounds i64, ptr %1, i64 2
+  store ptr %add.ptr, ptr %lp.addr.linear, align 8
   %add1 = add nuw nsw i64 %.omp.iv.local.010, 1
   %exitcond.not = icmp eq i64 %add1, 1024
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.115, label %omp.inner.for.body
@@ -92,6 +92,6 @@ declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
 
-declare dso_local void @_Z3bazPPl(i64** noundef) #0
+declare dso_local void @_Z3bazPPl(ptr noundef) #0
 
 attributes #0 = { nounwind }

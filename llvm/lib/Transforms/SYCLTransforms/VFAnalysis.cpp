@@ -1,6 +1,6 @@
 //==----------- VFAnalysis.h - Analyze VF related issues -------- C++ -*---==//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -39,12 +39,6 @@ static cl::opt<bool, true>
                                     cl::location(SYCLEnableSubGroupEmulation),
                                     cl::Hidden,
                                     cl::desc("Enable sub-group emulation"));
-
-bool SYCLForceOptnone = false;
-static cl::opt<bool, true> SYCLForceOptnoneOpt(
-    "sycl-force-optnone", cl::location(SYCLForceOptnone), cl::Hidden,
-    cl::desc("Force passes to process functions as if they have the optnone "
-             "attribute"));
 
 #if INTEL_CUSTOMIZATION
 // Enable vectorization at O0 optimization level.
@@ -130,8 +124,7 @@ unsigned VFAnalysisInfo::deduceVF(Function *Kernel, unsigned HeuristicVF) {
 #if INTEL_CUSTOMIZATION
   // If O0 vectorization is NOT enabled, then we disable vectorization for
   // optnone kernels.
-  if (!SYCLEnableO0Vectorization &&
-      (Kernel->hasOptNone() || SYCLForceOptnone)) {
+  if (!SYCLEnableO0Vectorization && Kernel->hasOptNone()) {
 #endif // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "Initial VF<optnone mode>: 1\n");
     return 1;
@@ -191,11 +184,14 @@ bool VFAnalysisInfo::hasUnsupportedPatterns(Function *Kernel) {
   // - Either the called function contains subgroups.
   // - Or the called function is flaged as "kernel-call-once" (VPlan can't
   //   serialize in this situation).
+  // - Or the called function is an intel indirect call.
   if (!SYCLEnableVectorizationOfByvalByrefFunctions) {
     if (hasFunctionCallInCGNodeIf(Node, [](const Function *CalledFunc) {
           return hasByvalByrefArgs(CalledFunc) &&
                  (CalledFunc->hasFnAttribute(KernelAttribute::HasSubGroups) ||
-                  CalledFunc->hasFnAttribute(KernelAttribute::CallOnce));
+                  CalledFunc->hasFnAttribute(KernelAttribute::CallOnce) ||
+                  (CalledFunc &&
+                   CalledFunc->getName().startswith("__intel_indirect_call")));
         })) {
       LLVM_DEBUG(dbgs() << "Can't be vectorized<byval/byref>\n");
       // Users have no control over byval/byref attributes, so we don't report

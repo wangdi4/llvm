@@ -1,4 +1,4 @@
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
 //
@@ -6,16 +6,14 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
 // License.
 //
-// end INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
 //===--- Target RTLs Implementation ---------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -54,13 +52,15 @@
 
 #include "elf_light.h"
 #include "omptargetplugin.h"
-#if INTEL_CUSTOMIZATION
-#include "omptarget-tools.h"
-#endif // INTEL_CUSTOMIZATION
 #include "rtl-trace.h"
+#ifdef OMPT_SUPPORT
+#include "OmptCallback.h"
+#endif
 
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/DynamicLibrary.h"
+
+using namespace llvm::omp::target;
 
 /// Host runtime routines being used
 extern "C" {
@@ -80,11 +80,15 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 } // extern "C"
 
 /// Default alignmnet for allocation
-#define LEVEL0_ALIGNMENT 0
+constexpr size_t L0Alignment = 0;
 /// Default staging buffer size for host to device copy (16KB)
-#define LEVEL0_STAGING_BUFFER_SIZE (1 << 14)
+constexpr size_t L0StagingBufferSize = (1 << 14);
 /// Default staging buffer count
-#define LEVEL0_STAGING_BUFFER_COUNT 64
+constexpr size_t L0StagingBufferCount = 64;
+/// USM allocation threshold where preallocation does not pay off (128MB)
+constexpr size_t L0UsmPreAllocThreshold = (128 << 20);
+/// Host USM allocation threshold where preallocation does not pay off (8MB)
+constexpr size_t L0HostUsmPreAllocThreshold = (8 << 20);
 
 #ifndef EXTRACT_BITS
 // MSB=63, LSB=0
@@ -146,6 +150,9 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
   } while (0)
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
+
+/// Generic L0 handle type
+using ZeHandleTy = void *;
 
 /// Device type enumeration common to compiler and runtime
 enum DeviceArch : uint64_t {
@@ -238,20 +245,35 @@ enum class CommandModeTy { Sync = 0, Async, AsyncOrdered };
 /// A single staging buffer is not enough when batching is enabled since there
 /// can be multiple pending copy operations.
 class StagingBufferTy {
+  /// Context for L0 calls
   ze_context_handle_t Context = nullptr;
-  size_t Size = LEVEL0_STAGING_BUFFER_SIZE;
-  size_t Count = LEVEL0_STAGING_BUFFER_COUNT;
-  std::vector<void *> Buffers;
-  size_t Offset = 0;
+  /// Max allowed size for staging buffer
+  size_t Size = L0StagingBufferSize;
+  /// Number of buffers allocated together for small-size buffers
+  size_t Count = L0StagingBufferCount;
+  /// Small buffer size
+  size_t SmallSize = L0StagingBufferSize;
+  /// Buffers increasing by Count if a new buffer is required
+  std::list<void *> SmallBuffers;
+  /// Buffers increasing by one if a new buffer is required
+  std::list<void *> LargeBuffers;
+  /// Next buffer location in the small buffers
+  size_t SmallOffset = 0;
+  /// Next buffer location in the large buffers
+  size_t LargeOffset = 0;
 
-  void *addBuffers() {
+  void *addBuffers(bool IsSmall) {
     ze_host_mem_alloc_desc_t AllocDesc = {
       ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC, nullptr, 0
     };
     void *Ret = nullptr;
-    CALL_ZE_RET_NULL(zeMemAllocHost, Context, &AllocDesc, Size * Count,
-                     LEVEL0_ALIGNMENT, &Ret);
-    Buffers.push_back(Ret);
+    size_t AllocSize = IsSmall ? SmallSize * Count : Size;
+    CALL_ZE_RET_NULL(zeMemAllocHost, Context, &AllocDesc, AllocSize,
+                     L0Alignment, &Ret);
+    if (IsSmall)
+      SmallBuffers.push_back(Ret);
+    else
+      LargeBuffers.push_back(Ret);
     return Ret;
   }
 
@@ -259,7 +281,9 @@ public:
   ~StagingBufferTy() {
     ze_result_t Rc;
     (void)Rc; // GCC build compiler thinks Rc is unused for some reason.
-    for (auto Ptr : Buffers)
+    for (auto Ptr : SmallBuffers)
+      CALL_ZE(Rc, zeMemFree, Context, Ptr);
+    for (auto Ptr : LargeBuffers)
       CALL_ZE(Rc, zeMemFree, Context, Ptr);
   }
 
@@ -269,33 +293,50 @@ public:
     Context = _Context;
     Size = _Size;
     Count = _Count;
+    SmallSize = (std::min)(Size, L0HostUsmPreAllocThreshold);
   }
 
-  void reset() { Offset = 0; }
+  void reset() {
+    SmallOffset = 0;
+    LargeOffset = 0;
+  }
 
   /// Always return the first buffer
-  void *get() {
+  void *get(size_t CopySize, bool Next) {
+    if (Next)
+      return getNext(CopySize);
     if (Size == 0 || Count == 0)
       return nullptr;
+    bool IsSmall = CopySize < SmallSize;
+    auto &Buffers = IsSmall ? SmallBuffers : LargeBuffers;
     if (Buffers.empty())
-      return addBuffers();
+      return addBuffers(IsSmall);
     else
-      return Buffers[0];
+      return Buffers.front();
   }
 
   /// Return the next available buffer
-  void *getNext() {
+  void *getNext(size_t CopySize) {
     void *Ret = nullptr;
     if (Size == 0 || Count == 0)
       return Ret;
-    if (Buffers.empty() || Offset >= Buffers.size() * Size * Count) {
-      Ret = addBuffers();
-      if (!Ret)
-        return Ret;
+    bool IsSmall = CopySize < SmallSize;
+    auto GetBuffer = [&](std::list<void *> &Buffers, size_t BlockSize,
+                         size_t Offset) {
+      void *Buffer = nullptr;
+      if (Buffers.empty() || Offset >= Buffers.size() * BlockSize)
+        Buffer = addBuffers(IsSmall);
+      else
+        Buffer = (void *)((uintptr_t)Buffers.back() + (Offset % BlockSize));
+      return Buffer;
+    };
+    if (IsSmall) {
+      Ret = GetBuffer(SmallBuffers, SmallSize * Count, SmallOffset);
+      SmallOffset += SmallSize;
     } else {
-      Ret = (void *)((uintptr_t)Buffers.back() + (Offset % (Size * Count)));
+      Ret = GetBuffer(LargeBuffers, Size, LargeOffset);
+      LargeOffset += Size;
     }
-    Offset += Size;
     return Ret;
   }
 };
@@ -740,8 +781,8 @@ class TLSTy {
   /// Run profile for each device
   std::map<int32_t, RTLProfileTy *> Profiles;
 
-  /// Staging buffer
-  StagingBufferTy StagingBuffer;
+  /// Staging buffer for each context
+  std::map<ze_context_handle_t, StagingBufferTy> StagingBuffers;
 
 #if INTEL_CUSTOMIZATION
   /// Batch manager
@@ -821,7 +862,9 @@ public:
 
   int64_t getSubDeviceCode() { return SubDeviceCode; }
 
-  StagingBufferTy &getStagingBuffer() { return StagingBuffer; }
+  StagingBufferTy &getStagingBuffer(ze_context_handle_t Context) {
+    return StagingBuffers[Context];
+  }
 
 #if INTEL_CUSTOMIZATION
   CommandBatchTy &getCommandBatch() { return CommandBatch; }
@@ -1076,9 +1119,9 @@ class LevelZeroProgramTy {
 public:
   LevelZeroProgramTy() = default;
 
-  LevelZeroProgramTy(__tgt_device_image *Image_, ze_context_handle_t Context_,
-                     ze_device_handle_t Device_, int32_t DeviceId_) :
-      Image(Image_), Context(Context_), Device(Device_), DeviceId(DeviceId_) {}
+  LevelZeroProgramTy(__tgt_device_image *Image, ze_context_handle_t Context,
+                     ze_device_handle_t Device, int32_t DeviceId)
+      : Image(Image), Context(Context), Device(Device), DeviceId(DeviceId) {}
 
   ~LevelZeroProgramTy();
 
@@ -1241,18 +1284,6 @@ static ze_command_queue_handle_t createCmdQueue(
   return (Ordinal == UINT32_MAX)
       ? nullptr
       : createCmdQueue(Context, Device, Ordinal, Index, 0, DeviceIdStr);
-}
-
-/// Create a context
-static ze_context_handle_t createContext(ze_driver_handle_t Driver) {
-  ze_context_desc_t contextDesc = {
-    ZE_STRUCTURE_TYPE_CONTEXT_DESC,
-    nullptr, // extension
-    0 // flags
-  };
-  ze_context_handle_t context;
-  CALL_ZE_RET_NULL(zeContextCreate, Driver, &contextDesc, &context);
-  return context;
 }
 
 /// RTL flags
@@ -1493,10 +1524,10 @@ struct RTLOptionTy {
 #endif // INTEL_CUSTOMIZATION
 
   /// Staging buffer size
-  size_t StagingBufferSize = LEVEL0_STAGING_BUFFER_SIZE;
+  size_t StagingBufferSize = L0StagingBufferSize;
 
   /// Staging buffer count
-  size_t StagingBufferCount = LEVEL0_STAGING_BUFFER_COUNT;
+  size_t StagingBufferCount = L0StagingBufferCount;
 
 #if INTEL_CUSTOMIZATION
   /// Command batch support
@@ -1609,6 +1640,9 @@ struct RTLOptionTy {
 
   /// Make USM memory resident
   int32_t MakeResident = 0x001;
+
+  /// Whether interop sycl queue should be inorder
+  bool SyclWrapperInorderSyclQueue = false;
 
   /// Read environment variables
   RTLOptionTy() {
@@ -2175,6 +2209,11 @@ struct RTLOptionTy {
         INVALID_OPTION(LIBOMPTARGET_LEVEL_ZERO_USM_RESIDENT, Env);
     }
 
+    if ((Env = readEnvVar("LIBOMPTARGET_INTEROP_INORDER_SYCL_QUEUE"))) {
+      if (parseBool(Env) != 0)
+        SyclWrapperInorderSyclQueue = true;
+    }
+
     adjustOptions();
   }
 
@@ -2529,9 +2568,10 @@ class MemAllocatorTy {
         if (BlockSize <= AllocUnit) {
           BlockSize = AllocUnit; // Allocation unit is already large enough
         } else if (IsDiscrete) {
-          // Keep a single chunk for >=8MB host mem, >=128MB otherwise
-          if (ChunkSize >= (128 << 20) ||
-              (AllocKind == TARGET_ALLOC_HOST && ChunkSize >= (8 << 20)))
+          // Do not preallocate if it does not pay off
+          if (ChunkSize >= L0UsmPreAllocThreshold ||
+              (AllocKind == TARGET_ALLOC_HOST &&
+               ChunkSize >= L0HostUsmPreAllocThreshold))
             BlockSize = ChunkSize;
         }
         BucketParams.emplace_back(ChunkSize, BlockSize);
@@ -2811,6 +2851,8 @@ class MemAllocatorTy {
   std::list<void *> MemOwned;
   /// Lock protection
   std::mutex Mtx;
+  /// Allocator only supports host memory
+  bool IsHostMem = false;
 
 public:
   MemAllocatorTy() = default;
@@ -2820,7 +2862,7 @@ public:
                  int32_t DeviceId, bool SupportsLargeMem, RTLOptionTy &Option,
                  bool IsHostMem)
       : Context(Context), Device(Device), DeviceId(DeviceId),
-        SupportsLargeMem(SupportsLargeMem) {
+        SupportsLargeMem(SupportsLargeMem), IsHostMem(IsHostMem) {
 
     ze_device_properties_t P{ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES, nullptr};
     CALL_ZE_RET_VOID(zeDeviceGetProperties, Device, &P);
@@ -2880,8 +2922,13 @@ public:
     }
   }
 
-  /// Allocate memory from L0 GPU RT
-  void *allocL0(size_t Size, size_t Align, int32_t Kind);
+  /// Allocator only supports host memory
+  bool supportsHostMem() { return IsHostMem; }
+
+  /// Allocate memory from L0 GPU RT. We use over-allocation workaround
+  /// to support target pointer with offset, and positive "ActiveSize" is
+  /// specified in such cases for correct debug logging.
+  void *allocL0(size_t Size, size_t Align, int32_t Kind, size_t ActiveSize = 0);
 
   /// Allocate memory with the specified information
   void *alloc(size_t Size, size_t Align, int32_t Kind, intptr_t Offset,
@@ -2934,7 +2981,7 @@ public:
       }
     }
 
-    AllocBase = allocL0(AllocSize, Align, Kind);
+    AllocBase = allocL0(AllocSize, Align, Kind, Size);
     if (AllocBase) {
       Mem = (void *)((uintptr_t)AllocBase + Offset);
       AllocInfo.add(Mem, AllocBase, Size, Kind, false, UserAlloc);
@@ -3041,15 +3088,74 @@ public:
 
 struct ScopedTimerTy; // Forward declaration
 
-/// Device information
-struct RTLDeviceInfoTy {
+#ifdef OMPT_SUPPORT
+/// Set OMPT data in current region interface
+bool setOmptData(OmptExtDataTy Type, size_t Size, void *Data);
+/// Get OMPT data in current region interface
+bool getOmptData(OmptExtDataTy Type, size_t Size, void *Data);
+/// Look up OMPT entry
+ompt_interface_fn_t lookupOmptEntry(const char *EntryName);
 
-  /// Number of devices available including subdevices
-  uint32_t NumDevices = 0;
+/// Device-specific OMPT information
+struct OmptInfoTy {
+  /// OMPT callback functions
+#define defineOmptCallback(Name, Type, Code) Name##_t Name##_fn = nullptr;
+  FOREACH_OMPT_DEVICE_EVENT(defineOmptCallback)
+#undef defineOmptCallback
+  /// Internal representation for OMPT device (initialize & finalize)
+  bool OmptInitialized = false;
 
-  /// Number of devices reported to omptarget
-  uint32_t NumRootDevices = 0;
+  OmptInfoTy() {
+    // Bind the callbacks to this device's member functions
+#define bindOmptCallback(Name, Type, Code)                                     \
+  if (ompt::Initialized && ompt::lookupCallbackByCode) {                       \
+    ompt::lookupCallbackByCode((ompt_callbacks_t)(Code),                       \
+                               ((ompt_callback_t *)&(Name##_fn)));             \
+    DP("OMPT: class bound %s=%p\n", #Name, ((void *)(uint64_t)Name##_fn));     \
+  }
 
+    FOREACH_OMPT_DEVICE_EVENT(bindOmptCallback);
+#undef bindOmptCallback
+  }
+  /// Wrapper for device-load event
+  void doDeviceLoad(int32_t DeviceId, const char *FileName,
+                    int64_t OffsetInFile, void *VmaInFile, size_t Bytes,
+                    void *HostAddr, void *DeviceAddr, uint64_t ModuleId) {
+    if (!ompt::Initialized)
+      return;
+    performOmptCallback(device_load,
+                        /* device_num */ DeviceId,
+                        /* FileName */ FileName,
+                        /* File Offset */ OffsetInFile,
+                        /* VmaInFile */ VmaInFile,
+                        /* ImgSize */ Bytes,
+                        /* HostAddr */ HostAddr,
+                        /* DeviceAddr */ DeviceAddr,
+                        /* FIXME: ModuleId */ ModuleId);
+  }
+  /// Wrapper for device-init event
+  void doDeviceInit(int32_t DeviceId, const char *DeviceName, void *Device) {
+    if (!ompt::Initialized)
+      return;
+    OmptInitialized = true;
+    performOmptCallback(device_initialize,
+                        /* device_num */ DeviceId,
+                        /* type */ DeviceName,
+                        /* device */ reinterpret_cast<ompt_device_t *>(Device),
+                        /* lookup */ lookupOmptEntry,
+                        /* documentation */ nullptr);
+  }
+  /// Wrapper for device-fini event
+  void doDeviceFini() {}
+};
+#define OMPT_IF_BUILT(Stmt) Stmt
+#else // OMPT_SUPPORT
+#define OMPT_IF_BUILT(Stmt)
+#endif // OMPT_SUPPORT
+
+/// Driver and context-specific resources. We assume a single context per
+/// driver.
+struct DriverInfoTy {
   /// L0 Driver handle
   ze_driver_handle_t Driver = nullptr;
 
@@ -3057,16 +3163,161 @@ struct RTLDeviceInfoTy {
   ze_context_handle_t Context = nullptr;
 
   /// API version supported by the L0 driver
-  ze_api_version_t DriverAPIVersion = ZE_API_VERSION_CURRENT;
-
-  /// Count loaded device images. Use this to decide when to finalize RTL.
-  std::atomic<int> NumRegisteredImages = 0;
+  ze_api_version_t APIVersion = ZE_API_VERSION_CURRENT;
 
   /// Available L0 driver extensions
-  std::vector<ze_driver_extension_properties_t> DriverExtensions;
+  std::vector<ze_driver_extension_properties_t> Extensions;
+
+#if INTEL_CUSTOMIZATION
+  /// GITS function address for notifying indirect accesses
+  void *GitsIndirectAllocationOffsets = nullptr;
+#endif // INTEL_CUSTOMIZATION
+
+  /// Function for importing external pointer
+  void *RegisterHostPointer = nullptr;
+
+  /// Function for releasing imported external pointer
+  void *UnRegisterHostPointer = nullptr;
+
+  /// Function for checking if a pointer is an imported one
+  void *GetHostPointerBaseAddress = nullptr;
 
   /// Common event pool
   EventPoolTy EventPool;
+
+  /// Create context, initialize event pool and extension functions
+  DriverInfoTy(ze_driver_handle_t Driver, bool Profile) : Driver(Driver) {
+    CALL_ZE_RET_VOID(zeDriverGetApiVersion, Driver, &APIVersion);
+    DP("Driver API version is %" PRIx32 "\n", APIVersion);
+
+    ze_context_desc_t Desc{ZE_STRUCTURE_TYPE_CONTEXT_DESC, nullptr, 0};
+    CALL_ZE_RET_VOID(zeContextCreate, Driver, &Desc, &Context);
+
+    EventPool.init(Context, Profile ? ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP : 0);
+
+    uint32_t NumExtensions = 0;
+    CALL_ZE_RET_VOID(zeDriverGetExtensionProperties, Driver, &NumExtensions,
+                     nullptr);
+    if (NumExtensions > 0) {
+      Extensions.resize(NumExtensions);
+      CALL_ZE_RET_VOID(zeDriverGetExtensionProperties, Driver, &NumExtensions,
+                       Extensions.data());
+      DP("Found driver extensions:\n");
+      for (auto &E : Extensions) {
+        DP("-- %s\n", E.name);
+        (void)E; // silence warning
+      }
+    }
+
+    ze_result_t RC;
+#if INTEL_CUSTOMIZATION
+    // Look up GITS notification function
+    CALL_ZE(RC, zeDriverGetExtensionFunctionAddress, Driver,
+            "zeGitsIndirectAllocationOffsets", &GitsIndirectAllocationOffsets);
+    if (RC != ZE_RESULT_SUCCESS)
+      GitsIndirectAllocationOffsets = nullptr;
+#endif // INTEL_CUSTOMIZATION
+#if !_WIN32
+    // Look up Driver Import and Release External Pointer.
+    // Windows is not supported.
+    CALL_ZE(RC, zeDriverGetExtensionFunctionAddress, Driver,
+            "zexDriverImportExternalPointer", &RegisterHostPointer);
+    if (RC != ZE_RESULT_SUCCESS)
+      RegisterHostPointer = nullptr;
+
+    CALL_ZE(RC, zeDriverGetExtensionFunctionAddress, Driver,
+            "zexDriverReleaseImportedPointer", &UnRegisterHostPointer);
+    if (RC != ZE_RESULT_SUCCESS)
+      UnRegisterHostPointer = nullptr;
+
+    CALL_ZE(RC, zeDriverGetExtensionFunctionAddress, Driver,
+            "zexDriverGetHostPointerBaseAddress", &GetHostPointerBaseAddress);
+    if (RC != ZE_RESULT_SUCCESS)
+      GetHostPointerBaseAddress = nullptr;
+#endif
+  }
+
+  /// Release resources
+  ~DriverInfoTy() {
+    EventPool.deinit();
+    if (Context)
+      CALL_ZE_RET_VOID(zeContextDestroy, Context);
+  }
+
+  /// Invoke zexDriverImportExternalPointer.
+  /// ze_result_t ZE_APICALL
+  /// zexDriverImportExternalPointer(
+  ///   ze_driver_handle_t hDriver,
+  ///   void *ptr,
+  ///   size_t size
+  /// );
+  bool registerHostPointer(void *Ptr, size_t Size) {
+    if (RegisterHostPointer) {
+      using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, size_t);
+      auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
+      DP("Registering host pointer " DPxMOD " with size %zu\n", DPxPTR(Ptr),
+         Size);
+      ze_result_t RC = Fn(Driver, Ptr, Size);
+      if (RC == ZE_RESULT_SUCCESS)
+        return true;
+      DP("Error: Cannot register host pointer " DPxMOD " with size %zu\n",
+         DPxPTR(Ptr), Size);
+    }
+    return false;
+  }
+
+  /// Invoke zexDriverReleaseImportedPointer.
+  /// ze_result_t ZE_APICALL
+  /// zexDriverReleaseImportedPointer(
+  ///   ze_driver_handle_t hDriver,
+  ///   void *ptr
+  /// );
+  bool unRegisterHostPointer(void *Ptr) {
+    if (UnRegisterHostPointer) {
+      using FnTy = ze_result_t (*)(ze_driver_handle_t, void *);
+      auto Fn = reinterpret_cast<FnTy>(UnRegisterHostPointer);
+      DP("Unregistering host pointer " DPxMOD "\n", DPxPTR(Ptr));
+      ze_result_t RC = Fn(Driver, Ptr);
+      if (RC == ZE_RESULT_SUCCESS)
+        return true;
+      DP("Error: Cannot unregister host pointer " DPxMOD "\n", DPxPTR(Ptr));
+    }
+    return false;
+  }
+
+  /// Invoke zexDriverGetHostPointerBaseAddress.
+  /// ze_result_t ZE_APICALL
+  /// zexDriverGetHostPointerBaseAddress(
+  ///   ze_driver_handle_t hDriver,
+  ///   void *ptr,
+  ///   void **baseAddress
+  /// );
+  bool getHostPointerBaseAddress(void *Ptr) {
+    if (GetHostPointerBaseAddress) {
+      using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, void **);
+      auto Fn = reinterpret_cast<FnTy>(GetHostPointerBaseAddress);
+      void *BaseAddress = NULL;
+      ze_result_t RC = Fn(Driver, Ptr, &BaseAddress);
+      if (RC == ZE_RESULT_SUCCESS) {
+        DP("Host pointer " DPxMOD " is registered with base " DPxMOD "\n",
+           DPxPTR(Ptr), DPxPTR(BaseAddress));
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+/// Device information
+struct RTLDeviceInfoTy {
+  /// Number of devices available including subdevices
+  uint32_t NumDevices = 0;
+
+  /// Number of devices reported to omptarget
+  uint32_t NumRootDevices = 0;
+
+  /// Count loaded device images. Use this to decide when to finalize RTL.
+  std::atomic<int> NumRegisteredImages = 0;
 
   /// Misc. cached device properties
   std::vector<ze_device_properties_t> DeviceProperties;
@@ -3079,6 +3330,12 @@ struct RTLDeviceInfoTy {
 
   /// Devices' default target allocation kinds for internal allocation
   std::vector<int32_t> AllocKinds;
+
+  /// Driver-specific data available to the RTL
+  std::list<DriverInfoTy> DriverInfoList;
+
+  /// Reference to the driver information for each OpenMP device
+  std::vector<DriverInfoTy *> DriverInfo;
 
   /// L0 device used by each OpenMP device
   std::vector<ze_device_handle_t> Devices;
@@ -3134,19 +3391,11 @@ struct RTLDeviceInfoTy {
   /// Global RTL mutex
   std::mutex RTLMutex;
 
-  /// Memory allocator for each L0 devices
-  std::map<ze_device_handle_t, MemAllocatorTy> MemAllocator;
+  /// Memory allocator for each L0 devices (Device/Shared) and contexts (Host)
+  std::map<ZeHandleTy, MemAllocatorTy> MemAllocator;
 
-#if INTEL_CUSTOMIZATION
-  /// GITS function address for notifying indirect accesses
-  void *GitsIndirectAllocationOffsets = nullptr;
-#endif // INTEL_CUSTOMIZATION
-
-  /// function addresses for registering and unregistering host pointer
-  /// and testing if a host malloced pointer is registered
-  void *RegisterHostPointer = nullptr;
-  void *UnRegisterHostPointer = nullptr;
-  void *GetHostPointerBaseAddress = nullptr;
+  /// OMPT information
+  OMPT_IF_BUILT(std::vector<OmptInfoTy> OmptInfo);
 
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
 
@@ -3174,6 +3423,47 @@ struct RTLDeviceInfoTy {
   /// Return the internal device ID for the specified subdevice
   int32_t getSubDeviceId(int32_t DeviceId, uint32_t Level, uint32_t SubId);
 
+  /// Return context for the specified OMP device
+  ze_context_handle_t getContext(int32_t DeviceId) {
+    return DriverInfo[DeviceId]->Context;
+  }
+
+  /// Return driver API version for the specified OMP device
+  ze_api_version_t getDriverAPIVersion(int32_t DeviceId) {
+    return DriverInfo[DeviceId]->APIVersion;
+  }
+
+  /// Return an event for the specified OMP device
+  ze_event_handle_t getEvent(int32_t DeviceId) {
+    return DriverInfo[DeviceId]->EventPool.getEvent();
+  }
+
+  /// Release an event for the specified OMP device
+  void releaseEvent(int32_t DeviceId, ze_event_handle_t Event) {
+    DriverInfo[DeviceId]->EventPool.releaseEvent(Event);
+  }
+
+  /// Return memory allocator for the specified OMP device and memory kind
+  MemAllocatorTy &getMemAllocator(int32_t DeviceId, int32_t Kind) {
+    ZeHandleTy DeviceOrContext = nullptr;
+    if (Kind == TARGET_ALLOC_HOST)
+      DeviceOrContext = static_cast<ZeHandleTy>(getContext(DeviceId));
+    else
+      DeviceOrContext = static_cast<ZeHandleTy>(Devices[DeviceId]);
+    return MemAllocator.at(DeviceOrContext);
+  }
+
+  /// Return memory allocator for the specified OMP device and allocated pointer
+  MemAllocatorTy &getMemAllocator(int32_t DeviceId, const void *Ptr) {
+    bool IsHostMem = (ZE_MEMORY_TYPE_HOST == getMemAllocType(DeviceId, Ptr));
+    ZeHandleTy DeviceOrContext = nullptr;
+    if (IsHostMem)
+      DeviceOrContext = static_cast<ZeHandleTy>(getContext(DeviceId));
+    else
+      DeviceOrContext = static_cast<ZeHandleTy>(Devices[DeviceId]);
+    return MemAllocator.at(DeviceOrContext);
+  }
+
   /// Check if the device has main copy engine
   bool hasMainCopyEngine(int32_t DeviceId) {
     return CopyOrdinals[DeviceId].first != UINT32_MAX;
@@ -3188,9 +3478,9 @@ struct RTLDeviceInfoTy {
     auto TLS = getTLS();
     auto CmdList = TLS->getCmdList(DeviceId);
     if (!CmdList) {
-      CmdList = createCmdList(Context, Devices[DeviceId],
-                              ComputeOrdinals[DeviceId].first,
-                              DeviceIdStr[DeviceId]);
+      CmdList =
+          createCmdList(getContext(DeviceId), Devices[DeviceId],
+                        ComputeOrdinals[DeviceId].first, DeviceIdStr[DeviceId]);
       TLS->setCmdList(DeviceId, CmdList);
     }
     return CmdList;
@@ -3213,7 +3503,7 @@ struct RTLDeviceInfoTy {
       // Distribute to CCS queues
       uint32_t Index = __kmpc_global_thread_num(nullptr) %
           ComputeOrdinals[DeviceId].second;
-      CmdQueue = createCmdQueue(Context, Devices[DeviceId],
+      CmdQueue = createCmdQueue(getContext(DeviceId), Devices[DeviceId],
                                 ComputeOrdinals[DeviceId].first, Index,
                                 DeviceIdStr[DeviceId]);
       TLS->setCCSCmdQueue(DeviceId, CmdQueue);
@@ -3228,7 +3518,7 @@ struct RTLDeviceInfoTy {
       auto CmdList = TLS->getCopyCmdList(DeviceId);
       if (!CmdList) {
         CmdList =
-            createCmdList(Context, Devices[DeviceId],
+            createCmdList(getContext(DeviceId), Devices[DeviceId],
                           CopyOrdinals[DeviceId].first, DeviceIdStr[DeviceId]);
         TLS->setCopyCmdList(DeviceId, CmdList);
       }
@@ -3247,7 +3537,7 @@ struct RTLDeviceInfoTy {
       auto *TLS = getTLS();
       auto CmdQueue = TLS->getCopyCmdQueue(DeviceId);
       if (!CmdQueue) {
-        CmdQueue = createCmdQueue(Context, Devices[DeviceId],
+        CmdQueue = createCmdQueue(getContext(DeviceId), Devices[DeviceId],
                                   CopyOrdinals[DeviceId].first, 0,
                                   DeviceIdStr[DeviceId]);
         TLS->setCopyCmdQueue(DeviceId, CmdQueue);
@@ -3268,9 +3558,9 @@ struct RTLDeviceInfoTy {
       auto CmdList = TLS->getLinkCopyCmdList(DeviceId);
       if (!CmdList) {
         auto &Ordinal = LinkCopyOrdinals[DeviceId];
-        CmdList = createCmdList(Context, Devices[DeviceId], Ordinal.first,
-                                ZE_COMMAND_LIST_FLAG_EXPLICIT_ONLY,
-                                DeviceIdStr[DeviceId]);
+        CmdList = createCmdList(
+            getContext(DeviceId), Devices[DeviceId], Ordinal.first,
+            ZE_COMMAND_LIST_FLAG_EXPLICIT_ONLY, DeviceIdStr[DeviceId]);
         TLS->setLinkCopyCmdList(DeviceId, CmdList);
       }
       return CmdList;
@@ -3291,9 +3581,9 @@ struct RTLDeviceInfoTy {
         auto &Ordinal = LinkCopyOrdinals[DeviceId];
         // Try to use different copy engines for multiple threads
         uint32_t Index = __kmpc_global_thread_num(nullptr) % Ordinal.second;
-        CmdQueue = createCmdQueue(Context, Devices[DeviceId], Ordinal.first,
-                                  Index, ZE_COMMAND_QUEUE_FLAG_EXPLICIT_ONLY,
-                                  DeviceIdStr[DeviceId]);
+        CmdQueue = createCmdQueue(
+            getContext(DeviceId), Devices[DeviceId], Ordinal.first, Index,
+            ZE_COMMAND_QUEUE_FLAG_EXPLICIT_ONLY, DeviceIdStr[DeviceId]);
         TLS->setLinkCopyCmdQueue(DeviceId, CmdQueue);
       }
       return CmdQueue;
@@ -3331,6 +3621,7 @@ struct RTLDeviceInfoTy {
     auto TLS = getTLS();
     auto Profile = TLS->getProfile(DeviceId);
     if (!Profile) {
+      auto DriverAPIVersion = getDriverAPIVersion(DeviceId);
       Profile = new RTLProfileTy(DeviceProperties[DeviceId],
                                  DeviceIdStr[DeviceId],
                                  DriverAPIVersion >= ZE_API_VERSION_1_1);
@@ -3343,70 +3634,6 @@ struct RTLDeviceInfoTy {
 
   void setSubDeviceCode(int64_t Code) {
     getTLS()->setSubDeviceCode(Code);
-  }
-
-  // Prototype for Register and unRegister functions from zex_driver.h
-  //
-  // ze_result_t ZE_APICALL
-  // zexDriverImportExternalPointer(
-  //   ze_driver_handle_t hDriver,
-  //   void *ptr,
-  //   size_t size
-  // );
-  //
-  // ze_result_t ZE_APICALL
-  // zexDriverReleaseImportedPointer(
-  //   ze_driver_handle_t hDriver,
-  //   void *ptr
-  // );
-  //
-  // ze_result_t ZE_APICALL
-  // zexDriverGetHostPointerBaseAddress(
-  //   ze_driver_handle_t hDriver,
-  //   void *ptr,
-  //   void **baseAddress
-  // );
-
-  bool registerHostPointer(int32_t DeviceId, void *Ptr, size_t Size) {
-    if (RegisterHostPointer) {
-      using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, size_t);
-      auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
-      DP("Registering Host Pointer: " DPxMOD " Size %zu\n", DPxPTR(Ptr), Size);
-      ze_result_t RC = Fn(Driver, Ptr, Size);
-      if (RC == ZE_RESULT_SUCCESS)
-        return true;
-      DP("Error: Cannot register host pointer " DPxMOD " with size %zu\n",
-         DPxPTR(Ptr), Size);
-    }
-    return false;
-  }
-
-  bool unRegisterHostPointer(int32_t DeviceId, void *Ptr) {
-    if (UnRegisterHostPointer) {
-      using FnTy = ze_result_t (*)(ze_driver_handle_t, void *);
-      auto Fn = reinterpret_cast<FnTy>(UnRegisterHostPointer);
-      DP("UnRegistering Host Pointer: " DPxMOD " \n", DPxPTR(Ptr));
-      ze_result_t RC = Fn(Driver, Ptr);
-      if (RC == ZE_RESULT_SUCCESS)
-        return true;
-      DP("Error: Cannot unRegister Host Pointer " DPxMOD " \n", DPxPTR(Ptr));
-    }
-    return false;
-  }
-
-  bool getHostPointerBaseAddress(int32_t DeviceId, void *Ptr) {
-    if (GetHostPointerBaseAddress) {
-      using FnTy = ze_result_t (*)(ze_driver_handle_t, void *, void **);
-      auto Fn = reinterpret_cast<FnTy>(GetHostPointerBaseAddress);
-      void *BaseAddress = NULL;
-      ze_result_t RC = Fn(Driver, Ptr, &BaseAddress);
-      if (RC == ZE_RESULT_SUCCESS) {
-        DP("Host Pointer: " DPxMOD " is registered with BaseAddress: " DPxMOD
-           "\n", DPxPTR(Ptr),DPxPTR(BaseAddress));
-        return true;
-      }
-    }
-    return false;
   }
 
   // Return kernel properties for the specified kernel. Empty properties will be
@@ -3425,8 +3652,8 @@ struct RTLDeviceInfoTy {
       ZE_COMMAND_QUEUE_PRIORITY_NORMAL
     };
     ze_command_list_handle_t CmdList = nullptr;
-    CALL_ZE_RET_NULL(zeCommandListCreateImmediate, Context, Devices[DeviceId],
-                     &Desc, &CmdList);
+    CALL_ZE_RET_NULL(zeCommandListCreateImmediate, getContext(DeviceId),
+                     Devices[DeviceId], &Desc, &CmdList);
     DP("Created an immediate command list " DPxMOD " (Ordinal: %" PRIu32
        ", Index: %" PRIu32 ") for device %s.\n", DPxPTR(CmdList), Ordinal,
        Index, DeviceIdStr[DeviceId].c_str());
@@ -3469,13 +3696,13 @@ struct RTLDeviceInfoTy {
                               size_t Size, bool CopyTo = true);
 
   /// Return memory allocation type
-  uint32_t getMemAllocType(const void *Ptr);
+  uint32_t getMemAllocType(int32_t DeviceId, const void *Ptr);
 
   /// Create command queue with the given device ID
   ze_command_queue_handle_t createCommandQueue(int32_t DeviceId);
 
   /// Get thread-local staging buffer for copying
-  StagingBufferTy &getStagingBuffer();
+  StagingBufferTy &getStagingBuffer(int32_t DeviceId);
 
   /// For the given kernel return its KernelInfo auxiliary information
   /// that was previously read by readKernelInfo().
@@ -3498,7 +3725,7 @@ struct RTLDeviceInfoTy {
   int32_t dataDelete(int32_t DeviceId, void *Ptr);
 
   /// Check if the driver supports the specified extension
-  bool isExtensionSupported(const char *ExtName);
+  bool isExtensionSupported(int32_t DeviceId, const char *ExtName);
 
   /// Check if it is allowed to submit commands asynchronously
   bool asyncEnabled(int32_t DeviceId) {
@@ -3524,7 +3751,8 @@ struct RTLDeviceInfoTy {
 
   /// Post-process memory allocated from L0.
   int32_t postMemAlloc(void *Mem, size_t Size, int32_t Kind,
-                       ze_device_handle_t Device) {
+                       ze_device_handle_t Device,
+                       ze_context_handle_t DeviceContext) {
     int32_t MakeResident = 0;
     switch (Kind) {
     case TARGET_ALLOC_HOST:
@@ -3546,9 +3774,11 @@ struct RTLDeviceInfoTy {
     if (MakeResident == 2 || Kind == TARGET_ALLOC_HOST) {
       // Check if other devices can access allocation
       for (auto &Allocator : MemAllocator) {
-        auto PeerDevice = Allocator.first;
-        if (PeerDevice == nullptr || PeerDevice == Device)
+        ZeHandleTy DeviceOrContext = Allocator.first;
+        bool IsHostAllocator = Allocator.second.supportsHostMem();
+        if (IsHostAllocator || DeviceOrContext == Device)
           continue;
+        ze_device_handle_t PeerDevice = (ze_device_handle_t)DeviceOrContext;
         if (Kind == TARGET_ALLOC_HOST) {
           ResDevices.push_back(PeerDevice);
           continue;
@@ -3563,7 +3793,7 @@ struct RTLDeviceInfoTy {
     for (auto &D : ResDevices) {
       // TODO: check if L0 supports this call across devices. It fails across
       // different physical devices now.
-      CALL_ZE(RC, zeContextMakeMemoryResident, Context, D, Mem, Size);
+      CALL_ZE(RC, zeContextMakeMemoryResident, DeviceContext, D, Mem, Size);
       if (RC != ZE_RESULT_SUCCESS) {
         DP("Could not make memory " DPxMOD
            " resident on Level Zero device " DPxMOD ".\n",
@@ -3571,6 +3801,56 @@ struct RTLDeviceInfoTy {
       }
     }
     return OFFLOAD_SUCCESS;
+  }
+
+  /// Offload backend defines a list of unique resource IDs to support OpenMP
+  /// 6.0 target memory management API routines. The resource IDs are stored in
+  /// the memory space object created by the host runtime and submemspace
+  /// inherits a subset of its parent's resource IDs. Backend must be able to
+  /// determine the associated device ID from a resource ID.
+  /// As initial support for this feature, we use the following rules to
+  /// determine memory resources from the resource IDs and to return available
+  /// resources to the host runtime; we can revisit if further refinement or
+  /// extension is needed.
+  ///
+  /// 1. Host, device, and shared USM is available as single-device memory space
+  ///    without host access requirement.
+  /// 2. Host and shared USM is available as single-device memory space with
+  ///    host access requirement.
+  /// 3. Only host usm is available as multi-device memory space with/without
+  ///    host access requirement.
+  /// 4. Resource IDs are defined as follows.
+  ///    a. 0 <= ID < NumDevices: Device USM
+  ///    b. NumDevices <= ID < 2 * NumDevices: Shared USM
+  ///    c. ID == 2 * NumDevices: Host USM
+
+  /// Return the resource ID associated with the device ID and allocation kind.
+  int32_t getResource(int32_t DeviceId, int32_t AllocKind) {
+    if (AllocKind == TARGET_ALLOC_DEVICE)
+      return DeviceId;
+    if (AllocKind == TARGET_ALLOC_SHARED)
+      return NumRootDevices + DeviceId;
+    if (AllocKind == TARGET_ALLOC_HOST)
+      return 2 * NumRootDevices;
+    return -1; // Invalid
+  }
+
+  /// Return the device ID associated with a resource ID.
+  int32_t getDeviceFromResource(int32_t ResourceId) {
+    if (ResourceId < 0 || ResourceId > 2 * NumRootDevices)
+      return -1; // Invalid
+    return ResourceId % NumRootDevices;
+  }
+
+  /// Return the allocation kind associated with a resource ID.
+  int32_t getAllocKindFromResource(int32_t ResourceId) {
+    if (ResourceId < 0 || ResourceId > 2 * NumRootDevices)
+      return -1; // Invalid
+    if (ResourceId < NumRootDevices)
+      return TARGET_ALLOC_DEVICE;
+    if (ResourceId < 2 * NumRootDevices)
+      return TARGET_ALLOC_SHARED;
+    return TARGET_ALLOC_HOST;
   }
 };
 
@@ -3613,7 +3893,8 @@ std::vector<const char *> IprNames{"targetsync",
                                    "device_global_mem_size",
                                    "device_global_mem_cache_size",
                                    "device_max_clock_frequency",
-                                   "is_imm_cmd_list"};
+                                   "is_imm_cmd_list",
+                                   "is_inorder"};
 
 std::vector<const char *> IprTypeDescs{
     "ze_command_queue_handle_t, level_zero command queue handle",
@@ -3635,7 +3916,8 @@ std::vector<const char *> IprTypeDescs{
     "intptr_t, global memory size in bytes",
     "intptr_t, global memory cache size in bytes",
     "intptr_t, max clock frequency in MHz",
-    "intptr_t, Using immediate command list"};
+    "intptr_t, Using immediate command list",
+    "intptr_t, Using inorder queue/immediate command list"};
 
 // Level Zero property ID
 enum IprIDTy : int32_t {
@@ -3658,6 +3940,7 @@ struct Property {
   // the targetsync field in interop will be changed if preferred type is sycl.
   ze_command_queue_handle_t CommandQueue;
   ze_command_list_handle_t ImmCmdList;
+  bool InOrder;
 };
 
 /// Dump implementation-defined properties
@@ -3672,7 +3955,7 @@ struct SyclWrapperTy {
   bool WrapApiValid = false;
   typedef void(init_sycl_interop_ty)(void *);
   typedef void *(get_sycl_interop_ty)(void *);
-  typedef void(create_sycl_interop_ty)(omp_interop_t, bool);
+  typedef void(create_sycl_interop_ty)(omp_interop_t, bool, bool);
   typedef void(delete_sycl_interop_ty)(omp_interop_t);
   typedef void(delete_all_sycl_interop_ty)();
   typedef int32_t(flush_queue_sycl_ty)(omp_interop_t);
@@ -3744,9 +4027,10 @@ static void wrapInteropSycl(__tgt_interop *Interop) {
     return;
   }
 
+  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   // Call to replace L0 info with Sycl info.
   SyclWrapper.create_sycl_interop(
-      Interop, DeviceInfo->useImmForCompute(Interop->DeviceNum));
+      Interop, DeviceInfo->useImmForCompute(Interop->DeviceNum), L0->InOrder);
 }
 } // namespace L0Interop
 #endif // INTEL_CUSTOMIZATION
@@ -3936,6 +4220,7 @@ ATTRIBUTE(constructor(101)) void init() {
   DP("Init Level0 plugin!\n");
   DeviceInfo = new RTLDeviceInfoTy();
   TLSList = new std::list<TLSTy *>();
+  OMPT_IF_BUILT(ompt::connectLibrary());
 }
 
 /// RTL calls this function as early as possible to avoid finalization issues
@@ -4008,6 +4293,12 @@ static bool isDiscrete(uint32_t L0DeviceId) {
   }
 }
 
+static bool isDiscrete(ze_device_handle_t Device) {
+  ze_device_properties_t PR{ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES, nullptr};
+  CALL_ZE_RET(false, zeDeviceGetProperties, Device, &PR);
+  return isDiscrete(PR.deviceId);
+}
+
 // Decide device's default memory kind for internal allocation (e.g., map)
 static int32_t getAllocKinds(uint32_t L0DeviceId) {
   return isDiscrete(L0DeviceId) ? TARGET_ALLOC_DEVICE : TARGET_ALLOC_SHARED;
@@ -4025,13 +4316,6 @@ static void closeRTL() {
   for (uint32_t I = 0; I < DeviceInfo->NumDevices; I++) {
     if (!DeviceInfo->Initialized[I])
       continue;
-#if INTEL_CUSTOMIZATION
-    if (OMPT_ENABLED) {
-      OMPT_CALLBACK(ompt_callback_device_unload, I, 0 /* module ID */);
-      OMPT_CALLBACK(ompt_callback_device_finalize, I);
-    }
-#endif // INTEL_CUSTOMIZATION
-
     DeviceInfo->Programs[I].clear();
   }
 
@@ -4041,12 +4325,9 @@ static void closeRTL() {
     for (auto TLSPtr : *TLSList)
       delete TLSPtr;
 
-  DeviceInfo->EventPool.deinit();
-
   DeviceInfo->BatchCmdQueues.clear();
 
-  if (DeviceInfo->Context)
-    CALL_ZE_EXIT_FAIL(zeContextDestroy, DeviceInfo->Context);
+  DeviceInfo->DriverInfoList.clear();
 
   DP("Closed RTL successfully\n");
 }
@@ -4182,8 +4463,10 @@ static bool isValidSubDevice(int64_t DeviceIds) {
   return true;
 }
 
-static int32_t appendDeviceProperties(
-    ze_device_handle_t Device, std::string IdStr, uint32_t QueueIndex = 0) {
+static int32_t appendDeviceProperties(DriverInfoTy *DrvInfo,
+                                      ze_device_handle_t Device,
+                                      std::string IdStr,
+                                      uint32_t QueueIndex = 0) {
   ze_device_properties_t properties
       {ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES, nullptr};
   ze_device_compute_properties_t computeProperties
@@ -4193,6 +4476,7 @@ static int32_t appendDeviceProperties(
   ze_device_cache_properties_t CacheProperties
       {ZE_STRUCTURE_TYPE_DEVICE_CACHE_PROPERTIES, nullptr};
 
+  DeviceInfo->DriverInfo.push_back(DrvInfo);
   DeviceInfo->Devices.push_back(Device);
 
   CALL_ZE_RET_FAIL(zeDeviceGetProperties, Device, &properties);
@@ -4266,7 +4550,7 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 
   ScopedTimerTy Timer(DeviceId, ProfKeyTy::H2D);
 
-  auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
+  auto TgtPtrType = DeviceInfo->getMemAllocType(DeviceId, TgtPtr);
   if (TgtPtrType == ZE_MEMORY_TYPE_SHARED ||
       TgtPtrType == ZE_MEMORY_TYPE_HOST) {
     std::copy_n(
@@ -4275,11 +4559,10 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
     void *SrcPtr = HstPtr;
     if (DeviceInfo->isDiscreteDevice(DeviceId) &&
         static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
-        DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
+        DeviceInfo->getMemAllocType(DeviceId, HstPtr) != ZE_MEMORY_TYPE_HOST &&
         // Check if host pointer is registered
-        !DeviceInfo->getHostPointerBaseAddress(DeviceId, HstPtr)) {
-      SrcPtr = IsAsync ? DeviceInfo->getStagingBuffer().getNext()
-                       : DeviceInfo->getStagingBuffer().get();
+        !DeviceInfo->DriverInfo[DeviceId]->getHostPointerBaseAddress(HstPtr)) {
+      SrcPtr = DeviceInfo->getStagingBuffer(DeviceId).get(Size, IsAsync);
       std::copy_n(static_cast<char *>(HstPtr), Size,
                   static_cast<char *>(SrcPtr));
     }
@@ -4318,7 +4601,7 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
 
   ScopedTimerTy Timer(DeviceId, ProfKeyTy::D2H);
 
-  auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
+  auto TgtPtrType = DeviceInfo->getMemAllocType(DeviceId, TgtPtr);
   if (TgtPtrType == ZE_MEMORY_TYPE_HOST ||
       TgtPtrType == ZE_MEMORY_TYPE_SHARED) {
     bool CopyNow = true;
@@ -4338,11 +4621,10 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
     void *DstPtr = HstPtr;
     if (DeviceInfo->isDiscreteDevice(DeviceId) &&
         static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
-        DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
+        DeviceInfo->getMemAllocType(DeviceId, HstPtr) != ZE_MEMORY_TYPE_HOST &&
         // Check if host pointer is registered
-        !DeviceInfo->getHostPointerBaseAddress(DeviceId, HstPtr)) {
-      DstPtr = IsAsync ? DeviceInfo->getStagingBuffer().getNext()
-                       : DeviceInfo->getStagingBuffer().get();
+        !DeviceInfo->DriverInfo[DeviceId]->getHostPointerBaseAddress(HstPtr)) {
+      DstPtr = DeviceInfo->getStagingBuffer(DeviceId).get(Size, IsAsync);
     }
     int32_t RC;
     if (IsAsync)
@@ -4611,12 +4893,11 @@ static int32_t decideLoopKernelGroupArguments(
   return OFFLOAD_SUCCESS;
 }
 
-static void
-decideKernelGroupArguments(int32_t DeviceId, uint32_t NumTeams,
-                           uint32_t ThreadLimit, ze_kernel_handle_t Kernel,
-                           const KernelPropertiesTy &KernelPR,
-                           uint32_t *GroupSizes, ze_group_count_t &GroupCounts,
-                           bool HalfNumThreads, size_t LoopTripcount) {
+static void decideKernelGroupArguments(
+    int32_t DeviceId, uint32_t NumTeams, uint32_t ThreadLimit,
+    TgtNDRangeDescTy *LoopLevels, ze_kernel_handle_t Kernel,
+    const KernelPropertiesTy &KernelPR, uint32_t *GroupSizes,
+    ze_group_count_t &GroupCounts, bool HalfNumThreads) {
 
   const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
   if (!KInfo) {
@@ -4777,6 +5058,26 @@ decideKernelGroupArguments(int32_t DeviceId, uint32_t NumTeams,
       GRPCounts[0] *= DeviceInfo->Option.SubscriptionRate;
     }
 
+    size_t LoopTripcount = 0;
+    if (LoopLevels) {
+      // TODO: consider other possible LoopDesc uses
+      DP("Loop desciptor provided but specific ND-range is disabled\n");
+      // TODO: get rid of this constraint
+      if (LoopLevels->NumLoops > 1) {
+        DP("More than 1 loop found (%" PRIu32 "), ignoring loop info\n",
+           LoopLevels->NumLoops);
+      } else if (LoopLevels->Levels[0].Ub >= LoopLevels->Levels[0].Lb) {
+        LoopTripcount = (LoopLevels->Levels[0].Ub - LoopLevels->Levels[0].Lb +
+                         LoopLevels->Levels[0].Stride) /
+                        LoopLevels->Levels[0].Stride;
+        DP("Loop TC = (%" PRId64 " - %" PRId64 " + %" PRId64 ") / %" PRId64
+           " = %zu\n",
+           LoopLevels->Levels[0].Ub, LoopLevels->Levels[0].Lb,
+           LoopLevels->Levels[0].Stride, LoopLevels->Levels[0].Stride,
+           LoopTripcount);
+      }
+    }
+
     if (LoopTripcount && !UsedReductionSubscriptionRate) {
       size_t AdjustedGroupCount =
           (LoopTripcount + GRPSizes[0] - 1) / GRPSizes[0];
@@ -4797,6 +5098,107 @@ decideKernelGroupArguments(int32_t DeviceId, uint32_t NumTeams,
   GroupCounts.groupCountY = GRPCounts[1];
   GroupCounts.groupCountZ = GRPCounts[2];
   std::copy(GRPSizes, GRPSizes + 3, GroupSizes);
+}
+
+static int32_t getGroupsShape(int32_t RootId, int32_t SubId, int32_t NumTeams,
+                              int32_t ThreadLimit, ze_kernel_handle_t &Kernel,
+                              KernelPropertiesTy &KernelPR,
+                              uint32_t *GroupSizes,
+                              ze_group_count_t &GroupCounts, void *LoopDesc) {
+
+  // Read the most recent global thread limit and max teams.
+  DeviceInfo->Option.readTeamsThreadLimit();
+
+  // Detect if we need to reduce available HW threads. We need this adjustment
+  // on XeHPG when L0 debug is enabled (ZET_ENABLE_PROGRAM_DEBUGGING=1).
+  static std::once_flag OnceFlag;
+  static bool ZeDebugEnabled = false;
+  std::call_once(OnceFlag, []() {
+    const char *EnvVal = std::getenv("ZET_ENABLE_PROGRAM_DEBUGGING");
+    if (EnvVal && std::atoi(EnvVal) == 1)
+      ZeDebugEnabled = true;
+  });
+  bool IsXeHPG = DeviceInfo->DeviceArchs[RootId] == DeviceArch_XeHPG;
+  bool HalfNumThreads = ZeDebugEnabled && IsXeHPG;
+  if (HalfNumThreads) {
+    DP("Using half of the reported HW threads due to "
+       "ZET_ENABLE_PROGRAM_DEBUGGING set to 1\n");
+  }
+
+  const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(RootId, Kernel);
+  if (!KInfo) {
+    DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
+       DPxPTR(Kernel));
+  }
+
+  // ND-range partitioning should happen iff:
+  // 1. Loop descriptor is provided
+  // 2. NDRangeMode == true
+  // When 1 AND !2 we try to limit the number of teams spawned
+  // based on the loop tripcount to decrease the kernel launch latency.
+  if (LoopDesc && (!KInfo || KInfo->isSpecificNDRange())) {
+    auto RC = decideLoopKernelGroupArguments(
+        SubId, (uint32_t)ThreadLimit, (TgtNDRangeDescTy *)LoopDesc, Kernel,
+        KernelPR, GroupSizes, GroupCounts, HalfNumThreads);
+    if (RC != OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
+    // L0 has implemented heuristics to batch WG-submission. However, L0
+    // is not able apply this optimization if number of WG's is not a multiple
+    // of 8. This could result in  3x performance for small work-items.
+    if (GroupCounts.groupCountX > 8)
+      GroupCounts.groupCountX = (GroupCounts.groupCountX + 7) & ~7;
+  } else {
+    bool UseLoopTC =
+        LoopDesc && !DeviceInfo->Option.Flags.NDRangeIgnoreTripcount;
+    decideKernelGroupArguments(
+        SubId, (uint32_t)NumTeams, (uint32_t)ThreadLimit,
+        UseLoopTC ? (TgtNDRangeDescTy *)LoopDesc : nullptr, Kernel, KernelPR,
+        GroupSizes, GroupCounts, HalfNumThreads);
+  }
+
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int32_t __tgt_rtl_get_groups_shape(int32_t DeviceId, int32_t NumTeams,
+                                          int32_t ThreadLimit,
+                                          void *TgtEntryPtr, void *GroupSizes,
+                                          void *GroupCounts, void *LoopDesc) {
+
+  ze_kernel_handle_t Kernel = *((ze_kernel_handle_t *)TgtEntryPtr);
+  auto &KernelPR = DeviceInfo->getKernelProperties(Kernel);
+
+  int32_t RootId = DeviceId;
+  int32_t SubId = DeviceId;
+  auto SubDeviceCode = DeviceInfo->getSubDeviceCode();
+
+  if (SubDeviceCode < 0 && isValidSubDevice(SubDeviceCode)) {
+    uint32_t SubLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
+    uint32_t SubStart = SUBDEVICE_GET_START(SubDeviceCode);
+    RootId = SUBDEVICE_GET_ROOT(SubDeviceCode);
+    SubId = DeviceInfo->SubDeviceIds[RootId][SubLevel][SubStart];
+  }
+
+  uint32_t GroupSizesLocal[3];
+  ze_group_count_t GroupCountsLocal;
+
+  auto RC =
+      getGroupsShape(RootId, SubId, NumTeams, ThreadLimit, Kernel, KernelPR,
+                     GroupSizesLocal, GroupCountsLocal, LoopDesc);
+  if (RC != OFFLOAD_SUCCESS) {
+    return RC;
+  }
+
+  if (GroupSizes)
+    std::copy(GroupSizesLocal, GroupSizesLocal + 3,
+              static_cast<uint32_t *>(GroupSizes));
+
+  if (GroupCounts) {
+    static_cast<uint32_t *>(GroupCounts)[0] = GroupCountsLocal.groupCountX;
+    static_cast<uint32_t *>(GroupCounts)[1] = GroupCountsLocal.groupCountY;
+    static_cast<uint32_t *>(GroupCounts)[2] = GroupCountsLocal.groupCountZ;
+  }
+
+  return OFFLOAD_SUCCESS;
 }
 
 static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
@@ -4840,9 +5242,6 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
 
   auto &KernelPR = DeviceInfo->getKernelProperties(Kernel);
 
-  // Read the most recent global thread limit and max teams.
-  DeviceInfo->Option.readTeamsThreadLimit();
-
   ScopedTimerTy KernelTimer(SubId, "Kernel ", KernelPR.Name);
 
   // Protect from kernel preparation to submission as kernels are shared.
@@ -4852,74 +5251,22 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   uint32_t GroupSizes[3];
   ze_group_count_t GroupCounts;
 
+  // Read the most recent global thread limit and max teams.
+  DeviceInfo->Option.readTeamsThreadLimit();
+
   // Check if we can reuse previous group parameters
   bool GroupParamsReused = KernelPR.reuseGroupParams(
       (TgtNDRangeDescTy *)LoopDesc, NumTeams, ThreadLimit, GroupSizes,
       GroupCounts);
 
   if (!GroupParamsReused) {
-    // Detect if we need to reduce available HW threads. We need this adjustment
-    // on XeHPG when L0 debug is enabled (ZET_ENABLE_PROGRAM_DEBUGGING=1).
-    static std::once_flag OnceFlag;
-    static bool ZeDebugEnabled = false;
-    std::call_once(OnceFlag, []() {
-      const char *EnvVal = std::getenv("ZET_ENABLE_PROGRAM_DEBUGGING");
-      if (EnvVal && std::atoi(EnvVal) == 1)
-        ZeDebugEnabled = true;
-    });
-    bool IsXeHPG = DeviceInfo->DeviceArchs[RootId] == DeviceArch_XeHPG;
-    bool HalfNumThreads = ZeDebugEnabled && IsXeHPG;
-    if (HalfNumThreads) {
-      DP("Using half of the reported HW threads due to "
-         "ZET_ENABLE_PROGRAM_DEBUGGING set to 1\n");
+    auto RC = getGroupsShape(RootId, SubId, NumTeams, ThreadLimit, Kernel,
+                             KernelPR, GroupSizes, GroupCounts, LoopDesc);
+
+    if (RC != OFFLOAD_SUCCESS) {
+      return RC;
     }
 
-    const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(RootId, Kernel);
-    if (!KInfo) {
-      DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
-         DPxPTR(Kernel));
-    }
-
-    // ND-range partitioning should happen iff:
-    // 1. Loop descriptor is provided
-    // 2. NDRangeMode == true
-    // When 1 AND !2 we try to limit the number of teams spawned
-    // based on the loop tripcount to decrease the kernel launch latency.
-    if (LoopDesc && (!KInfo || KInfo->isSpecificNDRange())) {
-      auto RC = decideLoopKernelGroupArguments(
-          SubId, (uint32_t)ThreadLimit, (TgtNDRangeDescTy *)LoopDesc, Kernel,
-          KernelPR, GroupSizes, GroupCounts, HalfNumThreads);
-      if (RC != OFFLOAD_SUCCESS)
-        return OFFLOAD_FAIL;
-      // L0 has implemented heuristics to batch WG-submission. However, L0
-      // is not able apply this optimization if number of WG's is not a multiple
-      // of 8. This could result in  3x performance for small work-items.
-      if (GroupCounts.groupCountX > 8)
-        GroupCounts.groupCountX = (GroupCounts.groupCountX + 7) & ~7;
-    } else {
-      size_t LoopTC = 0;
-      if (LoopDesc && !DeviceInfo->Option.Flags.NDRangeIgnoreTripcount) {
-        // TODO: consider other possible LoopDesc uses
-        DP("Loop desciptor provided but specific ND-range is disabled\n");
-        TgtNDRangeDescTy *LI = (TgtNDRangeDescTy *)LoopDesc;
-        // TODO: get rid of this constraint
-        if (LI->NumLoops > 1) {
-          DP("More than 1 loop found (%" PRIu32 "), ignoring loop info\n",
-             LI->NumLoops);
-        } else if (LI->Levels[0].Ub >= LI->Levels[0].Lb) {
-          LoopTC =
-              (LI->Levels[0].Ub - LI->Levels[0].Lb + LI->Levels[0].Stride) /
-              LI->Levels[0].Stride;
-          DP("Loop TC = (%" PRId64 " - %" PRId64 " + %" PRId64 ") / %" PRId64
-             " = %zu\n",
-             LI->Levels[0].Ub, LI->Levels[0].Lb, LI->Levels[0].Stride,
-             LI->Levels[0].Stride, LoopTC);
-        }
-      }
-      decideKernelGroupArguments(
-          SubId, (uint32_t)NumTeams, (uint32_t)ThreadLimit, Kernel, KernelPR,
-          GroupSizes, GroupCounts, HalfNumThreads, LoopTC);
-    }
     KernelPR.cacheGroupParams((TgtNDRangeDescTy *)LoopDesc, NumTeams,
                               ThreadLimit, GroupSizes, GroupCounts);
   }
@@ -4929,15 +5276,16 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   DP("Number of teams = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
      GroupCounts.groupCountX, GroupCounts.groupCountY, GroupCounts.groupCountZ);
 
-#if INTEL_CUSTOMIZATION
-  if (OMPT_ENABLED) {
+#ifdef OMPT_SUPPORT
+  if (ompt::Initialized) {
     // Push current work size
-    size_t FinalNumTeams = GroupCounts.groupCountX * GroupCounts.groupCountY *
-        GroupCounts.groupCountZ;
-    size_t FinalThreadLimit = GroupSizes[0] * GroupSizes[1] * GroupSizes[2];
-    OmptGlobal->getTrace().pushWorkSize(FinalNumTeams, FinalThreadLimit);
+    int FinalNumTeams = GroupCounts.groupCountX * GroupCounts.groupCountY *
+                        GroupCounts.groupCountZ;
+    int FinalThreadLimit = GroupSizes[0] * GroupSizes[1] * GroupSizes[2];
+    setOmptData(OmptExtDataNumTeams, sizeof(int), &FinalNumTeams);
+    setOmptData(OmptExtDataTeamSize, sizeof(int), &FinalThreadLimit);
   }
-#endif // INTEL_CUSTOMIZATION
+#endif // OMPT_SUPPORT
 
   // Set arguments
   auto *KernelInfo = DeviceInfo->getKernelInfo(RootId, Kernel);
@@ -5008,7 +5356,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
     // Kernel batching with immediate command list is handled first by the
     // previous branch.
     DP("Using immediate command list for kernel submission.\n");
-    auto Event = DeviceInfo->EventPool.getEvent();
+    auto Event = DeviceInfo->getEvent(SubId);
     size_t NumWaitEvents = 0;
     ze_event_handle_t *WaitEvents = nullptr;
     auto &AsyncQueue = getTLS()->getAsyncQueue();
@@ -5036,12 +5384,12 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
       CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
       if (Profile)
         KernelTimer.updateDeviceTime(Event);
-      DeviceInfo->EventPool.releaseEvent(Event);
+      DeviceInfo->releaseEvent(SubId, Event);
     }
   } else {
     ze_event_handle_t Event = nullptr;
     if (Profile)
-      Event = DeviceInfo->EventPool.getEvent();
+      Event = DeviceInfo->getEvent(SubId);
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
                      &GroupCounts, Event, 0, nullptr);
     KernelLock.unlock();
@@ -5057,7 +5405,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
     CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
     if (Profile) {
       KernelTimer.updateDeviceTime(Event);
-      DeviceInfo->EventPool.releaseEvent(Event);
+      DeviceInfo->releaseEvent(SubId, Event);
     }
 #if INTEL_CUSTOMIZATION
     LEVEL0_KERNEL_END(RootId);
@@ -5070,12 +5418,65 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   return OFFLOAD_SUCCESS;
 }
 
+static void
+replaceDriverOptsWithBackendOpts(const ze_device_properties_t &DeviceInfo,
+                                 std::string &Options) {
+  bool IsIntelGPU =
+      DeviceInfo.vendorId == 0x8086 && DeviceInfo.type == ZE_DEVICE_TYPE_GPU;
+  // If the user passed -ftarget-compile-fast at compile time, replace it with
+  // the final IGC option for Intel GPUs, and remove it from the options
+  // otherwise.
+  static const std::string TargetCompileFast = "-ftarget-compile-fast";
+  if (auto Pos = Options.find(TargetCompileFast); Pos != std::string::npos) {
+    auto OptLen = TargetCompileFast.size();
+    if (IsIntelGPU)
+      Options.replace(Pos, OptLen,
+                      "-igc_opts 'PartitionUnit=1,SubroutineThreshold=50000'");
+    else
+      Options.erase(Pos, OptLen);
+  }
+#ifdef INTEL_CUSTOMIZATION
+  // The driver will pass the argument in the format of
+  // -ftarget-register-alloc-mode=Device:BackendOption. Extract the device,
+  // determine if the current device is the specified device. If so, extract and
+  // add the BackendOption to LinkOpts. If the current device is not the
+  // specified device, remove the entire -ftarget-register-alloc-mode option
+  // from the compile string.
+  static const std::string TargetRegisterAllocMode =
+      "-ftarget-register-alloc-mode=";
+  auto OptPos = Options.find(TargetRegisterAllocMode);
+  while (OptPos != std::string::npos) {
+    auto EndOfOpt = Options.find(" ", OptPos);
+    // Extract everything after the equals until the end of the option
+    auto OptValue =
+        Options.substr(OptPos + TargetRegisterAllocMode.size(),
+                       EndOfOpt - OptPos - TargetRegisterAllocMode.size());
+    auto ColonPos = OptValue.find(":");
+    auto Device = OptValue.substr(0, ColonPos);
+    std::string BackendStrToAdd;
+    bool IsPVC = IsIntelGPU && (DeviceInfo.deviceId & 0xFF00) == 0x0B00;
+    // Currently 'pvc' is the only supported device.
+    if (Device == "pvc" && IsPVC)
+      BackendStrToAdd = " " + OptValue.substr(ColonPos + 1) + " ";
+
+    // Extract everything before this option
+    std::string NewOptions = Options.substr(0, OptPos) + BackendStrToAdd;
+    // Extract everything after this option and add it to the above.
+    if (EndOfOpt != std::string::npos)
+      NewOptions += Options.substr(EndOfOpt);
+    Options = NewOptions;
+    OptPos = Options.find(TargetRegisterAllocMode);
+  }
+#endif // INTEL_CUSTOMIZATION
+}
+
 int32_t MemAllocatorTy::enqueueMemCopy(void *Dst, const void *Src,
                                        size_t Size) {
   return DeviceInfo->enqueueMemCopy(DeviceId, Dst, Src, Size);
 }
 
-void *MemAllocatorTy::allocL0(size_t Size, size_t Align, int32_t Kind) {
+void *MemAllocatorTy::allocL0(size_t Size, size_t Align, int32_t Kind,
+                              size_t ActiveSize) {
   void *Mem = nullptr;
   ze_device_mem_alloc_desc_t DeviceDesc{ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
                                         nullptr, 0, 0};
@@ -5110,9 +5511,10 @@ void *MemAllocatorTy::allocL0(size_t Size, size_t Align, int32_t Kind) {
     assert(0 && "Invalid target data allocation kind");
   }
 
-  log(Size, Size, Kind);
+  size_t LoggedSize = ActiveSize ? ActiveSize : Size;
+  log(LoggedSize, LoggedSize, Kind);
 
-  auto RC = DeviceInfo->postMemAlloc(Mem, Size, Kind, Device);
+  auto RC = DeviceInfo->postMemAlloc(Mem, Size, Kind, Device, Context);
   if (RC != OFFLOAD_SUCCESS)
     Mem = nullptr;
 
@@ -5211,7 +5613,7 @@ int32_t CommandBatchTy::commit(bool Always) {
         Profile->update(KernelName, BatchTime, DeviceTime);
       }
       if (KernelEvent)
-        DeviceInfo->EventPool.releaseEvent(KernelEvent);
+        DeviceInfo->releaseEvent(DeviceId, KernelEvent);
     }
     if (NumCopyTo > 0 && NumCopyFrom > 0)
       Profile->update(ProfKeyTy::Copy, BatchTime, BatchTime);
@@ -5232,7 +5634,7 @@ int32_t CommandBatchTy::commit(bool Always) {
   KernelEvent = nullptr;
 
   // Reset staging buffer
-  getTLS()->getStagingBuffer().reset();
+  getTLS()->getStagingBuffer(DeviceInfo->getContext(DeviceId)).reset();
 
   return OFFLOAD_SUCCESS;
 }
@@ -5246,8 +5648,8 @@ int32_t CommandBatchTy::enqueueMemCopyTo(
 
   void *SrcPtr = Src;
   if (Size <= DeviceInfo->Option.StagingBufferSize &&
-      DeviceInfo->getMemAllocType(Src) == ZE_MEMORY_TYPE_UNKNOWN) {
-    SrcPtr = DeviceInfo->getStagingBuffer().getNext();
+      DeviceInfo->getMemAllocType(ID, Src) == ZE_MEMORY_TYPE_UNKNOWN) {
+    SrcPtr = DeviceInfo->getStagingBuffer(ID).getNext(Size);
     std::copy_n(static_cast<char *>(Src), Size, static_cast<char *>(SrcPtr));
   }
 
@@ -5271,8 +5673,8 @@ int32_t CommandBatchTy::enqueueMemCopyFrom(
 
   void *DstPtr = Dst;
   if (Size <= DeviceInfo->Option.StagingBufferSize &&
-      DeviceInfo->getMemAllocType(Dst) == ZE_MEMORY_TYPE_UNKNOWN) {
-    DstPtr = DeviceInfo->getStagingBuffer().getNext();
+      DeviceInfo->getMemAllocType(ID, Dst) == ZE_MEMORY_TYPE_UNKNOWN) {
+    DstPtr = DeviceInfo->getStagingBuffer(ID).getNext(Size);
     // Delayed copy from staging buffer to host buffer
     MemCopyList.emplace_back(Dst, DstPtr, Size);
   }
@@ -5298,7 +5700,7 @@ int32_t CommandBatchTy::enqueueLaunchKernel(
 
   Kernel = _Kernel;
   if (DeviceInfo->Option.Flags.EnableProfile)
-    KernelEvent = DeviceInfo->EventPool.getEvent();
+    KernelEvent = DeviceInfo->getEvent(DeviceId);
 
   CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
                    GroupCounts, KernelEvent, 0, nullptr);
@@ -5337,8 +5739,8 @@ int32_t RTLDeviceInfoTy::setKernelIndirectAccessFlags(
   auto &PrevFlags = KernelPR.IndirectAccessFlags;
 
   ze_kernel_indirect_access_flags_t Flags = 0;
-  Flags |= MemAllocator.at(nullptr).getIndirectFlags();
-  Flags |= MemAllocator.at(Devices[DeviceId]).getIndirectFlags();
+  Flags |= getMemAllocator(DeviceId, TARGET_ALLOC_HOST).getIndirectFlags();
+  Flags |= getMemAllocator(DeviceId, TARGET_ALLOC_DEVICE).getIndirectFlags();
 
   if (PrevFlags != Flags) {
     // Combine with common access flags
@@ -5363,7 +5765,7 @@ int32_t RTLDeviceInfoTy::enqueueMemCopy(int32_t DeviceId, void *Dst,
   if (useImmForCopy(DeviceId)) {
     CmdList =
         UseCopyEngine ? getImmCopyCmdList(DeviceId) : getImmCmdList(DeviceId);
-    Event = EventPool.getEvent();
+    Event = getEvent(DeviceId);
     CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
                      Event, 0, nullptr);
     CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
@@ -5377,7 +5779,7 @@ int32_t RTLDeviceInfoTy::enqueueMemCopy(int32_t DeviceId, void *Dst,
     }
 
     if (Timer && Option.Flags.EnableProfile)
-      Event = EventPool.getEvent();
+      Event = getEvent(DeviceId);
 
     CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
                      Event, 0, nullptr);
@@ -5396,7 +5798,7 @@ int32_t RTLDeviceInfoTy::enqueueMemCopy(int32_t DeviceId, void *Dst,
   if (Event) {
     if (Timer)
       Timer->updateDeviceTime(Event);
-    EventPool.releaseEvent(Event);
+    releaseEvent(DeviceId, Event);
   }
 
   return OFFLOAD_SUCCESS;
@@ -5409,7 +5811,7 @@ int32_t RTLDeviceInfoTy::enqueueMemCopyAsync(int32_t DeviceId, void *Dst,
                                              bool CopyTo) {
   bool Ordered = (Option.CommandMode == CommandModeTy::AsyncOrdered);
   auto &AsyncQueue = getTLS()->getAsyncQueue();
-  ze_event_handle_t SignalEvent = EventPool.getEvent();
+  ze_event_handle_t SignalEvent = getEvent(DeviceId);
   size_t NumWaitEvents = 0;
   ze_event_handle_t *WaitEvents = nullptr;
   if (!AsyncQueue.WaitEvents.empty()) {
@@ -5435,7 +5837,7 @@ int32_t RTLDeviceInfoTy::enqueueMemCopyAsync(int32_t DeviceId, void *Dst,
 }
 
 /// Return the memory allocation type for the specified memory location.
-uint32_t RTLDeviceInfoTy::getMemAllocType(const void *Ptr) {
+uint32_t RTLDeviceInfoTy::getMemAllocType(int32_t DeviceId, const void *Ptr) {
   ze_memory_allocation_properties_t properties = {
     ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES,
     nullptr, // extension
@@ -5445,7 +5847,8 @@ uint32_t RTLDeviceInfoTy::getMemAllocType(const void *Ptr) {
   };
 
   ze_result_t rc;
-  CALL_ZE(rc, zeMemGetAllocProperties, Context, Ptr, &properties, nullptr);
+  CALL_ZE(rc, zeMemGetAllocProperties, getContext(DeviceId), Ptr, &properties,
+          nullptr);
 
   if (rc == ZE_RESULT_ERROR_INVALID_ARGUMENT)
     return ZE_MEMORY_TYPE_UNKNOWN;
@@ -5456,16 +5859,16 @@ uint32_t RTLDeviceInfoTy::getMemAllocType(const void *Ptr) {
 /// Create a new command queue for the given OpenMP device ID
 ze_command_queue_handle_t
 RTLDeviceInfoTy::createCommandQueue(int32_t DeviceId) {
-  auto cmdQueue = createCmdQueue(Context, Devices[DeviceId],
-                                 ComputeOrdinals[DeviceId].first,
-                                 ComputeIndices[DeviceId],
-                                 DeviceIdStr[DeviceId]);
+  auto cmdQueue = createCmdQueue(
+      getContext(DeviceId), Devices[DeviceId], ComputeOrdinals[DeviceId].first,
+      ComputeIndices[DeviceId], DeviceIdStr[DeviceId]);
   return cmdQueue;
 }
 
 /// Get thread-local staging buffer for copying
-StagingBufferTy &RTLDeviceInfoTy::getStagingBuffer() {
-  auto &Buffer = getTLS()->getStagingBuffer();
+StagingBufferTy &RTLDeviceInfoTy::getStagingBuffer(int32_t DeviceId) {
+  auto Context = getContext(DeviceId);
+  auto &Buffer = getTLS()->getStagingBuffer(Context);
   if (!Buffer.initialized())
     Buffer.init(Context, Option.StagingBufferSize, Option.StagingBufferCount);
 
@@ -5505,7 +5908,6 @@ void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
                                  int32_t AllocOpt) {
   ScopedTimerTy TM(DeviceId, ProfKeyTy::Alloc);
   DeviceId = getInternalDeviceId(DeviceId);
-  auto Device = DeviceInfo->Devices[DeviceId];
   bool UseDedicatedPool = (AllocOpt == ALLOC_OPT_REDUCTION_SCRATCH) ||
       (AllocOpt == ALLOC_OPT_REDUCTION_COUNTER);
   if (Kind == TARGET_ALLOC_DEFAULT) {
@@ -5519,24 +5921,20 @@ void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
     else
       Kind = AllocKinds[DeviceId];
   }
-  auto &Allocator = (Kind == TARGET_ALLOC_HOST)
-                    ? MemAllocator.at(nullptr) : MemAllocator.at(Device);
+  auto &Allocator = getMemAllocator(DeviceId, Kind);
   return Allocator.alloc(Size, Align, Kind, Offset, UserAlloc, Owned, MemAdvice,
                          AllocOpt);
 }
 
 int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
   DeviceId = getInternalDeviceId(DeviceId);
-  auto Device = Devices[DeviceId];
-  auto AllocType = getMemAllocType(Ptr);
-  auto &Allocator = (AllocType == ZE_MEMORY_TYPE_HOST)
-                        ? MemAllocator.at(nullptr)
-                        : MemAllocator.at(Device);
+  auto &Allocator = getMemAllocator(DeviceId, Ptr);
   return Allocator.dealloc(Ptr);
 }
 
-bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
-  for (auto &E : DriverExtensions) {
+bool RTLDeviceInfoTy::isExtensionSupported(int32_t DeviceId,
+                                           const char *ExtName) {
+  for (auto &E : DriverInfo[DeviceId]->Extensions) {
     std::string Supported(E.name);
     if (Supported.find(ExtName) != std::string::npos)
       return true;
@@ -5552,6 +5950,7 @@ void RTLDeviceInfoTy::beginKernelBatch(int32_t DeviceId, uint32_t MaxKernels) {
     return;
 
   // Requires initialization
+  auto Context = getContext(DeviceId);
   if (Batch.UseImmCmdList) {
     Batch.CmdList = createImmCmdList(DeviceId);
 
@@ -5611,23 +6010,43 @@ int32_t RTLDeviceInfoTy::findDevices() {
     return 0;
   }
 
-  // We will use the first driver found
-  NumDrivers = 1;
-  CALL_ZE_RET_ZERO(zeDriverGet, &NumDrivers, &Driver);
-
-  uint32_t NumFoundDevices = 0;
-  std::vector<ze_device_handle_t> RootDevices;
-  CALL_ZE_RET_ZERO(zeDeviceGet, Driver, &NumFoundDevices, nullptr);
-  if (NumFoundDevices == 0) {
-    DP("Cannot find any devices.\n");
-    return 0;
+  // We expect multiple drivers on Windows to support different device types,
+  // so we need to maintain multiple drivers and contexts in general.
+  std::vector<ze_driver_handle_t> FoundDrivers(NumDrivers);
+  CALL_ZE_RET_ZERO(zeDriverGet, &NumDrivers, FoundDrivers.data());
+  std::map<ze_device_handle_t, DriverInfoTy *> DeviceToDriver;
+  std::list<ze_device_handle_t> IDevices; // Integrated devices
+  std::list<ze_device_handle_t> DDevices; // Discrete devices
+  for (auto &Driver : FoundDrivers) {
+    uint32_t DeviceCount = 0;
+    ze_result_t RC;
+    CALL_ZE(RC, zeDeviceGet, Driver, &DeviceCount, nullptr);
+    if (RC != ZE_RESULT_SUCCESS || DeviceCount == 0) {
+      DP("Cannot find any devices from driver " DPxMOD ".\n", DPxPTR(Driver));
+      continue;
+    }
+    // We have a driver that supports at least one device
+    DriverInfoList.emplace_back(Driver, (bool)Option.Flags.EnableProfile);
+    std::vector<ze_device_handle_t> FoundDevices(DeviceCount);
+    CALL_ZE_RET_ZERO(zeDeviceGet, Driver, &DeviceCount, FoundDevices.data());
+    for (auto &Device : FoundDevices) {
+      if (isDiscrete(Device))
+        DDevices.push_back(Device);
+      else
+        IDevices.push_back(Device);
+      DeviceToDriver.emplace(Device, &DriverInfoList.back());
+    }
   }
-  RootDevices.resize(NumFoundDevices);
-  CALL_ZE_RET_ZERO(zeDeviceGet, Driver, &NumFoundDevices, RootDevices.data());
+
+  // Dicrete devices appear first in the detected device list
+  std::vector<ze_device_handle_t> RootDevices;
+  RootDevices.insert(RootDevices.end(), DDevices.begin(), DDevices.end());
+  RootDevices.insert(RootDevices.end(), IDevices.begin(), IDevices.end());
 
   // Find minimal information to initialize device properties.
   // List of device handle, root ID, sub ID, CCS ID
   std::list<std::tuple<ze_device_handle_t, int32_t, int32_t, int32_t>> Tuples;
+  uint32_t NumFoundDevices = RootDevices.size();
 
   for (uint32_t I = 0; I < NumFoundDevices; I++) {
     Tuples.emplace_back(RootDevices[I], I, -1, -1);
@@ -5644,8 +6063,11 @@ int32_t RTLDeviceInfoTy::findDevices() {
                        SubDevices.data());
     }
     for (uint32_t J = 0; J < SubDevices.size(); J++) {
-      if (NumSub > 0)
+      if (NumSub > 0) {
         Tuples.emplace_back(SubDevices[J], I, J, -1);
+        auto *RootDriver = DeviceToDriver.at(RootDevices[I]);
+        DeviceToDriver.emplace(SubDevices[J], RootDriver);
+      }
       uint32_t NumCCS = getComputeOrdinal(SubDevices[J]).second;
       if (NumCCS > 1) {
         // Only multiple CCSs are counted as subsubdevice
@@ -5684,9 +6106,12 @@ int32_t RTLDeviceInfoTy::findDevices() {
         continue;
       SubDeviceIds.emplace_back(2); // Prepare for subdevice clause support
       auto IdStr = getIdStr(std::get<1>(T), std::get<2>(T), std::get<3>(T));
-      if (!ExplicitMode || Option.shouldAddDevice(
-                               std::get<1>(T), std::get<2>(T), std::get<3>(T)))
-        appendDeviceProperties(std::get<0>(T), IdStr);
+      if (!ExplicitMode ||
+          Option.shouldAddDevice(std::get<1>(T), std::get<2>(T),
+                                 std::get<3>(T))) {
+        auto *DrvInfo = DeviceToDriver.at(std::get<0>(T));
+        appendDeviceProperties(DrvInfo, std::get<0>(T), IdStr);
+      }
     }
   }
 
@@ -5702,8 +6127,10 @@ int32_t RTLDeviceInfoTy::findDevices() {
         SubDeviceIds.emplace_back(); // Put empty list for subdevices
         if (!ExplicitMode ||
             Option.shouldAddDevice(std::get<1>(T), std::get<2>(T),
-                                   std::get<3>(T)))
-          appendDeviceProperties(std::get<0>(T), IdStr);
+                                   std::get<3>(T))) {
+          auto *DrvInfo = DeviceToDriver.at(std::get<0>(T));
+          appendDeviceProperties(DrvInfo, std::get<0>(T), IdStr);
+        }
       }
     }
     if (Option.DeviceMode != DEVICE_MODE_SUB) {
@@ -5717,8 +6144,11 @@ int32_t RTLDeviceInfoTy::findDevices() {
         SubDeviceIds.emplace_back(); // Put empty list for subdevices
         if (!ExplicitMode ||
             Option.shouldAddDevice(std::get<1>(T), std::get<2>(T),
-                                   std::get<3>(T)))
-          appendDeviceProperties(std::get<0>(T), IdStr, std::get<3>(T));
+                                   std::get<3>(T))) {
+          auto *DrvInfo = DeviceToDriver.at(std::get<0>(T));
+          appendDeviceProperties(DrvInfo, std::get<0>(T), IdStr,
+                                 std::get<3>(T));
+        }
       }
     }
   }
@@ -5740,7 +6170,6 @@ int32_t RTLDeviceInfoTy::findDevices() {
   // Prepare space for internal data
   Programs.resize(NumDevices);
   Initialized.resize(NumDevices);
-  Context = createContext(Driver);
 #if INTEL_CUSTOMIZATION
   NumActiveKernels.resize(NumRootDevices, 0);
 #endif // INTEL_CUSTOMIZATION
@@ -5748,65 +6177,12 @@ int32_t RTLDeviceInfoTy::findDevices() {
   GlobalModules.resize(NumDevices);
   Mutexes.reset(new std::mutex[NumDevices]);
   KernelMutexes.reset(new std::mutex[NumDevices]);
-
-  // Common event pool
-  uint32_t EventFlag = 0;
-  if (Option.Flags.EnableProfile)
-    EventFlag = ZE_EVENT_POOL_FLAG_KERNEL_TIMESTAMP;
-  EventPool.init(Context, EventFlag);
-
-  // Supported API version
-  CALL_ZE_RET_ZERO(zeDriverGetApiVersion, Driver, &DriverAPIVersion);
-  DP("Driver API version is %" PRIx32 "\n", DriverAPIVersion);
+  OMPT_IF_BUILT(OmptInfo.resize(NumDevices));
 
 #if INTEL_CUSTOMIZATION
   // Supported interop properties
   L0Interop::printInteropProperties();
 #endif // INTEL_CUSTOMIZATION
-
-  // Check driver extensions.
-  uint32_t NumExtensions = 0;
-  CALL_ZE_RET_ZERO(zeDriverGetExtensionProperties, Driver,
-                   &NumExtensions, nullptr);
-  if (NumExtensions > 0) {
-    auto &Extensions = DriverExtensions;
-    Extensions.resize(NumExtensions);
-    CALL_ZE_RET_ZERO(zeDriverGetExtensionProperties, Driver,
-                     &NumExtensions, Extensions.data());
-    DP("Found driver extensions:\n");
-    for (auto &E : Extensions) {
-      DP("-- %s\n", E.name);
-      (void)E; // silence warning
-    }
-  }
-
-  ze_result_t Rc;
-#if INTEL_CUSTOMIZATION
-  // Look up GITS notification function
-  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
-          "zeGitsIndirectAllocationOffsets", &GitsIndirectAllocationOffsets);
-  if (Rc != ZE_RESULT_SUCCESS)
-    GitsIndirectAllocationOffsets = nullptr;
-#endif // INTEL_CUSTOMIZATION
-
-#if !_WIN32
-  // Look up Driver Import and Release External Pointer.
-  // Windows is not supported.
-  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
-          "zexDriverImportExternalPointer", &RegisterHostPointer);
-  if (Rc != ZE_RESULT_SUCCESS)
-    RegisterHostPointer = nullptr;
-
-  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
-          "zexDriverReleaseImportedPointer", &UnRegisterHostPointer);
-  if (Rc != ZE_RESULT_SUCCESS)
-    UnRegisterHostPointer = nullptr;
-
-  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
-          "zexDriverGetHostPointerBaseAddress", &GetHostPointerBaseAddress);
-  if (Rc != ZE_RESULT_SUCCESS)
-    GetHostPointerBaseAddress  = nullptr;
-#endif
 
   return NumRootDevices;
 }
@@ -5843,19 +6219,20 @@ void RTLDeviceInfoTy::reportDeviceInfo() {
 
 void RTLDeviceInfoTy::initMemAllocator(int32_t DeviceId) {
   auto Device = Devices[DeviceId];
+  auto DriverAPIVersion = getDriverAPIVersion(DeviceId);
   bool SupportsLargeMem = DriverAPIVersion >= ZE_API_VERSION_1_1;
+  auto Context = getContext(DeviceId);
   if (MemAllocator.count(Device) == 0) {
     MemAllocator.emplace(
         std::piecewise_construct, std::forward_as_tuple(Device),
         std::forward_as_tuple(Context, Device, DeviceId, SupportsLargeMem,
                               Option, false /* IsHostMem */));
   }
-  if (MemAllocator.count(nullptr) == 0) {
-    // Also initialize host memory allocator if it is not initialized already
-    // We are using *null* key as host memory is not associated with any L0
-    // devices.
+  if (MemAllocator.count(Context) == 0) {
+    // Also initialize host memory allocator if it is not initialized already.
+    // We need one host memory allocator for a context.
     MemAllocator.emplace(
-        std::piecewise_construct, std::forward_as_tuple(nullptr),
+        std::piecewise_construct, std::forward_as_tuple(Context),
         std::forward_as_tuple(Context, Device, DeviceId, SupportsLargeMem,
                               Option, true /* IsHostMem */));
   }
@@ -5911,7 +6288,8 @@ int32_t LevelZeroProgramTy::addModule(
     // Handle link libdevice option. Do this only for the first moudle build
 
     // Check if driver is capable of creating module from multiple SPV images.
-    if (!DeviceInfo->isExtensionSupported("ZE_experimental_module_program")) {
+    if (!DeviceInfo->isExtensionSupported(DeviceId,
+                                          "ZE_experimental_module_program")) {
       DP("Error: Module creation from multiple images is not supported\n");
       return OFFLOAD_FAIL;
     }
@@ -6269,8 +6647,11 @@ int32_t LevelZeroProgramTy::buildModules(std::string &BuildOptions) {
     auto ModuleFormat =
         IsBinary ? ZE_MODULE_FORMAT_NATIVE : ZE_MODULE_FORMAT_IL_SPIRV;
     std::string Options = BuildOptions;
-    if (DeviceInfo->Option.Flags.UseImageOptions)
+    if (DeviceInfo->Option.Flags.UseImageOptions) {
       Options += " " + It->second.CompileOpts + " " + It->second.LinkOpts;
+      replaceDriverOptsWithBackendOpts(DeviceInfo->DeviceProperties[DeviceId],
+                                       Options);
+    }
 
     for (size_t I = 0; I < NumParts; I++) {
       const unsigned char *ImgBegin =
@@ -6669,7 +7050,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
     // TODO: enable on Windows when this becomes buildable
     ze_kernel_preferred_group_size_properties_t KPrefGRPSize
         {ZE_STRUCTURE_TYPE_KERNEL_PREFERRED_GROUP_SIZE_PROPERTIES, nullptr};
-    if (DeviceInfo->DriverAPIVersion >= ZE_API_VERSION_1_2)
+    if (DeviceInfo->getDriverAPIVersion(DeviceId) >= ZE_API_VERSION_1_2)
       KP.pNext = &KPrefGRPSize;
 #endif
     CALL_ZE_RET_FAIL(zeKernelGetProperties, Kernels[I], &KP);
@@ -6932,12 +7313,11 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
   DeviceInfo->Initialized[DeviceId] = true;
 
-#if INTEL_CUSTOMIZATION
-  OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
-                DeviceInfo->DeviceProperties[DeviceId].name,
-                DeviceInfo->Devices[DeviceId],
-                omptLookupEntries, OmptDocument);
-#endif // INTEL_CUSTOMIZATION
+#ifdef OMPT_SUPPORT
+  const char *DeviceName = DeviceInfo->DeviceProperties[DeviceId].name;
+  void *Device = (void *)DeviceInfo->Devices[DeviceId];
+  DeviceInfo->OmptInfo[DeviceId].doDeviceInit(DeviceId, DeviceName, Device);
+#endif
 
   DP("Initialized Level0 device %" PRId32 "\n", DeviceId);
   return OFFLOAD_SUCCESS;
@@ -6964,7 +7344,7 @@ __tgt_target_table *__tgt_rtl_load_binary(
 
   dumpImageToFile(Image->ImageStart, ImageSize, "OpenMP");
 
-  auto Context = DeviceInfo->Context;
+  auto Context = DeviceInfo->getContext(DeviceId);
   auto Device = DeviceInfo->Devices[DeviceId];
   DeviceInfo->Programs[DeviceId].emplace_back(Image, Context, Device, DeviceId);
   auto &Program = DeviceInfo->Programs[DeviceId].back();
@@ -6987,14 +7367,12 @@ __tgt_target_table *__tgt_rtl_load_binary(
     return nullptr;
 #endif // INTEL_CUSTOMIZATION
 
-  auto *Table = Program.getTablePtr();
+  OMPT_IF_BUILT(DeviceInfo->OmptInfo[DeviceId].doDeviceLoad(
+      DeviceId, nullptr /* FileName */, 0 /* OffsetInFile */,
+      nullptr /* VmaInFile */, ImageSize, Image->ImageStart,
+      nullptr /* DeviceAddr */, 0 /* FIXME ModuleId */));
 
-#if INTEL_CUSTOMIZATION
-  OMPT_CALLBACK(ompt_callback_device_load, DeviceId, nullptr /* filename */,
-                -1 /* offset_in_file */, nullptr /* vma_in_file */,
-                ImageSize /* bytes */, Image->ImageStart /* host_addr */,
-                nullptr /* device_addr */, 0 /* module_id */);
-#endif // INTEL_CUSTOMIZATION
+  auto *Table = Program.getTablePtr();
 
   return Table;
 }
@@ -7076,7 +7454,6 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
     return OFFLOAD_SUCCESS;
 
   AsyncQueueTy &AsyncQueue = getTLS()->getAsyncQueue();
-  auto &EventPool = DeviceInfo->EventPool;
   RTLProfileTy *Prof = DeviceInfo->getProfile(DeviceId);
 
   if (!AsyncQueue.WaitEvents.empty()) {
@@ -7092,7 +7469,7 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
       for (auto &Event : WaitEvents) {
         if (Prof)
           AsyncQueue.updateProf(Prof, Event);
-        EventPool.releaseEvent(Event);
+        DeviceInfo->releaseEvent(DeviceId, Event);
       }
     } else { // Async
       // Wait for all events. We should wait and reset events in reverse order
@@ -7109,7 +7486,7 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
         }
         if (Prof)
           AsyncQueue.updateProf(Prof, *Itr);
-        EventPool.releaseEvent(*Itr);
+        DeviceInfo->releaseEvent(DeviceId, *Itr);
       }
     }
   }
@@ -7125,7 +7502,7 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
                 static_cast<char *>(std::get<1>(H2M)));
   }
   AsyncQueue.reset();
-  DeviceInfo->getStagingBuffer().reset();
+  DeviceInfo->getStagingBuffer(DeviceId).reset();
   AsyncInfo->Queue = nullptr;
 
   return OFFLOAD_SUCCESS;
@@ -7175,12 +7552,7 @@ void *__tgt_rtl_data_realloc(int32_t DeviceId, void *Ptr, size_t Size,
   const MemAllocInfoTy *Info = nullptr;
 
   if (Ptr) {
-    auto MemType = DeviceInfo->getMemAllocType(Ptr);
-    auto Device = DeviceInfo->Devices[DeviceId];
-    auto &Allocator = (MemType == ZE_MEMORY_TYPE_HOST)
-                          ? DeviceInfo->MemAllocator.at(nullptr)
-                          : DeviceInfo->MemAllocator.at(Device);
-    Info = Allocator.getAllocInfo(Ptr);
+    Info = DeviceInfo->getMemAllocator(DeviceId, Ptr).getAllocInfo(Ptr);
     if (!Info) {
       DP("Error: Cannot find allocation information for pointer " DPxMOD "\n",
          DPxPTR(Ptr));
@@ -7221,17 +7593,16 @@ void *__tgt_rtl_data_aligned_alloc(int32_t DeviceId, size_t Align, size_t Size,
 }
 
 bool __tgt_rtl_register_host_pointer(int32_t DeviceId, void *Ptr, size_t Size) {
-
-  return DeviceInfo->registerHostPointer(DeviceId, Ptr, Size);
+  return DeviceInfo->DriverInfo[DeviceId]->registerHostPointer(Ptr, Size);
 }
 
 bool __tgt_rtl_unregister_host_pointer(int32_t DeviceId, void *Ptr) {
-    return DeviceInfo->unRegisterHostPointer(DeviceId, Ptr);
+  return DeviceInfo->DriverInfo[DeviceId]->unRegisterHostPointer(Ptr);
 }
 
 int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
   int32_t Ret;
-  auto AllocType = DeviceInfo->getMemAllocType(Ptr);
+  auto AllocType = DeviceInfo->getMemAllocType(DeviceId, Ptr);
   if (AllocType == ZE_MEMORY_TYPE_UNKNOWN ||
       (AllocType == ZE_MEMORY_TYPE_HOST && Size > 0))
     Ret = 1;
@@ -7256,8 +7627,7 @@ int32_t __tgt_rtl_run_target_team_nd_region(int32_t DeviceId, void *TgtEntryPtr,
 }
 
 void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
-  auto context = DeviceInfo->Context;
-  return (void *)context;
+  return static_cast<void *>(DeviceInfo->getContext(DeviceId));
 }
 
 int32_t __tgt_rtl_push_subdevice(int64_t DeviceIds) {
@@ -7274,20 +7644,6 @@ int32_t __tgt_rtl_push_subdevice(int64_t DeviceIds) {
 int32_t __tgt_rtl_pop_subdevice() {
   DeviceInfo->setSubDeviceCode(0);
   return OFFLOAD_SUCCESS;
-}
-
-void __tgt_rtl_add_build_options(const char *CompileOptions,
-                                 const char *LinkOptions) {
-  auto &options = DeviceInfo->Option.UserCompilationOptions;
-  if (!options.empty()) {
-    DP("Respecting LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS=%s\n",
-       options.c_str());
-    return;
-  }
-  if (CompileOptions)
-    options = std::string(CompileOptions) + " ";
-  if (LinkOptions)
-    options += std::string(LinkOptions) + " ";
 }
 
 int32_t __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
@@ -7313,15 +7669,39 @@ __tgt_interop *__tgt_rtl_create_interop(
   Ret->DeviceNum = DeviceId;
 
   if (InteropContext == OMP_INTEROP_CONTEXT_TARGET ||
-      InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
-    Ret->Platform = DeviceInfo->Driver;
+      InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC ||
+      InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC_INORDER) {
+    auto *DriverInfo = DeviceInfo->DriverInfo[DeviceId];
+    Ret->Platform = DriverInfo->Driver;
     Ret->Device = DeviceInfo->Devices[DeviceId];
-    Ret->DeviceContext = DeviceInfo->Context;
+    Ret->DeviceContext = DriverInfo->Context;
   }
 
   Ret->RTLProperty = new L0Interop::Property();
-  if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
+  if ((InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) ||
+      (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC_INORDER)) {
+
+    // Currently we only support prefer-type level0 and sycl
+    // Default is level0.
+    // For sycl we need to wrap  the interop  object with sycl wrapper.
+    bool FoundSYCL = false;
+    for (int I = 0; I < NumPrefers; I++) {
+      if (PreferIDs[I] == omp_ifr_level_zero)
+        break;
+      else if (PreferIDs[I] == omp_ifr_sycl) {
+        FoundSYCL = true;
+        break;
+      }
+    }
+
     auto L0 = static_cast<L0Interop::Property *>(Ret->RTLProperty);
+
+    if (FoundSYCL &&
+        ((InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC_INORDER) ||
+         DeviceInfo->Option.SyclWrapperInorderSyclQueue))
+      L0->InOrder = true;
+    else
+      L0->InOrder = false;
 
     if (DeviceInfo->useImmForCompute(DeviceId)) {
       auto CmdList = DeviceInfo->createImmCmdList(DeviceId);
@@ -7332,22 +7712,9 @@ __tgt_interop *__tgt_rtl_create_interop(
       L0->CommandQueue =
           static_cast<ze_command_queue_handle_t>(Ret->TargetSync);
     }
-  }
 
-  // Currently we only support prefer-type level0 and sycl
-  // Default is level0.
-  // For sycl we need to wrap  the interop  object with sycl wrapper.
-  bool FoundSYCL = false;
-  for (int I = 0; I < NumPrefers; I++) {
-    if (PreferIDs[I] == omp_ifr_level_zero)
-      break;
-    else if (PreferIDs[I] == omp_ifr_sycl) {
-      FoundSYCL = true;
-      break;
-    }
-  }
-  if (FoundSYCL) {
-    L0Interop::wrapInteropSycl(Ret);
+    if (FoundSYCL)
+      L0Interop::wrapInteropSycl(Ret);
   }
 
   return Ret;
@@ -7524,23 +7891,7 @@ int32_t __tgt_rtl_is_accessible_addr_range(int32_t DeviceId, const void *Ptr,
                                            size_t Size) {
   if (!Ptr || Size == 0)
     return 0;
-
-  auto MemType = DeviceInfo->getMemAllocType(Ptr);
-  ze_device_handle_t Device = nullptr;
-
-  switch (MemType) {
-  case ZE_MEMORY_TYPE_HOST:
-    break; // Device is nullptr
-  case ZE_MEMORY_TYPE_DEVICE:
-    [[fallthrough]];
-  case ZE_MEMORY_TYPE_SHARED:
-    Device = DeviceInfo->Devices[DeviceId];
-    break;
-  default:
-    return 0;
-  }
-
-  auto &Allocator = DeviceInfo->MemAllocator.at(Device);
+  auto &Allocator = DeviceInfo->getMemAllocator(DeviceId, Ptr);
   return Allocator.contains(Ptr, Size) ? 1 : 0;
 }
 
@@ -7548,7 +7899,8 @@ int32_t __tgt_rtl_is_accessible_addr_range(int32_t DeviceId, const void *Ptr,
 int32_t __tgt_rtl_notify_indirect_access(int32_t DeviceId, const void *Ptr,
                                          size_t Offset) {
   using FnTy = void(*)(void *, uint32_t, size_t *);
-  auto Fn = reinterpret_cast<FnTy>(DeviceInfo->GitsIndirectAllocationOffsets);
+  auto *DriverInfo = DeviceInfo->DriverInfo[DeviceId];
+  auto Fn = reinterpret_cast<FnTy>(DriverInfo->GitsIndirectAllocationOffsets);
   void *PtrBase = (void *)((uintptr_t)Ptr - Offset);
   // This DP is only for testability
   DP("Notifying indirect access: " DPxMOD " + %zu\n", DPxPTR(PtrBase), Offset);
@@ -7904,11 +8256,11 @@ int32_t __tgt_rtl_sync_barrier(__tgt_interop *Interop) {
        " with ImmCmdList barrier\n",
        DPxPTR(Interop));
     auto ImmCmdList = L0->ImmCmdList;
-    auto Event = DeviceInfo->EventPool.getEvent();
+    auto Event = DeviceInfo->getEvent(Interop->DeviceNum);
 
     CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, ImmCmdList, Event, 0, nullptr);
     CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
-    DeviceInfo->EventPool.releaseEvent(Event);
+    DeviceInfo->releaseEvent(Interop->DeviceNum, Event);
   } else {
     DP("__tgt_rtl_sync_barrier: Synchronizing " DPxMOD
        " with queue synchronize\n",
@@ -7928,6 +8280,9 @@ int32_t __tgt_rtl_async_barrier(__tgt_interop *Interop) {
   if (!Interop->TargetSync)
     return OFFLOAD_SUCCESS;
 
+  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
+  if (L0->InOrder)
+    return OFFLOAD_SUCCESS;
   // use a SYCL barrier for SYCL objects unless immediate command lists
   // are being used
   if (!DeviceInfo->useImmForCompute(Interop->DeviceNum) && Interop->FrId == 4) {
@@ -7935,7 +8290,6 @@ int32_t __tgt_rtl_async_barrier(__tgt_interop *Interop) {
        DPxPTR(Interop));
     return L0Interop::SyclWrapper.append_barrier_sycl(Interop);
   } else {
-    auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
     if (DeviceInfo->useImmForCompute(Interop->DeviceNum)) {
       DP("__tgt_rtl_async_barrier: Appending ImmCmdList barrier to " DPxMOD
          "\n",
@@ -7961,16 +8315,11 @@ int32_t __tgt_rtl_async_barrier(__tgt_interop *Interop) {
 }
 
 int32_t __tgt_rtl_get_device_from_ptr(const void *Ptr) {
-  auto MemType = DeviceInfo->getMemAllocType(Ptr);
-  if (MemType != ZE_MEMORY_TYPE_DEVICE && MemType != ZE_MEMORY_TYPE_SHARED)
-    return -1;
-
   for (uint32_t ID = 0; ID < DeviceInfo->NumRootDevices; ID++) {
     auto Device = DeviceInfo->Devices[ID];
     if (DeviceInfo->MemAllocator.at(Device).contains(Ptr, 1))
       return ID;
   }
-
   return -1;
 }
 
@@ -7990,8 +8339,8 @@ int32_t __tgt_rtl_memcpy_rect_3d(int32_t DeviceId, void *Dst, const void *Src,
   if (!DeviceInfo->isDiscreteDevice(DeviceId))
     return OFFLOAD_FAIL;
 
-  uint32_t DstType = DeviceInfo->getMemAllocType(Dst);
-  uint32_t SrcType = DeviceInfo->getMemAllocType(Src);
+  uint32_t DstType = DeviceInfo->getMemAllocType(DeviceId, Dst);
+  uint32_t SrcType = DeviceInfo->getMemAllocType(DeviceId, Src);
   if (DstType == ZE_MEMORY_TYPE_UNKNOWN && SrcType == ZE_MEMORY_TYPE_UNKNOWN) {
     DP("M2M 3d memory copy is not supported\n");
     return OFFLOAD_FAIL;
@@ -8030,13 +8379,13 @@ int32_t __tgt_rtl_memcpy_rect_3d(int32_t DeviceId, void *Dst, const void *Src,
   // It seems that 3D copy over IMM copy list is still unstable, so use regular
   // copy list/queue for now.
   if (DeviceInfo->useImmForCopy(DeviceId)) {
-    auto Event = DeviceInfo->EventPool.getEvent();
+    auto Event = DeviceInfo->getEvent(DeviceId);
     auto CmdList = DeviceInfo->getImmCopyCmdList(DeviceId);
     CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopyRegion, CmdList, Dst,
                      &DstRegion, DstPitch, DstSlicePitch, Src, &SrcRegion,
                      SrcPitch, SrcSlicePitch, Event, 0, nullptr);
     CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
-    DeviceInfo->EventPool.releaseEvent(Event);
+    DeviceInfo->releaseEvent(DeviceId, Event);
   } else
 #endif
   {
@@ -8055,4 +8404,70 @@ int32_t __tgt_rtl_memcpy_rect_3d(int32_t DeviceId, void *Dst, const void *Src,
   return OFFLOAD_SUCCESS;
 }
 #endif // INTEL_CUSTOMIZATION
-#endif // INTEL_COLLAB
+
+int32_t __tgt_rtl_get_mem_resources(int32_t NumDevices,
+                                    const int32_t *DeviceIds,
+                                    int32_t HostAccess,
+                                    omp_memspace_handle_t MemSpace,
+                                    int32_t *ResourceIds) {
+  // NumDevice and DeviceIds are valid (checked by omptarget)
+  int32_t NumResources = 0;
+
+  if (NumDevices == 1) {
+    if (!HostAccess) {
+      if (ResourceIds)
+        ResourceIds[NumResources] =
+            DeviceInfo->getResource(DeviceIds[0], TARGET_ALLOC_DEVICE);
+      NumResources++;
+    }
+    if (ResourceIds)
+      ResourceIds[NumResources] =
+          DeviceInfo->getResource(DeviceIds[0], TARGET_ALLOC_SHARED);
+    NumResources++;
+  }
+  if (ResourceIds)
+    ResourceIds[NumResources] =
+        DeviceInfo->getResource(DeviceIds[0], TARGET_ALLOC_HOST);
+  NumResources++;
+
+  return NumResources;
+}
+
+void *__tgt_rtl_omp_alloc(size_t Size, omp_allocator_handle_t Allocator) {
+  // It is assumed that the allocator has valid memory space handle.
+  auto *MemAlloc = reinterpret_cast<kmp_allocator_t *>(Allocator);
+  auto *MemSpace = reinterpret_cast<kmp_memspace_t *>(MemAlloc->memspace);
+
+  // We have at least one resources at this point.
+  int32_t *ResourceIds = MemSpace->resources;
+  int32_t DeviceId = DeviceInfo->getDeviceFromResource(ResourceIds[0]);
+  int32_t AllocKind = DeviceInfo->getAllocKindFromResource(ResourceIds[0]);
+  if (DeviceId < 0 || AllocKind < 0) {
+    DP("Unknown resource requested in the memory space\n");
+    return nullptr;
+  }
+
+  return DeviceInfo->dataAlloc(DeviceId, Size, 0 /* Align */, AllocKind,
+                               0 /* Offset */, true /* UserAlloc */);
+}
+
+void __tgt_rtl_omp_free(void *Ptr, omp_allocator_handle_t Allocator) {
+  // It is assumed that the allocator has valid memory space handle.
+  auto *MemAlloc = reinterpret_cast<kmp_allocator_t *>(Allocator);
+  auto *MemSpace = reinterpret_cast<kmp_memspace_t *>(MemAlloc->memspace);
+
+  // We have at least one resources at this point.
+  int32_t *ResourceIds = MemSpace->resources;
+  int32_t DeviceId = DeviceInfo->getDeviceFromResource(ResourceIds[0]);
+  int32_t AllocKind = DeviceInfo->getAllocKindFromResource(ResourceIds[0]);
+  if (DeviceId < 0 || AllocKind < 0) {
+    DP("Unknown resource requested in the memory space\n");
+    return;
+  }
+
+  auto RC = DeviceInfo->dataDelete(DeviceId, Ptr);
+  if (RC != OFFLOAD_SUCCESS) {
+    DP("Failed to release memory allocated with OMP allocator\n");
+  }
+}
+#endif // INTEL_CUSTOMIZATION

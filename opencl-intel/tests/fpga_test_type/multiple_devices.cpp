@@ -12,11 +12,10 @@
 //
 // ===--------------------------------------------------------------------=== //
 
+#include "CL/cl.h"
 #include "base_fixture.h"
 #include "common_utils.h"
-
 #include "gtest_wrapper.h"
-#include <CL/cl.h>
 
 #include <numeric>
 #include <string>

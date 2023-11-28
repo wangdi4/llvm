@@ -13,6 +13,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
@@ -187,10 +189,11 @@ public:
     Type *ArgTy = OrigFn->getArg(0)->getType();
     FunctionType *FTy = FunctionType::get(getInt32Ty(), {ArgTy}, false);
     Function *F = Function::Create(FTy, Function::PrivateLinkage, FName, M);
-
     auto *Key = F->getArg(0);
     Key->setName("key");
     SetInsertPoint(BasicBlock::Create(getContext(), "entry", F));
+    getInlineReport()->addFunction(F);
+    getMDInlineReport()->addFunction(F);
     auto *Key32 = CreateZExtOrTrunc(Key, getInt32Ty(), "key.32");
     auto *Idx = CreateURem(Key32, CacheSizeVal, "idx");
     CreateRet(Idx);
@@ -204,13 +207,16 @@ public:
     Type *ArgTy = OrigFn->getArg(0)->getType();
     FunctionType *FTy = FunctionType::get(PtrTy, {ArgTy, PtrTy}, false);
     Function *F = Function::Create(FTy, Function::PrivateLinkage, FName, M);
-
     SetInsertPoint(BasicBlock::Create(getContext(), "entry", F));
+    getInlineReport()->addFunction(F);
+    getMDInlineReport()->addFunction(F);
     auto *Key = F->getArg(0);
     Key->setName("key");
     auto *Cache = F->getArg(1);
     Cache->setName("cache");
     auto *Idx = CreateCall(GetCacheIDFunc, {Key}, "idx");
+    getInlineReport()->addCallSite(Idx);
+    getMDInlineReport()->addCallSite(Idx);
     auto *Idx64 = CreateZExt(Idx, getInt64Ty(), "idx.64");
     auto *Gep = CreateGEP(CacheTy, Cache, {Idx64}, "cache.entry");
     CreateRet(Gep);
@@ -235,10 +241,13 @@ public:
     Val->setName("value");
     auto *Cache = F->getArg(2);
     Cache->setName("cache");
-
     SetInsertPoint(BasicBlock::Create(getContext(), "entry", F));
+    getInlineReport()->addFunction(F);
+    getMDInlineReport()->addFunction(F);
     auto *EntryPtr =
         CreateCall(GetCacheEntryPtrFunc, {Key, Cache}, "entry.ptr");
+    getInlineReport()->addCallSite(EntryPtr);
+    getMDInlineReport()->addCallSite(EntryPtr);
     auto *KeyPtr =
         CreateGEP(CacheTy, EntryPtr, {getInt32(0), getInt32(0)}, "key.ptr");
     CreateStore(Key, KeyPtr);
@@ -265,6 +274,8 @@ public:
     Cache->setName("cache");
 
     auto *EntryBB = BasicBlock::Create(getContext(), "entry", F);
+    getInlineReport()->addFunction(F);
+    getMDInlineReport()->addFunction(F);
     auto *ExitBB = BasicBlock::Create(getContext(), "exit", F);
     auto *LoopCondBB = BasicBlock::Create(getContext(), "loop.cond", F);
     auto *LoopBodyBB = BasicBlock::Create(getContext(), "loop.body", F);
@@ -310,6 +321,8 @@ public:
     Cache->setName("cache");
 
     auto *EntryBB = BasicBlock::Create(getContext(), "entry", F);
+    getInlineReport()->addFunction(F);
+    getMDInlineReport()->addFunction(F);
     auto *Check2BB = BasicBlock::Create(getContext(), "check.2", F);
     auto *GetCacheValBB = BasicBlock::Create(getContext(), "get.cache.val", F);
     auto *CalcValBB = BasicBlock::Create(getContext(), "calc.val", F);
@@ -317,6 +330,8 @@ public:
     SetInsertPoint(EntryBB);
     auto *EntryPtr =
         CreateCall(GetCacheEntryPtrFunc, {Key, Cache}, "entry.ptr");
+    getInlineReport()->addCallSite(EntryPtr);
+    getMDInlineReport()->addCallSite(EntryPtr);
     auto *EngPtr = CreateStructGEP(CacheTy, EntryPtr, 2, "engaged.ptr");
     auto *EngVal = CreateLoad(getInt1Ty(), EngPtr, "engaged");
     auto *IsEngaged = CreateICmpEQ(EngVal, getTrue(), "is.engaged");
@@ -364,6 +379,8 @@ public:
       SmallVector<Value *, 8> NewArgs{CB->args()};
       NewArgs.push_back(Cache);
       auto *NewCall = CreateCall(F, NewArgs, NewName);
+      getInlineReport()->replaceCallBaseWithCallBase(CB, NewCall);
+      getMDInlineReport()->replaceCallBaseWithCallBase(CB, NewCall);
       CB->replaceAllUsesWith(NewCall);
       CB->eraseFromParent();
     }
@@ -377,7 +394,9 @@ public:
     // Add newly calculated value in value cache, before cloned function returns
     for (auto *R : Rets) {
       SetInsertPoint(R);
-      CreateCall(CacheUpdateFunc, {Key, R->getReturnValue(), Cache});
+      auto *CB = CreateCall(CacheUpdateFunc, {Key, R->getReturnValue(), Cache});
+      getInlineReport()->addCallSite(CB);
+      getMDInlineReport()->addCallSite(CB);
     }
     return F;
   }
@@ -395,13 +414,24 @@ public:
     CachedFunc = createCachedFunc();
 
     // Perform modification of original function.
+    MDNode *SaveMetadata = nullptr;
+    if (auto CMD = OrigFn->getMetadata(llvm::MDInliningReport::FunctionTag)) {
+      SaveMetadata = CMD;
+      OrigFn->setMetadata(llvm::MDInliningReport::FunctionTag, nullptr);
+    }
     OrigFn->deleteBody();
+    if (SaveMetadata)
+      OrigFn->setMetadata(llvm::MDInliningReport::FunctionTag, SaveMetadata);
     auto *EntryBB = BasicBlock::Create(getContext(), "entry", OrigFn);
     auto *Key = OrigFn->getArg(0);
     SetInsertPoint(EntryBB);
     auto *Cache = CreateAlloca(CacheTy, getInt32(CacheSize));
-    CreateCall(CacheInitFunc, {Cache});
+    auto *CB = CreateCall(CacheInitFunc, {Cache});
+    getInlineReport()->addCallSite(CB);
+    getMDInlineReport()->addCallSite(CB);
     auto *Res = CreateCall(CachedFunc, {Key, Cache}, "res");
+    getInlineReport()->addCallSite(Res);
+    getMDInlineReport()->addCallSite(Res);
     CreateRet(Res);
   }
 };

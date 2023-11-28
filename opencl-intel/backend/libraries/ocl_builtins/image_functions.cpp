@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,9 +15,9 @@
 #pragma OPENCL EXTENSION cl_khr_depth_images : enable
 
 #define __OPENCL__
-#include "opencl-intrin-wrapper.h"
 
 #include "cl_image_declaration.h"
+#include "opencl-intrin-wrapper.h"
 
 #define NORMALIZED_SAMPLER 0x08
 

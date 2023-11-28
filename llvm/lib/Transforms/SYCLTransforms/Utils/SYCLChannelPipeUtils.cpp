@@ -264,13 +264,13 @@ GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
   auto *ArrayTy = ArrayType::get(Int8Ty, BSSize);
 
   auto *BS =
-      new GlobalVariable(*M, ArrayTy, /*isConstant=*/false, GV->getLinkage(),
+      new GlobalVariable(ArrayTy, /*isConstant=*/false, GV->getLinkage(),
                          /*initializer=*/nullptr, GV->getName() + ".bs",
-                         /*InsertBefore=*/nullptr, GlobalValue::NotThreadLocal,
-                         ADDRESS_SPACE_GLOBAL);
+                         GlobalValue::NotThreadLocal, ADDRESS_SPACE_GLOBAL);
 
   BS->setInitializer(ConstantAggregateZero::get(ArrayTy));
   BS->setAlignment(MaybeAlign(MD.PacketAlign));
+  M->insertGlobalVariable(std::next(GV->getIterator()), BS);
 
   return BS;
 }
@@ -289,8 +289,7 @@ ChannelKind getChannelKind(const StringRef Name) {
   return Kind;
 }
 
-ChannelPipeMD getChannelPipeMetadata(GlobalVariable *Channel,
-                                     int ChannelDepthEmulationMode) {
+ChannelPipeMD getChannelPipeMetadata(GlobalVariable *Channel) {
   auto GVMetadata = SYCLKernelMetadataAPI::GlobalVariableMetadataAPI(Channel);
 
   assert(GVMetadata.PipePacketSize.hasValue() &&
@@ -304,10 +303,6 @@ ChannelPipeMD getChannelPipeMetadata(GlobalVariable *Channel,
   CMD.IO = GVMetadata.PipeIO.hasValue() ? GVMetadata.PipeIO.get() : "";
   CMD.Protocol =
       GVMetadata.PipeProtocol.hasValue() ? GVMetadata.PipeProtocol.get() : -1;
-
-  if (!GVMetadata.PipeDepth.hasValue() &&
-      ChannelDepthEmulationMode == ChannelDepthMode::Default)
-    GVMetadata.DepthIsIgnored.set(true);
 
   return CMD;
 }
@@ -348,23 +343,7 @@ void initializeGlobalPipeReleaseCall(Function *GlobalDtor,
   Builder.CreateCall(PipeReleaseFunc, CallArgs);
 }
 
-PipeTypesHelper::PipeTypesHelper(Type *PipeRWStorageTy, Type *PipeROStorageTy,
-                                 Type *PipeWOStorageTy)
-    : PipeRWTy(PipeRWStorageTy
-                   ? PipeRWStorageTy->getPointerTo(ADDRESS_SPACE_GLOBAL)
-                   : nullptr),
-      PipeROTy(PipeROStorageTy
-                   ? PipeROStorageTy->getPointerTo(ADDRESS_SPACE_GLOBAL)
-                   : nullptr),
-      PipeWOTy(PipeWOStorageTy
-                   ? PipeWOStorageTy->getPointerTo(ADDRESS_SPACE_GLOBAL)
-                   : nullptr) {}
-
-PipeTypesHelper::PipeTypesHelper(Module &M)
-    : PipeTypesHelper(
-          StructType::getTypeByName(M.getContext(), "opencl.pipe_rw_t"),
-          StructType::getTypeByName(M.getContext(), "opencl.pipe_ro_t"),
-          StructType::getTypeByName(M.getContext(), "opencl.pipe_wo_t")) {
+PipeTypesHelper::PipeTypesHelper(Module &M) {
   for (auto &GV : M.globals()) {
     if (isGlobalPipe(&GV)) {
       GlobalPipeTy = GV.getValueType();
@@ -395,25 +374,6 @@ PipeTypesHelper::PipeTypesHelper(Module &M)
       });
     }
   }
-}
-
-bool PipeTypesHelper::isLocalPipeType(Type *Ty) const {
-  return (PipeROTy &&
-          isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeROTy)) ||
-         (PipeWOTy &&
-          isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeWOTy)) ||
-         (OpaquePipeROTy && Ty == OpaquePipeROTy) ||
-         (OpaquePipeWOTy && Ty == OpaquePipeWOTy);
-}
-
-bool PipeTypesHelper::isGlobalPipeType(Type *Ty) const {
-  return (PipeRWTy &&
-          isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeRWTy)) ||
-         (OpaquePipeRWTy && Ty == OpaquePipeRWTy);
-}
-
-bool PipeTypesHelper::isPipeType(Type *Ty) const {
-  return isLocalPipeType(Ty) || isGlobalPipeType(Ty);
 }
 
 Function *getPipeBuiltin(Module &M, RuntimeService &RTS, const PipeKind &Kind) {

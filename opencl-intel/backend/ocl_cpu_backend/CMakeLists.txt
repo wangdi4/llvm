@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2021-2023 Intel Corporation
+# Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -114,10 +114,12 @@ set(OCL_CPU_BACKEND_SOURCE_FILES
     ServiceFactory.cpp
     cpu_builtin_functions.cpp
     opencl_sort_impl.cpp
+    device_barrier_impl.cpp
     debuggingservicewrapper.cpp
     dllmain.cpp
     ocl_debug_builtins.cpp
     opencl20_ext_execution.cpp
+    opencl_cpu_assert_ext.cpp
     opencl_cpu_printf_ext.cpp
     opencl_printf_ext.cpp
     Intel_opencl_task_sequence.cpp  # INTEL
@@ -160,7 +162,18 @@ add_opencl_library(
   ${OCL_CPU_BACKEND_SOURCE_FILES}
   ${ASM_ADD_TO_SOURCES_LIST}
   INCLUDE_DIRS
-  ${INCLUDE_DIRS})
+  ${INCLUDE_DIRS}
+  COMPONENTS
+  CacheBinaryHandler
+  ObjDump
+  OclBackendUtils
+  OclOptimizer
+  cl_sys_utils
+  emutls
+  soft_math
+  task_executor
+  LINK_LIBS
+  ${LLVM_MODULE_LIBS})
 
 add_dependencies(${TARGET_NAME} intrinsics_gen)
 
@@ -180,3 +193,5 @@ endif(ENABLE_SDE)
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
 set_target_properties(${TARGET_NAME_EMU} PROPERTIES FOLDER
                                                     ${BACKEND_FOLDER_NAME})
+
+link_target_with_tbb_library(${TARGET_NAME})

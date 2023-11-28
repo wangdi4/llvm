@@ -6,7 +6,6 @@
 define void @foo() {
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK-NEXT:       + DO i1 = 0, 159, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:       |   [[DOTVEC0:%.*]] = undef < <i32 255, i32 255, i32 255, i32 255, i32 255, i32 255, i32 255, i32 255>
 ; CHECK-NEXT:       |   [[DOTVEC10:%.*]] = (undef < <i32 255, i32 255, i32 255, i32 255, i32 255, i32 255, i32 255, i32 255>) ? undef : <i32 255, i32 255, i32 255, i32 255, i32 255, i32 255, i32 255, i32 255>
 ; CHECK-NEXT:       + END LOOP
 ; CHECK:      END REGION

@@ -1,6 +1,6 @@
 //===- ImplicitArgsUtils.h - Implicit argument utilities --------*- C++ -*-===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -175,6 +175,9 @@ public:
   void createImplicitArgs(char *Dest);
 
   static const char *getArgName(unsigned Idx);
+
+  /// Returns implicit argument name with '__' prefix.
+  static std::string getArgNameWithPrefix(unsigned Idx);
 
   /// Returns a value which is >= 'offset' for the offset of the implicit args
   /// from the start of the kernel uniform args. Used to ensure the implicit

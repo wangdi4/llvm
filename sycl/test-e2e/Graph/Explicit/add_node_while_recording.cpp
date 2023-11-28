@@ -1,13 +1,10 @@
-// REQUIRES: level_zero, gpu
+// REQUIRES: cuda || level_zero, gpu
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
 // Extra run to check for leaks in Level Zero using ZE_DEBUG
 // RUN: %if ext_oneapi_level_zero %{env ZE_DEBUG=4 %{run} %t.out 2>&1 | FileCheck %s %}
 //
 // CHECK-NOT: LEAK
-
-// Expected Fail as exception not implemented yet
-// XFAIL: *
 
 // Tests attempting to add a node to a command_graph while it is being
 // recorded to by a queue is an error.
@@ -30,8 +27,17 @@ int main() {
       Success = true;
     }
   }
+  assert(Success);
+
+  Success = false;
+  try {
+    Graph.add({});
+  } catch (sycl::exception &E) {
+    auto StdErrc = E.code().value();
+    Success = (StdErrc == static_cast<int>(errc::invalid));
+  }
+  assert(Success);
 
   Graph.end_recording();
-  assert(Success);
   return 0;
 }

@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2022-2023 Intel Corporation
+# Copyright (C) 2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -74,6 +74,15 @@ else()
   include_directories(${LLVM_FE_INCLUDE_DIRS}/cclang)
 endif()
 
+set(LINK_LIBRARIES "")
+if(WIN32)
+  list(APPEND LINK_LIBRARIES lldCOFF lldCommon)
+endif()
+
+if(HAVE_LIBPTHREAD)
+  list(APPEND LINK_LIBRARIES pthread)
+endif()
+
 add_opencl_executable(
   ${TARGET_NAME}
   EXCLUDE_FROM_ALL_BUILD
@@ -94,10 +103,8 @@ add_opencl_executable(
   SATest.cpp
   dbg_utils.cpp
   main.cpp
-  mem_utils.cpp)
-
-target_link_libraries(
-  ${TARGET_NAME}
+  mem_utils.cpp
+  LINK_LIBS
   ${COMMON_CLANG_LIB}
   ${LLVM_MODULE_LIBS}
   BuiltinLibInfo
@@ -109,8 +116,10 @@ target_link_libraries(
   ImathLibd
   LLVMAsmParser
   LLVMBinaryFormat
+  LLVMDebugInfoBTF
   LLVMDebugInfoDWARF
   LLVMDebugInfoTraceBack
+  LLVMInstrumentation
   LLVMInterpreterPluggable
   LLVMIntel_Debug
   LLVMMC
@@ -142,14 +151,9 @@ target_link_libraries(
   emutls
   reflection_module
   soft_math
-  tinyxml_STL)
+  tinyxml_STL
+  ${LINK_LIBRARIES})
 
-if(WIN32)
-  target_link_libraries(${TARGET_NAME} lldCOFF lldCommon)
-else()
+if(NOT WIN32)
   add_dependencies(${TARGET_NAME} ImathLibd)
-endif()
-
-if(HAVE_LIBPTHREAD)
-  target_link_libraries(${TARGET_NAME} pthread)
 endif()

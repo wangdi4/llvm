@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,18 +13,7 @@
 // License.
 
 #pragma once
-#if INTEL_CUSTOMIZATION
 // This file contains local definitions required for
-// the GPA instrumentation in the OpenCL framework
-#if defined(USE_GPA)
-#ifndef USE_ITT
-#define USE_ITT
-#endif
-#define INTEL_ITTNOTIFY_API_PRIVATE
-#include <ittxnotify.h>
-#include <stdio.h>
-#include <tal.h>
-#else
 // A bug in 4.0 < GCC < 4.6 treats cdecl attribute ignore (on 64 bit) as error.
 // #if __x86_64__ && __GNUC__ == 4 &&  __GNUC_MINOR__ < 6
 #undef CDECL
@@ -35,8 +24,6 @@
 #ifdef USE_ITT
 #include <ittnotify.h>
 #endif
-#endif // USE_GPA
-#endif // INTEL_CUSTOMIZATION
 
 #define ITT_SHOW_QUEUED_MARKER 0x1
 #define ITT_SHOW_SUBMITTED_MARKER 0x2
@@ -80,21 +67,9 @@ struct ocl_gpa_data {
   __itt_string_handle *pIsBlocking;
   __itt_string_handle *pNumEventsInWaitList;
 #endif
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-  __itt_track_group *pContextTrackGroup;
-  __ittx_task_state *pWaitingTaskState;
-  __ittx_task_state *pRunningTaskState;
-#endif
-#endif // INTEL_CUSTOMIZATION
 };
 
 struct ocl_gpa_queue {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-  __itt_track *m_pTrack;
-#endif
-#endif // INTEL_CUSTOMIZATION
 #ifdef USE_ITT
   __itt_string_handle *m_pStrHndl;
 #endif

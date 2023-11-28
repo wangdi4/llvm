@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2023 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,12 +15,11 @@
 #ifndef BLT_COMMON_H
 #define BLT_COMMON_H
 
+#include "Helpers.h"
+#include "RefALU.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/IR/DerivedTypes.h"
-
-#include "Helpers.h"
-#include <RefALU.h>
 
 namespace Validation {
 namespace OCLBuiltins {

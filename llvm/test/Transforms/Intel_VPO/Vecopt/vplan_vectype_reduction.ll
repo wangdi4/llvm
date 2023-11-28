@@ -1,7 +1,7 @@
 ; RUN: opt -passes='vplan-vec' -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='hir-ssa-deconstruction,print<hir>,hir-vplan-vec,hir-cg' -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=medium -disable-output < %s 2>&1 | FileCheck %s --check-prefix=LLVM-OPTRPT-MED
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=HIR-OPTRPT-HI
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=HIR-OPTRPT-HI
 ;
 ; VPlan vectorizers are currently not setup to deal with reductions/inductions
 ; on vector types. For now, bail out for such cases. Test checks that it does

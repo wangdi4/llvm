@@ -9,12 +9,12 @@ struct st {
 };
 
 channel int ich __attribute__((io("eth0"))) __attribute__((depth(-1))); // expected-warning{{'depth' attribute parameter 0 is negative and will be ignored}}
-channel int ich1 __attribute__((io(1))); // expected-error{{'io' attribute requires a string}}
+channel int ich1 __attribute__((io(1))); // expected-error{{expected string literal as argument of 'io' attribute}}
 channel long lch __attribute__((depth(3)));
 channel struct st sch __attribute__((depth(0)));
 
 channel int arr[5] __attribute__((io("eth0")));
-channel int arr1[5] __attribute__((io(1))); // expected-error{{'io' attribute requires a string}}
+channel int arr1[5] __attribute__((io(1))); // expected-error{{expected string literal as argument of 'io' attribute}}
 channel int multiarr[2][7] __attribute__((depth(0)));
 
 __constant int a1 __attribute((depth(3))) = 2; // expected-warning{{'depth' attribute only applies to OpenCL channels}}

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,10 +13,10 @@
 // License.
 
 #include "program_with_il.h"
+#include "CL/cl_fpga_ext.h"
 #include "Context.h"
 #include "cl_logger.h"
 #include "cl_sys_defines.h"
-#include <CL/cl_fpga_ext.h>
 
 #include <algorithm> // std::find
 

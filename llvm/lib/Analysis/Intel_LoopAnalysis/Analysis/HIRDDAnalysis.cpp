@@ -1,6 +1,6 @@
 //===---- HIRDDAnalysis.cpp - Provides Data Dependence Analysis -----------===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -668,53 +668,6 @@ void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
 
   GraphStateUpdater GSU(ValidationMap, GraphState::Valid);
   HLNodeUtils::visit(GSU, Node);
-}
-
-bool HIRDDAnalysis::isRefinableDepAtLevel(const DDEdge *Edge,
-                                          unsigned Level) const {
-
-  const DirectionVector *DV = &Edge->getDV();
-  if (!DV->isRefinableAtLevel(Level)) {
-    return false;
-  }
-
-  const RegDDRef *SrcDDRef = dyn_cast<RegDDRef>(Edge->getSrc());
-  if (!SrcDDRef) {
-    return false;
-  }
-  const RegDDRef *DstDDRef = dyn_cast<RegDDRef>(Edge->getSink());
-  if (!DstDDRef) {
-    return false;
-  }
-
-  if (!SrcDDRef->isMemRef()) {
-    return false;
-  }
-
-  assert(DstDDRef->isMemRef() && "MemRef expected");
-
-  // Refine needed for backward dep
-  // leftmost DV is *
-  // and  #of nested levels not = number of Dims
-
-  if (Edge->isBackwardDep()) {
-    const HLLoop *ParentLoop = SrcDDRef->getParentLoop();
-    if (ParentLoop &&
-        ParentLoop->getNestingLevel() != SrcDDRef->getNumDimensions() &&
-        Edge->getDVAtLevel(1) == DVKind::ALL) {
-      return true;
-    }
-  }
-
-  // There are very few cases that the first DD build, testing for all *,
-  // do not produce a precise DV.  Restrict it to limited cases to save
-  // compile time
-  // We can extend to more cases as needed.
-  if (!DDTest::isDelinearizeCandidate(SrcDDRef) ||
-      !DDTest::isDelinearizeCandidate(DstDDRef)) {
-    return false;
-  }
-  return true;
 }
 
 RefinedDependence HIRDDAnalysis::refineDV(const DDEdge *Edge,

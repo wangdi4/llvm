@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -21,12 +21,11 @@
 #include "NEATALUUtils.h"
 #include "NEATValue.h"
 #include "dxfloat.h"
+#include "gtest_wrapper.h"
 #include <iostream>
 #include <limits>
 #include <list>
 #include <typeinfo>
-
-#include "gtest_wrapper.h"
 
 using namespace Validation;
 

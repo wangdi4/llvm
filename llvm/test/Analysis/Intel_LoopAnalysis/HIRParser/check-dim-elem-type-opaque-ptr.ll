@@ -1,18 +1,16 @@
-; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 -disable-output | FileCheck %s
 
 ; Verify that parser works for the following llvm input. Notice the type difference between %class.FastState and %class.KoState
 
 ; CHECK: + DO i1 = 0, -2, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, (-1236 * i1 + -1236 * %sub.ptr.div.i.i + -1 * ptrtoint.ptr.i64(%base) + ptrtoint.ptr.i64(%this) + -1028)/u8, 1   <DO_LOOP>  <MAX_TC_EST = 24>
-; CHECK: |   |   (i32*)(%cur)[0].9.0[i2] = 0;
+; CHECK: |   |   (%cur)[0].9.0[i2].0 = 0;
 ; CHECK: |   + END LOOP
 ; CHECK: |
 ; CHECK: |   %cur = &((%base)[i1 + %sub.ptr.div.i.i + 1]);
 ; CHECK: + END LOOP
 
 ;RUN: opt %s -passes="hir-ssa-deconstruction,hir-cg" -hir-cost-model-throttling=0 -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
-;RUN: opt %s -opaque-pointers -passes="hir-ssa-deconstruction,hir-cg" -hir-cost-model-throttling=0 -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
 
 ; CHECK-CG: [[TEMP:%.*]] = alloca ptr, align 8
 ; CHECK-CG: [[TEMPLOAD:%.*]] = load ptr, ptr [[TEMP]], align 8

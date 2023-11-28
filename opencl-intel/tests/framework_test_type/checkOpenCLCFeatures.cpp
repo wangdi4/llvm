@@ -18,13 +18,12 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#include "CL_BASE.h"
+#include "TestsHelpClasses.h"
 #include <algorithm>
 #include <iterator>
 #include <sstream>
 #include <unordered_map>
-
-#include "CL_BASE.h"
-#include "TestsHelpClasses.h"
 
 extern cl_device_type gDeviceType;
 

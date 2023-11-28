@@ -1,9 +1,13 @@
-// RUN: %libomptarget-compilexx-run-and-check-generic
+// Unonptimized, we need 24000000 bytes heap
+// RUN: %libomptarget-compilexx-generic
+// RUN: env LIBOMPTARGET_HEAP_SIZE=24000000 \
+// RUN: %libomptarget-run-generic 2>&1 | %fcheck-generic
+// RUN: %libomptarget-compileoptxx-run-and-check-generic
 
-// Error on the gpu that crashes the host
-// UNSUPPORTED: amdgcn-amd-amdhsa
-// UNSUPPORTED: amdgcn-amd-amdhsa-oldDriver
-
+#if INTEL_CUSTOMIZATION
+// Workaround for non-default GCC environment
+#include <cstdio>
+#endif // INTEL_CUSTOMIZATION
 #include <iostream>
 
 template <typename LOOP_BODY>

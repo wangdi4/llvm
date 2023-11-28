@@ -7,7 +7,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture %ary) {
+define void @foo(ptr nocapture %ary) {
 ;  for (i = 0; i < 2048; i += 2) {
 ;    t0 = ary[i + 0] + 7;
 ;    t1 = ary[i + 1] + 11;
@@ -32,15 +32,15 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-IR-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
 ; SVA-IR-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
-; SVA-IR-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[ARY0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; SVA-IR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_LOAD:%.*]] = vls-load i32* [[VP_ARRAYIDX]], group_size=2, align=4 (SVAOpBits 0->F )
+; SVA-IR-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[ARY0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_LOAD:%.*]] = vls-load ptr [[VP_ARRAYIDX]], group_size=2, align=4 (SVAOpBits 0->F )
 ; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = vls-extract <8 x i32> [[VP_VLS_LOAD]], group_size=2, offset=0 (SVAOpBits 0->F )
 ; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP1:%.*]] = vls-extract <8 x i32> [[VP_VLS_LOAD]], group_size=2, offset=1 (SVAOpBits 0->F )
 ; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_ADD7:%.*]] = add i32 [[VP0]] i32 7 (SVAOpBits 0->V 1->V )
 ; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_ADD11:%.*]] = add i32 [[VP1]] i32 11 (SVAOpBits 0->V 1->V )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_INSERT:%.*]] = vls-insert <8 x i32> undef i32 [[VP_ADD7]], group_size=2, offset=0 (SVAOpBits 0->F 1->V )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_INSERT_1:%.*]] = vls-insert <8 x i32> [[VP_VLS_INSERT]] i32 [[VP_ADD11]], group_size=2, offset=1 (SVAOpBits 0->F 1->V )
-; SVA-IR-NEXT:     [DA: Div, SVA: RetVal:(F  ), Inst:( V )] vls-store <8 x i32> [[VP_VLS_INSERT_1]] i32* [[VP_ARRAYIDX]], group_size=2, align=4 (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:     [DA: Div, SVA: RetVal:(F  ), Inst:( V )] vls-store <8 x i32> [[VP_VLS_INSERT_1]] ptr [[VP_ARRAYIDX]], group_size=2, align=4 (SVAOpBits 0->F 1->F )
 ; SVA-IR-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
@@ -79,16 +79,16 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP3:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->F 1->F )
-; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[ARY0:%.*]] i64 [[VP3]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; SVA-HIR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_LOAD:%.*]] = vls-load i32* [[VP_SUBSCRIPT]], group_size=2, align=4 (SVAOpBits 0->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[ARY0:%.*]] i64 [[VP3]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; SVA-HIR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_LOAD:%.*]] = vls-load ptr [[VP_SUBSCRIPT]], group_size=2, align=4 (SVAOpBits 0->F )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = vls-extract <8 x i32> [[VP_VLS_LOAD]], group_size=2, offset=0 (SVAOpBits 0->F )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_1:%.*]] = vls-extract <8 x i32> [[VP_VLS_LOAD]], group_size=2, offset=1 (SVAOpBits 0->F )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP4:%.*]] = add i32 [[VP_LOAD]] i32 7 (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP3]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[ARY0]] i64 [[VP3]] (SVAOpBits 0->F 1->F 2->F 3->F )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP6:%.*]] = add i32 [[VP_LOAD_1]] i32 11 (SVAOpBits 0->V 1->V )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_INSERT:%.*]] = vls-insert <8 x i32> undef i32 [[VP4]], group_size=2, offset=0 (SVAOpBits 0->F 1->V )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_INSERT_1:%.*]] = vls-insert <8 x i32> [[VP_VLS_INSERT]] i32 [[VP6]], group_size=2, offset=1 (SVAOpBits 0->F 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: RetVal:(F  ), Inst:( V )] vls-store <8 x i32> [[VP_VLS_INSERT_1]] i32* [[VP_SUBSCRIPT_1]], group_size=2, align=4 (SVAOpBits 0->F 1->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: RetVal:(F  ), Inst:( V )] vls-store <8 x i32> [[VP_VLS_INSERT_1]] ptr [[VP_SUBSCRIPT_1]], group_size=2, align=4 (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP7:%.*]] = icmp slt i64 [[VP2]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
@@ -106,15 +106,15 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ary, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ary, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add7 = add nsw i32 %0, 7
   %1 = add nsw i64 %indvars.iv, 1
-  %arrayidx4 = getelementptr inbounds i32, i32* %ary, i64 %1
-  %2 = load i32, i32* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %ary, i64 %1
+  %2 = load i32, ptr %arrayidx4, align 4
   %add11 = add nsw i32 %2, 11
-  store i32 %add7, i32* %arrayidx, align 4
-  store i32 %add11, i32* %arrayidx4, align 4
+  store i32 %add7, ptr %arrayidx, align 4
+  store i32 %add11, ptr %arrayidx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %cmp = icmp ult i64 %indvars.iv.next, 2048
   br i1 %cmp, label %for.body, label %for.end

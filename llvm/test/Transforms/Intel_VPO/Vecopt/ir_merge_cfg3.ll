@@ -3,12 +3,12 @@
 ;
 ; test for basic functionality of cfg merge, non-liveout inductions.
 ;
-define void @fp_iv_loop(float %init, float* noalias nocapture %A, i64 %N) {
+define void @fp_iv_loop(float %init, ptr noalias nocapture %A, i64 %N) {
 ; CHECK-LABEL:  VPlan after CFG merge before CG:
 ; CHECK-NEXT:  VPlan IR for: fp_iv_loop:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
-; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = vector-trip-count i64 [[N0:%.*]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP0:%.*]] = vector-trip-count i64 [[N0:%.*]], UF = 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -27,8 +27,8 @@ define void @fp_iv_loop(float %init, float* noalias nocapture %A, i64 %N) {
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]], [[BB3]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ]
 ; CHECK-NEXT:       [DA: Div] float [[VP_X_07:%.*]] = phi  [ float [[VP_X_07_IND_INIT]], [[BB2]] ],  [ float [[VP_SUB:%.*]], [[BB3]] ]
-; CHECK-NEXT:       [DA: Div] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:       [DA: Div] store float [[VP_X_07]] float* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:       [DA: Div] store float [[VP_X_07]] ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       [DA: Div] float [[VP_SUB]] = fsub float [[VP_X_07]] float [[VP_X_07_IND_INIT_STEP]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
@@ -84,8 +84,8 @@ entry:
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %x.07 = phi float [ %init, %entry ], [ %sub, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  store float %x.07, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  store float %x.07, ptr %arrayidx, align 4
   %sub = fsub fast float %x.07, 5.000000e-01
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %N

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2014-2018 Intel Corporation.
+// Copyright 2014 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,31 +12,25 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "cpu_dev_limits.h"
-#define MAX_WORK_GROUP_SIZE CPU_MAX_WORK_GROUP_SIZE
-#define MAX_WG_PRIVATE_SIZE CPU_DEV_MAX_WG_PRIVATE_SIZE
-
-#include "BlockLiteral.h"
-#include "IBlockToKernelMapper.h"
-#include "ICLDevBackendServiceFactory.h"
-#include "IDeviceCommandManager.h"
-#include "cl_dev_backend_api.h"
-#include "cl_device_api.h"
-
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/raw_ostream.h"
-
-#define DEBUG_TYPE "opencl20-ext-execution"
-#include "llvm/Support/Debug.h"
-
-#include <string.h>
-
-using namespace llvm;
-using namespace Intel::OpenCL::DeviceBackend;
-
 #define LLVM_BACKEND_NOINLINE_PRE
 #include "opencl20_ext_execution.h"
 #undef LLVM_BACKEND_NOINLINE_PRE
+
+#include "BlockLiteral.h"
+#include "cl_dev_backend_api.h"
+#include "cl_device_api.h"
+#include "cpu_dev_limits.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include <string.h>
+
+#define DEBUG_TYPE "opencl20-ext-execution"
+#define MAX_WORK_GROUP_SIZE CPU_MAX_WORK_GROUP_SIZE
+#define MAX_WG_PRIVATE_SIZE CPU_DEV_MAX_WG_PRIVATE_SIZE
+
+using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Implementation section

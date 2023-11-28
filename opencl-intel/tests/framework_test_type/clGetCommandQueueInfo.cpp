@@ -1,7 +1,6 @@
 #include "CL/cl.h"
 #include "cl_cpu_detect.h"
 #include "cl_types.h"
-
 #include "FrameworkTest.h"
 #include "gtest_wrapper.h"
 #include <stdio.h>

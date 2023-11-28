@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -53,9 +53,6 @@ cl_err_code MemoryObject::registerDtorNotifierCallback(mem_dtor_fn pfn_notify,
   }
 
   MemDtorNotifyData *notifyData = new MemDtorNotifyData;
-  if (NULL == notifyData) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   notifyData->first = pfn_notify;
   notifyData->second = pUserData;
@@ -370,9 +367,6 @@ cl_err_code MemoryObject::CreateMappedRegion(
 
   // else, create new map parameter structure and assign value to it
   pclDevCmdParamMap = new MapParamPerPtr(this);
-  if (NULL == pclDevCmdParamMap) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   // Update map parameters
   pclDevCmdParamMap->cmd_param_map.flags = clMapFlags;

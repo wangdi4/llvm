@@ -89,8 +89,8 @@ attributes #5 = { convergent nounwind }
 !6 = !{i32 128}
 !7 = !{i32 1}
 !8 = !{!"char*"}
-!9 = !{i8 addrspace(4)* null}
+!9 = !{ptr addrspace(4) null}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-34: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}}
+; DEBUGIFY-COUNT-40: WARNING: Instruction with empty DebugLoc in function __block_fn_block_invoke_kernel {{.*}}
 ; DEBUGIFY-NOT: WARNING

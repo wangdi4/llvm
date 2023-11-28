@@ -1,6 +1,6 @@
 //===--------------- DTrans.h - Class definition -*- C++ -*----------------===//
 //
-// Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -324,13 +324,6 @@ public:
   // Insert a new entry in ArrayConstEntries assuming that the current field
   // is an array with constant entries.
   void addConstantEntryIntoTheArray(Constant *Index, Constant* ConstVal);
-
-  // Helper function that generates the information related to arrays with
-  // constant entries for the DTrans immutable analysis.
-  //
-  // NOTE: This function is intended for typed pointers. It will be removed
-  // once we fully move from typed pointer to opaque pointers.
-  void generateArraysWithConstInmmutableData();
 
   // Insert a new entry in ArrayWithConstEntriesMap.
   //
@@ -1753,41 +1746,6 @@ bool isValueEqualToSize(const Value *Val, uint64_t Size);
 /// of the \p Size.
 bool isValueMultipleOfSize(const Value *Val, uint64_t Size);
 
-/// Examine the specified types to determine if a bitcast from \p SrcTy to
-/// \p DestTy could be used to access the first element of SrcTy. The
-/// \p AccessedTy argument if non-null returns the type (possibly a nested
-/// type) whose element zero is accessed, if any.
-bool isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
-                         llvm::Type **AccessedTy = nullptr);
-
-/// Examine the specified type to determine if it is a composite type whose
-/// first element (at any level of casting) has i8* type. The
-/// \p AccessedTy argument if non-null returns the type (possibly a nested
-/// type) whose element zero is i8*, if any.
-bool isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy = nullptr);
-
-/// Examine the specified types to determine if a bitcast from \p SrcTy to
-/// \p DestTy could be used to convert a pointer-to-pointer to a source
-/// type to a pointer-to-pointer to element zero of that type. This is
-/// equivalent to isElementZeroAccess with an additional level of indirection.
-bool isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
-
-/// Examine the specified types to determine if a bitcast from \p SrcTy to
-/// \p DestTy could be used to access the vtable of a class pointed to by
-/// SrcTy.
-bool isVTableAccess(llvm::Type *SrcTy, llvm::Type *DestTy);
-
-/// Remove pointer, vector, and array types to uncover the base type which
-/// the contain.
-Type *unwrapType(Type *Ty);
-
-/// Check whether the specified type is the type of a known system object.
-bool isSystemObjectType(llvm::StructType *Ty);
-
-/// Get the maximum number of fields in a structure that are allowed before
-/// we are unwilling to attempts dtrans optimizations.
-unsigned getMaxFieldsInStruct();
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Get the transformation printable name.
 StringRef getStringForTransform(dtrans::Transform Trans);
@@ -1797,39 +1755,6 @@ dtrans::SafetyData getConditionsForTransform(dtrans::Transform Trans,
                                              bool DTransOutOfBoundsOK);
 
 StringRef getStructName(llvm::Type *Ty);
-
-/// Check if the last field in the struct type \p Ty is zero-sized array or the
-/// type is zero-size array itself.
-bool hasZeroSizedArrayAsLastField(llvm::Type *Ty);
-
-// Returns true if Ty is either StructType or SequentialType.
-bool dtransIsCompositeType(llvm::Type *Ty);
-
-// Return true if "Idx" is valid index for Ty.
-bool dtransCompositeIndexValid(llvm::Type *Ty, unsigned Idx);
-
-// Returns type at "Idx" in "Ty".
-llvm::Type *dtransCompositeGetTypeAtIndex(llvm::Type *Ty, unsigned Idx);
-
-// Return the type loaded if the Load instruction is loading the 0 element
-// in a structure
-llvm::Type* getTypeForZeroElementLoaded(LoadInst *Load,
-                                        llvm::Type **Pointee);
-
-// Return true if the BitCast instruction is used for loading the 0 element
-// in a structure
-bool isBitCastLoadingZeroElement(BitCastInst *BC);
-
-// Return true if the input type Type1 is the same as Type2 except for
-// the last element (or vice versa). This last element is used by the ABI.
-bool isPaddedStruct(llvm::Type *Type1, llvm::Type *Type2);
-
-// Given a type, find the related type from the input Module M.
-llvm::Type* collectRelatedType(llvm::Type *InTy, Module &M);
-
-StringRef getTypeBaseName(StringRef TyName);
-llvm::StructType *getContainedStructTy(llvm::Type *Ty);
-void collectAllStructTypes(Module &M, SetVector<llvm::StructType *> &SeenTypes);
 } // namespace dtrans
 
 } // namespace llvm

@@ -1,4 +1,4 @@
-; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 -disable-output | FileCheck %s
 
 ; Verify that parser deduces an implied bitcast (type mismatch) between
 ; geps %base and %arrayidx and gives up on combining them. This is only

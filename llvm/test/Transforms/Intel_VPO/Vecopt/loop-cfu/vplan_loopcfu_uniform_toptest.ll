@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 
-define dso_local void @foo(i64 %N, i64 *%a) local_unnamed_addr {
+define dso_local void @foo(i64 %N, ptr %a) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
@@ -27,7 +27,7 @@ define dso_local void @foo(i64 %N, i64 *%a) local_unnamed_addr {
 ; CHECK-NEXT:       [DA: Div] br i1 [[VP_LOOP_MASK]], [[BB5:BB[0-9]+]], [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB3]]
-; CHECK-NEXT:         [DA: Uni] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
+; CHECK-NEXT:         [DA: Uni] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_LANE]]
 ; CHECK-NEXT:         [DA: Uni] br [[BB4]]
@@ -55,7 +55,7 @@ preheader:
 
 header:
   %iv = phi i64 [ %iv.next, %header ], [ 0, %preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %a, i64 %iv
+  %arrayidx = getelementptr inbounds i64, ptr %a, i64 %iv
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, %lane
   br i1 %exitcond, label %loop.exit, label %header

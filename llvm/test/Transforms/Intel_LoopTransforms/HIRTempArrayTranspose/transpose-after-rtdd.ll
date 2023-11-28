@@ -58,7 +58,7 @@
 ;
 ; CHECK:          if (%mv.and == 0 & %mv.and6 == 0 & zext.i32.i64(%0) <u 512) <MVTag: 43>
 ;                 {
-; CHECK:            %call = @llvm.stacksave();
+; CHECK:            %call = @llvm.stacksave.p0();
 ; CHECK:            %TranspTmpArr = alloca 4 * (zext.i32.i64(%0) * zext.i32.i64(%0));
 ;
 ; CHECK:            + DO i1 = 0, zext.i32.i64(%0) + -1, 1
@@ -77,7 +77,7 @@
 ;                    |   |   + END LOOP
 ;                    |   + END LOOP
 ;                    + END LOOP
-; CHECK:            @llvm.stackrestore(&((%call)[0]));
+; CHECK:            @llvm.stackrestore.p0(&((%call)[0]));
 ;                 }
 ; CHECK:          else
 ;                 {

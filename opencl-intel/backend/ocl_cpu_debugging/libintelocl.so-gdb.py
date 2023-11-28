@@ -1,4 +1,4 @@
-# Copyright 2012-2020 Intel Corporation
+# Copyright 2012 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted
 # materials, and your use of them is governed by the express license

@@ -1,0 +1,136 @@
+; INTEL_CUSTOMIZATION
+;
+; INTEL CONFIDENTIAL
+;
+; Modifications, Copyright (C) 2023 Intel Corporation
+;
+; This software and the related documents are Intel copyrighted materials, and
+; your use of them is governed by the express license under which they were
+; provided to you ("License"). Unless the License provides otherwise, you may
+; not use, modify, copy, publish, distribute, disclose or transmit this software
+; or the related documents without Intel's prior written permission.
+;
+; This software and the related documents are provided as is, with no express
+; or implied warranties, other than those that are expressly stated in the
+; License.
+;
+LIBRARY omptarget.dll
+EXPORTS
+    __kmpc_push_target_tripcount
+    __kmpc_push_target_tripcount_mapper
+    __tgt_activate_record_replay
+    __tgt_create_interop
+    __tgt_create_interop_obj
+    __tgt_get_device_name
+    __tgt_get_device_rtl_name
+    __tgt_get_interop_obj
+    __tgt_get_interop_property
+    __tgt_get_mem_resources
+    __tgt_get_num_devices
+    __tgt_get_target_memory_info
+    __tgt_init_all_rtls
+    __tgt_interop_destroy
+    __tgt_interop_init
+    __tgt_interop_use
+    __tgt_interop_use_async
+    __tgt_is_device_available
+    __tgt_mapper_num_components
+    __tgt_offload_proxy_task_complete_ooo
+    __tgt_omp_alloc
+    __tgt_omp_free
+    __tgt_print_device_info
+    __tgt_push_code_location
+    __tgt_push_mapper_component
+    __tgt_register_lib
+    __tgt_register_ptask_services
+    __tgt_register_requires
+    __tgt_release_interop
+    __tgt_release_interop_obj
+    __tgt_set_info_flag
+    __tgt_set_interop_property
+    __tgt_target
+    __tgt_target_data_begin
+    __tgt_target_data_begin_mapper
+    __tgt_target_data_begin_nowait
+    __tgt_target_data_begin_nowait_mapper
+    __tgt_target_data_end
+    __tgt_target_data_end_mapper
+    __tgt_target_data_end_nowait
+    __tgt_target_data_end_nowait_mapper
+    __tgt_target_data_update
+    __tgt_target_data_update_mapper
+    __tgt_target_data_update_nowait
+    __tgt_target_data_update_nowait_mapper
+    __tgt_target_kernel
+    __tgt_target_kernel_nowait
+    __tgt_target_kernel_replay
+    __tgt_target_mapper
+    __tgt_target_nowait
+    __tgt_target_nowait_mapper
+    __tgt_target_nowait_query
+    __tgt_target_sync
+    __tgt_target_teams
+    __tgt_target_teams_mapper
+    __tgt_target_teams_nowait
+    __tgt_target_teams_nowait_mapper
+    __tgt_task_completed
+    __tgt_unregister_lib
+    __tgt_use_interop
+    llvm_omp_get_dynamic_shared
+    llvm_omp_target_alloc_device
+    llvm_omp_target_alloc_host
+    llvm_omp_target_alloc_shared
+    llvm_omp_target_dynamic_shared_alloc
+    llvm_omp_target_free_device
+    llvm_omp_target_free_host
+    llvm_omp_target_free_shared
+    llvm_omp_target_lock_mem
+    llvm_omp_target_unlock_mem
+    omp_get_device_num
+    omp_get_initial_device
+    omp_get_interop_int
+    omp_get_interop_name
+    omp_get_interop_ptr
+    omp_get_interop_rc_desc
+    omp_get_interop_str
+    omp_get_interop_type_desc
+    omp_get_mapped_ptr
+    omp_get_num_devices
+    omp_get_num_interop_properties
+    omp_set_sub_device
+    omp_target_alloc
+    omp_target_alloc_device
+    omp_target_alloc_host
+    omp_target_alloc_shared
+    omp_target_associate_ptr
+    omp_target_disassociate_ptr
+    omp_target_free
+    omp_target_get_context
+    omp_target_is_accessible
+    omp_target_is_present
+    omp_target_memcpy
+    omp_target_memcpy_async
+    omp_target_memcpy_rect
+    omp_target_memcpy_rect_async
+    omp_unset_sub_device
+    ompt_libomptarget_connect
+    ompt_oneapi_set_data
+    ompt_oneapi_get_data
+    ompx_get_device_from_ptr
+    ompx_get_device_info
+    ompx_get_num_subdevices
+    ompx_kernel_batch_begin
+    ompx_kernel_batch_end
+    ompx_target_aligned_alloc
+    ompx_target_aligned_alloc_device
+    ompx_target_aligned_alloc_host
+    ompx_target_aligned_alloc_shared
+    ompx_target_aligned_alloc_shared_with_hint
+    ompx_target_prefetch_shared_mem
+    ompx_target_realloc
+    ompx_target_realloc_device
+    ompx_target_realloc_host
+    ompx_target_realloc_shared
+    ompx_target_register_host_pointer
+    ompx_target_unregister_host_pointer
+; end INTEL_CUSTOMIZATION

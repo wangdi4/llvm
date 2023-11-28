@@ -1,6 +1,6 @@
 //===------ Diag.h - Diagnostics for HIR -------*- C++ -*---------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -20,16 +20,17 @@
 #define LLVM_ANALYSIS_INTEL_OPTREPORT_DIAG_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 
 enum class OptRemarkID {
   /// ID to represent invalid remarks i.e. remarks which are not present in
-  /// Diags table.
+  /// Diags table. All remarks have been added to the Diags table now, so use of
+  /// this value is an error.
   InvalidRemarkID = 0,
 
-  /// Named constants for commonly used remarks.  This will be converted
-  /// to an enum class after we have identifiers for all remark IDs.
+  /// Named constants for commonly used remarks.
 
   /// Vectorizer remarks from 15300-15552 match those in ICC.
   LoopVectorized = 15300,
@@ -115,6 +116,9 @@ enum class OptRemarkID {
   VecCloneVariantLegalization = 15581,
   VecCloneLinearUValUnoptimized = 15582,
   VectorizerReductionInfo = 15590,
+  VectorizedIntrinsics = 15591,
+  VecWindowsAtomic = 15592,
+  VecFailFence = 15593,
 
   /// Prefetching remarks.
   TotalLinesPrefetched = 25018,
@@ -130,6 +134,8 @@ enum class OptRemarkID {
   LoopMultiversionedForDD = 25228,
   LoopPeeledUsingCondition = 25258,
   LoopOptimizedAwayUsingCondition = 25259,
+  DeadLoopOptimizedAway = 25260,
+  SingleIterationLoopOptimizedAway = 25261,
   LoopRerollFactor = 25264,
   MaterializedLoopTripCount = 25397,
   MemcopyGenerated = 25399,
@@ -137,6 +143,7 @@ enum class OptRemarkID {
   InvariantConditionHoisted = 25422,
   InvariantIfConditionHoisted = 25423,
   InvariantSwitchConditionHoisted = 25424,
+  LoopDistributionChunkNum = 25425,
   LoopDistributionPerfectNest = 25426,
   LoopDistributionEnableVec = 25427,
   LoopStripMineFactor = 25428,
@@ -189,14 +196,6 @@ enum class OptRemarkID {
   LoopHasSimdReduction = 25588,
   HoistedConditionalLoads = 25589,
   SunkConditionalStores = 25590,
-  OpenMPOutlinedParLoop = 25591,
-  OpenMPOutlinedEnclosedParLoop = 25592,
-  OpenMPWorkSharingLoop = 25593,
-  OpenMPRedundantClause = 25594,
-  OpenMPClauseHasBeenChanged = 25595,
-  OpenMPClauseCanBeChanged = 25596,
-  OpenMPParLoopPipelined = 25597,
-  OpenMPWorkShareLoopPipelined = 25598,
   TightLoopFound = 25599,
   TightLoopValue = 25600,
 #if INTEL_INTERNAL_BUILD
@@ -206,6 +205,27 @@ enum class OptRemarkID {
   LLORGFullyUnrolled = 25603,
   LLORGUnrolledBy = 25604,
   LLORGRemainderLoop = 25605,
+  LLORGPeeledBy = 25606,
+
+  // Paropt/OpenMP remarks start at 30000.
+  OpenMPOutlinedParLoop = 30000,
+  OpenMPOutlinedEnclosedParLoop = 30001,
+  OpenMPWorkSharingLoop = 30002,
+  OpenMPRedundantClause = 30003,
+  OpenMPClauseHasBeenChanged = 30004,
+  OpenMPClauseCanBeChanged = 30005,
+#if INTEL_FEATURE_CSA
+  OpenMPParLoopPipelined = 30006,
+  OpenMPWorkShareLoopPipelined = 30007,
+#endif // INTEL_FEATURE_CSA
+  OpenMPConstructTransformed = 30008,
+  OpenMPConstructUserIgnored = 30009,
+  OpenMPConstructUnreachable = 30010,
+  OpenMPConstructIgnored = 30011,
+  OpenMPClangImplicitMap = 30012,
+  OpenMPClangImplicitFirstPrivate = 30013,
+
+  DummyRemarkForTesting = 99999,
 };
 
 struct DiagTableKey {
@@ -219,6 +239,11 @@ struct DiagTableKey {
 // DenseMapInfo for DiagTableKey.
 template <> struct DenseMapInfo<DiagTableKey> : DenseMapInfo<unsigned> {};
 
+inline raw_ostream &operator<<(raw_ostream &OS, OptRemarkID ID) {
+  OS << static_cast<unsigned>(ID);
+  return OS;
+}
+
 class OptReportDiag {
   static const DenseMap<DiagTableKey, const char *> Diags;
 
@@ -229,6 +254,7 @@ public:
 
 enum class AuxRemarkID {
   InvalidAuxRemark,
+  Empty,
 
   // Remark numbers through 10000 are reserved for the vectorizer.
   VectorizerRemarksBegin, // No associated message
@@ -252,6 +278,15 @@ enum class AuxRemarkID {
   DivergentBranchDisabled,
   VectorizerRemarksEnd, // No associated message
 
+  // Remark numbers through 20000 are reserved for OpenMP.
+  OpenMPRemarksBegin = 10001, // No associated message
+  CapturedByLambda,
+  CapturedInReferencedLambda,
+  ThisKeywordReferenced,
+  NonScalarFieldReferenced,
+  PointerVariableReferenced,
+  NonScalarVariableReferenced,
+  OpenMPRemarksEnd, // No associated message
   // Add remark numbers for other components here.  Please reserve
   // remarks in blocks of 10000.
 };

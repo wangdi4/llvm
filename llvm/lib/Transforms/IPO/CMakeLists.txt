@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2023 Intel Corporation
+# Modifications, Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -29,6 +29,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_CallTreeCloning.cpp
   Intel_DeadDopeVectorElimination.cpp
   Intel_DopeVectorConstProp.cpp
+  Intel_ForceInline.cpp
   Intel_InlineLists.cpp
   Intel_IPArrayTranspose.cpp
   Intel_IPODeadArgElimination.cpp

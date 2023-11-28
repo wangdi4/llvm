@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSAnalysis.cpp - -----------------------------------------===/
 //
-//   Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -14,10 +14,10 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanVLSAnalysis.h"
+#include "HIR/IntelVPlanVLSAnalysisHIR.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSTransform.h"
-#include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -33,6 +33,10 @@ enum VPlanVLSLevelVariant {
   VPlanVLSRunAlways
 };
 
+static cl::opt<bool> VPlanLimitedVLS(
+    "vplan-limited-vls", cl::init(true), cl::Hidden,
+    cl::desc("Enable limited VLS group formation for core-avx512"));
+
 cl::opt<VPlanVLSLevelVariant> VPlanVLSLevel(
     "vplan-vls-level", cl::desc("Level of VLS optimization in VPlan"),
     cl::values(clEnumValN(VPlanVLSRunNever, "never", "Disable OptVLS in VPlan"),
@@ -47,10 +51,10 @@ VPlanVLSAnalysis::VPlanVLSAnalysis(const Loop *MainLoop, LLVMContext &Context,
                                    TargetTransformInfo *TTI)
     : MainLoop(MainLoop), Context(Context), DL(DL), TTI(TTI) {
   // If compiling for -xcore-avx512 and VPlanVLSLevel is set to auto
-  // only allow stride-2 accesses.
+  // only allow limited accesses.
   if (VPlanVLSLevel == VPlanVLSRunAuto &&
       TTI->isAdvancedOptEnabled(TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512))
-    ForceStride2VLS = true;
+    ForceLimitedVLS = true;
 }
 OVLSMemref *
 VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
@@ -83,9 +87,8 @@ VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
           VPInst, static_cast<const VPlanScalarEvolutionLLVM *>(VPSE),
           Stride)) {
 
-    // Return null when stride != 2 and Stride2 accesses are forced. Stride is
-    // in bytes and AccessSize is in bits.
-    if (getForceStride2VLS() && ((*Stride / (AccessSize / 8)) != 2))
+    // Return null for limited VLS for AVX512
+    if (limitVLSForAVX512((*Stride / (AccessSize / 8)), *VPInst))
       return nullptr;
 
     bool IsMasked = VPInst->getParent()->getBlockPredicate() != nullptr;
@@ -102,7 +105,7 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
   // VPlanVLSLevel option allows users to override TTI::isVPlanVLSProfitable().
   if (VPlanVLSLevel == VPlanVLSRunNever ||
       (VPlanVLSLevel == VPlanVLSRunAuto && !TTI->isVPlanVLSProfitable() &&
-       !getForceStride2VLS()))
+       !getForceLimitedVLS()))
     return;
 
   if (!TTI->isAggressiveVLSProfitable())
@@ -171,6 +174,38 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
   OptVLSInterface::getGroups(Plan2VLSInfo[Plan].Memrefs,
                              Plan2VLSInfo[Plan].Groups, MaxVectorWidthInBytes,
                              &Plan2VLSInfo[Plan].Mem2Group);
+}
+
+bool VPlanVLSAnalysis::limitVLSForAVX512(int64_t Stride,
+                                         const VPLoadStoreInst &VPInst) {
+  if (!getForceLimitedVLS())
+    return false;
+
+  // Do not limit VLS for stride-2 accesses.
+  if (Stride == 2)
+    return false;
+
+  // If further support for limited vls is off, avoid forming VLS groups.
+  if (!VPlanLimitedVLS)
+    return true;
+
+  // Limit VLS to unmasked accesses until we fix cost modeling issues
+  if (VPInst.getParent()->getBlockPredicate())
+    return true;
+
+  // Workaround to address performance regression in some benchmark. A small
+  // kernel with the same code actually runs faster when vectorized. However,
+  // the benchmarks show a small degradation. LV also vectorizes the loop.
+  // Suppress VLS groups to avoid performance regression for now by checking
+  // for I16 load whose only use is in a UIToFP instruction.
+  if (VPInst.getOpcode() == Instruction::Load &&
+      VPInst.getType()->isIntegerTy(16) && VPInst.getNumUsers() == 1) {
+    auto *UserInst = dyn_cast<VPInstruction>(*VPInst.user_begin());
+    if (UserInst && UserInst->getOpcode() == Instruction::UIToFP)
+      return true;
+  }
+
+  return false;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | FileCheck %s
 
 void bar(int);
 

@@ -16,7 +16,7 @@
 
 ; CHECK: Running pass: VPOCFGRestructuringPass on test (7 instructions)
 
-; CHECK: Running pass: vpo::VPlanDriverPass on test (7 instructions)
+; CHECK: Running pass: vpo::VPlanDriverLLVMPass on test (7 instructions)
 
 ; CHECK: Running pass: SYCLKernelPostVecPass
 

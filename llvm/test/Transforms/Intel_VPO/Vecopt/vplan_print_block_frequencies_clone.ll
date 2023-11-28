@@ -9,63 +9,63 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @main() {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: main:header.#{{[0-9]+}}
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:  {[[FREQ0:freq: 0]]}
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:  {freq: 0}
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]] {[[FREQ1:freq: 8]]}
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]] {freq: 562949953421312}
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]] {[[FREQ2:freq: 255]]}
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]] {freq: 18014398509481984}
 ; CHECK-NEXT:     i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:     br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]] {[[FREQ2]]}
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]] {freq: 18014398509481984}
 ; CHECK-NEXT:     i32 [[VP_X:%.*]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:     i1 [[VP_BOTTOM_TEST:%.*]] = icmp eq i32 [[VP_IV_NEXT]] i32 128
 ; CHECK-NEXT:     br i1 [[VP_BOTTOM_TEST]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]] {[[FREQ1]]}
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]] {freq: 562949953421312}
 ; CHECK-NEXT:     br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]] {[[FREQ0]]}
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]] {freq: 0}
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after emitting masked variant:
 ; CHECK-NEXT:  VPlan IR for: main:header.#{{[0-9]+}}.cloned.masked
-; CHECK-NEXT:    [[BB6:BB[0-9]+]]: # preds:  {[[FREQ0]]}
+; CHECK-NEXT:    [[BB6:BB[0-9]+]]: # preds:  {freq: 0}
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]] {[[FREQ1]]}
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]] {freq: 562949953421312}
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP1:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_NORM_UB:%.*]] = sub i32 128 i32 live-in0
 ; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]], new_latch {[[FREQ2]]}
+; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]], new_latch {freq: 18014398509481984}
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_1:%.*]] = phi  [ i32 [[VP0]], [[BB7]] ],  [ i32 [[VP_IV_NEXT_1:%.*]], new_latch ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_NEW_IND:%.*]] = add i32 [[VP_IV_1]] i32 live-in0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = icmp ult i32 [[VP_IV_1]] i32 [[VP_NORM_UB]]
 ; CHECK-NEXT:     [DA: Div] br i1 [[VP2]], [[BB9:BB[0-9]+]], new_latch
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB9]]: # preds: [[BB8]] {[[FREQ2]]}
+; CHECK-NEXT:      [[BB9]]: # preds: [[BB8]] {freq: 18014398509481984}
 ; CHECK-NEXT:       [DA: Uni] br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB10]]: # preds: [[BB9]] {[[FREQ2]]}
+; CHECK-NEXT:      [[BB10]]: # preds: [[BB9]] {freq: 18014398509481984}
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_X_1:%.*]] = add i32 [[VP_NEW_IND]] i32 1
 ; CHECK-NEXT:       [DA: Uni] br new_latch
 ; CHECK-EMPTY:
-; CHECK-NEXT:    new_latch: # preds: [[BB10]], [[BB8]] {[[FREQ2]]}
+; CHECK-NEXT:    new_latch: # preds: [[BB10]], [[BB8]] {freq: 18014398509481984}
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_NEXT_1]] = add i32 [[VP_IV_1]] i32 [[VP1]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = icmp ult i32 [[VP_IV_NEXT_1]] i32 [[VP_NORM_UB]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = all-zero-check i1 [[VP3]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP4]], [[BB11:BB[0-9]+]], [[BB8]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB11]]: # preds: new_latch {[[FREQ1]]}
+; CHECK-NEXT:    [[BB11]]: # preds: new_latch {freq: 562949953421312}
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB12]]: # preds: [[BB11]] {[[FREQ0]]}
+; CHECK-NEXT:    [[BB12]]: # preds: [[BB11]] {freq: 0}
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:

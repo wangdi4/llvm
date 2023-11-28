@@ -4,19 +4,19 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%S1 = type { i64, i8 * }
+%S1 = type { i64, ptr }
 
-define void @test1(%S1 *%p) {
+define void @test1(ptr %p) {
 ; CHECK-LABEL:  VPlan after VPlan-to-VPlan VLS transformation:
-; CHECK:            [DA: Uni] <8 x i64> [[VP_VLS_LOAD:%.*]] = vls-load i64* [[VP_P_I64:%.*]], group_size=2, align=8
+; CHECK:            [DA: Uni] <8 x i64> [[VP_VLS_LOAD:%.*]] = vls-load ptr [[VP_P_I64:%.*]], group_size=2, align=8
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_LD_I64:%.*]] = vls-extract <8 x i64> [[VP_VLS_LOAD]], group_size=2, offset=0
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_LD_PTR:%.*]] = vls-extract <8 x i64> [[VP_VLS_LOAD]], group_size=2, offset=1
-; CHECK-NEXT:       [DA: Div] i8* [[VP0:%.*]] = inttoptr i64 [[VP_LD_PTR]] to i8*
-; CHECK-NEXT:       [DA: Div] i8* [[VP_GEP:%.*]] = getelementptr i8* [[VP0]] i64 [[VP_IV:%.*]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP0:%.*]] = inttoptr i64 [[VP_LD_PTR]] to ptr
+; CHECK-NEXT:       [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr i8, ptr [[VP0]] i64 [[VP_IV:%.*]]
 ; CHECK-NEXT:       [DA: Uni] <8 x i64> [[VP_VLS_INSERT:%.*]] = vls-insert <8 x i64> undef i64 [[VP_IV]], group_size=2, offset=0
-; CHECK-NEXT:       [DA: Div] i64 [[VP1:%.*]] = ptrtoint i8* [[VP_GEP]] to i64
+; CHECK-NEXT:       [DA: Div] i64 [[VP1:%.*]] = ptrtoint ptr [[VP_GEP]] to i64
 ; CHECK-NEXT:       [DA: Uni] <8 x i64> [[VP_VLS_INSERT_1:%.*]] = vls-insert <8 x i64> [[VP_VLS_INSERT]] i64 [[VP1]], group_size=2, offset=1
-; CHECK-NEXT:       [DA: Div] vls-store <8 x i64> [[VP_VLS_INSERT_1]] i64* [[VP_P_I64]], group_size=2, align=8
+; CHECK-NEXT:       [DA: Div] vls-store <8 x i64> [[VP_VLS_INSERT_1]] ptr [[VP_P_I64]], group_size=2, align=8
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
@@ -25,16 +25,16 @@ entry:
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
 
-  %p.i64 = getelementptr inbounds %S1, %S1* %p, i64 %iv, i32 0
-  %p.ptr = getelementptr inbounds %S1, %S1* %p, i64 %iv, i32 1
+  %p.i64 = getelementptr inbounds %S1, ptr %p, i64 %iv, i32 0
+  %p.ptr = getelementptr inbounds %S1, ptr %p, i64 %iv, i32 1
 
-  %ld.i64 = load i64, i64 *%p.i64
-  %ld.ptr = load i8 *, i8 **%p.ptr
+  %ld.i64 = load i64, ptr %p.i64
+  %ld.ptr = load ptr, ptr %p.ptr
 
-  %gep = getelementptr i8, i8 *%ld.ptr, i64 %iv
+  %gep = getelementptr i8, ptr %ld.ptr, i64 %iv
 
-  store i64 %iv, i64 *%p.i64
-  store i8 *%gep, i8 **%p.ptr
+  store i64 %iv, ptr %p.i64
+  store ptr %gep, ptr %p.ptr
 
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 128
@@ -45,22 +45,22 @@ exit:
   ret void
 }
 
-%S2 = type { double, i8 addrspace(1) * }
+%S2 = type { double, ptr addrspace(1) }
 
-define void @test2(%S2 *%p) {
+define void @test2(ptr %p) {
 ; CHECK-LABEL:  VPlan after VPlan-to-VPlan VLS transformation:
-; CHECK:            [DA: Uni] <8 x double> [[VP_VLS_LOAD:%.*]] = vls-load double* [[VP_P_DBL:%.*]], group_size=2, align=8
+; CHECK:            [DA: Uni] <8 x double> [[VP_VLS_LOAD:%.*]] = vls-load ptr [[VP_P_DBL:%.*]], group_size=2, align=8
 ; CHECK-NEXT:       [DA: Div] double [[VP_LD_DBL:%.*]] = vls-extract <8 x double> [[VP_VLS_LOAD]], group_size=2, offset=0
 ; CHECK-NEXT:       [DA: Div] double [[VP_LD_PTR:%.*]] = vls-extract <8 x double> [[VP_VLS_LOAD]], group_size=2, offset=1
 ; CHECK-NEXT:       [DA: Div] i64 [[VP0:%.*]] = bitcast double [[VP_LD_PTR]]
-; CHECK-NEXT:       [DA: Div] i8 addrspace(1)* [[VP1:%.*]] = inttoptr i64 [[VP0]] to i8 addrspace(1)*
-; CHECK-NEXT:       [DA: Div] i8 addrspace(1)* [[VP_GEP:%.*]] = getelementptr i8 addrspace(1)* [[VP1]] i64 [[VP_IV:%.*]]
+; CHECK-NEXT:       [DA: Div] ptr addrspace(1) [[VP1:%.*]] = inttoptr i64 [[VP0]] to ptr addrspace(1)
+; CHECK-NEXT:       [DA: Div] ptr addrspace(1) [[VP_GEP:%.*]] = getelementptr i8, ptr addrspace(1) [[VP1]] i64 [[VP_IV:%.*]]
 ; CHECK-NEXT:       [DA: Div] double [[VP_FP:%.*]] = sitofp i64 [[VP_IV]] to double
 ; CHECK-NEXT:       [DA: Uni] <8 x double> [[VP_VLS_INSERT:%.*]] = vls-insert <8 x double> undef double [[VP_FP]], group_size=2, offset=0
-; CHECK-NEXT:       [DA: Div] i64 [[VP2:%.*]] = ptrtoint i8 addrspace(1)* [[VP_GEP]] to i64
+; CHECK-NEXT:       [DA: Div] i64 [[VP2:%.*]] = ptrtoint ptr addrspace(1) [[VP_GEP]] to i64
 ; CHECK-NEXT:       [DA: Div] double [[VP3:%.*]] = bitcast i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Uni] <8 x double> [[VP_VLS_INSERT_1:%.*]] = vls-insert <8 x double> [[VP_VLS_INSERT]] double [[VP3]], group_size=2, offset=1
-; CHECK-NEXT:       [DA: Div] vls-store <8 x double> [[VP_VLS_INSERT_1]] double* [[VP_P_DBL]], group_size=2, align=8
+; CHECK-NEXT:       [DA: Div] vls-store <8 x double> [[VP_VLS_INSERT_1]] ptr [[VP_P_DBL]], group_size=2, align=8
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
@@ -69,18 +69,18 @@ entry:
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
 
-  %p.dbl = getelementptr inbounds %S2, %S2* %p, i64 %iv, i32 0
-  %p.ptr = getelementptr inbounds %S2, %S2* %p, i64 %iv, i32 1
+  %p.dbl = getelementptr inbounds %S2, ptr %p, i64 %iv, i32 0
+  %p.ptr = getelementptr inbounds %S2, ptr %p, i64 %iv, i32 1
 
-  %ld.dbl = load double, double *%p.dbl
-  %ld.ptr = load i8 addrspace(1) *, i8  addrspace(1) **%p.ptr
+  %ld.dbl = load double, ptr %p.dbl
+  %ld.ptr = load ptr addrspace(1), ptr %p.ptr
 
-  %gep = getelementptr i8, i8 addrspace(1) *%ld.ptr, i64 %iv
+  %gep = getelementptr i8, ptr addrspace(1) %ld.ptr, i64 %iv
 
   %fp = sitofp i64 %iv to double
 
-  store double %fp, double *%p.dbl
-  store i8 addrspace(1) *%gep, i8 addrspace(1) **%p.ptr
+  store double %fp, ptr %p.dbl
+  store ptr addrspace(1) %gep, ptr %p.ptr
 
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 128
@@ -91,22 +91,22 @@ exit:
   ret void
 }
 
-%S3 = type { i32 *, i8 addrspace(1) * }
+%S3 = type { ptr, ptr addrspace(1) }
 
-define void @test3(%S3 *%p) {
+define void @test3(ptr %p) {
 ; CHECK-LABEL:  VPlan after VPlan-to-VPlan VLS transformation:
-; CHECK:            [DA: Uni] <8 x i64> [[VP_VLS_LOAD:%.*]] = vls-load i32** [[VP_P_PTR1:%.*]], group_size=2, align=8
+; CHECK:            [DA: Uni] <8 x i64> [[VP_VLS_LOAD:%.*]] = vls-load ptr [[VP_P_PTR1:%.*]], group_size=2, align=8
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_LD_PTR1:%.*]] = vls-extract <8 x i64> [[VP_VLS_LOAD]], group_size=2, offset=0
-; CHECK-NEXT:       [DA: Div] i32* [[VP0:%.*]] = inttoptr i64 [[VP_LD_PTR1]] to i32*
+; CHECK-NEXT:       [DA: Div] ptr [[VP0:%.*]] = inttoptr i64 [[VP_LD_PTR1]] to ptr
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_LD_PTR2:%.*]] = vls-extract <8 x i64> [[VP_VLS_LOAD]], group_size=2, offset=1
-; CHECK-NEXT:       [DA: Div] i8 addrspace(1)* [[VP1:%.*]] = inttoptr i64 [[VP_LD_PTR2]] to i8 addrspace(1)*
-; CHECK-NEXT:       [DA: Div] i32* [[VP_GEP1:%.*]] = getelementptr i32* [[VP0]] i64 [[VP_IV:%.*]]
-; CHECK-NEXT:       [DA: Div] i8 addrspace(1)* [[VP_GEP2:%.*]] = getelementptr i8 addrspace(1)* [[VP1]] i64 [[VP_IV]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP2:%.*]] = ptrtoint i32* [[VP_GEP1]] to i64
+; CHECK-NEXT:       [DA: Div] ptr addrspace(1) [[VP1:%.*]] = inttoptr i64 [[VP_LD_PTR2]] to ptr addrspace(1)
+; CHECK-NEXT:       [DA: Div] ptr [[VP_GEP1:%.*]] = getelementptr i32, ptr [[VP0]] i64 [[VP_IV:%.*]]
+; CHECK-NEXT:       [DA: Div] ptr addrspace(1) [[VP_GEP2:%.*]] = getelementptr i8, ptr addrspace(1) [[VP1]] i64 [[VP_IV]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP2:%.*]] = ptrtoint ptr [[VP_GEP1]] to i64
 ; CHECK-NEXT:       [DA: Uni] <8 x i64> [[VP_VLS_INSERT:%.*]] = vls-insert <8 x i64> undef i64 [[VP2]], group_size=2, offset=0
-; CHECK-NEXT:       [DA: Div] i64 [[VP3:%.*]] = ptrtoint i8 addrspace(1)* [[VP_GEP2]] to i64
+; CHECK-NEXT:       [DA: Div] i64 [[VP3:%.*]] = ptrtoint ptr addrspace(1) [[VP_GEP2]] to i64
 ; CHECK-NEXT:       [DA: Uni] <8 x i64> [[VP_VLS_INSERT_1:%.*]] = vls-insert <8 x i64> [[VP_VLS_INSERT]] i64 [[VP3]], group_size=2, offset=1
-; CHECK-NEXT:       [DA: Div] vls-store <8 x i64> [[VP_VLS_INSERT_1]] i32** [[VP_P_PTR1]], group_size=2, align=8
+; CHECK-NEXT:       [DA: Div] vls-store <8 x i64> [[VP_VLS_INSERT_1]] ptr [[VP_P_PTR1]], group_size=2, align=8
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
@@ -115,17 +115,17 @@ entry:
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
 
-  %p.ptr1 = getelementptr inbounds %S3, %S3* %p, i64 %iv, i32 0
-  %p.ptr2 = getelementptr inbounds %S3, %S3* %p, i64 %iv, i32 1
+  %p.ptr1 = getelementptr inbounds %S3, ptr %p, i64 %iv, i32 0
+  %p.ptr2 = getelementptr inbounds %S3, ptr %p, i64 %iv, i32 1
 
-  %ld.ptr1 = load i32 *, i32 **%p.ptr1
-  %ld.ptr2 = load i8 addrspace(1) *, i8  addrspace(1) **%p.ptr2
+  %ld.ptr1 = load ptr, ptr %p.ptr1
+  %ld.ptr2 = load ptr addrspace(1), ptr %p.ptr2
 
-  %gep1 = getelementptr i32, i32 *%ld.ptr1, i64 %iv
-  %gep2 = getelementptr i8, i8 addrspace(1) *%ld.ptr2, i64 %iv
+  %gep1 = getelementptr i32, ptr %ld.ptr1, i64 %iv
+  %gep2 = getelementptr i8, ptr addrspace(1) %ld.ptr2, i64 %iv
 
-  store i32 *%gep1, i32 **%p.ptr1
-  store i8 addrspace(1) *%gep2, i8 addrspace(1) **%p.ptr2
+  store ptr %gep1, ptr %p.ptr1
+  store ptr addrspace(1) %gep2, ptr %p.ptr2
 
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 128
@@ -136,22 +136,22 @@ exit:
   ret void
 }
 
-%S4 = type { <2 x i32>, i64 * }
+%S4 = type { <2 x i32>, ptr }
 
-define void @test4(%S4 *%p) {
+define void @test4(ptr %p) {
 ; CHECK-LABEL:  VPlan after VPlan-to-VPlan VLS transformation:
-; CHECK:            [DA: Uni] <8 x i64*> [[VP_VLS_LOAD:%.*]] = vls-load <2 x i32>* [[VP_P_VECINT:%.*]], group_size=2, align=8
-; CHECK-NEXT:       [DA: Div] i64* [[VP_LD_VECINT:%.*]] = vls-extract <8 x i64*> [[VP_VLS_LOAD]], group_size=2, offset=0
-; CHECK-NEXT:       [DA: Div] i64 [[VP0:%.*]] = ptrtoint i64* [[VP_LD_VECINT]] to i64
+; CHECK:            [DA: Uni] <8 x ptr> [[VP_VLS_LOAD:%.*]] = vls-load ptr [[VP_P_VECINT:%.*]], group_size=2, align=8
+; CHECK-NEXT:       [DA: Div] ptr [[VP_LD_VECINT:%.*]] = vls-extract <8 x ptr> [[VP_VLS_LOAD]], group_size=2, offset=0
+; CHECK-NEXT:       [DA: Div] i64 [[VP0:%.*]] = ptrtoint ptr [[VP_LD_VECINT]] to i64
 ; CHECK-NEXT:       [DA: Div] <2 x i32> [[VP1:%.*]] = bitcast i64 [[VP0]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_LD_PTR:%.*]] = vls-extract <8 x i64*> [[VP_VLS_LOAD]], group_size=2, offset=1
+; CHECK-NEXT:       [DA: Div] ptr [[VP_LD_PTR:%.*]] = vls-extract <8 x ptr> [[VP_VLS_LOAD]], group_size=2, offset=1
 ; CHECK-NEXT:       [DA: Div] <2 x i32> [[VP_SHFL:%.*]] = shufflevector <2 x i32> [[VP1]] <2 x i32> undef <2 x i32> <i32 1, i32 0>
-; CHECK-NEXT:       [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[VP_LD_PTR]] i64 [[VP_IV:%.*]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr i64, ptr [[VP_LD_PTR]] i64 [[VP_IV:%.*]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP2:%.*]] = bitcast <2 x i32> [[VP_SHFL]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP3:%.*]] = inttoptr i64 [[VP2]] to i64*
-; CHECK-NEXT:       [DA: Uni] <8 x i64*> [[VP_VLS_INSERT:%.*]] = vls-insert <8 x i64*> undef i64* [[VP3]], group_size=2, offset=0
-; CHECK-NEXT:       [DA: Uni] <8 x i64*> [[VP_VLS_INSERT_1:%.*]] = vls-insert <8 x i64*> [[VP_VLS_INSERT]] i64* [[VP_GEP]], group_size=2, offset=1
-; CHECK-NEXT:       [DA: Div] vls-store <8 x i64*> [[VP_VLS_INSERT_1]] <2 x i32>* [[VP_P_VECINT]], group_size=2, align=8
+; CHECK-NEXT:       [DA: Div] ptr [[VP3:%.*]] = inttoptr i64 [[VP2]] to ptr
+; CHECK-NEXT:       [DA: Uni] <8 x ptr> [[VP_VLS_INSERT:%.*]] = vls-insert <8 x ptr> undef ptr [[VP3]], group_size=2, offset=0
+; CHECK-NEXT:       [DA: Uni] <8 x ptr> [[VP_VLS_INSERT_1:%.*]] = vls-insert <8 x ptr> [[VP_VLS_INSERT]] ptr [[VP_GEP]], group_size=2, offset=1
+; CHECK-NEXT:       [DA: Div] vls-store <8 x ptr> [[VP_VLS_INSERT_1]] ptr [[VP_P_VECINT]], group_size=2, align=8
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
@@ -160,17 +160,17 @@ entry:
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
 
-  %p.vecint = getelementptr inbounds %S4, %S4* %p, i64 %iv, i32 0
-  %p.ptr = getelementptr inbounds %S4, %S4* %p, i64 %iv, i32 1
+  %p.vecint = getelementptr inbounds %S4, ptr %p, i64 %iv, i32 0
+  %p.ptr = getelementptr inbounds %S4, ptr %p, i64 %iv, i32 1
 
-  %ld.vecint = load <2 x i32>, <2 x i32> *%p.vecint
-  %ld.ptr = load i64 *, i64 **%p.ptr
+  %ld.vecint = load <2 x i32>, ptr %p.vecint
+  %ld.ptr = load ptr, ptr %p.ptr
 
   %shfl = shufflevector <2 x i32> %ld.vecint, <2 x i32> undef, <2 x i32><i32 1, i32 0>
-  %gep = getelementptr i64, i64 *%ld.ptr, i64 %iv
+  %gep = getelementptr i64, ptr %ld.ptr, i64 %iv
 
-  store <2 x i32> %shfl, <2 x i32> *%p.vecint
-  store i64 *%gep, i64 **%p.ptr
+  store <2 x i32> %shfl, ptr %p.vecint
+  store ptr %gep, ptr %p.ptr
 
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 128

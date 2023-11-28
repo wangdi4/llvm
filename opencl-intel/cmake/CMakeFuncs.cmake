@@ -177,13 +177,13 @@ function(set_linux_exports_file TARGET_NAME_ FILE_NAME)
     set_source_files_properties(
       ${FIRST_SOURCE} PROPERTIES OBJECT_DEPENDS
                                  ${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME})
-    set_property(
-      TARGET ${TARGET_NAME_}
-      APPEND_STRING
-      PROPERTY
-        LINK_FLAGS
-        "-Wl,-Bsymbolic -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME}"
-    )
+
+    target_link_options(${TARGET_NAME_} PRIVATE "LINKER:-Bsymbolic,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME}")
+    if (LLVM_LINKER_IS_LLD)
+      # Newer LLD changed behavior to consider references to undefined symbols
+      # to be an error. This option ensures we use the older behavior.
+      target_link_options(${TARGET_NAME_} PRIVATE "LINKER:--undefined-version")
+    endif (LLVM_LINKER_IS_LLD)
   endif((NOT WIN32) OR (FORCE_LINUX))
 endfunction(set_linux_exports_file)
 

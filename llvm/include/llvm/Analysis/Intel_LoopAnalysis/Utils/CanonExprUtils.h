@@ -1,6 +1,6 @@
 //===------ CanonExprUtils.h - Utilities for CanonExpr class --*- C++ -*---===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -171,6 +171,10 @@ public:
   /// Returns the size of the type in bytes.
   /// NOTE: This function asserts that the incoming type is sized.
   uint64_t getTypeSizeInBytes(Type *Ty) const;
+
+  /// Returns the size of the type in bytes used to store value.
+  /// NOTE: This function asserts that the incoming type is sized.
+  uint64_t getTypeStoreSizeInBytes(Type *Ty) const;
 
   /// Returns true if the type of both Canon Expr matches.
   static bool isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,

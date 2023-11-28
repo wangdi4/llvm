@@ -292,7 +292,7 @@ void BCECmpBlock::split(BasicBlock *NewParent, AliasAnalysis &AA) const {
 
   // Do the actual spliting.
   for (Instruction *Inst : reverse(OtherInsts))
-    Inst->moveBefore(*NewParent, NewParent->begin());
+    Inst->moveBeforePreserving(*NewParent, NewParent->begin());
 }
 
 bool BCECmpBlock::canSplit(AliasAnalysis &AA) const {

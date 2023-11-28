@@ -1,4 +1,4 @@
-// Copyright (C) 2012-2022 Intel Corporation
+// Copyright (C) 2012 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -46,9 +46,9 @@
 #include <string>
 #include <vector>
 
-using namespace llvm;
-
 #define DEBUG_TYPE "ocl-tblgen-builtin-emitter"
+
+using namespace llvm;
 
 static cl::opt<bool>
     GenOCLBuiltinPrototype("gen-ocl-proto", cl::Hidden,
@@ -1582,6 +1582,19 @@ std::string OclBuiltinDB::rewritePattern(
         } else if (baseType == "half" || baseType == "float" ||
                    baseType == "double") {
           val = "INFINITY";
+        } else {
+          llvm_unreachable("Unexpected base type!");
+        }
+      } else if ("$UMaxVal" == pat) {
+        std::string baseType = OT->getBaseCType();
+        if (baseType == "char" || baseType == "uchar") {
+          val = "UCHAR_MAX";
+        } else if (baseType == "short" || baseType == "ushort") {
+          val = "USHRT_MAX";
+        } else if (baseType == "int" || baseType == "uint") {
+          val = "UINT_MAX";
+        } else if (baseType == "long" || baseType == "ulong") {
+          val = "ULONG_MAX";
         } else {
           llvm_unreachable("Unexpected base type!");
         }

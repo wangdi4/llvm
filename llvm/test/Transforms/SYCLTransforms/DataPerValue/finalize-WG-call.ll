@@ -88,4 +88,4 @@ declare <4 x i32> @_Z14work_group_anyDv4_iPS_(<4 x i32> noundef, ptr nocapture n
 declare void @_Z18work_group_barrierj12memory_scope(i32, i32)
 
 !0 = !{!"int*", !"class.cl::sycl::id"}
-!1 = !{i32 addrspace(1)* null, %"class.cl::sycl::id"* null}
+!1 = !{ptr addrspace(1) null, ptr null}

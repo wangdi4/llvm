@@ -142,4 +142,13 @@ void goo(int i, int *x, int *y) {
   for (i = 0; i < 10; ++i) {
     x[i] = y[i];
   }
+  // CHECK: AttributedStmt
+  // CHECK-NEXT: LoopHintAttr{{.*}}Implicit vector VectorizeUnAligned Enable
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: ForStmt
+  #pragma vector unaligned
+  for (i = 0; i < 10; ++i) {
+    x[i] = y[i];
+  }
 }

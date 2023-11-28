@@ -11,7 +11,7 @@ target triple = "x86_64-pc-linux"
 
 @test.i = external addrspace(3) global i32
 
-; CHECK-NOT: @test.i =
+; CHECK: @test.i = external addrspace(3) global i32
 
 define internal fastcc void @foo(ptr addrspace(3) noalias %pLocalMemBase, ptr %pWorkDim, ptr %pWGId, [4 x i64] %BaseGlbId, ptr %pSpecialBuf, ptr %RuntimeHandle) {
 entry:
@@ -101,7 +101,7 @@ LoopEnd_0:
 !7 = !{i32 16}
 !8 = !{i32 0}
 !9 = !{!"int*"}
-!10 = !{i32 addrspace(1)* null}
+!10 = !{ptr addrspace(1) null}
 
 ; CHECK: [[LOCAL_SIZE]] = !{i32 4}
 

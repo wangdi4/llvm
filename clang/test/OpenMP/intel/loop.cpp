@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | FileCheck %s
 //
 // Checking on "regular" loops
 //
@@ -185,12 +185,12 @@ for (int i=0; i<16; ++i) {
  #pragma omp parallel for
  #pragma unroll(4)
  for (iter = first1(); iter < last1(); ++iter) { }
- // CHECK: br label {{.*}}, !llvm.loop ![[LOOP_1:.*]]
+ // CHECK: br {{.*}}label {{.*}}, !llvm.loop ![[LOOP_1:.*]]
 
  #pragma omp parallel for
  #pragma unroll
  for (iter = first1(); iter < last1(); ++iter) { }
- // CHECK: br label {{.*}}, !llvm.loop ![[LOOP_2:.*]]
+ // CHECK: br {{.*}}label {{.*}}, !llvm.loop ![[LOOP_2:.*]]
 }
 
 // CHECK: doacross_test

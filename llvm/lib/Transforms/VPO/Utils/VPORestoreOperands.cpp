@@ -14,6 +14,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -21,9 +22,9 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
-#include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/VPO/VPOPasses.h"
 
@@ -49,6 +50,62 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 
   return false;
 }
+
+/// A helper class to track restoring of OPERAND_ADDR:SUBOBJ bundles.
+class SubObjectHandler {
+  CallInst *EntryDir = nullptr;
+  SmallDenseMap<Value *, Value *, 8> ValueToInstructionMap;
+
+public:
+  SubObjectHandler(CallInst *EntryDir) : EntryDir(EntryDir){};
+
+  /// Returns an Instruction for the constexpr or global \p V, inserted before
+  /// the entry directive \p EntryDir. Returns nullptr if \p V is already an
+  /// Instrucion, or not a GlobalVariable or ConstantExpr.
+  Instruction *getConstExprPtrAsInstruction(Value *V) {
+    assert(isa<PointerType>(V->getType()) && "V is not a pointer.");
+    if (isa<Instruction>(V))
+      return nullptr;
+
+    auto Exiter = [&, FunctionName = __FUNCTION__, V](Instruction *I) {
+      (void)FunctionName;
+      LLVM_DEBUG(dbgs() << FunctionName << ": Converted '";
+                 V->printAsOperand(dbgs()); dbgs() << "' into the instruction'";
+                 I->printAsOperand(dbgs(), /*PrintType =*/false);
+                 dbgs() << "'.\n");
+
+      ValueToInstructionMap.insert({V, I});
+
+      return I;
+    };
+
+    if (!isa<ConstantExpr>(V) && !isa<GlobalVariable>(V))
+      return nullptr;
+
+    if (auto It = ValueToInstructionMap.find(V);
+        It != ValueToInstructionMap.end())
+      return cast<Instruction>(It->second);
+
+    if (isa<ConstantExpr>(V))
+      return Exiter(cast<ConstantExpr>(V)->getAsInstruction(EntryDir));
+
+    // Reaching here means V is a GlobalVariable.
+    return Exiter(BitCastInst::CreateBitOrPointerCast(
+        V, V->getType(), V->getName() + ".inst", EntryDir));
+  }
+
+  CallInst *updateSubObjClauseOperandsInDirective() {
+    CallInst *UpdatedEntryDir =
+        IntrinsicUtils::replaceFirstBundleOperandsInDirectiveIf(
+            EntryDir, ValueToInstructionMap, [](const OperandBundleDef &B) {
+              ClauseSpecifier ClauseInfo(B.getTag());
+              return ClauseInfo.getIsSubObject();
+            });
+
+    EntryDir = UpdatedEntryDir;
+    return UpdatedEntryDir;
+  }
+};
 
 /// Restore the clause operands by undoing the renaming done in the prepare
 /// pass. It looks at all OpenMP directive intrinsics for
@@ -259,6 +316,44 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 /// \endcode
 ///
 ///
+/// (I)
+///
+/// \code
+///            Before                   |            After
+///          ---------------------------+---------------------------
+///   %y1.addr = alloca ptr             |
+///   %y2.addr = alloca ptr             |
+///   %y3.addr = alloca ptr             |
+///                                     |
+///   store ptr @y, ptr %y1.addr        |
+///   store ptr gep(@y, 4), ptr %y2.addr|
+///   store ptr @y, ptr %y3.addr        |
+///                                    (11) %y.0 = bitcast ptr @y to ptr
+///                                    (12) %y.4 = gep(@y, 4)
+///                                     |
+///   %1 = begin_region[...             |   %1 = begin_region[...
+///        "PRIVATE:SUBOBJ"(@y)        (13)      "PRIVATE:SUBOBJ"(%y.0)
+///        "PRIVATE:SUBOBJ"(gep(@y, 4))(14)      "PRIVATE:SUBOBJ"(%y.4)
+///        "SHARED"(@y)                 |        "SHARED"(@y) ]
+///        "OPND.ADDR:SUBOBJ"(@y,       |
+///                           %y1.addr) |
+///        "OPND.ADDR:SUBOBJ"(gep(@y, 4)|
+///                           %y2.addr) |
+///        "OPND.ADDR"(ptr @y,          |
+///                    ptr %y3.addr) ]  |
+///                                     |
+///   %y1 = load ptr, ptr %y1.addr      |
+///   %y2 = load ptr, ptr %y2.addr      |
+///   %y3 = load ptr, ptr %y3.addr      |
+///                                     |
+///   ...                               |   ...
+///   <%y1 used inside the region>      |   <%y.0 used inside the region>
+///   <%y2 used inside the region>      |   <%y.4 used inside the region>
+///   <%y3 used inside the region>      |   <@y used inside the region>
+///                                     |
+///   end_region(%1)                    |   end_region(%1)
+///                                     |
+/// \endcode
 /// TODO: OPAQUEPOINTER: After the type information is removed with opaque
 /// pointers, bitcast instructions will be removed. It will make the possible
 /// input IRs simpler. The code below needs to be revised appropriately.
@@ -272,15 +367,18 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 // F: [rename_and_]restore_struct_castboth.ll
 // G: restore_remove_lifetime_of_temps.ll
 // H: restore_remove_lifetime_of_temps_nocast_opaqueptrs.ll
+// I: rename_and_restore_subobj_geps_and_base_subobj.ll
 bool VPOUtils::restoreOperands(Function &F) {
   LLVM_DEBUG(dbgs() << "VPO Restore Operands \n");
 
   bool Changed = false;
 
-  SmallPtrSet<CallInst *, 8> DirectivesToUpdate;
+  SmallPtrSet<CallInst *, 8> DirectivesToRemoveOpndAddrsFrom;
 
   StringRef OperandAddrClauseString =
       VPOAnalysisUtils::getClauseString(QUAL_OMP_OPERAND_ADDR);
+  std::string OperandAddrSubObjClauseString =
+      (OperandAddrClauseString + ":SUBOBJ").str();
 
   for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B)
     for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I) {
@@ -291,13 +389,19 @@ bool VPOUtils::restoreOperands(Function &F) {
       if (CI->getNumOperandBundles() == 0)
         continue;
 
-      for (unsigned I = 0; I < CI->getNumOperandBundles(); ++I) {
+      SubObjectHandler SubObjHandler(CI);
+      bool CINeedsUpdates = false;
+
+      for (unsigned I = 1; I < CI->getNumOperandBundles(); ++I) {
         OperandBundleUse BU = CI->getOperandBundleAt(I);
-        if (BU.getTagName() != OperandAddrClauseString)
+        if (!BU.getTagName().startswith(OperandAddrClauseString))
           continue;
 
         assert(BU.Inputs.size() == 2 && "Expected an operand-address pair in a "
                                         "'QUAL.OMP.OPERAND.ADDR' bundle.");
+
+        bool IsSubObject = ClauseSpecifier(BU.getTagName()).getIsSubObject();
+
         Value *VOrig = BU.Inputs[0];
         AllocaInst *VAddr = cast_or_null<AllocaInst>(BU.Inputs[1]);
 
@@ -346,10 +450,8 @@ bool VPOUtils::restoreOperands(Function &F) {
             continue;
           }
 
-          if (VAddr->getType()->isOpaquePointerTy() &&
-              collectLifetimeMarkerUsers(U)) { // H: (7)(8)(9)(10)
+          if (collectLifetimeMarkerUsers(U)) // H: (7)(8)(9)(10)
             continue;
-          }
 
           assert(VPOUtils::isPointerCastOrZeroOffsetGEP(U) &&
                  "Unexpected use of ADDR operand of 'QUAL.OMP.OPERAND.ADDR'.");
@@ -396,8 +498,17 @@ bool VPOUtils::restoreOperands(Function &F) {
                      dbgs() << "', with the 'OPERAND': `";
                      VOrig->printAsOperand(dbgs()); dbgs() << "'.\n");
           IRBuilder<> Builder(VRenamed);
-          Value *VOrigCast = Builder.CreateBitCast(VOrig, VRenamed->getType(),
-                                                   VOrig->getName());
+
+          Instruction *VOrigAsInst =
+              IsSubObject ? SubObjHandler.getConstExprPtrAsInstruction(
+                                VOrig) //                     I: (11)(12)
+                          : nullptr;
+
+          Value *VOrigToRestore = VOrigAsInst ? VOrigAsInst : VOrig;
+
+          Value *VOrigCast = Builder.CreateBitCast(
+              VOrigToRestore, VRenamed->getType(), VOrigToRestore->getName());
+
           VRenamed->replaceAllUsesWith(VOrigCast);
           VRenamed->eraseFromParent();
         } else
@@ -422,13 +533,25 @@ bool VPOUtils::restoreOperands(Function &F) {
         VAddr->replaceAllUsesWith(UndefValue::get(VAddr->getType()));
         VAddr->eraseFromParent();
 
-        Changed = true;
-        DirectivesToUpdate.insert(CI);
+        CINeedsUpdates = true;
       } // For all Bundles on CI
-    }   // For all instructons in BB
 
-  for (CallInst *CI : DirectivesToUpdate)
-    VPOUtils::removeOperandBundlesFromCall(CI, {OperandAddrClauseString});
+      if (!CINeedsUpdates)
+        continue;
+
+      // First, update clauses on CI that have the SUBOBJ modifier.
+      CI = SubObjHandler.updateSubObjClauseOperandsInDirective(); //  I:(13)(14)
+      I = CI->getIterator();
+
+      // Then add it to the list of directives that need OPND.ADDRs removed.
+      DirectivesToRemoveOpndAddrsFrom.insert(CI);
+
+      Changed = true;
+    } // For all instructons in BB
+
+  for (CallInst *CI : DirectivesToRemoveOpndAddrsFrom)
+    VPOUtils::removeOperandBundlesFromCall(
+        CI, {OperandAddrClauseString, OperandAddrSubObjClauseString});
 
   return Changed;
 }
@@ -549,8 +672,7 @@ bool VPOUtils::removeBranchesFromBeginToEndDirective(
               VLoad = LI;
               VAddrUsersToDelete.push_back(VLoad);
             }
-          } else if (VAddr->getType()->isOpaquePointerTy() &&
-                     collectLifetimeMarkerUsers(U)) {
+          } else if (collectLifetimeMarkerUsers(U)) {
             continue;
           } else if (auto *CastI = dyn_cast<CastInst>(U)) {
             for (User *CastUser : CastI->users()) {

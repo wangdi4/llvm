@@ -46,6 +46,7 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/Parallel.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/TimeProfiler.h"
 
 using namespace llvm;
 using namespace llvm::codeview;
@@ -327,7 +328,7 @@ Error TpiSource::mergeDebugT(TypeMerger *m) {
          "use remapTpiWithGHashes when ghash is enabled");
 
   CVTypeArray types;
-  BinaryStreamReader reader(file->debugTypes, support::little);
+  BinaryStreamReader reader(file->debugTypes, llvm::endianness::little);
   cantFail(reader.readArray(types, reader.getLength()));
 
   // When dealing with PCH.OBJ, some indices were already merged.
@@ -604,7 +605,7 @@ void TpiSource::loadGHashes() {
     ownedGHashes = false;
   } else {
     CVTypeArray types;
-    BinaryStreamReader reader(file->debugTypes, support::little);
+    BinaryStreamReader reader(file->debugTypes, llvm::endianness::little);
     cantFail(reader.readArray(types, reader.getLength()));
     assignGHashesFromVector(GloballyHashedType::hashTypes(types));
   }
@@ -1085,6 +1086,7 @@ TypeMerger::~TypeMerger() = default;
 void TypeMerger::mergeTypesWithGHash() {
   // Load ghashes. Do type servers and PCH objects first.
   {
+    llvm::TimeTraceScope timeScope("Load GHASHes");
     ScopedTimer t1(ctx.loadGHashTimer);
     parallelForEach(dependencySources,
                     [&](TpiSource *source) { source->loadGHashes(); });
@@ -1092,6 +1094,7 @@ void TypeMerger::mergeTypesWithGHash() {
                     [&](TpiSource *source) { source->loadGHashes(); });
   }
 
+  llvm::TimeTraceScope timeScope("Merge types (GHASH)");
   ScopedTimer t2(ctx.mergeGHashTimer);
   GHashState ghashState;
 

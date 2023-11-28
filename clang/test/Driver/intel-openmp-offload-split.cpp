@@ -55,14 +55,37 @@
 // CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-input={{.*}}libomp-itt-stubs.o" "-output=[[ITT3TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-COMMANDS: llvm-link{{.*}} "[[OFFBCFILE]]" "[[RTLTGT]]" "-o" "[[UNBUNDLED:.+\.bc]]"
 // CHK-COMMANDS: llvm-link{{.*}} "--only-needed" "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[LINKEDBCFILE:.+\.bc]]"
-// CHK-COMMANDS: sycl-post-link{{.*}} "-split=kernel" "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-symbols" "-emit-exported-symbols" "-split-esimd" "-lower-esimd" "-O2" "-spec-const=rt" "-device-globals" "-o" "[[POSTLINKFILE:.+\.table]]" "[[LINKEDBCFILE]]"
+// CHK-COMMANDS: sycl-post-link{{.*}} "-split=kernel" "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-symbols" "-emit-exported-symbols" "-O2" "-spec-const=native" "-device-globals" "-o" "[[POSTLINKFILE:.+\.table]]" "[[LINKEDBCFILE]]"
 // CHK-COMMANDS: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[TABLEOUT:.+\.txt]]" "[[POSTLINKFILE]]"
 // CHK-COMMANDS: llvm-foreach{{.*}} "--in-file-list=[[TABLEOUT]]" "--in-replace=[[TABLEOUT]]" "--out-ext=spv" "--out-file-list=[[OUTFILESPV:.+\.txt]]" "--out-replace=[[OUTFILESPV]]" "--out-dir={{.*}}" "--"
 // CHK-COMMANDS-SAME: llvm-spirv{{.*}}" "-o" "[[OUTFILESPV]]" {{.*}} "[[TABLEOUT]]"
 // CHK-COMMANDS: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[TABLEOUT2:.+\.table]]" "[[POSTLINKFILE]]" "[[OUTFILESPV]]"
-// CHK-COMMANDS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-batch" "-kind=openmp" "-target=spir64" "[[TABLEOUT2]]"
+// CHK-COMMANDS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]"  {{.*}} "-batch" "-kind=openmp" "-target=spir64" "[[TABLEOUT2]]"
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
 // CHK-COMMANDS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"
+
+/// ###########################################################################
+
+/// Check of the commands passed to each tool when using target-simd splitting.
+// RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -fopenmp-target-simd -fopenmp-target-simd-split -fno-openmp-device-lib=all %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-COMMANDS-SIMD %s
+// CHK-COMMANDS-SIMD: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc"{{.*}} "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"{{.*}} "-fopenmp" {{.*}} "-o" "[[BCFILE:.+\.bc]]"
+// CHK-COMMANDS-SIMD: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[BCFILE]]"
+// CHK-COMMANDS-SIMD: clang{{.*}} "-cc1" "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-disable-lifetime-markers" "-fopenmp-target-simd"{{.*}} "-Wspir-compat" "-emit-llvm-bc"{{.*}} "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"{{.*}} "-fopenmp"{{.*}} "-fsycl-instrument-device-code" {{.*}} "-fopenmp-is-target-device" "-fopenmp-host-ir-file-path" "[[BCFILE]]"{{.*}} "-mllvm" "-paropt=63"{{.*}} "-fopenmp-targets=spir64" "-o" "[[OFFBCFILE:.+\.bc]]"
+// CHK-COMMANDS-SIMD: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-input={{.*}}libomp-spirvdevicertl.o" "-output=[[RTLTGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
+// CHK-COMMANDS-SIMD: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-input={{.*}}libomp-itt-user-wrappers.o" "-output=[[ITT1TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
+// CHK-COMMANDS-SIMD: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-input={{.*}}libomp-itt-compiler-wrappers.o" "-output=[[ITT2TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
+// CHK-COMMANDS-SIMD: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-input={{.*}}libomp-itt-stubs.o" "-output=[[ITT3TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
+// CHK-COMMANDS-SIMD: llvm-link{{.*}} "[[OFFBCFILE]]" "[[RTLTGT]]" "-o" "[[UNBUNDLED:.+\.bc]]"
+// CHK-COMMANDS-SIMD: llvm-link{{.*}} "--only-needed" "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[LINKEDBCFILE:.+\.bc]]"
+// CHK-COMMANDS-SIMD: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "--ompoffload-explicit-simd" "-symbols" "-emit-exported-symbols" "-split-esimd" "-O2" "-spec-const=native" "-device-globals" "-o" "[[POSTLINKFILE:.+\.table]]" "[[LINKEDBCFILE]]"
+// CHK-COMMANDS-SIMD: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[TABLEOUT:.+\.txt]]" "[[POSTLINKFILE]]"
+// CHK-COMMANDS-SIMD: llvm-foreach{{.*}} "--in-file-list=[[TABLEOUT]]" "--in-replace=[[TABLEOUT]]" "--out-ext=spv" "--out-file-list=[[OUTFILESPV:.+\.txt]]" "--out-replace=[[OUTFILESPV]]" "--out-dir={{.*}}" "--"
+// CHK-COMMANDS-SIMD-SAME: llvm-spirv{{.*}}" "-o" "[[OUTFILESPV]]" {{.*}} "[[TABLEOUT]]"
+// CHK-COMMANDS-SIMD: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[TABLEOUT2:.+\.table]]" "[[POSTLINKFILE]]" "[[OUTFILESPV]]"
+// CHK-COMMANDS-SIMD: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" {{.*}} "-batch" "-kind=openmp" "-target=spir64" "[[TABLEOUT2]]"
+// CHK-COMMANDS-SIMD: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
+// CHK-COMMANDS-SIMD: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"
 
 /// ###########################################################################
 
@@ -106,11 +129,11 @@
 // CHK-UBJOBS: clang-offload-bundler{{.*}}"-type=o"{{.*}}"-input={{.*}}libomp-itt-stubs.o"{{.*}}"-output=[[ITT3TGT:.+\.o]]" "-unbundle"
 // CHK-UBJOBS: llvm-link{{.*}} "[[OFFBCFILE]]" "[[RTLTGT]]" "-o" "[[UNBUNDLED:.+\.bc]]"
 // CHK-UBJOBS: llvm-link{{.*}} "--only-needed" "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[LINKEDBCFILE:.+\.bc]]"
-// CHK-UBJOBS: sycl-post-link{{.*}} "-split=kernel" "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-symbols" "-emit-exported-symbols" "-split-esimd" "-lower-esimd" "-O2" "-spec-const=rt" "-device-globals" "-o" "[[POSTLINKFILE:.+\.table]]" "[[LINKEDBCFILE]]"
+// CHK-UBJOBS: sycl-post-link{{.*}} "-split=kernel" "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-symbols" "-emit-exported-symbols" "-O2" "-spec-const=native" "-device-globals" "-o" "[[POSTLINKFILE:.+\.table]]" "[[LINKEDBCFILE]]"
 // CHK-UBJOBS: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[TABLEOUT:.+\.txt]]" "[[POSTLINKFILE]]"
 // CHK-UBJOBS: llvm-foreach{{.*}} "--in-file-list=[[TABLEOUT]]" "--in-replace=[[TABLEOUT]]" "--out-ext=spv" "--out-file-list=[[OUTFILESPV:.+\.txt]]" "--out-replace=[[OUTFILESPV]]" "--out-dir={{.*}}" "--"
 // CHK-UBJOBS-SAME: llvm-spirv{{.*}}" "-o" "[[OUTFILESPV]]" {{.*}} "[[TABLEOUT]]"
 // CHK-UBJOBS: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[TABLEOUT2:.+\.table]]" "[[POSTLINKFILE]]" "[[OUTFILESPV]]"
-// CHK-UBJOBS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-batch" "-kind=openmp" "-target=spir64" "[[TABLEOUT2]]"
+// CHK-UBJOBS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" {{.*}} "-batch" "-kind=openmp" "-target=spir64" "[[TABLEOUT2]]"
 // CHK-UBJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
 // CHK-UBJOBS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"

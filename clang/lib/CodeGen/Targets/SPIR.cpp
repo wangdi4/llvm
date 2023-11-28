@@ -1,5 +1,23 @@
 //===- SPIR.cpp -----------------------------------------------------------===//
 //
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -209,11 +227,7 @@ ABIArgInfo SPIRVABIInfo::classifyKernelArgumentType(QualType Ty) const {
     auto GlobalAS = getContext().getTargetAddressSpace(LangAS::cuda_device);
     auto *PtrTy = llvm::dyn_cast<llvm::PointerType>(LTy);
     if (PtrTy && PtrTy->getAddressSpace() == DefaultAS) {
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       LTy = llvm::PointerType::get(PtrTy->getContext(), GlobalAS);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      LTy = llvm::PointerType::getWithSamePointeeType(PtrTy, GlobalAS);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       return ABIArgInfo::getDirect(LTy, 0, nullptr, false);
     }
 
@@ -318,12 +332,10 @@ static llvm::Type *getSPIRVImageType(llvm::LLVMContext &Ctx, StringRef BaseType,
 llvm::Type *CommonSPIRTargetCodeGenInfo::getOpenCLType(CodeGenModule &CGM,
                                                        const Type *Ty) const {
   llvm::LLVMContext &Ctx = CGM.getLLVMContext();
-  if (Ctx.supportsTypedPointers())
-    return nullptr;
 #if INTEL_CUSTOMIZATION
   if (isa<ChannelType>(Ty))
     return llvm::TargetExtType::get(Ctx, "spirv.Channel");
-#endif
+#endif // INTEL_CUSTOMIZATION
   if (auto *PipeTy = dyn_cast<PipeType>(Ty))
     return llvm::TargetExtType::get(Ctx, "spirv.Pipe", {},
                                     {!PipeTy->isReadOnly()});

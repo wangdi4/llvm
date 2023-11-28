@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -ffreestanding -triple i686-unknown-linux-gnu -emit-llvm %s -opaque-pointers -o - | FileCheck %s --check-prefix=X86
-// RUN: %clang_cc1 -ffreestanding -triple x86_64-unknown-linux-gnu -emit-llvm %s -opaque-pointers -o - | FileCheck %s --check-prefix=X64
+// RUN: %clang_cc1 -ffreestanding -triple i686-unknown-linux-gnu -emit-llvm %s -o - | FileCheck %s --check-prefix=X86
+// RUN: %clang_cc1 -ffreestanding -triple x86_64-unknown-linux-gnu -emit-llvm %s -o - | FileCheck %s --check-prefix=X64
 
 #include <immintrin.h>
 

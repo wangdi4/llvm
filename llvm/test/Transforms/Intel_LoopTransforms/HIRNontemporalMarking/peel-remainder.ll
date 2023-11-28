@@ -5,7 +5,33 @@ target triple = "x86_64-unknown-linux-gnu"
 ; mapped to -hir-nontemporal-cacheline-count=0) vector peel/remainder loops are
 ; not marked for nontemporal stores.
 
-; Before:
+; Before vectorization:
+; <0>  BEGIN REGION { }
+; <11>       %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+; <11>       <LVAL-REG> NON-LINEAR token %entry.region {sb:9}
+; <11>
+; <10>
+; <10>       + Ztt: No
+; <10>       + NumExits: 1
+; <10>       + Innermost: Yes
+; <10>       + HasSignedIV: Yes
+; <10>       + LiveIn symbases: 6
+; <10>       + LiveOut symbases:
+; <10>       + Loop metadata: No
+; <10>       + DO i64 i1 = 0, 6400000, 1   <DO_LOOP>
+; <4>        |   (%dest)[i1] = i1;
+; <4>        |   <LVAL-REG> {al:8}(LINEAR ptr %dest)[LINEAR i64 i1] inbounds  {sb:8}
+; <4>        |      <BLOB> LINEAR ptr %dest {sb:6}
+; <4>        |   <RVAL-REG> LINEAR i64 i1 {sb:2}
+; <4>        |
+; <10>       + END LOOP
+; <10>
+; <12>       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
+; <12>       <RVAL-REG> NON-LINEAR token %entry.region {sb:9}
+; <12>
+; <0>  END REGION
+
+; After vectorization, before nontemporal marking:
 ; <0>  BEGIN REGION { modified }
 ; <15>       %.vec = ptrtoint.<8 x i64*>.<8 x i64>(&((<8 x i64*>)(%dest)[0]));
 ; <16>       %.vec1 = %.vec  /u  8;
@@ -87,7 +113,7 @@ define void @example(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-NOT:           !nontemporal
 ;     CHECK:       + END LOOP
 ; CHECK-NOT:          @llvm.x86.sse.sfence();
-;     CHECK:       + DO i64 i1 = %{{.*}}, %{{.*}}, 8   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+;     CHECK:       + DO i64 i1 = %{{.*}}, %{{.*}}, 8   <DO_LOOP>  <MAX_TC_EST = 800000> <LEGAL_MAX_TC = 800000> <auto-vectorized> <nounroll> <novectorize> <max_trip_count = 800000>
 ;     CHECK:           !nontemporal
 ;     CHECK:       + END LOOP
 ;     CHECK:          @llvm.x86.sse.sfence();

@@ -52,7 +52,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 
@@ -84,7 +84,7 @@ private:
   // Verbosity level for generating remarks using Loop Opt Report
   // framework (under -qopt-report).
   OptReportVerbosity::Level ORVerbosity = OptReportVerbosity::None;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 };
 
 namespace vpo {
@@ -114,7 +114,7 @@ private:
   // Verbosity level for generating remarks using Loop Opt Report
   // framework (under -qopt-report).
   OptReportVerbosity::Level ORVerbosity = OptReportVerbosity::None;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace vpo

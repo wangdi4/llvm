@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 -fhls -O0 -triple x86_64-unknown-linux-gnu -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -O0 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
 
 #define SIZE 10
 unsigned char ucharVar[SIZE];

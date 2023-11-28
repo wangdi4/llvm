@@ -1,5 +1,5 @@
+#include "CL/cl.h"
 #include "FrameworkTest.h"
-#include <CL/cl.h>
 
 extern cl_device_type gDeviceType;
 

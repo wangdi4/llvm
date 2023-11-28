@@ -113,7 +113,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
-define double @gemm(double* %A, double* %B, i64 %N, i64 %M, i64 %K) #0 {
+define double @gemm(ptr %A, ptr %B, i64 %N, i64 %M, i64 %K) #0 {
 entry:
   %L1.ztt = icmp sgt i64 %M, 0
   %L2.ztt = icmp sgt i64 %N, 0
@@ -125,8 +125,8 @@ L0:
   %h = phi i64 [ 0, %entry ], [ %h.next, %L0.latch ]
   %sum = phi double [ 0.0, %entry ], [%sum.final.L1, %L0.latch ]
   %B_mat = mul nuw nsw i64 %h, %KM
-  %Bfirst_ptr = getelementptr inbounds double, double* %B, i64 %B_mat
-  %Bfirst = load double, double* %Bfirst_ptr
+  %Bfirst_ptr = getelementptr inbounds double, ptr %B, i64 %B_mat
+  %Bfirst = load double, ptr %Bfirst_ptr
   %Bcheck = fcmp une double %Bfirst, 0.0
   br i1 %Bcheck, label %L1.zttif, label %L0.latch
 
@@ -157,13 +157,13 @@ L3:
   %k = phi i64 [ 0, %L3.pre ], [ %k.next, %L3 ]
   %sum.L3 = phi double [ %sum.L2, %L3.pre ], [ %sum.next, %L3 ]
   %A_ind = add nuw nsw i64 %A_row, %k
-  %Aikp = getelementptr inbounds double, double* %A, i64 %A_ind
-  %Aik = load double, double* %Aikp
+  %Aikp = getelementptr inbounds double, ptr %A, i64 %A_ind
+  %Aik = load double, ptr %Aikp
   %B_row_off = mul nuw nsw i64 %k, %M
   %B_row = add nuw nsw i64 %B_mat, %B_row_off
   %B_ind = add nuw nsw i64 %B_row, %j
-  %Bkjp = getelementptr inbounds double, double* %B, i64 %B_ind
-  %Bkj = load double, double* %Bkjp
+  %Bkjp = getelementptr inbounds double, ptr %B, i64 %B_ind
+  %Bkj = load double, ptr %Bkjp
   %AikBkj = fmul nnan nsz arcp afn reassoc double %Aik, %Bkj
   %sum.next = fadd double %sum.L3, %AikBkj
   %k.next = add nuw nsw i64 %k, 1

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2023 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,19 +14,17 @@
 
 #pragma once
 
+#include "CL/cl.h"
 #include "GeneratorConfig.h"
 #include "IProgramConfiguration.h"
+#include "cl_device_api.h"
 #include "mem_utils.h"
-
-#include "CL/cl.h"
 #include "tinyxml_wrapper.h"
 #include "llvm/Support/DataTypes.h"
-#include <cl_device_api.h>
-#include <list>
-#include <vector>
-
 #include <iomanip>
 #include <iostream>
+#include <list>
+#include <vector>
 
 namespace Validation {
 enum DataFileType { Binary, Xml, Random, Config };

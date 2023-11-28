@@ -6,7 +6,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @divergentInnerLoopIV(i32* nocapture %a, i64* nocapture %b, i64* nocapture %c) local_unnamed_addr #0 {
+define dso_local void @divergentInnerLoopIV(ptr nocapture %a, ptr nocapture %b, ptr nocapture %c) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: divergentInnerLoopIV:outer.loop.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -32,10 +32,10 @@ define dso_local void @divergentInnerLoopIV(i32* nocapture %a, i64* nocapture %b
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_A_GEP:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INNER_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_A_LOAD:%.*]] = load i32* [[VP_A_GEP]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_B_GEP:%.*]] = getelementptr inbounds i64* [[B0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_INNER_IV]] i64* [[VP_B_GEP]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_A_GEP:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_INNER_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_A_LOAD:%.*]] = load ptr [[VP_A_GEP]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_B_GEP:%.*]] = getelementptr inbounds i64, ptr [[B0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_INNER_IV]] ptr [[VP_B_GEP]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INNER_IV_ADD]] = add i64 [[VP_INNER_IV]] i64 1 (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT:%.*]] = icmp eq i64 [[VP_INNER_IV_ADD]] i64 512 (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB5]] (SVAOpBits 0->F )
@@ -82,11 +82,11 @@ outer.loop.body:
 inner.loop:
   %inner.iv = phi i64 [ %add1, %outer.loop.body ], [ %inner.iv.add, %inner.loop ]
   ; Scalar user of inner IV
-  %a.gep = getelementptr inbounds i32, i32* %a, i64 %inner.iv
-  %a.load = load i32, i32* %a.gep, align 4
+  %a.gep = getelementptr inbounds i32, ptr %a, i64 %inner.iv
+  %a.load = load i32, ptr %a.gep, align 4
   ; Vector user of inner IV
-  %b.gep = getelementptr inbounds i64, i64* %b, i64 %indvars.iv
-  store i64 %inner.iv, i64* %b.gep
+  %b.gep = getelementptr inbounds i64, ptr %b, i64 %indvars.iv
+  store i64 %inner.iv, ptr %b.gep
   %inner.iv.add = add i64 %inner.iv, 1
   %inner.exit = icmp eq i64 %inner.iv.add, 512
   br i1 %inner.exit, label %outer.loop.exit, label %inner.loop
@@ -103,7 +103,7 @@ DIR.OMP.END.SIMD.3:
 
 ; Below test was crashing without the fix to synchronize back propagation with
 ; forward propagation.
-define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unnamed_addr #0 {
+define dso_local void @backPropUniformInst(ptr nocapture %a, i64 %b) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: backPropUniformInst:outer.loop.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -129,7 +129,7 @@ define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unna
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Uni, SVA: ( V )] store i64 [[VP_INNER_IV]] i64* [[A0:%.*]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Uni, SVA: ( V )] store i64 [[VP_INNER_IV]] ptr [[A0:%.*]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_UNI_OP:%.*]] = mul i64 [[B0:%.*]] i64 42 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 [[VP_UNI_OP]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 1024 (SVAOpBits 0->V 1->V )
@@ -176,7 +176,7 @@ outer.loop.body:
 
 inner.loop:
   %inner.iv = phi i64 [ %iv.add, %outer.loop.body ], [ %inner.iv.next, %inner.loop ]
-  store i64 %inner.iv, i64* %a
+  store i64 %inner.iv, ptr %a
   %uni.op = mul i64 %b, 42
   %inner.iv.next = add nuw nsw i64 %inner.iv, %uni.op
   %inner.exit = icmp eq i64 %inner.iv.next, 1024

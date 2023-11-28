@@ -10,13 +10,11 @@ f:
   ret void
 }
 
-; We just make sure this pass doesn't crash and generates the definition
-; following function.
-; CHECK: define [7 x i64] @WG.boundaries.func(ptr addrspace(1) noalias %{{.*}})
+; We just make sure this pass doesn't crash.
+; CHECK: define void @func
 
 !sycl.kernels =  !{!0}
 !0 = !{ ptr @func }
 !1 = !{i1 true}
 
-; DEBUGIFY-COUNT-14: Instruction with empty DebugLoc in function WG.boundaries.
 ; DEBUGIFY-NOT: WARNING

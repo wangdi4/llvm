@@ -1,7 +1,7 @@
 ; Verify that HIRParVecAnalysis bails out for function calls that
 ; don't match expected LibFunc's call signature.
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-optreport-emitter" -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-cg,simplifycfg,intel-ir-optreport-emitter" -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s
 
 ; CHECK-NOT: DIR.VPO.AUTO.VEC
 ; CHECK: remark #15527: Loop was not vectorized: function call to  cannot be vectorized

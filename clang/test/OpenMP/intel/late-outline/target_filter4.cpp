@@ -46,11 +46,10 @@ void bar() {
 
 //CHECK: define {{.*}}bar{{.*}}#[[CONTAINS_TARGET:[0-9]+]]
 //CHECK: define {{.*}}minus{{.*}}#[[TARGET_DECLARE:[0-9]+]]
-//CHECK: define {{.*}}_ZN2CCIdED2Ev{{.*}}#[[TARGET_DECLARE_NOMUSTPROGRESS:[0-9]+]]
-//CHECK: define {{.*}}_ZN2CCIdEC2ERKd{{.*}}#[[TARGET_DECLARE_NOMUSTPROGRESS]]
+//CHECK: define {{.*}}_ZN2CCIdED2Ev{{.*}}#[[TARGET_DECLARE]]
+//CHECK: define {{.*}}_ZN2CCIdEC2ERKd{{.*}}#[[TARGET_DECLARE]]
 
 //CHECK: attributes #[[CONTAINS_TARGET]] = {{.*}}"contains-openmp-target"="true"
 //CHECK: attributes #[[TARGET_DECLARE]] = {{.*}}"openmp-target-declare"="true"
-//CHECK: attributes #[[TARGET_DECLARE_NOMUSTPROGRESS]] = {{.*}}"openmp-target-declare"="true"
 
 // end INTEL_COLLAB

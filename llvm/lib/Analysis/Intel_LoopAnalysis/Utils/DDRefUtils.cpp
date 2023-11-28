@@ -1,6 +1,6 @@
 //===-------- DDRefUtils.cpp - Implements DDRefUtils class ----------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -13,11 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/ConstantFolding.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 
 using namespace llvm;
 using namespace loopopt;
@@ -59,9 +60,6 @@ RegDDRef *DDRefUtils::createGEPRef(Type *BasePtrElementType, unsigned BasePtrBlo
   RegDDRef *Ref = createRegDDRef(SB);
   auto BaseCE =
       getCanonExprUtils().createSelfBlobCanonExpr(BasePtrBlobIndex, Level);
-
-  assert(cast<PointerType>(BaseCE->getDestType()->getScalarType())->isOpaqueOrPointeeTypeMatches(BasePtrElementType)
-         && "Incorrect base ptr element type!");
 
   Ref->setBaseCE(BaseCE);
   Ref->setBasePtrElementType(BasePtrElementType);
@@ -136,6 +134,10 @@ RegDDRef *DDRefUtils::createConstDDRef(Value *Val) {
   // stores it in the Const field of the canon expression.
   if (CI && CI->getBitWidth() <= 64) {
     return createConstDDRef(Val->getType(), CI->getSExtValue());
+  }
+
+  if (isa<ConstantPointerNull>(Val)) {
+    return createNullDDRef(Val->getType());
   }
 
   RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
@@ -304,7 +306,8 @@ bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
 bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
                                        const RegDDRef *Ref2, bool RelaxedMode,
                                        unsigned NumIgnorableDims,
-                                       bool IgnoreBaseCE) {
+                                       bool IgnoreBaseCE,
+                                       bool IgnoreBasePtrElementType) {
   assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
          "Ref1 and Ref2 should be GEP DDRef");
 
@@ -313,7 +316,8 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
   // Fake refs cloned from self AddressOf refs will not have base ptr element
   // type so we will give up on refs like A[0] and A[5] if we don't skip null
   // base ptr element types.
-  if (BasePtrTy1 && BasePtrTy2 && BasePtrTy1 != BasePtrTy2) {
+  if (!IgnoreBasePtrElementType && BasePtrTy1 && BasePtrTy2 &&
+      BasePtrTy1 != BasePtrTy2) {
     return false;
   }
 
@@ -372,19 +376,30 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
   // non-collapsed refs. Which was over conservative.
   unsigned Ref1CollapsedLevels = Ref1->getNumCollapsedLevels();
   unsigned Ref2CollapsedLevels = Ref2->getNumCollapsedLevels();
+  bool SameCollapsedLevels = (Ref1CollapsedLevels == Ref2CollapsedLevels);
+  if (!SameCollapsedLevels && ((Ref1CollapsedLevels > NumIgnorableDims) ||
+                               (Ref2CollapsedLevels > NumIgnorableDims))) {
+    return false;
+  }
+
+  // If both refs are collapsed, we only mark them as having same base and shape
+  // if they are in the same collapsed loop or if they have the same indices on
+  // all levels.
   auto *Ref1Node = Ref1->getHLDDNode();
   auto *Ref2Node = Ref2->getHLDDNode();
   auto *Ref1Loop = Ref1Node ? Ref1Node->getParentLoop() : nullptr;
   auto *Ref2Loop = Ref2Node ? Ref2Node->getParentLoop() : nullptr;
-  if (((Ref1Loop != Ref2Loop) ||
-       (Ref1CollapsedLevels != Ref2CollapsedLevels)) &&
-      ((Ref1CollapsedLevels > NumIgnorableDims) ||
-       (Ref2CollapsedLevels > NumIgnorableDims))) {
-    return false;
-  }
+  bool RequireSameIndices = (Ref1Loop != Ref2Loop) &&
+                            (Ref1CollapsedLevels != 0) && SameCollapsedLevels;
 
   // Check that dimension lowers and strides are the same.
   for (unsigned DimI = 1; DimI <= NumDims; ++DimI) {
+    if (RequireSameIndices &&
+        !CanonExprUtils::areEqual(Ref1->getDimensionIndex(DimI),
+                                  Ref2->getDimensionIndex(DimI), RelaxedMode)) {
+      return false;
+    }
+
     if (!CanonExprUtils::areEqual(Ref1->getDimensionLower(DimI),
                                   Ref2->getDimensionLower(DimI), RelaxedMode)) {
       return false;
@@ -397,47 +412,20 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
       // In the highest dimension, allow mismatch if the stride and index is 0
       // as that dimension is a no-op. This can happen with fake refs which are
       // created by cloning self AddressOf refs.
+      // Also allow stride mismatch if both indices are zero as the dimension
+      // becomes irrelevant.
       if (DimI != NumDims) {
         return false;
       }
 
-      if ((!Stride1->isZero() || !Ref1->getDimensionIndex(DimI)->isZero()) &&
-          (!Stride2->isZero() || !Ref2->getDimensionIndex(DimI)->isZero())) {
+      bool Index1IsZero = Ref1->getDimensionIndex(DimI)->isZero();
+      bool Index2IsZero = Ref2->getDimensionIndex(DimI)->isZero();
+
+      if ((!Index1IsZero || !Index2IsZero) &&
+          (!Stride1->isZero() || !Index1IsZero) &&
+          (!Stride2->isZero() || !Index2IsZero)) {
         return false;
       }
-    }
-  }
-
-  return true;
-}
-
-bool DDRefUtils::haveConstDimensionDistances(const RegDDRef *Ref1,
-                                             const RegDDRef *Ref2,
-                                             bool RelaxedMode) {
-  // Dealing with GEP refs only
-  assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
-         "Both refs are expected to be memrefs");
-  if (Ref1 == Ref2) {
-    return true;
-  }
-
-  if (!DDRefUtils::haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode)) {
-    return false;
-  }
-
-  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
-    const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
-    const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
-
-    // Do not allow different offsets in outer dimensions.
-    if (I != 1 && DDRefUtils::compareOffsets(Ref1, Ref2, I)) {
-      return false;
-    }
-
-    bool Res =
-        CanonExprUtils::getConstDistance(Ref1CE, Ref2CE, nullptr, RelaxedMode);
-    if (!Res) {
-      return false;
     }
   }
 
@@ -528,6 +516,151 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
   return false;
 }
 
+static RegDDRef *cloneWithI8BasePtrElementType(const RegDDRef *Ref, Type *I8Ty,
+                                               uint64_t SizeMultiplier) {
+  auto *RefClone = Ref->clone();
+  RefClone->setBasePtrElementType(I8Ty);
+  // Stride is same as size of I8Type which is 1.
+  RefClone->getDimensionStride(1)->setConstant(1);
+  RefClone->getDimensionIndex(1)->multiplyByConstant(SizeMultiplier);
+  RefClone->getDimensionLower(1)->multiplyByConstant(SizeMultiplier);
+
+  // Convert trailing offsets into bytes, add them into index and remove the
+  // offsets.
+  auto Offsets = Ref->getTrailingStructOffsets(1);
+
+  if (!Offsets.empty()) {
+    auto &DL = Ref->getCanonExprUtils().getDataLayout();
+    auto DimTy = Ref->getDimensionElementType(1);
+
+    auto OffsetDist = DDRefUtils::getOffsetDistance(DimTy, DL, Offsets);
+    RefClone->getDimensionIndex(1)->addConstant(OffsetDist, true);
+    RefClone->removeTrailingStructOffsets(1);
+  }
+
+  return RefClone;
+}
+
+// Tries to change refs' base ptr element type to make them match by cloning
+// and updating their index. In the worst case both refs' base ptr element type
+// may be changed to i8.
+// Returns the cloned refs or null as applicable.
+//
+// For example-
+//
+// Ref1 : ((i32) %a)[3]
+// Ref2 : ((i16) %a)[2]
+//
+// NewRef1 : ((i8) %a)[12]
+// NewRef2 : ((i8) %a)[4]
+//
+// This allows the caller to compute a distance of 8 bytes between the two
+// refs.
+static std::pair<RegDDRef *, RegDDRef *>
+makeBasePtrElemTyConsistentForDistComputation(const RegDDRef *&Ref1,
+                                              const RegDDRef *&Ref2) {
+
+  auto *BasePtrElementTy1 = Ref1->getBasePtrElementType();
+  auto *BasePtrElementTy2 = Ref2->getBasePtrElementType();
+
+  if (BasePtrElementTy1 == BasePtrElementTy2)
+    return {nullptr, nullptr};
+
+  if (!Ref1->isSingleDimension() || !Ref2->isSingleDimension() ||
+      Ref1->getDimensionConstStride(1) == 0 ||
+      Ref2->getDimensionConstStride(1) == 0)
+    return {nullptr, nullptr};
+
+  // No need to handle mismatch if the BaseCEs are different.
+  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE()))
+    return {nullptr, nullptr};
+
+  if (!BasePtrElementTy1) {
+    auto *Ref1Clone = Ref1->clone();
+    Ref1Clone->setBasePtrElementType(BasePtrElementTy2);
+    Ref1 = Ref1Clone;
+
+    return {Ref1Clone, nullptr};
+
+  } else if (!BasePtrElementTy2) {
+    auto *Ref2Clone = Ref2->clone();
+    Ref2Clone->setBasePtrElementType(BasePtrElementTy1);
+    Ref2 = Ref2Clone;
+
+    return {nullptr, Ref2Clone};
+  }
+
+  if (!BasePtrElementTy1->isSized() || !BasePtrElementTy2->isSized())
+    return {nullptr, nullptr};
+
+  auto Size1 = Ref1->getCanonExprUtils().getTypeSizeInBytes(BasePtrElementTy1);
+  auto Size2 = Ref1->getCanonExprUtils().getTypeSizeInBytes(BasePtrElementTy2);
+
+  auto *I8Ty = Type::getInt8Ty(Ref1->getDDRefUtils().getContext());
+
+  if ((BasePtrElementTy1 != I8Ty) &&
+      (!Ref1->getDimensionIndex(1)->canMultiplyByConstant(Size1) ||
+       !Ref1->getDimensionLower(1)->canMultiplyByConstant(Size1)))
+    return {nullptr, nullptr};
+
+  if ((BasePtrElementTy2 != I8Ty) &&
+      (!Ref2->getDimensionIndex(1)->canMultiplyByConstant(Size2) ||
+       !Ref2->getDimensionLower(1)->canMultiplyByConstant(Size2)))
+    return {nullptr, nullptr};
+
+  RegDDRef *Ref1Clone = nullptr, *Ref2Clone = nullptr;
+  if (BasePtrElementTy1 != I8Ty) {
+    Ref1Clone = cloneWithI8BasePtrElementType(Ref1, I8Ty, Size1);
+    Ref1 = Ref1Clone;
+  }
+
+  if (BasePtrElementTy2 != I8Ty) {
+    Ref2Clone = cloneWithI8BasePtrElementType(Ref2, I8Ty, Size2);
+    Ref2 = Ref2Clone;
+  }
+
+  return {Ref1Clone, Ref2Clone};
+}
+
+bool DDRefUtils::haveConstDimensionDistances(const RegDDRef *Ref1,
+                                             const RegDDRef *Ref2,
+                                             bool RelaxedMode) {
+  // Dealing with GEP refs only
+  assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
+         "Both refs are expected to be memrefs");
+  if (Ref1 == Ref2) {
+    return true;
+  }
+
+  auto ClonedRefs = makeBasePtrElemTyConsistentForDistComputation(Ref1, Ref2);
+
+  // Used to deallocate refs cloned by the above function.
+  std::unique_ptr<RegDDRef> Ref1Clone(ClonedRefs.first),
+      Ref2Clone(ClonedRefs.second);
+
+  if (!DDRefUtils::haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode)) {
+    return false;
+  }
+
+  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
+    const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
+    const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
+
+    // Do not allow different offsets in outer dimensions.
+    if (I != 1 && DDRefUtils::compareOffsets(Ref1, Ref2, I)) {
+      return false;
+    }
+
+    bool Res =
+        CanonExprUtils::getConstDistance(Ref1CE, Ref2CE, nullptr, RelaxedMode);
+    if (!Res) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
                                       const RegDDRef *Ref2, unsigned LoopLevel,
                                       int64_t *Distance, bool RelaxedMode) {
@@ -535,6 +668,12 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
   if (!Ref1->hasGEPInfo() || !Ref2->hasGEPInfo()) {
     return false;
   }
+
+  auto ClonedRefs = makeBasePtrElemTyConsistentForDistComputation(Ref1, Ref2);
+
+  // Used to deallocate refs cloned by the above function.
+  std::unique_ptr<RegDDRef> Ref1Clone(ClonedRefs.first),
+      Ref2Clone(ClonedRefs.second);
 
   if (!haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode)) {
     return false;
@@ -701,6 +840,12 @@ static std::optional<bool> compareMemRefImpl(const RegDDRef *Ref1,
   if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return (Ref1->getNumDimensions() < Ref2->getNumDimensions());
   }
+
+  auto ClonedRefs = makeBasePtrElemTyConsistentForDistComputation(Ref1, Ref2);
+
+  // Used to deallocate refs cloned by the above function.
+  std::unique_ptr<RegDDRef> Ref1Clone(ClonedRefs.first),
+      Ref2Clone(ClonedRefs.second);
 
   // Check dimensions from highest to lowest.
   for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
@@ -1002,4 +1147,132 @@ void DDRefUtils::removeNoAliasScopes(
   if (auto *Scopes = AANodes.NoAlias) {
     AANodes.NoAlias = filterNoAliasScopes(Scopes, RemoveSet);
   }
+}
+
+bool DDRefUtils::isGroupAccessingContiguousMemory(
+    const SmallVectorImpl<RegDDRef *> &Group,
+    function_ref<bool(const RegDDRef *)> IsRval, const HLLoop *InnermostLoop,
+    TargetTransformInfo &TTI,
+    std::optional<int64_t> ContiguousStrideSizeThreshold) {
+
+  if (Group.empty())
+    return false;
+
+  assert(InnermostLoop && "Analyzing group without innermost loop");
+  assert(InnermostLoop->isInnermost() &&
+         "Input loop is not the innermost loop");
+
+  // This is restricted for groups with more than 1 entry
+  if (Group.size() == 1)
+    return false;
+
+  // Bail out if the number of bits that are going to be accessed is larger
+  // than the threshold. If the size was provided using the optional arg,
+  // ContigousStrideSizeThreshold, prioritize that value.
+  // If the value is -1, then the threshold will be fully ignored. This is for
+  // testing purposes. Else, use the vector width computed from TTI.
+  int64_t MaxContiguousStrideSize = 0;
+  if (ContiguousStrideSizeThreshold.has_value()) {
+    MaxContiguousStrideSize = ContiguousStrideSizeThreshold.value();
+  } else {
+    auto VectorWidth =
+        TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector);
+    MaxContiguousStrideSize = VectorWidth.getFixedValue();
+  }
+
+  if (MaxContiguousStrideSize == 0)
+    return false;
+
+  const RegDDRef *FirstRef = Group.front();
+
+  auto &DDRU = FirstRef->getDDRefUtils();
+  auto &CEU = FirstRef->getCanonExprUtils();
+  auto Level = InnermostLoop->getNestingLevel();
+  uint64_t LoadStoreSize = CEU.getTypeSizeInBytes(FirstRef->getDestType());
+
+  // The IV coefficient will be the expected number of contiguous access
+  const CanonExpr *CE = FirstRef->getDimensionIndex(1);
+  unsigned IVBlobIndex;
+  int64_t ExpectedContiguousAccessMatches;
+  CE->getIVCoeff(Level, &IVBlobIndex, &ExpectedContiguousAccessMatches);
+  if (IVBlobIndex != InvalidBlobIndex)
+    return false;
+
+  if (ExpectedContiguousAccessMatches < 2)
+    return false;
+
+  if (MaxContiguousStrideSize > 0) {
+    int64_t ExpectedAccessInBits =
+        (((int64_t)LoadStoreSize * 8) * ExpectedContiguousAccessMatches);
+    if (ExpectedAccessInBits > MaxContiguousStrideSize)
+      return false;
+  }
+
+  // OriginalGroup before delinearization should be used to check isRval().
+  // Delinearized refs are not attached to HLDDNode.
+  bool IsLoad = IsRval(Group.front());
+  const RegDDRef *PrevRef = FirstRef;
+  int64_t NumContiguousAccessMatches = 1;
+
+  for (unsigned I = 1, E = Group.size(); I < E; I++) {
+    const RegDDRef *Ref = Group[I];
+
+    // All members of the group must have the same number of dimensions and the
+    // same base CE.
+    assert(FirstRef->getNumDimensions() == Ref->getNumDimensions() &&
+           "Number of dimensions are different");
+    assert(CanonExprUtils::areEqual(FirstRef->getBaseCE(), Ref->getBaseCE()) &&
+           "Base canon expr are different");
+
+    // We are going to trace only the Refs that are loads or stores if they
+    // match the first entry.
+    // NOTE: Perhaps we can expand this in the future to check both cases in
+    // one group.
+    if (IsRval(Ref) != IsLoad)
+      continue;
+
+    int64_t DistanceInBytes = 0;
+    if (!DDRU.getConstByteDistance(Ref, PrevRef, &DistanceInBytes, true))
+      return false;
+
+    if (DistanceInBytes == 0)
+      continue;
+
+    if ((uint64_t)DistanceInBytes != LoadStoreSize)
+      return false;
+
+    NumContiguousAccessMatches++;
+
+    // Number of entries found must be at least the same as the expected number
+    // of entries.
+    //
+    // NOTE: Perhaps this condition can be relaxed in the future to enable gaps.
+    // For example, assume that the only RegDDRefs in the group are:
+    //
+    //   (%A)[4 * i1 + sext.i32.i64(%t)]
+    //   (%A)[4 * i1 + sext.i32.i64(%t) + 1]
+    //   (%A)[4 * i1 + sext.i32.i64(%t) + 2]
+    //
+    // In this case, the coefficient is 4 but we only found 3 entries. There is
+    // a gap of 1.
+    //
+    // With delinearized group, this function can return true with the first 4
+    // ref occurences.
+    //
+    // (%0)[2 * i1][4 * i2]
+    // (%0)[2 * i1][4 * i2 + 1]
+    // (%0)[2 * i1][4 * i2 + 2]
+    // (%0)[2 * i1][4 * i2 + 3]
+    // (%0)[2 * i1 + 1][4 * i2]
+    // (%0)[2 * i1 + 1][4 * i2 + 1]
+    // (%0)[2 * i1 + 1][4 * i2 + 2]
+    // (%0)[2 * i1 + 1][4 * i2 + 3]
+    //
+    if (NumContiguousAccessMatches == ExpectedContiguousAccessMatches)
+      return true;
+
+    PrevRef = Ref;
+  }
+
+  return false;
 }

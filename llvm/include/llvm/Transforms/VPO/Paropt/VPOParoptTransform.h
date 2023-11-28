@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -79,7 +79,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 #include <map>
 #include <queue>
@@ -87,6 +87,8 @@
 #include <unordered_set>
 
 namespace llvm {
+
+class MemorySSA;
 
 namespace vpo {
 
@@ -128,36 +130,40 @@ class VPOParoptTransform {
 
 public:
   /// ParoptTransform object constructor
-  VPOParoptTransform(VPOParoptModuleTransform *MT,
-                     Function *F, WRegionInfo *WI, DominatorTree *DT,
-                     LoopInfo *LI, ScalarEvolution *SE,
+  VPOParoptTransform(VPOParoptModuleTransform *MT, Function *F, WRegionInfo *WI,
+                     DominatorTree *DT, LoopInfo *LI, ScalarEvolution *SE,
                      const TargetTransformInfo *TTI, AssumptionCache *AC,
-                     const TargetLibraryInfo *TLI, AAResults *AA, int Mode,
 #if INTEL_CUSTOMIZATION
+                     const TargetLibraryInfo *TLI, AAResults *AA,
+                     MemorySSA *MSSA, int Mode,
                      OptReportVerbosity::Level ORVerbosity,
-#endif  // INTEL_CUSTOMIZATION
-                     OptimizationRemarkEmitter &ORE,
-                     unsigned OptLevel = 2,
+#else
+                     const TargetLibraryInfo *TLI, AAResults *AA, int Mode,
+#endif // INTEL_CUSTOMIZATION
+                     OptimizationRemarkEmitter &ORE, unsigned OptLevel = 2,
                      bool DisableOffload = false)
       : MT(MT), F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
-        TLI(TLI), AA(AA), Mode(Mode),
-        TargetTriple(F->getParent()->getTargetTriple()),
 #if INTEL_CUSTOMIZATION
-        ORVerbosity(ORVerbosity),
-#endif  // INTEL_CUSTOMIZATION
-        ORE(ORE), OptLevel(OptLevel),
-        DisableOffload(DisableOffload),
-        IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
-        KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
-        KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
-        KmpTaskDependInfoTy(nullptr) {
+        TLI(TLI), AA(AA), MSSA(MSSA), Mode(Mode),
+        TargetTriple(F->getParent()->getTargetTriple()),
+        ORVerbosity(ORVerbosity), ORE(ORE), OptLevel(OptLevel),
+        DisableOffload(DisableOffload), IdentTy(nullptr), TidPtrHolder(nullptr),
+        BidPtrHolder(nullptr), KmpcMicroTaskTy(nullptr),
+#else
+        TLI(TLI), AA(AA), Mode(Mode),
+        TargetTriple(F->getParent()->getTargetTriple()), ORE(ORE),
+        OptLevel(OptLevel), DisableOffload(DisableOffload), IdentTy(nullptr),
+        TidPtrHolder(nullptr), BidPtrHolder(nullptr), KmpcMicroTaskTy(nullptr),
+#endif // INTEL_CUSTOMIZATION
+        KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr),
+        KmpTaskTRedTy(nullptr), KmpTaskDependInfoTy(nullptr) {
 
 #if INTEL_CUSTOMIZATION
         // Set up Builder for generating remarks using Opt Report
         // framework (under -qopt-report).
         ORBuilder.setup(F->getContext(), ORVerbosity);
-#endif  // INTEL_CUSTOMIZATION
-      }
+#endif // INTEL_CUSTOMIZATION
+  }
 
   /// Add a temporary branch from \p W's EntryBB to ExitBB. This is to prevent
   /// optimizations from deleting the end region directive of a WRegion if it
@@ -212,7 +218,13 @@ public:
   void initializeBlocksToRegionsMap(BBToWRNMapTy &BBToWRNMap);
   /// Privatize shared items in the work region.
   bool privatizeSharedItems();
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
+
+  ~VPOParoptTransform() {
+    for (OffloadEntry *OE : OffloadEntries)
+      delete OE;
+    OffloadEntries.clear();
+  }
 
 private:
   /// A reference to the parent module transform object. It can be NULL if
@@ -245,6 +257,8 @@ private:
 
   AAResults *AA;
 
+  MemorySSA *MSSA;
+
   /// Paropt compilation mode
   int Mode;
 
@@ -259,7 +273,7 @@ private:
   /// Builder for generating remarks using Opt Report framework (under
   /// -qopt-report).
   OptReportBuilder ORBuilder;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   /// Optimization remark emitter.
   OptimizationRemarkEmitter &ORE;
@@ -325,9 +339,13 @@ private:
   /// Information about functions that may call omp_get_num_threads.
   OmpNumThreadsCallerInfo NumThreadsCallerInfo;
 
-  /// Atomic-free reduction global buffers per reduction item.
+  /// Atomic-free reduction local buffers per reduction item.
   DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedLocalBufs;
-  DenseMap<ReductionItem *, GlobalVariable *> AtomicFreeRedGlobalBufs;
+  // NOTE: MapVector is needed only for genPrivatization debug
+  // to be able to check if some global variable is a reduction buffer
+  // by scanning through the AtomicFreeRedGlobalBufs' underlying vector
+  /// Atomic-free reduction local buffers per reduction item.
+  MapVector<ReductionItem *, GlobalVariable *> AtomicFreeRedGlobalBufs;
 
   struct LocalUpdateInfo {
     BasicBlock *UpdateBB = nullptr;
@@ -567,8 +585,8 @@ private:
   bool isTargetCSA() const {
      return TargetTriple.getArch() == Triple::csa;
   }
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   /// Returns true if we are compiling for SPIRV target.
   bool isTargetSPIRV() const {
@@ -671,7 +689,7 @@ private:
                                    bool OnlyCountReductionF90DVsAsVLAs = true);
 #else
   bool setInsertionPtForVlaAllocas(WRegionNode *W);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// returns true if the input item is either a Vla or a Vla Section.
 #if INTEL_CUSTOMIZATION
@@ -682,7 +700,7 @@ private:
                                    bool OnlyCountReductionF90DVsAsVLAs = true);
 #else
   static bool getIsVlaOrVlaSection(Item *I);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// Generate code for private variables
   bool genPrivatizationCode(WRegionNode *W,
@@ -770,6 +788,11 @@ private:
   /// by DataLayout.
   std::optional<unsigned> getPrivatizationAllocaAddrSpace(const WRegionNode *W,
                                                           const Item *I) const;
+
+  /// Generate debug information describing the mapping from \p PrivValue to the
+  /// privatized \p NewPrivValue.
+  void genPrivatizationDebug(WRegionNode *W, Value *PrivValue,
+                             Value *NewPrivValue);
 
   /// Replace the variable with the privatized variable.
   /// If \p ExcludeEntryDirective is true, then uses in the entry
@@ -939,6 +962,9 @@ private:
 
   /// Check if it's array reduction (type of reduction variable is array).
   bool isArrayReduction(ReductionItem *I);
+
+  /// Check if the type of the reduction variable is non-POD
+  bool isNonPodReduction(ReductionItem *I);
 
   /// Check if we want to generate fast reduction code (including tree-like
   /// reduction, atomic and etc).
@@ -1171,8 +1197,17 @@ private:
   /// Generate the struct type kmp_task_red_input
   void genTaskTRedType();
 
-  /// breif Generate the struct type kmp_depend_info
+  /// Generate the struct type kmp_depend_info
   void genKmpTaskDependInfo();
+
+  /// Creates and populates taskt.red.rec, an array of KmpTaskTRedTy structs.
+  /// The array has as many structs as there are task red vars.
+  AllocaInst *genTaskTRedRec(WRegionNode *W, Instruction *InsertBefore,
+                             unsigned &Count);
+
+  /// Generate the call __kmpc_task_reduction_modifier_init and the
+  /// corresponding preparation.
+  void genTaskRedModifierInit(WRegionNode *W, Instruction *InsertBefore);
 
   /// Generate the call __kmpc_task_reduction_init and the corresponding
   /// preparation.
@@ -1753,8 +1788,8 @@ private:
 
   /// Check whether a given construct is supported in CSA.
   bool isSupportedOnCSA(WRegionNode *W);
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   /// Insert a flush call
   bool genFlush(WRegionNode *W);
@@ -2064,6 +2099,9 @@ private:
   ///  in the pass VPOParoptPrepare. This utility also promotes the
   ///  loop index variable into the register and performs loop rotation.
   bool regularizeOMPLoop(WRegionNode *W, bool First = true);
+
+  /// Insert kmpc_barrier for loops that are optimized away.
+  bool genBarrierForEmptyLoop(WRegionNode *W, bool IsTargetSPIRV);
 
   /// Check if loop is optimized away.
   bool isLoopOptimizedAway(WRegionNode *W);
@@ -2498,6 +2536,15 @@ private:
   /// Otherwise, it will do nothing.
   bool collapseOmpLoops(WRegionNode *W);
 
+  /// If the given region \p W is an OpenMP generic loop construct,
+  /// then this method will search for possible candidates for
+  /// fusion and auto-collapse transformation, considering
+  /// existing loops with collapse clause set provided in
+  /// \p HaveCollapse, and then perform the transformation itself.
+  bool
+  fuseAndCollapseOmpLoops(WRegionNode *W,
+                          const SmallPtrSet<WRegionNode *, 1> &HaveCollapse);
+
   /// If the given region is an OpenMP loop transformation tile construct,
   /// then the method will tile the loop nest accordingly.
   /// Otherwise, it will do nothing.
@@ -2611,16 +2658,18 @@ template <> struct OptReportTraits<vpo::WRegionNode> {
 
   static OptReport getOptReport(const ObjectHandleTy &Handle) {
     return cast_or_null<MDTuple>(
-        Handle.first.getEntryDirective()->getMetadata(OptReportTag::Root));
+        Handle.first.getEntryDirective()->getMetadata(OptReportTag::Report));
   }
 
   static void setOptReport(const ObjectHandleTy &Handle, OptReport OR) {
     assert(OR && "eraseOptReport method should be used to remove OptReport");
-    Handle.first.getEntryDirective()->setMetadata(OptReportTag::Root, OR.get());
+    Handle.first.getEntryDirective()->setMetadata(OptReportTag::Report,
+                                                  OR.get());
   }
 
   static void eraseOptReport(const ObjectHandleTy &Handle) {
-    Handle.first.getEntryDirective()->setMetadata(OptReportTag::Root, nullptr);
+    Handle.first.getEntryDirective()->setMetadata(OptReportTag::Report,
+                                                  nullptr);
   }
 
   static DebugLoc getDebugLoc(const ObjectHandleTy &Handle) {

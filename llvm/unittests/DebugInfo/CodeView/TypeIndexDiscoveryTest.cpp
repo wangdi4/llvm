@@ -249,6 +249,18 @@ static struct {
   std::vector<int64_t> Bounds = {-1, 5};
   DimConLURecord Record{IndexType, 1, Bounds};
 } DimConLU;
+
+static struct {
+  const TypeIndex IndexType{60};
+  std::vector<TypeIndex> Bounds = {TypeIndex(61)};
+  DimVarURecord Record{1, IndexType, Bounds};
+} DimVarU;
+
+static struct {
+  const TypeIndex IndexType{62};
+  std::vector<TypeIndex> Bounds = {TypeIndex(63), TypeIndex(64)};
+  DimVarLURecord Record{1, IndexType, Bounds};
+} DimVarLU;
 #endif //INTEL_CUSTOMIZATION
 }
 
@@ -644,5 +656,18 @@ TEST_F(TypeIndexIteratorTest, DimConLU) {
   using namespace leafs;
   writeTypeRecords(DimConLU.Record);
   checkTypeReferences(0, DimConLU.IndexType);
+}
+
+TEST_F(TypeIndexIteratorTest, DimVarU) {
+  using namespace leafs;
+  writeTypeRecords(DimVarU.Record);
+  checkTypeReferences(0, DimVarU.IndexType, DimVarU.Bounds[0]);
+}
+
+TEST_F(TypeIndexIteratorTest, DimVarLU) {
+  using namespace leafs;
+  writeTypeRecords(DimVarLU.Record);
+  checkTypeReferences(0, DimVarLU.IndexType, DimVarLU.Bounds[0],
+                      DimVarLU.Bounds[1]);
 }
 #endif //INTEL_CUSTOMIZATION

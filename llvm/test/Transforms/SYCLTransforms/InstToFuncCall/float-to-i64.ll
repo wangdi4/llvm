@@ -13,4 +13,4 @@ define void @sample_test(float %x, ptr %y) nounwind !kernel_arg_base_type !0 !ar
 ; DEBUGIFY-NOT: WARNING
 
 !0 = !{!"float", !"long*"}
-!1 = !{float 0.000000e+0, i64* null}
+!1 = !{float 0.000000e+0, ptr null}

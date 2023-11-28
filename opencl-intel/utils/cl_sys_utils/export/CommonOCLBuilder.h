@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2022 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,8 +16,7 @@
 #define __COMMON_OCL_BUILDER_H__
 
 #include "cl_dynamic_lib.h"
-
-#include <frontend_api.h>
+#include "frontend_api.h"
 
 namespace Intel {
 namespace OpenCL {

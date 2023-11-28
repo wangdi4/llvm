@@ -1,4 +1,4 @@
-# Copyright (C) 2017-2022 Intel Corporation
+# Copyright (C) 2017 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -149,7 +149,11 @@ function(add_opencl_library name)
                  SOVERSION ${VERSIONSTRING})
   endif(WIN32)
 
-  target_link_libraries(${name} PRIVATE ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
+  if(ARG_SHARED)
+    target_link_libraries(${name} PRIVATE ${ARG_COMPONENTS} ${ARG_LINK_LIBS})
+  else()
+    target_link_libraries(${name} INTERFACE ${ARG_COMPONENTS} ${ARG_LINK_LIBS})
+  endif()
 
   # Try to do some link time optimizations to reduce shared library size
   if(ARG_SHARED)
@@ -204,7 +208,8 @@ function(add_opencl_executable name)
   # TODO: replace with target_include_directories
   include_directories(AFTER ${ARG_INCLUDE_DIRS})
 
-  add_executable(${name} ${ARG_UNPARSED_ARGUMENTS})
+  set(LLVM_REQUIRES_EH ON)
+  add_llvm_executable(${name} ${ARG_UNPARSED_ARGUMENTS})
 
   if(ARG_EXCLUDE_FROM_ALL_BUILD)
     set_target_properties(${name} PROPERTIES EXCLUDE_FROM_ALL ON)
@@ -227,7 +232,7 @@ function(add_opencl_executable name)
                  ARCHIVE_OUTPUT_DIRECTORY ${OCL_OUTPUT_BINARY_DIR})
   endif(WIN32)
 
-  target_link_libraries(${name} ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
+  target_link_libraries(${name} PRIVATE ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
 
   install_to(${name} DESTINATION bin COMPONENT ocl-${name})
 

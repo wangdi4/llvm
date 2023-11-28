@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,11 +14,11 @@
 
 #pragma once
 
+#include "cl_device_api.h"
+#include "cl_monitor.h"
+#include "cl_types.h"
 #include "llvm/ADT/StringExtras.h"
 #include <cassert>
-#include <cl_device_api.h>
-#include <cl_monitor.h>
-#include <cl_types.h>
 #include <fstream>
 #include <iostream>
 #include <limits>

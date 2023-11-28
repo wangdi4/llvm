@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -53,7 +53,9 @@ CODEGENOPT(Dwarf64           , 1, 0) ///< -gdwarf64.
 CODEGENOPT(Dwarf32           , 1, 1) ///< -gdwarf32.
 CODEGENOPT(PreserveAsmComments, 1, 1) ///< -dA, -fno-preserve-as-comments.
 CODEGENOPT(AssumeSaneOperatorNew , 1, 1) ///< implicit __attribute__((malloc)) operator new
+CODEGENOPT(AssumeUniqueVTables , 1, 1) ///< Assume a class has only one vtable.
 CODEGENOPT(Autolink          , 1, 1) ///< -fno-autolink
+CODEGENOPT(AutoImport        , 1, 1) ///< -fno-auto-import
 CODEGENOPT(ObjCAutoRefCountExceptions , 1, 0) ///< Whether ARC should be EH-safe.
 CODEGENOPT(Backchain         , 1, 0) ///< -mbackchain
 CODEGENOPT(ControlFlowGuardNoChecks  , 1, 0) ///< -cfguard-no-checks
@@ -95,10 +97,6 @@ CODEGENOPT(EmitDTransInfo, 1, 0)
 CODEGENOPT(DisableDTransAsserts, 1, 0)
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-
-#if INTEL_COLLAB
-CODEGENOPT(OpenMPTypedClauses, 1, 0)
-#endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
 CODEGENOPT(OpenMPDeclareSIMDSPIR, 1, 0)
@@ -245,6 +243,7 @@ CODEGENOPT(HIPSaveKernelArgName, 1, 0) ///< Set when -fhip-kernel-arg-name is en
 CODEGENOPT(SYCLFp32PrecSqrt, 1, 0) ///< -fsycl-fp32-prec-sqrt
 CODEGENOPT(UniqueInternalLinkageNames, 1, 0) ///< Internal Linkage symbols get unique names.
 CODEGENOPT(SplitMachineFunctions, 1, 0) ///< Split machine functions using profile information.
+CODEGENOPT(PPCUseFullRegisterNames, 1, 0) ///< Print full register names in assembly
 
 /// When false, this attempts to generate code as if the result of an
 /// overflowing conversion matches the overflowing behavior of a target's native
@@ -255,7 +254,6 @@ CODEGENOPT(StrictFloatCastOverflow, 1, 1)
 CODEGENOPT(UseComplexIntrinsics, 1, 0) ///< Use LLVM complex intrinsics
 #endif // INTEL_CUSTOMIZATION
 
-CODEGENOPT(UniformWGSize     , 1, 0) ///< -cl-uniform-work-group-size
 CODEGENOPT(NoZeroInitializedInBSS , 1, 0) ///< -fno-zero-initialized-in-bss.
 /// Method of Objective-C dispatch to use.
 ENUM_CODEGENOPT(ObjCDispatchMethod, ObjCDispatchMethodKind, 2, Legacy)
@@ -505,6 +503,8 @@ VALUE_CODEGENOPT(InlineMaxStackSize, 32, UINT_MAX)
 // Vector functions library to use.
 ENUM_CODEGENOPT(VecLib, VectorLibrary, 3, NoLibrary)
 
+ENUM_CODEGENOPT(AltMathLib, AltMathLibrary, 3, NoAltMathLibrary)
+
 /// The default TLS model to use.
 ENUM_CODEGENOPT(DefaultTLSModel, TLSModel, 2, GeneralDynamicTLSModel)
 
@@ -526,6 +526,7 @@ CODEGENOPT(DisableCpuDispatchIFuncs, 1, 0) ///< -disable-cpudispatch-ifuncs
 /// Support for X87 floating point precision control, which can be set to
 /// single-precision, double-precision and double extended-precision.
 VALUE_CODEGENOPT(X87Precision, 8, 0)
+VALUE_CODEGENOPT(OpenMPRotateLoops, 8, 0)
 #endif // INTEL_CUSTOMIZATION
 
 /// The default stack protector guard offset to use.
@@ -612,10 +613,6 @@ ENUM_CODEGENOPT(ZeroCallUsedRegs, llvm::ZeroCallUsedRegs::ZeroCallUsedRegsKind,
 /// checksum calculations or not.
 CODEGENOPT(SYCLUseMainFileName, 1, 0)
 
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-/// Whether to use opaque pointers.
-CODEGENOPT(OpaquePointers, 1, 0)
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 /// Modify C++ ABI to returning `this` pointer from constructors and
 /// non-deleting destructors. (No effect on Microsoft ABI.)

@@ -13,9 +13,9 @@
 /// This file implements the VPTransformLibraryCalls class.
 //===---------------------------------------------------------------------===//
 #include "IntelVPTransformLibraryCalls.h"
+#include "HIR/IntelVPlanInstructionDataHIR.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
-#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 
 using namespace llvm;
 using namespace llvm::vpo;

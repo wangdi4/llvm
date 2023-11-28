@@ -1,4 +1,4 @@
-#include "CL\cl.h"
+#include "CL/cl.h"
 #include "FrameworkTest.h"
 #include "Logger.h"
 #include "cl_device_api.h"
@@ -6,6 +6,7 @@
 #include "cl_types.h"
 #include <stdio.h>
 #include <windows.h>
+
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 

@@ -8,18 +8,41 @@
 
 #pragma once
 
-#include <sycl/detail/common.hpp>
-#include <sycl/detail/owner_less_base.hpp>
-#include <sycl/detail/stl_type_traits.hpp>
-#include <sycl/detail/sycl_mem_obj_allocator.hpp>
-#include <sycl/event.hpp>
-#include <sycl/exception.hpp>
-#include <sycl/ext/oneapi/accessor_property_list.hpp>
-#include <sycl/ext/oneapi/weak_object_base.hpp>
-#include <sycl/id.hpp>
-#include <sycl/property_list.hpp>
-#include <sycl/range.hpp>
-#include <sycl/stl.hpp>
+#include <sycl/access/access.hpp>             // for placeholder
+#include <sycl/backend_types.hpp>             // for backend, backe...
+#include <sycl/context.hpp>                   // for context
+#include <sycl/detail/array.hpp>              // for array
+#include <sycl/detail/common.hpp>             // for code_location
+#include <sycl/detail/defines_elementary.hpp> // for __SYCL2020_DEP...
+#include <sycl/detail/export.hpp>             // for __SYCL_EXPORT
+#include <sycl/detail/helpers.hpp>            // for buffer_impl
+#include <sycl/detail/owner_less_base.hpp>    // for OwnerLessBase
+#include <sycl/detail/pi.h> // for pi_native_handle and PI_ERROR_INVAL
+#include <sycl/detail/property_helper.hpp> // for PropWithDataKind
+#include <sycl/detail/stl_type_traits.hpp> // for iterator_value...
+#include <sycl/detail/stl_type_traits.hpp> // for iterator_to_const_type_t
+#include <sycl/detail/sycl_mem_obj_allocator.hpp>     // for SYCLMemObjAllo...
+#include <sycl/detail/type_traits.hpp>                // for remove_pointer_t
+#include <sycl/event.hpp>                             // for event
+#include <sycl/exception.hpp>                         // for invalid_object...
+#include <sycl/ext/oneapi/accessor_property_list.hpp> // for accessor_prope...
+#include <sycl/id.hpp>                                // for id
+#include <sycl/property_list.hpp>                     // for property_list
+#include <sycl/range.hpp>                             // for range, rangeTo...
+#include <sycl/stl.hpp>                               // for make_unique_ptr
+#include <sycl/types.hpp>                             // for is_device_copyable
+
+#include <cstddef>     // for size_t, nullptr_t
+#include <functional>  // for function
+#include <iterator>    // for iterator_traits
+#include <memory>      // for shared_ptr
+#include <stdint.h>    // for uint32_t
+#include <string>      // for string
+#include <type_traits> // for enable_if_t
+#include <typeinfo>    // for type_info
+#include <utility>     // for declval, move
+#include <variant>     // for hash
+#include <vector>      // for vector
 
 namespace sycl {
 inline namespace _V1 {
@@ -145,10 +168,13 @@ template <typename T, int dimensions = 1,
               typename std::enable_if_t<(dimensions > 0) && (dimensions <= 3)>>
 class buffer : public detail::buffer_plain,
                public detail::OwnerLessBase<buffer<T, dimensions, AllocatorT>> {
-  // TODO check is_device_copyable<T>::value after converting sycl::vec into a
-  // trivially copyable class.
+#ifdef __INTEL_PREVIEW_BREAKING_CHANGES
+  static_assert(is_device_copyable_v<T>,
+                "Underlying type of a buffer must be device copyable!");
+#else
   static_assert(!std::is_same_v<T, std::string>,
                 "'std::string' is not a device copyable type");
+#endif
 
 public:
   using value_type = T;

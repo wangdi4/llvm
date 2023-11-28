@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -21,12 +21,12 @@ differ from func in result accuracy(for detailed info see section 7.4)
 
 #ifndef __NEATALU_H__
 #define __NEATALU_H__
+
 #include "FloatOperations.h"
 #include "ImagesALU.h"
 #include "IntervalError.h"
 #include "NEAT_WRAP.h"
 #include "RefALU.h"
-
 #include <algorithm>
 #include <math.h>
 #include <vector>

@@ -600,6 +600,8 @@ bool X86CmovConverterPass::checkForProfitableCmovCandidates(
       MachineInstr *Flags = OperandToDefMap.lookup(&Cmov->getOperand(4));
       X86::CondCode CC = X86::CondCode(X86::getCondFromCMov(*Cmov));
       if (Flags && (Flags->getOpcode() == X86::SUB32rr ||
+          Flags->getOpcode() == X86::SUB32rr_ND ||
+          Flags->getOpcode() == X86::SUB64rr_ND ||
            Flags->getOpcode() == X86::SUB64rr) &&
           (CC == X86::COND_L || CC == X86::COND_GE ||
            CC == X86::COND_LE || CC == X86::COND_G)) {
@@ -617,7 +619,7 @@ bool X86CmovConverterPass::checkForProfitableCmovCandidates(
         }
       }
     }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
     if (WorthOpGroup)
       CmovInstGroups.push_back(Group);

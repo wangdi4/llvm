@@ -5,14 +5,14 @@
 declare i32 @llvm.vplan.laneid()
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture readonly %a, i32 %n) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after all-zero bypass for VPlan Function vectorization:
 ; CHECK-NEXT:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP4:%.*]] = icmp slt i32 [[N0:%.*]] i32 7
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
@@ -61,8 +61,8 @@ define dso_local void @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_add
 entry:
   %lane = call i32 @llvm.vplan.laneid()
   %cmp4 = icmp slt i32 %n, 7
-  %arrayidx = getelementptr inbounds i32, i32* %a, i32 %lane
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i32 %lane
+  %0 = load i32, ptr %arrayidx, align 4
   br label %div.if
 
 div.if:

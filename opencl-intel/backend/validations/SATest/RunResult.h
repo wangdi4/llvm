@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,14 +15,12 @@
 #ifndef RUN_RESULTS_H
 #define RUN_RESULTS_H
 
+#include "BufferContainerList.h"
 #include "IBufferContainerList.h"
 #include "IComparisonResults.h"
 #include "IPerformance.h"
 #include "IRunResult.h"
-
-#include "BufferContainerList.h"
 #include "Performance.h"
-
 #include <map>
 #include <string>
 #include <vector>

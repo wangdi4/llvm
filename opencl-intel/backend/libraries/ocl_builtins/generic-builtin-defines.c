@@ -1,4 +1,4 @@
-// Copyright (C) 2012-2022 Intel Corporation
+// Copyright (C) 2012 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -23,6 +23,7 @@ const constant double generic_inv_pi_180 = 57.295779513082320876798154814105;
 const constant short half_const_signMask = 0x7FFF;
 const constant int float_const_signMask = 0x7FFFFFFF;
 const constant long double_const_signMask = 0x7FFFFFFFFFFFFFFFL;
+const constant short half_const_expMask = 0x7C00;
 const constant int float_const_expMask = 0x7f800000;
 const constant long double_const_expMask = 0x7FF0000000000000L;
 const constant float float_const_fractLimit = 0x1.fffffep-1f;

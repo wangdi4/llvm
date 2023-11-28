@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2023 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,11 +14,10 @@
 
 #include "framework_proxy.h"
 #include "Logger.h"
+#include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
-#include <cl_shared_ptr.hpp>
-#include <task_executor.h>
-
+#include "task_executor.h"
 #include "llvm/Support/Threading.h"
 
 #if defined(_WIN32)
@@ -399,10 +398,6 @@ void FrameworkProxy::Initialize() {
 
   // initialize configuration file
   m_pConfig = new OCLConfig();
-  if (nullptr == m_pConfig) {
-    // Todo: terrible crash imminent
-    return;
-  }
   m_pConfig->Initialize(GetConfigFilePath());
 
   bool bUseLogger = m_pConfig->UseLogger();
@@ -462,27 +457,6 @@ void FrameworkProxy::Initialize() {
     // Create domains
     m_GPAData.pDeviceDomain = __itt_domain_create("OpenCL.Device");
     m_GPAData.pAPIDomain = __itt_domain_create("OpenCL.API");
-
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    if (m_GPAData.bEnableContextTracing) {
-      m_GPAData.pContextDomain = __itt_domain_create("OpenCL.Context");
-
-      // Create Context task group
-      __itt_string_handle *pContextTrackGroupHandle =
-          __itt_string_handle_create("Context Track Group");
-      m_GPAData.pContextTrackGroup = __itt_track_group_create(
-          pContextTrackGroupHandle, __itt_track_group_type_normal);
-
-      // Create task states
-      assert(m_GPAData.pContextDomain && "m_GPAData.pContextDomain is nullptr");
-      m_GPAData.pWaitingTaskState =
-          __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Waiting");
-      m_GPAData.pRunningTaskState =
-          __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Running");
-    }
-#endif
-#endif // end INTEL_CUSTOMIZATION
 
     m_GPAData.pNDRangeHandle = __itt_string_handle_create("NDRange");
     m_GPAData.pReadHandle = __itt_string_handle_create("Read MemoryObject");
@@ -585,7 +559,7 @@ void FrameworkProxy::Destroy() {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Release(bool bTerminate) {
   // Intentionally disable this code on windows due to shutdown issue
-#if !_WIN32
+#if !defined(_WIN32)
   // Many modules assume that FrameWorkProxy singleton, execution_module,
   // context_module and platform_module exist all the time -> we must ensure
   // that everything is shut down before deleting them.
@@ -593,7 +567,11 @@ void FrameworkProxy::Release(bool bTerminate) {
 #endif
 
   if (nullptr != m_pExecutionModule) {
-    m_pExecutionModule->Release(bTerminate);
+#if !defined(_WIN32)
+    // Since we still have some TBB related issues on windows that have not been
+    // resolved, we can't release it yet.
+    m_pExecutionModule->Release();
+#endif
     delete m_pExecutionModule;
   }
 
@@ -603,8 +581,8 @@ void FrameworkProxy::Release(bool bTerminate) {
   }
 
   if (nullptr != m_pPlatformModule) {
-  // Intentionally disable this code on windows due to shutdown issue
-#if !_WIN32
+    // Intentionally disable this code on windows due to shutdown issue
+#if !defined(_WIN32)
     m_pPlatformModule->Release(bTerminate);
 #endif
     delete m_pPlatformModule;

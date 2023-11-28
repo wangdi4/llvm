@@ -263,7 +263,7 @@ bool X86LowerTileCopy::transformTileCopy(MachineFunction &MF) {
 
 bool X86LowerTileCopy::runOnMachineFunction(MachineFunction &MF) {
   MDT = &getAnalysis<MachineDominatorTree>();
-  if (MF.getTarget().getOptLevel() == CodeGenOpt::None)
+  if (MF.getTarget().getOptLevel() == CodeGenOptLevel::None)
     return coalesceTileCopy(MF);
   else
     return transformTileCopy(MF);

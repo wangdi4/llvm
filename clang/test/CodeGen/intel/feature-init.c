@@ -1,5 +1,5 @@
 // Check than intel_features_init_cc calling convention is applied to relevant feature init functions.
-// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O0 -disable-llvm-passes -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O0 -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
 
 int __libirc_isa_info_initialized = 0;
 int __intel_cpu_feature_indicator[2];

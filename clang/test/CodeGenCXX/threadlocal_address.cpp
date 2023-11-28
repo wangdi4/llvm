@@ -1,7 +1,7 @@
 // Test that the use of thread local variables would be wrapped by @llvm.threadlocal.address intrinsics.
 // INTEL_CUSTOMIZATION begin
-// RUN: %clang_cc1 -opaque-pointers -std=c++11 -emit-llvm -triple x86_64 -o - %s -disable-llvm-passes | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -std=c++11 -emit-llvm -triple aarch64 -o - -O1 %s | FileCheck %s -check-prefix=CHECK-O1
+// RUN: %clang_cc1 -std=c++11 -emit-llvm -triple x86_64 -o - %s -disable-llvm-passes | FileCheck %s
+// RUN: %clang_cc1 -std=c++11 -emit-llvm -triple aarch64 -o - -O1 %s | FileCheck %s -check-prefix=CHECK-O1
 // INTEL_CUSTOMIZATION end
 thread_local int i;
 int g() {

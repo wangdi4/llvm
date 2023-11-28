@@ -70,7 +70,7 @@ class HexagonSubtarget : public HexagonGenSubtargetInfo {
 public:
   Hexagon::ArchEnum HexagonArchVersion;
   Hexagon::ArchEnum HexagonHVXVersion = Hexagon::ArchEnum::NoArch;
-  CodeGenOpt::Level OptLevel;
+  CodeGenOptLevel OptLevel;
   /// True if the target should use Back-Skip-Back scheduling. This is the
   /// default for V60.
   bool UseBSBScheduling;
@@ -95,11 +95,11 @@ private:
   enum HexagonProcFamilyEnum { Others, TinyCore };
 
   std::string CPUString;
+  HexagonProcFamilyEnum HexagonProcFamily = Others;
   Triple TargetTriple;
 
   // The following objects can use the TargetTriple, so they must be
   // declared after it.
-  HexagonProcFamilyEnum HexagonProcFamily = Others;
   HexagonInstrInfo InstrInfo;
   HexagonRegisterInfo RegInfo;
   HexagonTargetLowering TLInfo;

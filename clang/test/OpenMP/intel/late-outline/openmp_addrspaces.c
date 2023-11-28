@@ -1,17 +1,17 @@
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -fopenmp    \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp    \
 //RUN:  -fopenmp-late-outline -fopenmp-targets=spir64,x86_64   \
 //RUN:  %s -emit-llvm -o - | FileCheck %s -check-prefix=HOST
 
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -fopenmp    \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp    \
 //RUN:  -fopenmp-late-outline -fopenmp-targets=spir64,x86_64   \
 //RUN:  %s -emit-llvm-bc -o %t-host.bc
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 -aux-triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple spir64 -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -fopenmp -fopenmp-late-outline -fopenmp-targets=spir64,x86_64 \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t-host.bc \
 //RUN:  %s -emit-llvm -o - | FileCheck %s -check-prefix=SPIR
 
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64 -aux-triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64 -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -fopenmp -fopenmp-late-outline -fopenmp-targets=spir64,x86_64 \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t-host.bc \
 //RUN:  %s -emit-llvm -o - | FileCheck %s -check-prefix=HOST

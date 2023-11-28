@@ -8,10 +8,10 @@
 ; identified as unit-strided and strided respectively.
 ; CHECK:       Divergent: [Shape: Random] i64 [[UPDATED_PHI:%.*]] = phi  [ i64 4242, {{BB.*}} ],  [ i64 [[INNER_IV_LIVE_OUT:%.*]], {{BB.*}} ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[DIV_USER_ADD:%.*]] = add i64 [[UPDATED_PHI]] i64 [[OUTER_UNIT_STRIDE:%.*]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 addrspace(1)* [[GEP_USING_ADD:%.*]] = getelementptr inbounds i32 addrspace(1)* [[UNI_ADDRESS:.*]] i64 [[DIV_USER_ADD]]
-; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[STORED_VAL:%vp.*]] i32 addrspace(1)* [[GEP_USING_ADD]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr addrspace(1) [[GEP_USING_ADD:%.*]] = getelementptr inbounds i32, ptr addrspace(1) [[UNI_ADDRESS:.*]] i64 [[DIV_USER_ADD]]
+; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[STORED_VAL:%vp.*]] ptr addrspace(1) [[GEP_USING_ADD]]
 
-define dso_local void @foo(i32 addrspace(1)** %uni0, i32 addrspace(1)** %uni1, i64* %uni2, i64* %uni3) {
+define dso_local void @foo(ptr %uni0, ptr %uni1, ptr %uni2, ptr %uni3) {
   %1 = add i64 42, 42
   br label %simd.begin.region
 
@@ -20,24 +20,24 @@ simd.begin.region:                                ; preds = %14
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load.22 = load i64, i64* %uni2
-  %load.17 = load i64, i64* %uni3
+  %load.22 = load i64, ptr %uni2
+  %load.17 = load i64, ptr %uni3
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.preheader
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
   %2 = sext i32 %index to i64
   %add = add nuw i64 %2, %1
-  %3 = load i32 addrspace(1)*, i32 addrspace(1)** %uni0
-  %4 = load i32 addrspace(1)*, i32 addrspace(1)** %uni1
+  %3 = load ptr addrspace(1), ptr %uni0
+  %4 = load ptr addrspace(1), ptr %uni1
   %5 = sub i64 %add, %1
   %6 = icmp ult i64 %5, %load.17
   br i1 %6, label %7, label %25
 
 7:                                               ; preds = %simd.loop
-  %8 = load i32 addrspace(1)*, i32 addrspace(1)** %uni1
-  %9 = getelementptr inbounds i32, i32 addrspace(1)* %8, i64 %5
-  %10 = load i32, i32 addrspace(1)* %9, align 4
+  %8 = load ptr addrspace(1), ptr %uni1
+  %9 = getelementptr inbounds i32, ptr addrspace(1) %8, i64 %5
+  %10 = load i32, ptr addrspace(1) %9, align 4
   %11 = icmp eq i64 %load.22, 0
   br i1 %11, label %inner.loopbypass, label %innerloop.preheader
 
@@ -49,8 +49,8 @@ innerloop.header:                                     ; preds = %innerloop.prehe
   %innerloop.iv = phi i64 [ %20, %innerloop.header ], [ 0, %innerloop.preheader ]
   %12 = lshr i64 %outer.uni.load, 1
   %13 = add i64 %12, %innerloop.iv
-  %14 = getelementptr inbounds i32, i32 addrspace(1)* %3, i64 %13
-  %15 = load i32, i32 addrspace(1)* %14, align 4
+  %14 = getelementptr inbounds i32, ptr addrspace(1) %3, i64 %13
+  %15 = load i32, ptr addrspace(1) %14, align 4
   %16 = icmp slt i32 %15, %10
   %17 = xor i64 %12, -1
   %18 = add i64 %outer.uni.load, %17
@@ -67,8 +67,8 @@ inner.loopexit: ; preds = %innerloop.header
 inner.loopbypass: ; preds = %inner.loopexit, %7
   %innerloop.iv.lcssa = phi i64 [ 4242, %7 ], [ %.lcssa, %inner.loopexit ]
   %23 = add i64 %innerloop.iv.lcssa, %5
-  %24 = getelementptr inbounds i32, i32 addrspace(1)* %4, i64 %23
-  store i32 %10, i32 addrspace(1)* %24, align 4
+  %24 = getelementptr inbounds i32, ptr addrspace(1) %4, i64 %23
+  store i32 %10, ptr addrspace(1) %24, align 4
   br label %25
 
 25:                                               ; preds = %inner.loopbypass, %simd.loop
@@ -76,12 +76,12 @@ inner.loopbypass: ; preds = %inner.loopexit, %7
   br i1 %26, label %27, label %outer.loopexit
 
 27:                                               ; preds = %25
-  %28 = getelementptr inbounds i32, i32 addrspace(1)* %3, i64 %5
-  %29 = load i32, i32 addrspace(1)* %28, align 4
+  %28 = getelementptr inbounds i32, ptr addrspace(1) %3, i64 %5
+  %29 = load i32, ptr addrspace(1) %28, align 4
   %factor.i.i = shl i64 %5, 1
   %30 = or i64 %factor.i.i, 1
-  %31 = getelementptr inbounds i32, i32 addrspace(1)* %4, i64 %30
-  store i32 %29, i32 addrspace(1)* %31, align 4
+  %31 = getelementptr inbounds i32, ptr addrspace(1) %4, i64 %30
+  store i32 %29, ptr addrspace(1) %31, align 4
   br label %outer.loopexit
 
 outer.loopexit: ; preds = %27, %25

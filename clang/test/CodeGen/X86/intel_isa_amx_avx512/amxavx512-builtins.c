@@ -77,10 +77,3 @@ void test_tile_movrow(uint32_t A) {
   // CHECK: %1 = call <16 x float> @llvm.x86.tilemovee(i8 1, i32 %0)
   _tile_movrow(1, A);
 }
-
-typedef float __m128 __attribute__((__vector_size__(16)));
-void test_tile_movrowx(__m128 A) {
-  // CHECK-LABEL: @test_tile_movrowx
-  // CHECK: %1 = call <16 x float> @llvm.x86.tilemovex(i8 1, <4 x float> %0)
-  _tile_movrowx(1, A);
-}

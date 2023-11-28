@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,8 +17,8 @@
 #include "CLElfTypes.h"
 #include "ElfReader.h"
 #include "ElfWriter.h"
-#include "assert.h"
 #include "elf_binary.h"
+#include <assert.h>
 
 namespace Intel {
 namespace OpenCL {

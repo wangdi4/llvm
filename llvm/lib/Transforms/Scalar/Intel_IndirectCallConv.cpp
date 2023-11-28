@@ -1,6 +1,6 @@
 //===- Intel_IndirectCallConv.cpp - Indirect call Conv transformation -===//
 //
-// Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -522,8 +522,7 @@ PreservedAnalyses IndirectCallConvPass::run(Module &M,
                             ? &MAM.getResult<AndersensAA>(M)
                             : nullptr;
 #if INTEL_FEATURE_SW_DTRANS
-  auto *DTransSI = (!M.getContext().supportsTypedPointers() &&
-                    (UseDTrans || IndCallConvForceDTrans))
+  auto *DTransSI = (UseDTrans || IndCallConvForceDTrans)
                        ? &MAM.getResult<dtransOP::DTransSafetyAnalyzer>(M)
                        : nullptr;
   if (!AnderPointsTo && !DTransSI)

@@ -1,4 +1,19 @@
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2023 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
 //===--- omptarget-opencl.cl - OpenMP device runtime for OpenCL -----------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -18,11 +33,17 @@
 /// Runtime data stored in global address space
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 kmp_global_state_t __omp_spirv_global_data = {
   .g_barrier = {{ATOMIC_VAR_INIT(0u), ATOMIC_VAR_INIT(0u)}},
   .assume_simple_spmd_mode = 1,
   .spmd_num_threads = 0
 };
+
+kmp_local_state_t __omp_spirv_local_data[KMP_MAX_NUM_GROUPS];
+
+kmp_thread_state_t __omp_spirv_thread_data[KMP_MAX_NUM_GROUPS];
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 kmp_program_data_t __omp_spirv_program_data = {
   .initialized = 0,
@@ -38,10 +59,6 @@ kmp_program_data_t __omp_spirv_program_data = {
 };
 
 ushort __omp_spirv_spmd_num_threads[KMP_MAX_SPMD_NUM_GROUPS];
-
-kmp_local_state_t __omp_spirv_local_data[KMP_MAX_NUM_GROUPS];
-
-kmp_thread_state_t __omp_spirv_thread_data[KMP_MAX_NUM_GROUPS];
 
 // Host to target pointer map for user functions that may be called indirectly.
 __attribute__((weak)) __global __omp_offloading_fptr_map_t *
@@ -80,4 +97,4 @@ EXTERN void *__kmpc_target_translate_fptr(ulong fn_ptr) {
   return (void *)fn_ptr;
 }
 
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION

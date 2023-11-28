@@ -1,6 +1,6 @@
 //===----- HIRSSADeconstruction.cpp - Deconstructs SSA for HIR ------------===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -156,10 +156,7 @@ private:
                           Module *M) const;
 
   /// Returns true if Inst is a livein copy for IV update: i = i + 1.
-  /// \p PhiUnderAnalysis is the phi for which we are adding the livein phi and
-  /// checking whether \p Inst can be considered an IV update inst and the
-  /// livein copy of phi can be added before this inst.
-  bool isIVUpdateLiveInCopy(Instruction *Inst, PHINode *PhiUnderAnalysis) const;
+  bool isIVUpdateLiveInCopy(Instruction *Inst) const;
 
   /// Inserts livein copy of \p Val which is operand of \p Phi at the end of BB.
   void insertLiveInCopy(PHINode *Phi, Value *Val, BasicBlock *BB,
@@ -390,8 +387,7 @@ Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
   return CInst;
 }
 
-bool HIRSSADeconstruction::isIVUpdateLiveInCopy(
-    Instruction *Inst, PHINode *PhiUnderAnalysis) const {
+bool HIRSSADeconstruction::isIVUpdateLiveInCopy(Instruction *Inst) const {
 
   if (!isa<CallInst>(Inst) || !ScopedSE->isSCEVable(Inst->getType())) {
     return false;
@@ -409,11 +405,11 @@ bool HIRSSADeconstruction::isIVUpdateLiveInCopy(
     return false;
   }
 
-  auto *Phi = dyn_cast<PHINode>(Inst->getOperand(0));
+  auto *LiveInCopyPhi = dyn_cast<PHINode>(Inst->getOperand(0));
   // IV update instruction is typically something like an add/sub/gep etc.
   // Header phis as livein copy operand indicate phi dependency and treating
   // them as IV update can result in incorrect deconstruction.
-  if (Phi && RI->isHeaderPhi(Phi)) {
+  if (LiveInCopyPhi && RI->isHeaderPhi(LiveInCopyPhi)) {
     return false;
   }
 
@@ -421,13 +417,13 @@ bool HIRSSADeconstruction::isIVUpdateLiveInCopy(
     return false;
   }
 
-  const SCEV *PhiSCEV = ScopedSE->getUnknown(PhiUnderAnalysis);
+  // Even if Inst is classified as linear, its AddRec orm may be in terms of
+  // inner loop IV, therefore we need to check its SCEVAtScope form.
+  auto *SC = ScopedSE->getSCEVAtScope(ScopedSE->getSCEV(Inst), ParentLp);
 
-  auto SC = ScopedSE->getSCEV(Inst);
+  auto *AddRecSC = dyn_cast<SCEVAddRecExpr>(SC);
 
-  // If Inst uses Phi in its SCEV form, reordering the livein copies is
-  // incorrect.
-  if (ScopedSE->hasOperand(SC, PhiSCEV)) {
+  if (!AddRecSC || (AddRecSC->getLoop() != ParentLp)) {
     return false;
   }
 
@@ -445,14 +441,17 @@ void HIRSSADeconstruction::insertLiveInCopy(PHINode *Phi, Value *Val,
   // We need to keep IV update copies last in the bblock or we may encounter a
   // live-range issue when IV is parsed as a blob in one of the non-linear
   // values.
-  // If Phi is not a SCEVAble type, it cannot cause live-range issues with IV.
-  if (ScopedSE->isSCEVable(Phi->getType())) {
+  // If Phi is not a SCEVAble type or an IV itself, it cannot cause live-range
+  // issues with IV.
+  if (ScopedSE->isSCEVable(Phi->getType()) &&
+      !isa<SCEVAddRecExpr>(ScopedSE->getSCEV(Phi))) {
+
     // The following loop moves the insertion point to point to first IV update
     // copy.
     for (auto FirstInst = BB->begin(); InsertionPoint != FirstInst;) {
       auto PrevInst = std::prev(InsertionPoint);
 
-      if (!isIVUpdateLiveInCopy(&*PrevInst, Phi)) {
+      if (!isIVUpdateLiveInCopy(&*PrevInst)) {
         break;
       }
 
@@ -1365,6 +1364,8 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
   }
 
   IntrinsicInst *RegionEntryIntrin = nullptr;
+  bool EntryIsNonLoopBlock = CurRegIt->isNonLoopBlock(RegionEntryBB);
+
   if (CurRegIt->isLoopMaterializationCandidate()) {
     ModifiedIR = true;
 
@@ -1395,7 +1396,7 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
 
     splitNonLoopRegionExit(SplitPos);
 
-  } else if (CurRegIt->isNonLoopBlock(RegionEntryBB) &&
+  } else if (EntryIsNonLoopBlock &&
              (RegionEntryIntrin =
                   vpo::VPOAnalysisUtils::getBeginDirective(RegionEntryBB))) {
     // Look for region entry intrinsic in the entry bblock and split the bblock
@@ -1421,7 +1422,15 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
     splitNonLoopRegionExit(RegionExitIntrin->getNextNode());
 
   } else {
-    // Region created for fusion.
+    // Region created for fusion and/or preheader of first loop included.
+
+    if (EntryIsNonLoopBlock) {
+      auto *NewEntryBB =
+          SplitBlock(RegionEntryBB, RegionEntryBB->getFirstNonPHI(), DT, LI);
+      CurRegIt->replaceEntryBBlock(NewEntryBB);
+
+      ModifiedIR = true;
+    }
 
     // Exit is from the loop latch so we split the exiting edge instead of
     // splitting the exit block.

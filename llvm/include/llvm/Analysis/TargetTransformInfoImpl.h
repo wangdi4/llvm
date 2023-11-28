@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -86,6 +86,10 @@ public:
   }
 
   unsigned getInliningThresholdMultiplier() const { return 1; }
+  unsigned getInliningCostBenefitAnalysisSavingsMultiplier() const { return 8; }
+  unsigned getInliningCostBenefitAnalysisProfitableMultiplier() const {
+    return 8;
+  }
   unsigned adjustInliningThreshold(const CallBase *CB) const { return 0; }
   unsigned getCallerAllocaCost(const CallBase *CB, const AllocaInst *AI) const {
     return 0;
@@ -224,7 +228,9 @@ public:
                                TTI::UnrollingPreferences &,
                                OptimizationRemarkEmitter *) const {}
 
+#if INTEL_CUSTOMIZATION
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const { return 16; }
+#endif // INTEL_CUSTOMIZATION
   void getPeelingPreferences(Loop *, ScalarEvolution &,
                              TTI::PeelingPreferences &) const {}
 
@@ -491,7 +497,7 @@ public:
   }
 
   TypeSize getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
-    return TypeSize::getFixed(32);
+    return TypeSize::Fixed(32);
   }
 
   unsigned getMinVectorRegisterBitWidth() const { return 128; }
@@ -702,16 +708,16 @@ public:
     return 1;
   }
 
-  InstructionCost
-  getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
-                         bool VariableMask, Align Alignment,
-                         TTI::TargetCostKind CostKind,
-                         const Instruction *I = nullptr,     // INTEL
-                         bool UndefPassThru = false) const { // INTEL
+  InstructionCost getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
+                                         const Value *Ptr, bool VariableMask,
+                                         Align Alignment,
+                                         TTI::TargetCostKind CostKind,
+#if INTEL_CUSTOMIZATION
+                                         const Instruction *I = nullptr,
+                                         bool UndefPassThru = false) const {
     return 1;
   }
 
-#if INTEL_CUSTOMIZATION
   unsigned getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
                                   unsigned IndexSize, bool VariableMask,
                                   unsigned Alignment, unsigned AddressSpace,
@@ -897,7 +903,7 @@ public:
 
   void
   getVectorUnrollingPreferences(TTI::VectorUnrollingPreferences &UP) const {}
-#endif
+#endif // INTEL_CUSTOMIZATION
   Type *
   getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                             unsigned SrcAddrSpace, unsigned DestAddrSpace,
@@ -924,6 +930,11 @@ public:
             Callee->getFnAttribute("target-cpu")) &&
            (Caller->getFnAttribute("target-features") ==
             Callee->getFnAttribute("target-features"));
+  }
+
+  unsigned getInlineCallPenalty(const Function *F, const CallBase &Call,
+                                unsigned DefaultCallPenalty) const {
+    return DefaultCallPenalty;
   }
 
   bool areTypesABICompatible(const Function *Caller, const Function *Callee,
@@ -1148,8 +1159,8 @@ public:
         BaseOffset += DL.getStructLayout(STy)->getElementOffset(Field);
       } else {
         // If this operand is a scalable type, bail out early.
-        // TODO: handle scalable vectors
-        if (isa<ScalableVectorType>(TargetType))
+        // TODO: Make isLegalAddressingMode TypeSize aware.
+        if (TargetType->isScalableTy())
           return TTI::TCC_Basic;
         int64_t ElementSize =
             DL.getTypeAllocSize(GTI.getIndexedType()).getFixedValue();

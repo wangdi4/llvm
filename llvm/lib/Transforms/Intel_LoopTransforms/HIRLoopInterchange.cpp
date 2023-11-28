@@ -1,6 +1,6 @@
 //===----- HIRLoopInterchange.cpp - Permutations of HIR loops -------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -68,6 +68,8 @@
 #define OPT_SWITCH "hir-loop-interchange"
 #define OPT_DESC "HIR Loop Interchange"
 #define DEBUG_TYPE OPT_SWITCH
+#define LLVM_DEBUG_PRINT_INTERCHANGED_LOOPS(X)                                 \
+  DEBUG_WITH_TYPE(OPT_SWITCH "-print-affected-loops", X)
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -77,6 +79,10 @@ STATISTIC(LoopsInterchanged, "Number of HIR loops interchanged");
 static cl::opt<bool> DisableHIRLoopInterchange("disable-hir-loop-interchange",
                                                cl::init(false), cl::Hidden,
                                                cl::desc("Disable " OPT_DESC));
+
+static cl::opt<size_t> LoopInterchangeOptReportDDEdgesLimit(
+    OPT_SWITCH "-optreport-ddedges-limit", cl::init(10), cl::Hidden,
+    cl::desc(OPT_DESC "Limit DD edges count in optreport"));
 
 // Flag to allow special interchange logic to engage
 static cl::opt<bool>
@@ -96,10 +102,6 @@ static cl::opt<bool> DoSpecialInterchange(OPT_SWITCH "-do-special-interchange",
                                           cl::desc(OPT_DESC
                                                    "do special interchange"));
 
-static cl::opt<size_t> LoopInterchangeOptReportDDEdgesLimit(
-    OPT_SWITCH "-optreport-ddedges-limit", cl::init(10), cl::Hidden,
-    cl::desc(OPT_DESC "Limit DD edges count in optreport"));
-
 static cl::opt<bool> PrintSpecialInterchangeLoopnestDetails(
     OPT_SWITCH "-print-special-interchange-loopnest-details", cl::init(false),
     cl::Hidden,
@@ -113,10 +115,6 @@ static cl::opt<unsigned>
 static cl::opt<std::string> PrintDiagFunc(
     OPT_SWITCH "-print-diag-func", cl::ReallyHidden,
     cl::desc("Print Diag why " OPT_DESC " did not happen for the function."));
-
-static cl::opt<bool> PrintInterchangedLoop(
-    OPT_SWITCH "-print-affected-loops", cl::init(false), cl::ReallyHidden,
-    cl::desc("Print loops affected by " OPT_DESC " pass"));
 
 static void printSmallSetInt(SmallSet<unsigned, 4> &IntSet, std::string Msg) {
   formatted_raw_ostream FOS(dbgs());
@@ -1827,14 +1825,11 @@ void HIRLoopInterchange::reportTransformation() {
 
 bool HIRLoopInterchange::transformLoop(HLLoop *Loop) {
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (PrintInterchangedLoop) {
-    dbgs() << "Before Interchange:\n";
-    dbgs() << "Function: " << Loop->getHLNodeUtils().getFunction().getName()
-           << "\n";
-    Loop->dump();
-  }
-#endif
+  LLVM_DEBUG_PRINT_INTERCHANGED_LOOPS(
+      dbgs() << "Before Interchange:\n";
+      dbgs() << "Function: " << Loop->getHLNodeUtils().getFunction().getName()
+             << "\n";
+      Loop->dump(););
 
   // Invalidate all analysis for InnermostLoop:
   HIRInvalidationUtils::invalidateBounds(InnermostLoop);
@@ -1854,12 +1849,8 @@ bool HIRLoopInterchange::transformLoop(HLLoop *Loop) {
   LoopsInterchanged++;
   AnyLoopInterchanged = true;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (PrintInterchangedLoop) {
-    dbgs() << "After Interchange:\n";
-    Loop->dump();
-  }
-#endif
+  LLVM_DEBUG_PRINT_INTERCHANGED_LOOPS(dbgs() << "After Interchange:\n";
+                                      Loop->dump(););
 
   return true;
 }
@@ -1875,55 +1866,4 @@ PreservedAnalyses HIRLoopInterchangePass::runImpl(
           .run();
 
   return PreservedAnalyses::all();
-}
-
-class HIRLoopInterchangeLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRLoopInterchangeLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRLoopInterchangeLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRLoopInterchange(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-               getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
-               getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
-               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-               getAnalysis<HIRLoopResourceWrapperPass>().getHLR())
-        .run();
-  }
-};
-
-char HIRLoopInterchangeLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopInterchangeLegacyPass, "hir-loop-interchange",
-                      "HIR Loop Interchange", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
-INITIALIZE_PASS_END(HIRLoopInterchangeLegacyPass, "hir-loop-interchange",
-                    "HIR Loop Interchange", false, false)
-
-FunctionPass *llvm::createHIRLoopInterchangePass() {
-  return new HIRLoopInterchangeLegacyPass();
 }

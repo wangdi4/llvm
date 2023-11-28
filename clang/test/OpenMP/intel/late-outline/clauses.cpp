@@ -1,8 +1,8 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -disable-llvm-passes -emit-llvm -o - \
-// RUN:  -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -O2 \
+// RUN: %clang_cc1 -disable-llvm-passes -emit-llvm -o - \
+// RUN:  -fopenmp -fopenmp-late-outline -O2 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s \
 // RUN: | FileCheck %s --check-prefix OPT
 
@@ -62,7 +62,7 @@ void bar(int if_val, int num_threads_val) {
   // proc_bind
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
   // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[PB1_ADDR]]
-  // CHECK-SAME: "QUAL.OMP.PROC_BIND.MASTER"
+  // CHECK-SAME: "QUAL.OMP.PROC_BIND.PRIMARY"
   #pragma omp parallel private(pb1) proc_bind(master)
   { foo(); }
 
@@ -80,7 +80,7 @@ void bar(int if_val, int num_threads_val) {
 
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
   // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[PB3_ADDR]]
-  // CHECK-SAME: "QUAL.OMP.PROC_BIND.MASTER"
+  // CHECK-SAME: "QUAL.OMP.PROC_BIND.PRIMARY"
   #pragma omp parallel private(pb3) proc_bind(primary)
   { foo(); }
 
@@ -394,7 +394,7 @@ void bar7(float *A, int N, int S)
   //CHECK-NEXT:    [[TMP68:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_22]], align 4
   //CHECK-NEXT:    [[CMP103:%.*]] = icmp slt i32 0, [[TMP68]]
   //CHECK-NEXT:    br i1 [[CMP103]], label [[OMP_PRECOND_THEN104:%.*]], label [[OMP_PRECOND_END120:%.*]]
-  //CHECK:       omp.precond.then104:
+  //CHECK:       omp.precond.then{{[0-9]*}}:
   //CHECK-NEXT:    [[TMP69:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_24]], align 4
   //CHECK-NEXT:    store i32 [[TMP69]], ptr [[DOTOMP_UB106:%.*]], align 4
   //CHECK-NEXT:    [[TMP70:%.*]] = load i32, ptr [[DOTNEW_STEP23]], align 4

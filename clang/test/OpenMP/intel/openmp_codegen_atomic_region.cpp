@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:   -fintel-openmp-region-atomic \
 // RUN:   -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 

@@ -71,12 +71,12 @@ public:
     return true;
   }
 
-private:
   // Adds a NamedMDNode with GV, Name, and Operand as operands, and adds the
   // resulting MDNode to the nvvm.annotations MDNode.
   static void addNVVMMetadata(llvm::GlobalValue *GV, StringRef Name,
                               int Operand);
 
+private:
   static void emitBuiltinSurfTexDeviceCopy(CodeGenFunction &CGF, LValue Dst,
                                            LValue Src) {
     llvm::Value *Handle = nullptr;
@@ -245,6 +245,49 @@ void NVPTXTargetCodeGenInfo::setTargetAttributes(
       // And kernel functions are not subject to inlining
       F->addFnAttr(llvm::Attribute::NoInline);
     }
+    bool HasMaxWorkGroupSize = false;
+    bool HasMinWorkGroupPerCU = false;
+    if (const auto *MWGS = FD->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
+      auto MaxThreads = (*MWGS->getZDimVal()).getExtValue() *
+                        (*MWGS->getYDimVal()).getExtValue() *
+                        (*MWGS->getXDimVal()).getExtValue();
+      if (MaxThreads > 0) {
+        addNVVMMetadata(F, "maxntidx", MaxThreads);
+        HasMaxWorkGroupSize = true;
+      }
+    }
+
+    auto attrValue = [&](Expr *E) {
+      const auto *CE = cast<ConstantExpr>(E);
+      std::optional<llvm::APInt> Val = CE->getResultAsAPSInt();
+      return Val->getZExtValue();
+    };
+
+    if (const auto *MWGPCU =
+            FD->getAttr<SYCLIntelMinWorkGroupsPerComputeUnitAttr>()) {
+      if (!HasMaxWorkGroupSize && FD->hasAttr<OpenCLKernelAttr>()) {
+        M.getDiags().Report(D->getLocation(),
+                            diag::warn_launch_bounds_missing_attr)
+            << MWGPCU << 0;
+      } else {
+        // The value is guaranteed to be > 0, pass it to the metadata.
+        addNVVMMetadata(F, "minnctapersm", attrValue(MWGPCU->getValue()));
+        HasMinWorkGroupPerCU = true;
+      }
+    }
+
+    if (const auto *MWGPMP =
+            FD->getAttr<SYCLIntelMaxWorkGroupsPerMultiprocessorAttr>()) {
+      if ((!HasMaxWorkGroupSize || !HasMinWorkGroupPerCU) &&
+          FD->hasAttr<OpenCLKernelAttr>()) {
+        M.getDiags().Report(D->getLocation(),
+                            diag::warn_launch_bounds_missing_attr)
+            << MWGPMP << 1;
+      } else {
+        // The value is guaranteed to be > 0, pass it to the metadata.
+        addNVVMMetadata(F, "maxclusterrank", attrValue(MWGPMP->getValue()));
+      }
+    }
   }
 
   // Perform special handling in CUDA mode.
@@ -256,24 +299,8 @@ void NVPTXTargetCodeGenInfo::setTargetAttributes(
       // Create !{<func-ref>, metadata !"kernel", i32 1} node
       addNVVMMetadata(F, "kernel", 1);
     }
-    if (CUDALaunchBoundsAttr *Attr = FD->getAttr<CUDALaunchBoundsAttr>()) {
-      // Create !{<func-ref>, metadata !"maxntidx", i32 <val>} node
-      llvm::APSInt MaxThreads(32);
-      MaxThreads = Attr->getMaxThreads()->EvaluateKnownConstInt(M.getContext());
-      if (MaxThreads > 0)
-        addNVVMMetadata(F, "maxntidx", MaxThreads.getExtValue());
-
-      // min blocks is an optional argument for CUDALaunchBoundsAttr. If it was
-      // not specified in __launch_bounds__ or if the user specified a 0 value,
-      // we don't have to add a PTX directive.
-      if (Attr->getMinBlocks()) {
-        llvm::APSInt MinBlocks(32);
-        MinBlocks = Attr->getMinBlocks()->EvaluateKnownConstInt(M.getContext());
-        if (MinBlocks > 0)
-          // Create !{<func-ref>, metadata !"minctasm", i32 <val>} node
-          addNVVMMetadata(F, "minctasm", MinBlocks.getExtValue());
-      }
-    }
+    if (CUDALaunchBoundsAttr *Attr = FD->getAttr<CUDALaunchBoundsAttr>())
+      M.handleCUDALaunchBoundsAttr(F, Attr);
   }
 
   // Attach kernel metadata directly if compiling for NVPTX.
@@ -301,6 +328,55 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::GlobalValue *GV,
 bool NVPTXTargetCodeGenInfo::shouldEmitStaticExternCAliases() const {
   return false;
 }
+}
+
+void CodeGenModule::handleCUDALaunchBoundsAttr(llvm::Function *F,
+                                               const CUDALaunchBoundsAttr *Attr,
+                                               int32_t *MaxThreadsVal,
+                                               int32_t *MinBlocksVal,
+                                               int32_t *MaxClusterRankVal) {
+  // Create !{<func-ref>, metadata !"maxntidx", i32 <val>} node
+  llvm::APSInt MaxThreads(32);
+  MaxThreads = Attr->getMaxThreads()->EvaluateKnownConstInt(getContext());
+  if (MaxThreads > 0) {
+    if (MaxThreadsVal)
+      *MaxThreadsVal = MaxThreads.getExtValue();
+    if (F) {
+      // Create !{<func-ref>, metadata !"maxntidx", i32 <val>} node
+      NVPTXTargetCodeGenInfo::addNVVMMetadata(F, "maxntidx",
+                                              MaxThreads.getExtValue());
+    }
+  }
+
+  // min and max blocks is an optional argument for CUDALaunchBoundsAttr. If it
+  // was not specified in __launch_bounds__ or if the user specified a 0 value,
+  // we don't have to add a PTX directive.
+  if (Attr->getMinBlocks()) {
+    llvm::APSInt MinBlocks(32);
+    MinBlocks = Attr->getMinBlocks()->EvaluateKnownConstInt(getContext());
+    if (MinBlocks > 0) {
+      if (MinBlocksVal)
+        *MinBlocksVal = MinBlocks.getExtValue();
+      if (F) {
+        // Create !{<func-ref>, metadata !"minctasm", i32 <val>} node
+        NVPTXTargetCodeGenInfo::addNVVMMetadata(F, "minctasm",
+                                                MinBlocks.getExtValue());
+      }
+    }
+  }
+  if (Attr->getMaxBlocks()) {
+    llvm::APSInt MaxBlocks(32);
+    MaxBlocks = Attr->getMaxBlocks()->EvaluateKnownConstInt(getContext());
+    if (MaxBlocks > 0) {
+      if (MaxClusterRankVal)
+        *MaxClusterRankVal = MaxBlocks.getExtValue();
+      if (F) {
+        // Create !{<func-ref>, metadata !"maxclusterrank", i32 <val>} node
+        NVPTXTargetCodeGenInfo::addNVVMMetadata(F, "maxclusterrank",
+                                                MaxBlocks.getExtValue());
+      }
+    }
+  }
 }
 
 std::unique_ptr<TargetCodeGenInfo>

@@ -1,6 +1,6 @@
 //===------- DtransPaddedMalloc.cpp - DTrans Padded Malloc -*------===//
 //
-// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -923,7 +923,7 @@ bool dtrans::PaddedMallocGlobals<InfoClass>::buildFuncBadCastValidation(
   Value *GEP = Builder.CreateGEP(STy, Arg,
       {ConstantInt::get(OffsetType, 0), Builder.getInt32(StructIndex)});
   
-  Value *Load = Builder.CreateLoad(Type::getInt8PtrTy(Func->getContext()), GEP);
+  Value *Load = Builder.CreateLoad(PointerType::getUnqual(Func->getContext()), GEP);
   Value *IsNotNull = Builder.CreateIsNotNull(Load);
   Builder.CreateCondBr(IsNotNull, SetBB, EntryBB);
 

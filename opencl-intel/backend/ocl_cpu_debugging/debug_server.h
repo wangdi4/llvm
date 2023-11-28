@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -20,9 +20,7 @@
 #endif // OclCpuDebugging_EXPORTS
 
 #include "export/icldebuggingservice.h"
-
 #include "llvm/Support/Mutex.h"
-
 #include <memory>
 #include <windows.h>
 #pragma warning(disable : 4985) /* disable ceil warnings */

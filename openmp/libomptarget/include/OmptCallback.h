@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===---- OmptCallback.h - Target independent OMPT callbacks --*- C++ -*---===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -27,11 +44,31 @@
   FOREACH_OMPT_NOEMI_EVENT(macro)                                              \
   FOREACH_OMPT_EMI_EVENT(macro)
 
+#define performIfOmptInitialized(stmt)                                         \
+  do {                                                                         \
+    if (llvm::omp::target::ompt::Initialized) {                                \
+      stmt;                                                                    \
+    }                                                                          \
+  } while (0)
+
 #define performOmptCallback(CallbackName, ...)                                 \
   do {                                                                         \
     if (ompt_callback_##CallbackName##_fn)                                     \
       ompt_callback_##CallbackName##_fn(__VA_ARGS__);                          \
   } while (0)
+
+/// Function type def used for maintaining unique target region, target
+/// operations ids
+typedef uint64_t (*IdInterfaceTy)();
+
+#if INTEL_CUSTOMIZATION
+/// Data type exchanged between libomptarget and plugins
+enum OmptExtDataTy : int32_t {
+  OmptExtDataCodeLocation = 0,
+  OmptExtDataNumTeams,
+  OmptExtDataTeamSize
+};
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 namespace omp {
@@ -77,6 +114,9 @@ void finalizeLibrary(ompt_data_t *tool_data);
 /// functions to their respective higher layer.
 void connectLibrary();
 
+/// OMPT initialization status; false if initializeLibrary has not been executed
+extern bool Initialized;
+
 } // namespace ompt
 } // namespace target
 } // namespace omp
@@ -84,6 +124,8 @@ void connectLibrary();
 
 #pragma pop_macro("DEBUG_PREFIX")
 
+#else
+#define performIfOmptInitialized(stmt)
 #endif // OMPT_SUPPORT
 
 #endif // _OMPTCALLBACK_H

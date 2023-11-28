@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -23,6 +23,7 @@
 #include "backend_wrapper.h"
 #include "cl_device_api.h"
 #include "cl_dynamic_lib.h"
+#include "cl_synch_objects.h"
 #include "cpu_config.h"
 #include "cpu_dev_limits.h"
 #include "cpu_logger.h"
@@ -32,7 +33,6 @@
 #include "tbb/scalable_allocator.h"
 #endif
 #include <atomic>
-#include <cl_synch_objects.h>
 #include <mutex>
 #include <unordered_map>
 #include <vector>

@@ -1,4 +1,4 @@
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
 //
@@ -14,8 +14,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 //
-// end INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
 //===--- Target RTLs Implementation ---------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -59,14 +57,15 @@
 
 #include "elf_light.h"
 #include "omptargetplugin.h"
-#if INTEL_CUSTOMIZATION
-#include "omptarget-tools.h"
-#endif // INTEL_CUSTOMIZATION
 #include "rtl-trace.h"
+#ifdef OMPT_SUPPORT
+#include "OmptCallback.h"
+#endif
 
 #include "llvm/Support/Endian.h"
 
-#if INTEL_CUSTOMIZATION
+using namespace llvm::omp::target;
+
 // FIXME: when this is upstreamed for OpenCL.
 #define CL_MEM_FLAGS_INTEL                                               0x10001
 #define CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL                           (1 << 23)
@@ -97,7 +96,6 @@
     }                                                                          \
   } while (0)
 #endif // _WIN32
-#endif // INTEL_CUSTOMIZATION
 
 /// Device type enumeration common to compiler and runtime
 enum DeviceArch : uint64_t {
@@ -1283,9 +1281,75 @@ struct DevicePropertiesTy {
   cl_ulong GlobalMemCacheSize = 0;
   cl_ulong MaxMemAllocSize = 0;
   cl_uint MaxClockFrequency = 0;
+  cl_uint VendorId = 0;
 
   int32_t getDeviceProperties(cl_device_id ID, bool HasExtension);
 };
+
+#ifdef OMPT_SUPPORT
+/// Set OMPT data in current region interface
+bool setOmptData(OmptExtDataTy Type, size_t Size, void *Data);
+/// Get OMPT data in current region interface
+bool getOmptData(OmptExtDataTy Type, size_t Size, void *Data);
+/// Look up OMPT entry
+ompt_interface_fn_t lookupOmptEntry(const char *EntryName);
+
+/// Device-specific OMPT information
+struct OmptInfoTy {
+  /// OMPT callback functions
+#define defineOmptCallback(Name, Type, Code) Name##_t Name##_fn = nullptr;
+  FOREACH_OMPT_DEVICE_EVENT(defineOmptCallback)
+#undef defineOmptCallback
+  /// Internal representation for OMPT device (initialize & finalize)
+  bool OmptInitialized = false;
+
+  OmptInfoTy() {
+    // Bind the callbacks to this device's member functions
+#define bindOmptCallback(Name, Type, Code)                                     \
+  if (ompt::Initialized && ompt::lookupCallbackByCode) {                       \
+    ompt::lookupCallbackByCode((ompt_callbacks_t)(Code),                       \
+                               ((ompt_callback_t *)&(Name##_fn)));             \
+    DP("OMPT: class bound %s=%p\n", #Name, ((void *)(uint64_t)Name##_fn));     \
+  }
+
+    FOREACH_OMPT_DEVICE_EVENT(bindOmptCallback);
+#undef bindOmptCallback
+  }
+  /// Wrapper for device-load event
+  void doDeviceLoad(int32_t DeviceId, const char *FileName,
+                    int64_t OffsetInFile, void *VmaInFile, size_t Bytes,
+                    void *HostAddr, void *DeviceAddr, uint64_t ModuleId) {
+    if (!ompt::Initialized)
+      return;
+    performOmptCallback(device_load,
+                        /* device_num */ DeviceId,
+                        /* FileName */ FileName,
+                        /* File Offset */ OffsetInFile,
+                        /* VmaInFile */ VmaInFile,
+                        /* ImgSize */ Bytes,
+                        /* HostAddr */ HostAddr,
+                        /* DeviceAddr */ DeviceAddr,
+                        /* FIXME: ModuleId */ ModuleId);
+  }
+  /// Wrapper for device-init event
+  void doDeviceInit(int32_t DeviceId, const char *DeviceName, void *Device) {
+    if (!ompt::Initialized)
+      return;
+    OmptInitialized = true;
+    performOmptCallback(device_initialize,
+                        /* device_num */ DeviceId,
+                        /* type */ DeviceName,
+                        /* device */ reinterpret_cast<ompt_device_t *>(Device),
+                        /* lookup */ lookupOmptEntry,
+                        /* documentation */ nullptr);
+  }
+  /// Wrapper for device-fini event
+  void doDeviceFini() {}
+};
+#define OMPT_IF_BUILT(Stmt) Stmt
+#else // OMPT_SUPPORT
+#define OMPT_IF_BUILT(Stmt)
+#endif // OMPT_SUPPORT
 
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
@@ -1347,6 +1411,9 @@ public:
 
   /// Internal allocation information
   std::vector<std::unique_ptr<MemAllocInfoMapTy>> MemAllocInfo;
+
+  /// OMPT information
+  OMPT_IF_BUILT(std::vector<OmptInfoTy> OmptInfo);
 
   /// Requires flags
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -1448,6 +1515,74 @@ public:
   bool isDiscreteDevice(int32_t DeviceId) const;
 #endif // INTEL_CUSTOMIZATION
 
+  /// Release target memory
+  int32_t dataDelete(int32_t DeviceId, void *Ptr) {
+    MemAllocInfoTy Info;
+    auto Removed = MemAllocInfo[DeviceId]->remove(Ptr, &Info);
+    // Try again with device-independent allocation information (host USM)
+    if (!Removed && Option.Flags.UseSingleContext)
+      Removed = MemAllocInfo[NumDevices]->remove(Ptr, &Info);
+    if (!Removed) {
+      DP("Error: Cannot find memory allocation information for " DPxMOD "\n",
+         DPxPTR(Ptr));
+      return OFFLOAD_FAIL;
+    }
+    std::lock_guard<std::mutex> LG(Mutexes[DeviceId]);
+    CALL_CL_EXT_VOID(this, DeviceId, clMemBlockingFreeINTEL,
+                     getContext(DeviceId), Info.Base);
+    return OFFLOAD_SUCCESS;
+  }
+
+  /// Offload backend defines a list of unique resource IDs to support OpenMP
+  /// 6.0 target memory management API routines. The resource IDs are stored in
+  /// the memory space object created by the host runtime and submemspace
+  /// inherits a subset of its parent's resource IDs. Backend must be able to
+  /// determine the associated device ID from a resource ID.
+  /// As initial support for this feature, we use the following rules to
+  /// determine memory resources from the resource IDs and to return available
+  /// resources to the host runtime; we can revisit if further refinement or
+  /// extension is needed.
+  ///
+  /// 1. Host, device, and shared USM is available as single-device memory space
+  ///    without host access requirement.
+  /// 2. Host and shared USM is available as single-device memory space with
+  ///    host access requirement.
+  /// 3. Only host usm is available as multi-device memory space with/without
+  ///    host access requirement.
+  /// 4. Resource IDs are defined as follows.
+  ///    a. 0 <= ID < NumDevices: Device USM
+  ///    b. NumDevices <= ID < 2 * NumDevices: Shared USM
+  ///    c. ID == 2 * NumDevices: Host USM
+
+  /// Return the resource ID associated with the device ID and allocation kind.
+  int32_t getResource(int32_t DeviceId, int32_t AllocKind) {
+    if (AllocKind == TARGET_ALLOC_DEVICE)
+      return DeviceId;
+    if (AllocKind == TARGET_ALLOC_SHARED)
+      return NumDevices + DeviceId;
+    if (AllocKind == TARGET_ALLOC_HOST)
+      return 2 * NumDevices;
+    return -1; // Invalid
+  }
+
+  /// Return the device ID associated with a resource ID.
+  int32_t getDeviceFromResource(int32_t ResourceId) {
+    if (ResourceId < 0 || ResourceId > 2 * NumDevices)
+      return -1; // Invalid
+    return ResourceId % NumDevices;
+  }
+
+  /// Return the allocation kind associated with a resource ID.
+  int32_t getAllocKindFromResource(int32_t ResourceId) {
+    if (ResourceId < 0 || ResourceId > 2 * NumDevices)
+      return -1; // Invalid
+    if (ResourceId < NumDevices)
+      return TARGET_ALLOC_DEVICE;
+    if (ResourceId < 2 * NumDevices)
+      return TARGET_ALLOC_SHARED;
+    return TARGET_ALLOC_HOST;
+  }
+
   /// Get device name from the properties.
   const std::string &getDeviceName(int32_t DeviceId) const {
     return DeviceProperties[DeviceId].Name;
@@ -1471,6 +1606,7 @@ static void closeRTL();
 __ATTRIBUTE__(constructor(101)) void init() {
   DP("Init OpenCL plugin!\n");
   DeviceInfo = new RTLDeviceInfoTy();
+  OMPT_IF_BUILT(ompt::connectLibrary());
 }
 
 /// RTL calls this function as early as possible to avoid finalization issues
@@ -1656,12 +1792,6 @@ static void closeRTL() {
         Prof.second.printData(I, Prof.first, DeviceInfo->getDeviceNameStr(I),
                               DeviceInfo->Option.ProfileResolution);
     }
-#if INTEL_CUSTOMIZATION
-    if (OMPT_ENABLED) {
-      OMPT_CALLBACK(ompt_callback_device_unload, I, 0 /* module ID */);
-      OMPT_CALLBACK(ompt_callback_device_finalize, I);
-    }
-#endif // INTEL_CUSTOMIZATION
 
     CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[I]);
 
@@ -1669,7 +1799,8 @@ static void closeRTL() {
       CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->QueuesInOrder[I]);
 
     for (auto &Mem : DeviceInfo->OwnedMemory[I])
-      CALL_CL_EXT_VOID(I, clMemFreeINTEL, DeviceInfo->getContext(I), Mem);
+      CALL_CL_EXT_VOID(DeviceInfo, I, clMemFreeINTEL, DeviceInfo->getContext(I),
+                       Mem);
 
     if (!DeviceInfo->Option.Flags.UseSingleContext)
       CALL_CL_EXIT_FAIL(clReleaseContext, DeviceInfo->Contexts[I]);
@@ -2219,9 +2350,10 @@ static void decideLoopKernelGroupArguments(
 }
 
 static void decideKernelGroupArguments(int32_t DeviceId, int32_t NumTeams,
-                                       int32_t ThreadLimit, cl_kernel Kernel,
-                                       size_t *GroupSizes, size_t *GroupCounts,
-                                       size_t LoopTripcount) {
+                                       int32_t ThreadLimit,
+                                       TgtNDRangeDescTy *LoopLevels,
+                                       cl_kernel Kernel, size_t *GroupSizes,
+                                       size_t *GroupCounts) {
   auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
 #if INTEL_CUSTOMIZATION
   // Default to best GEN9 GT4 configuration initially.
@@ -2438,6 +2570,26 @@ static void decideKernelGroupArguments(int32_t DeviceId, int32_t NumTeams,
       GroupCounts[0] *= DeviceInfo->Option.SubscriptionRate;
     }
 
+    size_t LoopTripcount = 0;
+    if (LoopLevels) {
+      // TODO: consider other possible LoopDesc uses
+      DP("Loop desciptor provided but specific ND-range is disabled\n");
+      // TODO: get rid of this constraint
+      if (LoopLevels->NumLoops > 1) {
+        DP("More than 1 loop found (%" PRIu32 "), ignoring loop info\n",
+           LoopLevels->NumLoops);
+      } else if (LoopLevels->Levels[0].Ub >= LoopLevels->Levels[0].Lb) {
+        LoopTripcount = (LoopLevels->Levels[0].Ub - LoopLevels->Levels[0].Lb +
+                         LoopLevels->Levels[0].Stride) /
+                        LoopLevels->Levels[0].Stride;
+        DP("Loop TC = (%" PRId64 " - %" PRId64 " + %" PRId64 ") / %" PRId64
+           " = %zu\n",
+           LoopLevels->Levels[0].Ub, LoopLevels->Levels[0].Lb,
+           LoopLevels->Levels[0].Stride, LoopLevels->Levels[0].Stride,
+           LoopTripcount);
+      }
+    }
+
     if (LoopTripcount && !UsedReductionSubscriptionRate) {
       size_t AdjustedGroupCount =
           (LoopTripcount + GroupSizes[0] - 1) / GroupSizes[0];
@@ -2455,14 +2607,13 @@ static void decideKernelGroupArguments(int32_t DeviceId, int32_t NumTeams,
   }
 }
 
-static inline int32_t runTargetTeamNDRegion(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs,
-    ptrdiff_t *TgtOffsets, int32_t NumArgs, int32_t NumTeams,
-    int32_t ThreadLimit, void *LoopDesc) {
-
+static int32_t getGroupsShape(int32_t DeviceId, int32_t NumTeams,
+                              int32_t ThreadLimit, void *TgtEntryPtr,
+                              void *GroupSizes, void *GroupCounts,
+                              void *LoopDesc) {
   cl_kernel Kernel = *static_cast<cl_kernel *>(TgtEntryPtr);
   if (!Kernel) {
-    REPORT("Failed to invoke deleted kernel.\n");
+    REPORT("Failed to query groups shape of a deleted kernel.\n");
     return OFFLOAD_FAIL;
   }
 
@@ -2473,21 +2624,6 @@ static inline int32_t runTargetTeamNDRegion(
     NumTeams = 0;
   if (ThreadLimit < 0)
     ThreadLimit = 0;
-
-#if INTEL_INTERNAL_BUILD
-  // TODO: kernels using to much SLM may limit the number of
-  //       work groups running simultaneously on a sub slice.
-  //       We may take this into account for computing the work partitioning.
-  size_t DeviceLocalMemSize =
-      (size_t)DeviceInfo->DeviceProperties[DeviceId].LocalMemSize;
-  DP("Device local mem size: %zu\n", DeviceLocalMemSize);
-  cl_ulong LocalMemSizeTmp = 0;
-  CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, Kernel,
-                   DeviceInfo->Devices[DeviceId], CL_KERNEL_LOCAL_MEM_SIZE,
-                   sizeof(LocalMemSizeTmp), &LocalMemSizeTmp, nullptr);
-  size_t KernelLocalMemSize = (size_t)LocalMemSizeTmp;
-  DP("Kernel local mem size: %zu\n", KernelLocalMemSize);
-#endif // INTEL_INTERNAL_BUILD
 
   // Read the most recent global thread limit and max teams.
   DeviceInfo->Option.readTeamsThreadLimit();
@@ -2507,27 +2643,76 @@ static inline int32_t runTargetTeamNDRegion(
                                    (TgtNDRangeDescTy *)LoopDesc, Kernel,
                                    LocalWorkSize, NumWorkGroups);
   } else {
-    size_t LoopTC = 0;
-    if (LoopDesc && !DeviceInfo->Option.Flags.NDRangeIgnoreTripcount) {
-      // TODO: consider other possible LoopDesc uses
-      DP("Loop desciptor provided but specific ND-range is disabled\n");
-      TgtNDRangeDescTy *LI = (TgtNDRangeDescTy *)LoopDesc;
-      // TODO: get rid of this constraint
-      if (LI->NumLoops > 1) {
-        DP("More than 1 loop found (%" PRIu32 "), ignoring loop info\n",
-           LI->NumLoops);
-      } else if (LI->Levels[0].Ub >= LI->Levels[0].Lb) {
-        LoopTC = (LI->Levels[0].Ub - LI->Levels[0].Lb + LI->Levels[0].Stride) /
-                 LI->Levels[0].Stride;
-        DP("Loop TC = (%" PRId64 " - %" PRId64 " + %" PRId64 ") / %" PRId64
-           " = %zu\n",
-           LI->Levels[0].Ub, LI->Levels[0].Lb, LI->Levels[0].Stride,
-           LI->Levels[0].Stride, LoopTC);
-      }
-    }
-    decideKernelGroupArguments(DeviceId, NumTeams, ThreadLimit, Kernel,
-                               LocalWorkSize, NumWorkGroups, LoopTC);
+    bool UseLoopTC =
+        LoopDesc && !DeviceInfo->Option.Flags.NDRangeIgnoreTripcount;
+    decideKernelGroupArguments(DeviceId, NumTeams, ThreadLimit,
+                               UseLoopTC ? (TgtNDRangeDescTy *)LoopDesc
+                                         : nullptr,
+                               Kernel, LocalWorkSize, NumWorkGroups);
   }
+
+  if (GroupSizes)
+    std::copy(LocalWorkSize, LocalWorkSize + 3,
+              static_cast<uint32_t *>(GroupSizes));
+  if (GroupCounts)
+    std::copy(NumWorkGroups, NumWorkGroups + 3,
+              static_cast<uint32_t *>(GroupCounts));
+
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int32_t __tgt_rtl_get_groups_shape(int32_t DeviceId, int32_t NumTeams,
+                                          int32_t ThreadLimit,
+                                          void *TgtEntryPtr, void *GroupSizes,
+                                          void *GroupCounts, void *LoopDesc) {
+  return getGroupsShape(DeviceId, NumTeams, ThreadLimit, TgtEntryPtr,
+                        GroupSizes, GroupCounts, LoopDesc);
+}
+
+static inline int32_t
+runTargetTeamNDRegion(int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs,
+                      ptrdiff_t *TgtOffsets, int32_t NumArgs, int32_t NumTeams,
+                      int32_t ThreadLimit, void *LoopDesc) {
+
+  cl_kernel Kernel = *static_cast<cl_kernel *>(TgtEntryPtr);
+  if (!Kernel) {
+    REPORT("Failed to invoke deleted kernel.\n");
+    return OFFLOAD_FAIL;
+  }
+
+#if INTEL_INTERNAL_BUILD
+  // TODO: kernels using to much SLM may limit the number of
+  //       work groups running simultaneously on a sub slice.
+  //       We may take this into account for computing the work partitioning.
+  size_t DeviceLocalMemSize =
+      (size_t)DeviceInfo->DeviceProperties[DeviceId].LocalMemSize;
+  DP("Device local mem size: %zu\n", DeviceLocalMemSize);
+  cl_ulong LocalMemSizeTmp = 0;
+  CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, Kernel,
+                   DeviceInfo->Devices[DeviceId], CL_KERNEL_LOCAL_MEM_SIZE,
+                   sizeof(LocalMemSizeTmp), &LocalMemSizeTmp, nullptr);
+  size_t KernelLocalMemSize = (size_t)LocalMemSizeTmp;
+  DP("Kernel local mem size: %zu\n", KernelLocalMemSize);
+#endif // INTEL_INTERNAL_BUILD
+
+  // Decide group sizes and counts
+  size_t LocalWorkSize[3] = {1, 1, 1};
+  size_t NumWorkGroups[3] = {1, 1, 1};
+
+  // libomptarget calling __tgt_rtl_get_groups_shape provides i32 pointers
+  // for both LWS and the WG number, and getGroupsShape coplies with that,
+  // that's why we need some zext'ing here
+  uint32_t LWS[3], NWG[3];
+
+  auto RC = getGroupsShape(DeviceId, NumTeams, ThreadLimit, TgtEntryPtr, LWS,
+                           NWG, LoopDesc);
+  if (RC != OFFLOAD_SUCCESS) {
+    REPORT("Failed to query groups shape when offloading a region.\n");
+    return OFFLOAD_FAIL;
+  }
+
+  std::copy(LWS, LWS + 3, LocalWorkSize);
+  std::copy(NWG, NWG + 3, NumWorkGroups);
 
   size_t GlobalWorkSize[3];
   for (int32_t I = 0; I < 3; ++I)
@@ -2553,6 +2738,17 @@ static inline int32_t runTargetTeamNDRegion(
   DP("Number of teams = {%zu, %zu, %zu}\n",
      GlobalWorkSize[0] / LocalWorkSize[0], GlobalWorkSize[1] / LocalWorkSize[1],
      GlobalWorkSize[2] / LocalWorkSize[2]);
+
+#ifdef OMPT_SUPPORT
+  if (ompt::Initialized) {
+    // Push current work size
+    int FinalNumTeams = NumWorkGroups[0] * NumWorkGroups[1] * NumWorkGroups[2];
+    int FinalThreadLimit =
+        LocalWorkSize[0] * LocalWorkSize[1] * LocalWorkSize[2];
+    setOmptData(OmptExtDataNumTeams, sizeof(int), &FinalNumTeams);
+    setOmptData(OmptExtDataTeamSize, sizeof(int), &FinalThreadLimit);
+  }
+#endif // OMPT_SUPPORT
 
   // Protect thread-unsafe OpenCL API calls
   std::unique_lock<std::mutex> KernelLock(DeviceInfo->Mutexes[DeviceId]);
@@ -2665,18 +2861,6 @@ static inline int32_t runTargetTeamNDRegion(
                        sizeof(cl_bool), &KernelSupportsUSM);
   }
 
-#if INTEL_CUSTOMIZATION
-  if (OMPT_ENABLED) {
-    // Push current work size
-    size_t FinalNumTeams =
-        GlobalWorkSize[0] * GlobalWorkSize[1] * GlobalWorkSize[2];
-    size_t FinalThreadLimit =
-        LocalWorkSize[0] * LocalWorkSize[1] * LocalWorkSize[2];
-    FinalNumTeams /= FinalThreadLimit;
-    OmptGlobal->getTrace().pushWorkSize(FinalNumTeams, FinalThreadLimit);
-  }
-#endif // INTEL_CUSTOMIZATION
-
   cl_event Event;
 #if INTEL_CUSTOMIZATION
   OCL_KERNEL_BEGIN(DeviceId);
@@ -2710,6 +2894,60 @@ static inline int32_t runTargetTeamNDRegion(
   DP("Successfully finished kernel execution.\n");
 
   return OFFLOAD_SUCCESS;
+}
+
+static void
+replaceDriverOptsWithBackendOpts(const DevicePropertiesTy &DeviceInfo,
+                                 bool IsGPU, std::string &CompOpts,
+                                 std::string &LinkOpts) {
+  bool IsIntelGPU = DeviceInfo.VendorId == 0x8086 && IsGPU;
+  // If the user passed -ftarget-compile-fast at compile time, universally
+  // remove it from CompOpts as the runtime needs it in LinkOpts even if it is
+  // an Intel GPU, but only add it to LinkOpts for Intel GPUs
+  static const std::string TargetCompileFast = "-ftarget-compile-fast";
+  if (auto Pos = CompOpts.find(TargetCompileFast); Pos != std::string::npos) {
+    auto OptLen = TargetCompileFast.size();
+    if (IsIntelGPU)
+      LinkOpts += "-igc_opts 'PartitionUnit=1,SubroutineThreshold=50000'";
+    CompOpts.erase(Pos, OptLen);
+  }
+#ifdef INTEL_CUSTOMIZATION
+  // The driver will pass the argument in the format of
+  // -ftarget-register-alloc-mode=Device:BackendOption. Extract the device,
+  // determine if the current device is the specified device. If so, extract and
+  // add the BackendOption to LinkOpts. If the current device is not the
+  // specified device, remove the entire -ftarget-register-alloc-mode option
+  // from the compile string.
+  static const std::string TargetRegisterAllocMode =
+      "-ftarget-register-alloc-mode=";
+  auto OptPos = CompOpts.find(TargetRegisterAllocMode);
+  while (OptPos != std::string::npos) {
+    auto EndOfOpt = CompOpts.find(" ", OptPos);
+    // Extract everything after the equals until the end of the option
+    auto OptValue =
+        CompOpts.substr(OptPos + TargetRegisterAllocMode.size(),
+                        EndOfOpt - OptPos - TargetRegisterAllocMode.size());
+    auto ColonPos = OptValue.find(":");
+    auto Device = OptValue.substr(0, ColonPos);
+    std::string BackendStrToAdd;
+    bool IsPVC = IsIntelGPU && (DeviceInfo.DeviceId & 0xFF00) == 0x0B00;
+    // Currently 'pvc' is the only supported device.
+    if (Device == "pvc" && IsPVC)
+      BackendStrToAdd = " " + OptValue.substr(ColonPos + 1) + " ";
+
+    // Extract everything before this option
+    std::string NewCompOpts = CompOpts.substr(0, OptPos);
+    // Extract everything after this option and add it to the above.
+    if (EndOfOpt != std::string::npos)
+      NewCompOpts += CompOpts.substr(EndOfOpt);
+    CompOpts = NewCompOpts;
+    // Put backend arg in LinkOpts as backend options
+    // are only honored there, and universally remove the option from
+    // CompOpts.
+    LinkOpts += BackendStrToAdd;
+    OptPos = CompOpts.find(TargetRegisterAllocMode);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
@@ -2926,6 +3164,8 @@ int32_t DevicePropertiesTy::getDeviceProperties(
                      nullptr);
     Name.append(Buf.data());
   }
+  CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_VENDOR_ID, sizeof(VendorId),
+                   &VendorId, nullptr);
   CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_MAX_WORK_GROUP_SIZE,
                    sizeof(MaxWorkGroupSize), &MaxWorkGroupSize, nullptr);
   CALL_CL_RET_FAIL(clGetDeviceInfo, ID, CL_DEVICE_LOCAL_MEM_SIZE,
@@ -3207,6 +3447,10 @@ int32_t OpenCLProgramTy::buildPrograms(std::string &CompilationOptions,
     if (DeviceInfo->Option.Flags.UseImageOptions) {
       CompilationOptions += " " + It->second.CompileOpts;
       LinkingOptions += " " + It->second.LinkOpts;
+      replaceDriverOptsWithBackendOpts(DeviceInfo->DeviceProperties[DeviceId],
+                                       DeviceInfo->Option.DeviceType ==
+                                           CL_DEVICE_TYPE_GPU,
+                                       CompilationOptions, LinkingOptions);
     }
 
     return OFFLOAD_SUCCESS;
@@ -3342,14 +3586,9 @@ int32_t OpenCLProgramTy::buildKernels() {
     }
 #endif  // _WIN32
     cl_int RC;
-    CALL_CL_RVRC(Kernels[I], clCreateKernel, RC, FinalProgram, Name);
-    if (RC != CL_SUCCESS) {
-      // If a kernel was deleted by optimizations (e.g. DCE), then
-      // clCreateKernel will fail. We expect that such a kernel
-      // will never be actually invoked.
-      DP("Warning: Failed to create kernel %s, %d\n", Name, RC);
+    CALL_CL_RVRC_SILENT(Kernels[I], clCreateKernel, RC, FinalProgram, Name);
+    if (RC != CL_SUCCESS)
       Kernels[I] = nullptr;
-    }
     Entries[I].addr = &Kernels[I];
     Entries[I].name = Name;
 
@@ -3945,6 +4184,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->ProfileLocks = new std::mutex[DeviceInfo->NumDevices];
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
   DeviceInfo->NumActiveKernels.resize(DeviceInfo->NumDevices, 0);
+  OMPT_IF_BUILT(DeviceInfo->OmptInfo.resize(DeviceInfo->NumDevices));
 
   // Host allocation information needs one additional slot
   for (uint32_t I = 0; I < DeviceInfo->NumDevices + 1; I++)
@@ -4016,14 +4256,13 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
   DeviceInfo->DeviceArchs[DeviceId] = DeviceInfo->getDeviceArch(DeviceId);
 
-#if INTEL_CUSTOMIZATION
-  OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
-                DeviceInfo->getDeviceNameStr(DeviceId),
-                DeviceInfo->Devices[DeviceId],
-                omptLookupEntries, OmptDocument);
-#endif // INTEL_CUSTOMIZATION
-
   DeviceInfo->Initialized[DeviceId] = true;
+
+#ifdef OMPT_SUPPORT
+  const char *DeviceName = DeviceInfo->DeviceProperties[DeviceId].Name.c_str();
+  void *Device = (void *)DeviceInfo->Devices[DeviceId];
+  DeviceInfo->OmptInfo[DeviceId].doDeviceInit(DeviceId, DeviceName, Device);
+#endif
 
   return OFFLOAD_SUCCESS;
 }
@@ -4116,14 +4355,12 @@ __tgt_target_table *__tgt_rtl_load_binary(
     return nullptr;
 #endif // INTEL_CUSTOMIZATION
 
-  auto *Table = Program.getTablePtr();
+  OMPT_IF_BUILT(DeviceInfo->OmptInfo[DeviceId].doDeviceLoad(
+      DeviceId, nullptr /* FileName */, 0 /* OffsetInFile */,
+      nullptr /* VmaInFile */, ImageSize, Image->ImageStart,
+      nullptr /* DeviceAddr */, 0 /* FIXME ModuleId */));
 
-#if INTEL_CUSTOMIZATION
-  OMPT_CALLBACK(ompt_callback_device_load, DeviceId, nullptr /* filename */,
-                -1 /* offset_in_file */, nullptr /* vma_in_file */,
-                ImageSize /* bytes */, Image->ImageStart /* host_addr */,
-                nullptr /* device_addr */, 0 /* module_id */);
-#endif // INTEL_CUSTOMIZATION
+  auto *Table = Program.getTablePtr();
 
   return Table;
 }
@@ -4184,23 +4421,7 @@ int32_t __tgt_rtl_data_exchange(int32_t SrcId, void *SrcPtr, int32_t DstId,
 }
 
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
-  MemAllocInfoTy Info;
-  auto &AllocInfos = DeviceInfo->MemAllocInfo;
-  auto Removed = AllocInfos[DeviceId]->remove(TgtPtr, &Info);
-  // Try again with device-independent allocation information (host USM)
-  if (!Removed && DeviceInfo->Option.Flags.UseSingleContext)
-    Removed = AllocInfos[DeviceInfo->NumDevices]->remove(TgtPtr, &Info);
-  if (!Removed) {
-    DP("Error: Cannot find memory allocation information for " DPxMOD "\n",
-       DPxPTR(TgtPtr));
-    return OFFLOAD_FAIL;
-  }
-
-  auto Context = DeviceInfo->getContext(DeviceId);
-  std::lock_guard<std::mutex> LG(DeviceInfo->Mutexes[DeviceId]);
-  CALL_CL_EXT_VOID(DeviceId, clMemBlockingFreeINTEL, Context, Info.Base);
-
-  return OFFLOAD_SUCCESS;
+  return DeviceInfo->dataDelete(DeviceId, TgtPtr);
 }
 
 int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
@@ -4381,28 +4602,6 @@ int32_t __tgt_rtl_get_data_alloc_info(
   return OFFLOAD_SUCCESS;
 }
 #endif // INTEL_CUSTOMIZATION
-
-void __tgt_rtl_add_build_options(
-    const char *CompileOptions, const char *LinkOptions) {
-  if (CompileOptions) {
-    auto &compileOptions = DeviceInfo->Option.UserCompilationOptions;
-    if (compileOptions.empty()) {
-      compileOptions = std::string(CompileOptions) + " ";
-    } else {
-      DP("Respecting LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS=%s\n",
-         compileOptions.c_str());
-    }
-  }
-  if (LinkOptions) {
-    auto &linkOptions = DeviceInfo->Option.UserLinkingOptions;
-    if (linkOptions.empty()) {
-      linkOptions = std::string(LinkOptions) + " ";
-    } else {
-      DP("Respecting LIBOMPTARGET_OPENCL_LINKING_OPTIONS=%s\n",
-         linkOptions.c_str());
-    }
-  }
-}
 
 int32_t __tgt_rtl_is_supported_device(int32_t DeviceId, void *DeviceType) {
   if (!DeviceType)
@@ -4803,4 +5002,68 @@ int32_t __tgt_rtl_async_barrier(__tgt_interop *Interop) {
   return __tgt_rtl_sync_barrier(Interop);
 }
 
-#endif // INTEL_COLLAB
+int32_t __tgt_rtl_get_mem_resources(int32_t NumDevices,
+                                    const int32_t *DeviceIds,
+                                    int32_t HostAccess,
+                                    omp_memspace_handle_t MemSpace,
+                                    int32_t *ResourceIds) {
+  // NumDevice and DeviceIds are valid (checked by omptarget)
+  int32_t NumResources = 0;
+
+  if (NumDevices == 1) {
+    if (!HostAccess) {
+      if (ResourceIds)
+        ResourceIds[NumResources] =
+            DeviceInfo->getResource(DeviceIds[0], TARGET_ALLOC_DEVICE);
+      NumResources++;
+    }
+    if (ResourceIds)
+      ResourceIds[NumResources] =
+          DeviceInfo->getResource(DeviceIds[0], TARGET_ALLOC_SHARED);
+    NumResources++;
+  }
+  if (ResourceIds)
+    ResourceIds[NumResources] =
+        DeviceInfo->getResource(DeviceIds[0], TARGET_ALLOC_HOST);
+  NumResources++;
+
+  return NumResources;
+}
+
+void *__tgt_rtl_omp_alloc(size_t Size, omp_allocator_handle_t Allocator) {
+  // It is assumed that the allocator has valid memory space handle.
+  auto *MemAlloc = reinterpret_cast<kmp_allocator_t *>(Allocator);
+  auto *MemSpace = reinterpret_cast<kmp_memspace_t *>(MemAlloc->memspace);
+
+  // We have at least one resources at this point.
+  int32_t *ResourceIds = MemSpace->resources;
+  int32_t DeviceId = DeviceInfo->getDeviceFromResource(ResourceIds[0]);
+  int32_t AllocKind = DeviceInfo->getAllocKindFromResource(ResourceIds[0]);
+  if (DeviceId < 0 || AllocKind < 0) {
+    DP("Unknown resource requested in the memory space\n");
+    return nullptr;
+  }
+
+  return dataAllocExplicit(DeviceId, Size, AllocKind, 0 /* Align */);
+}
+
+void __tgt_rtl_omp_free(void *Ptr, omp_allocator_handle_t Allocator) {
+  // It is assumed that the allocator has valid memory space handle.
+  auto *MemAlloc = reinterpret_cast<kmp_allocator_t *>(Allocator);
+  auto *MemSpace = reinterpret_cast<kmp_memspace_t *>(MemAlloc->memspace);
+
+  // We have at least one resources at this point.
+  int32_t *ResourceIds = MemSpace->resources;
+  int32_t DeviceId = DeviceInfo->getDeviceFromResource(ResourceIds[0]);
+  int32_t AllocKind = DeviceInfo->getAllocKindFromResource(ResourceIds[0]);
+  if (DeviceId < 0 || AllocKind < 0) {
+    DP("Unknown resource requested in the memory space\n");
+    return;
+  }
+
+  auto RC = DeviceInfo->dataDelete(DeviceId, Ptr);
+  if (RC != OFFLOAD_SUCCESS) {
+    DP("Failed to release memory allocated with OMP allocator\n");
+  }
+}
+#endif // INTEL_CUSTOMIZATION

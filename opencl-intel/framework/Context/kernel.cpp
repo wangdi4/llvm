@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,8 +13,13 @@
 // License.
 
 #include "kernel.h"
+#include "CL/cl_fpga_ext.h"
 #include "Context.h"
+#include "Device.h"
+#include "cl_objects_map.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
+#include "cl_utils.h"
 #include "context_module.h"
 #include "fe_compiler.h"
 #include "framework_proxy.h"
@@ -27,15 +32,9 @@
 #include "svm_buffer.h"
 #include "usm_buffer.h"
 
-#include <CL/cl_fpga_ext.h>
-#include <Device.h>
-#include <assert.h>
-#include <cl_objects_map.h>
-#include <cl_sys_defines.h>
-#include <cl_utils.h>
-
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
+#include <assert.h>
 
 using namespace llvm;
 using namespace Intel::OpenCL::Utils;
@@ -113,12 +112,6 @@ DeviceKernel::DeviceKernel(Kernel *pKernel,
   }
 
   char *kernelAttrs = new char[attrSize];
-  if (nullptr == kernelAttrs) {
-    LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"),
-              pKernelName, CL_DEV_OUT_OF_MEMORY);
-    *pErr = CL_OUT_OF_HOST_MEMORY;
-    return;
-  }
 
   clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(
       m_clDevKernel, CL_DEV_KERNEL_ATTRIBUTES, 0, nullptr, attrSize,
@@ -695,6 +688,46 @@ cl_err_code Kernel::GetWorkGroupInfo(const SharedPtr<FissionableDevice> &device,
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// Kernel::GetKernelMaxConcurrentWorkGroupCount
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Kernel::GetKernelMaxConcurrentWorkGroupCount(
+    cl_command_queue command_queue, cl_uint work_dim,
+    const size_t *global_work_offset, const size_t *local_work_size,
+    size_t *max_work_group_count) {
+  LOG_DEBUG(TEXT("Enter Kernel::GetKernelMaxConcurrentWorkGroupCount "
+                 "(command_queue=%p, "
+                 "work_dim=%zu, global_work_offset=%p, local_work_size=%p,"
+                 "max_work_group_count=%p)"),
+            command_queue, work_dim, global_work_offset, local_work_size,
+            max_work_group_count);
+  // Check input parameters
+  ExecutionModule &pExecutionModule =
+      *FrameworkProxy::Instance()->GetExecutionModule();
+  const SharedPtr<OclCommandQueue> pQueue =
+      pExecutionModule.GetCommandQueue(command_queue);
+  if (NULL == pQueue.GetPtr())
+    return CL_INVALID_COMMAND_QUEUE;
+
+  if (work_dim < 1 || work_dim > 3)
+    return CL_INVALID_WORK_DIMENSION;
+
+  if (local_work_size == NULL)
+    return CL_INVALID_WORK_GROUP_SIZE;
+
+  for (unsigned int ui = 0; ui < work_dim; ui++)
+    if (local_work_size[ui] == 0)
+      return CL_INVALID_WORK_GROUP_SIZE;
+
+  if (max_work_group_count == NULL)
+    return CL_INVALID_VALUE;
+
+  // FIXME : A fixed value in the initial implementation.
+  // Should be update if TBB team can give some info about how to calculate it.
+  *max_work_group_count = 32;
+  return CL_SUCCESS;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::CreateDeviceKernels
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Kernel::CreateDeviceKernels(
@@ -734,9 +767,6 @@ cl_err_code Kernel::CreateDeviceKernels(
         new DeviceKernel(this, ppDevicePrograms[i]->GetDevice(),
                          ppDevicePrograms[i]->GetDeviceProgramHandle(),
                          GET_LOGGER_CLIENT, &clErrRet);
-    if (NULL == pDeviceKernel) {
-      clErrRet = CL_OUT_OF_HOST_MEMORY;
-    }
     if (CL_FAILED(clErrRet)) {
       LOG_ERROR(TEXT("new DeviceKernel(...) failed (returned %s)"),
                 ClErrTxt(clErrRet));
@@ -897,9 +927,6 @@ cl_err_code Kernel::SetKernelPrototype(const SKernelPrototype &sKernelPrototype,
   }
 
   m_pArgsBlob = new char[maxArgumentBufferSize];
-  if (nullptr == m_pArgsBlob) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
   memset(m_pArgsBlob, 0, maxArgumentBufferSize);
 
   m_sKernelPrototype.m_dispatchBufferProperties.size = maxArgumentBufferSize;

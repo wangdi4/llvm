@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -90,10 +90,10 @@ using namespace llvm::ore;
 class MandatoryInlineAdvice : public InlineAdvice {
 public:
   MandatoryInlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
-                        InlineCost IC,    // INTEL
+                        InlineCost IC, // INTEL
                         OptimizationRemarkEmitter &ORE,
                         bool IsInliningMandatory)
-      : InlineAdvice(Advisor, CB, IC, ORE, IsInliningMandatory) {}
+      : InlineAdvice(Advisor, CB, IC, ORE, IsInliningMandatory) {} // INTEL
 
 private:
   void recordInliningWithCalleeDeletedImpl() override { recordInliningImpl(); }
@@ -439,6 +439,8 @@ InlineCost llvm::shouldInline(
 #if INTEL_CUSTOMIZATION
     if (CB.hasFnAttr("inline-list"))
       IC.setInlineReason(InlrInlineList);
+    else if (CB.hasFnAttr("inline-recursive-list"))
+      IC.setInlineReason(InlrInlineRecursiveList);
     IC.setIsRecommended(true);
 #endif // INTEL_CUSTOMIZATION
     return IC;
@@ -618,11 +620,20 @@ InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
   bool AdviceT = MandatoryInliningKind::Always == MIK && &Caller != &Callee;
   bool IsAlways = AdviceT && (&Caller != &Callee);
   InlineCost MIC =
-      IsAlways ? (CB.hasFnAttr(Attribute::AlwaysInlineRecursive)
-                      ? llvm::InlineCost::getAlways("always inline (recursive)",
-                                                    InlrAlwaysInlineRecursive)
-                      : llvm::InlineCost::getAlways("always inline",
-                                                    InlrAlwaysInline))
+      IsAlways
+          ? (CB.hasFnAttr(Attribute::AlwaysInlineRecursive)
+                 ? (CB.hasFnAttrOnCallsite(Attribute::AlwaysInlineRecursive)
+                        ? llvm::InlineCost::getAlways(
+                              "always inline (recursive)",
+                              InlrCSAlwaysInlineRecursive)
+                        : llvm::InlineCost::getAlways(
+                              "always inline (recursive)",
+                              InlrAlwaysInlineRecursive))
+             : CB.hasFnAttrOnCallsite(Attribute::AlwaysInline)
+                 ? llvm::InlineCost::getAlways("always inline",
+                                               InlrCSAlwaysInline)
+                 : llvm::InlineCost::getAlways("always inline",
+                                               InlrAlwaysInline))
       : MandatoryInliningKind::Never == MIK
           ? llvm::InlineCost::getNever("never inline", NinlrNeverInline)
           : llvm::InlineCost::getNever("not mandatory", NinlrNotMandatory);

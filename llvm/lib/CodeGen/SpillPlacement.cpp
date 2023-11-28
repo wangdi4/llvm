@@ -164,8 +164,10 @@ struct SpillPlacement::Node {
 
   /// clear - Reset per-query data, but preserve frequencies that only depend on
   /// the CFG.
-  void clear(const BlockFrequency &Threshold) {
-    BiasN = BiasP = Value = 0;
+  void clear(BlockFrequency Threshold) {
+    BiasN = BlockFrequency(0);
+    BiasP = BlockFrequency(0);
+    Value = 0;
     SumLinkWeights = Threshold;
     Links.clear();
   }
@@ -197,14 +199,14 @@ struct SpillPlacement::Node {
       BiasN += freq;
       break;
     case MustSpill:
-      BiasN = BlockFrequency::getMaxFrequency();
+      BiasN = BlockFrequency::max();
       break;
     }
   }
 
   /// update - Recompute Value from Bias and Links. Return true when node
   /// preference changes.
-  bool update(const Node nodes[], const BlockFrequency &Threshold) {
+  bool update(const Node nodes[], BlockFrequency Threshold) {
     // Compute the weighted sum of inputs.
     BlockFrequency SumN = BiasN;
     BlockFrequency SumP = BiasP;
@@ -300,8 +302,8 @@ bool SpillPlacement::runOnMachineFunction(MachineFunction &mf) {
           }
         }
     }
-#endif // INTEL_CUSTOMIZATION
   }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   if (!WhileJumpInsts.empty()) {
@@ -327,8 +329,8 @@ bool SpillPlacement::runOnMachineFunction(MachineFunction &mf) {
             BranchProbability(1, WhileSwitchMult);
         }
     } // for (auto &BB : mf)
-  }
 #endif // INTEL_CUSTOMIZATION
+  }
 
   // We never change the function.
   return false;
@@ -358,8 +360,10 @@ void SpillPlacement::activate(unsigned n) {
   // limiting the number of blocks visited and the number of links in the
   // Hopfield network.
   if (bundles->getBlocks(n).size() > 100) {
-    nodes[n].BiasP = 0;
-    nodes[n].BiasN = (MBFI->getEntryFreq() / 16);
+    nodes[n].BiasP = BlockFrequency(0);
+    BlockFrequency BiasN = MBFI->getEntryFreq();
+    BiasN >>= 4;
+    nodes[n].BiasN = BiasN;
   }
 }
 
@@ -368,12 +372,12 @@ void SpillPlacement::activate(unsigned n) {
 /// Set the threshold relative to \c Entry.  Since the threshold is used as a
 /// bound on the open interval (-Threshold;Threshold), 1 is the minimum
 /// threshold.
-void SpillPlacement::setThreshold(const BlockFrequency &Entry) {
+void SpillPlacement::setThreshold(BlockFrequency Entry) {
   // Apparently 2 is a good threshold when Entry==2^14, but we need to scale
   // it.  Divide by 2^13, rounding as appropriate.
   uint64_t Freq = Entry.getFrequency();
   uint64_t Scaled = (Freq >> 13) + bool(Freq & (1 << 12));
-  Threshold = std::max(UINT64_C(1), Scaled);
+  Threshold = BlockFrequency(std::max(UINT64_C(1), Scaled));
 }
 
 /// addConstraints - Compute node biases and weights from a set of constraints.

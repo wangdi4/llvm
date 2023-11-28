@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -135,18 +135,16 @@ static void addMappingsFromTLI(const TargetLibraryInfo &TLI, CallInst &CI) {
                                                    Mappings.end());
 
   auto AddVariantDecl = [&](const ElementCount &VF, bool Predicate) {
-    const std::string TLIName =
-        std::string(TLI.getVectorizedFunction(ScalarName, VF, Predicate));
-    if (!TLIName.empty()) {
-      std::string MangledName = VFABI::mangleTLIVectorName(
-          TLIName, ScalarName, CI.arg_size(), VF, Predicate);
+    const VecDesc *VD = TLI.getVectorMappingInfo(ScalarName, VF, Predicate);
+    if (VD && !VD->getVectorFnName().empty()) {
+      std::string MangledName = VD->getVectorFunctionABIVariantString();
       if (!OriginalSetOfMappings.count(MangledName)) {
         Mappings.push_back(MangledName);
         ++NumCallInjected;
       }
-      Function *VariantF = M->getFunction(TLIName);
+      Function *VariantF = M->getFunction(VD->getVectorFnName());
       if (!VariantF)
-        addVariantDeclaration(CI, VF, Predicate, TLIName);
+        addVariantDeclaration(CI, VF, Predicate, VD->getVectorFnName());
 #if INTEL_CUSTOMIZATION
       else
         // Make variant function's declaration "sticky" by adding it to

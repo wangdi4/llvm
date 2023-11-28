@@ -19,10 +19,10 @@ void __attribute__((cluster(""))) foo3(void) {}
 //expected-error@+1{{'cluster' attribute takes no more than 1 argument}}
 void __attribute__((cluster("clustername", 1))) bar1(void) {}
 
-//expected-error@+1{{'cluster' attribute requires a string}}
+//expected-error@+1{{expected string literal as argument of 'cluster' attribute}}
 void __attribute__((cluster(123))) bar2(void) {}
 
 constant int var = 1;
 
-//expected-error@+1{{'cluster' attribute requires a string}}
+//expected-error@+1{{expected string literal as argument of 'cluster' attribute}}
 void __attribute__((cluster(var))) bar3(void) {}

@@ -1,6 +1,6 @@
 //===-- IntelVPlanLoopInfo.h ------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -199,6 +199,13 @@ public:
   void setKnownTripCount(TripCountTy TripCount) {
     setTripCountInfo(TripCountInfo::getKnownTripCountInfo(TripCount));
   }
+
+  void setUnderlyingLoop(const Loop *Lp) { UnderlyingLoop = Lp; }
+  const Loop *getUnderlyingLoop() const { return UnderlyingLoop; }
+
+  void setDebugLoc(DebugLoc Loc) { DL = Loc; }
+  DebugLoc getDebugLoc() const { return DL; }
+
 private:
   // Latch condition kind.
   enum LatchCondKind {
@@ -234,6 +241,14 @@ private:
 
   // Is this a conflict loop for vconflict idiom?
   bool IsConflictLoop = false;
+
+  /// Underlying (LLVM-IR) loop.
+  const Loop *UnderlyingLoop = nullptr;
+
+  /// Starting location information for this loop.  Caching this separately
+  /// is necessary for LLVM code generation, since the underlying loop
+  /// information is invalidated during finalizeLoop().
+  DebugLoc DL;
 };
 
 class VPLoopInfo : public LoopInfoBase<VPBasicBlock, VPLoop> {
@@ -244,8 +259,22 @@ class VPLoopInfo : public LoopInfoBase<VPBasicBlock, VPLoop> {
   // decouple CFG from the VPlan, so loop-specific VPlan data needs some map
   // key. VPloop seems to be the best candidate so far.
   using Base::releaseMemory;
+
 public:
+  /// Allocate a new loop, then assign the debug location for the new
+  /// loop to be the same as /p SrcLoop (if non-null).
+  VPLoop *AllocateLoop(VPLoop *SrcLoop);
+
+  /// Prevent calling Base::AllocateLoop directly.
+  VPLoop *AllocateLoop() {
+    llvm_unreachable("Don't call VPLoopInfo::AllocateLoop without source loop");
+  }
+
   void analyze(const VPDominatorTree &DomTree);
+
+  /// Clear the underlying loop information for all VPLoops.  This is
+  /// necessary anytime the llvm::LoopInfo is invalidated.
+  void invalidateUnderlyingLoops();
 };
 } // namespace vpo
 
@@ -288,8 +317,7 @@ template <> struct OptReportTraits<vpo::VPLoop> {
   }
 
   static DebugLoc getDebugLoc(const ObjectHandleTy &Handle) {
-    // TODO: Missing DbgLoc for VPLoops.
-    return DebugLoc();
+    return Handle.first.getDebugLoc();
   }
 
   static std::optional<std::string>

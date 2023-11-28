@@ -13,9 +13,9 @@
 ;   write_channel_intel(chan, *src);
 ; }
 ; ----------------------------------------------------
-; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation -S %s -o - | FileCheck %s
+
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation -S %s -o - | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
@@ -23,7 +23,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 %struct.TS = type { ptr addrspace(4), [4 x i8] }
 %struct.TS.coerce = type { ptr addrspace(4), i64 }
 
-@chan = addrspace(1) global target("spirv.Channel") zeroinitializer, align 8, !packet_size !0, !packet_align !1
+@chan = addrspace(1) global ptr addrspace(1) null, align 8, !packet_size !0, !packet_align !1
 
 ; CHECK: %struct.channelpipetransformation.merge = type { ptr addrspace(4), i64 }
 

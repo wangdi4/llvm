@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,18 +12,17 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <iostream>
-#include <limits>
-#include <list>
-
-#include "gtest_wrapper.h"
-
 #include "BinaryDataReader.h"
 #include "BinaryDataWriter.h"
 #include "BufferContainerList.h"
 #include "Image.h"
 #include "XMLDataReader.h"
 #include "XMLDataWriter.h"
+#include "gtest_wrapper.h"
+
+#include <iostream>
+#include <limits>
+#include <list>
 
 using namespace Validation;
 

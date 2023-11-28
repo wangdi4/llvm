@@ -1,4 +1,4 @@
-; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
 
 ; This test checks that WG loops are created in O0 and -g mode. Not-inlined
 ; function read local id from TLS global.
@@ -6,7 +6,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-; CHECK: @LocalIds = linkonce_odr thread_local global [3 x i64] undef, align 16
+; CHECK: @__LocalIds = internal thread_local global [3 x i64] undef, align 16
 
 ; CHECK-LABEL: @foo
 ; CHECK-NEXT: entry:
@@ -20,11 +20,11 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:  %__ocl_dbg_gid2 = alloca i64, align 8
 ; CHECK-NEXT:  %dst.addr = alloca ptr addrspace(1), align 8
 ; CHECK-NEXT:  %lid0.addr = alloca i64, align 8
-; CHECK-NEXT:  %lid0 = load i64, ptr @LocalIds, align 8
+; CHECK-NEXT:  %lid0 = load i64, ptr @__LocalIds, align 8
 ; CHECK-NEXT:  store i64 %lid0, ptr %lid0.addr, align 8
-; CHECK-NEXT:  %lid1 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 1), align 8
+; CHECK-NEXT:  %lid1 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 1), align 8
 ; CHECK-NEXT:  store i64 %lid1, ptr %lid1.addr, align 8
-; CHECK-NEXT:  %lid2 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 2), align 8
+; CHECK-NEXT:  %lid2 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 2), align 8
 ; CHECK-NEXT:  store i64 %lid2, ptr %lid2.addr, align 8
 ; CHECK-NEXT:  %base.gid0 = call i64 @get_base_global_id.(i32 0)
 ; CHECK-NEXT:  %gid0 = add i64 %lid0, %base.gid0

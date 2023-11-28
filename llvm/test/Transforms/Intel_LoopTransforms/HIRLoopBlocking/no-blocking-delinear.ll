@@ -1,6 +1,13 @@
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -hir-print-only=37 -aa-pipeline="scoped-noalias-aa" -disable-output %s 2>&1 | FileCheck %s
+; REQUIRES:asserts
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -disable-hir-loop-blocking-loop-depth-check=true -hir-allow-loop-materialization-regions=true -hir-print-only=37 -aa-pipeline="scoped-noalias-aa" -debug-only=hir-loop-blocking -disable-output %s 2>&1 | FileCheck %s
 
-; The i2-i3 loopnests are not vectorized. When delinearized, LoopDepth (=2) <= MaxNumDimensions (=2).
+; Verify that the loopnest is not blocked even when loop depth check is disabled.
+; Vectorization as-is can be more beneficial to the innermost loop as-is with contiguous group accesses.
+; After loop blocking, vectorization may not be possible due to unresolved data dependences.
+
+; Previously, the loop blocking was avoided with loop depth check + delinearization.
+; When delinearized, LoopDepth (=2) <= MaxNumDimensions (=2), which was the loop depth check preventing loop blocking.
+
 
 ; CHECK: Function: t_run_test_radix2
 
@@ -53,6 +60,8 @@
 ;               |   %78 = 2 * %78;
 ;               + END LOOP
 ;         END REGION
+
+; CHECK: Contains a ref group accessing contiguous memory. May benefit more from vectorization as-is.
 
 ; CHECK: Function: t_run_test_radix2
 ; CHECK-NOT: DO i4

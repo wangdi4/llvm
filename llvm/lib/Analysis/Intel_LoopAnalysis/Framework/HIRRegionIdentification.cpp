@@ -1,6 +1,6 @@
 //===- HIRRegionIdentification.cpp - Identifies HIR Regions ---------------===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -20,7 +20,6 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/Statistic.h"
 
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -95,10 +94,10 @@ static cl::opt<unsigned> LexicalInsertionFuncSizeThreshold(
 static cl::opt<unsigned> HugeLoopSize("hir-huge-loop-size", cl::init(42),
                                       cl::Hidden,
                                       cl::desc("Threshold for huge loop size"));
-static cl::opt<unsigned>
-    MaxInstThresholdOption("hir-loop-inst-threshold", cl::init(0), cl::Hidden,
-                           cl::desc("Threshold for maximum number of "
-                                    "instructions allowed in a HIR loop"));
+static cl::opt<unsigned> MaxInstThresholdOption(
+    "hir-loop-or-bb-inst-threshold", cl::init(0), cl::Hidden,
+    cl::desc("Threshold for maximum number of "
+             "instructions allowed in a HIR loop or a non-loop basic block"));
 
 static cl::opt<unsigned> MaxIfThresholdOption(
     "hir-loop-if-threshold", cl::init(0), cl::Hidden,
@@ -123,6 +122,14 @@ static cl::opt<bool>
 static cl::opt<bool> AllowLargeIntegers(
     "hir-allow-large-integers", cl::init(false), cl::Hidden,
     cl::desc("Option to allow integers greater than 64 bits in HIR"));
+
+namespace llvm {
+
+cl::opt<bool> AllowRegionsForLoopMaterialization(
+    "hir-allow-loop-materialization-regions", cl::init(false), cl::Hidden,
+    cl::desc("Option to allow formation of regions for loop materialization"));
+
+}
 
 STATISTIC(RegionCount, "Number of regions created");
 
@@ -602,6 +609,59 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
   return true;
 }
 
+bool HIRRegionIdentification::isOnePastEndConstGEP(const GEPOperator *GEPOp) {
+  if (!GEPOp || GEPOp->getNumIndices() != 2) {
+    return false;
+  }
+
+  auto *FirstIndex = dyn_cast<ConstantInt>(*GEPOp->idx_begin());
+
+  if (!FirstIndex || !FirstIndex->isOne()) {
+    return false;
+  }
+
+  auto *SecondIndex = dyn_cast<ConstantInt>(*(GEPOp->idx_begin() + 1));
+
+  if (!SecondIndex || !SecondIndex->isZero()) {
+    return false;
+  }
+
+  return isa<ArrayType>(GEPOp->getSourceElementType());
+}
+
+bool HIRRegionIdentification::containsUnsupportedIdx(
+    const GEPOrSubsOperator *GEPOrSubs, const Loop *Lp) {
+  auto *GEPInst = dyn_cast<GetElementPtrInst>(GEPOrSubs);
+  if (isa<SubscriptInst>(GEPOrSubs)) {
+    return false;
+  }
+  // We should bail out for cases like @c[-1][i1], where base opreand is
+  // global and first index is not 0 or 1. It is out of range array access.
+  auto *InnermostGEP = cast<GEPOperator>(GEPOrSubs);
+  auto *BasePtrOp = InnermostGEP->getPointerOperand();
+  while (auto *CurrGEPOp = dyn_cast<GEPOperator>(BasePtrOp)) {
+    BasePtrOp = CurrGEPOp->getPointerOperand();
+    InnermostGEP = CurrGEPOp;
+  }
+
+  bool IsGlobalBasePtr = isa<GlobalVariable>(BasePtrOp);
+  unsigned NumOpsInInnermostGEP = InnermostGEP->getNumOperands();
+  if (!IsGlobalBasePtr || (NumOpsInInnermostGEP <= 2))
+    return false;
+
+  // If the first index of a GEP with global base pointer is not 0 or GEP is a
+  // constant one-past-end access, then bail out for out-of-range access.
+  auto *OutermostIntIdxOp = dyn_cast<ConstantInt>(InnermostGEP->getOperand(1));
+  if (OutermostIntIdxOp && !OutermostIntIdxOp->isZero() &&
+      !isOnePastEndConstGEP(InnermostGEP)) {
+    printOptReportRemark(Lp, GEPInst,
+                         "Constant array access goes out of range.");
+    return true;
+  }
+
+  return false;
+}
+
 bool HIRRegionIdentification::containsUnsupportedTy(
     const GEPOrSubsOperator *GEPOrSubs, const Loop *Lp) {
 
@@ -620,6 +680,10 @@ bool HIRRegionIdentification::containsUnsupportedTy(
     if (!isSupported(GEPOp->getOperand(I)->getType(), true, GEPInst, Lp)) {
       return true;
     }
+  }
+
+  if (containsUnsupportedIdx(GEPOrSubs, Lp)) {
+    return true;
   }
 
   // We need to check 'indexed' types as well as they can contain vector types
@@ -684,7 +748,13 @@ bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst,
 
   // Check instruction operands
   for (unsigned I = 0; I < NumOp; ++I) {
-    if (!isSupported(Inst->getOperand(I)->getType(), false, Inst, Lp)) {
+    auto *Op = Inst->getOperand(I);
+    if (auto GEPOp = dyn_cast<GEPOrSubsOperator>(Op)) {
+      if (containsUnsupportedIdx(GEPOp, Lp))
+        return true;
+    }
+
+    if (!isSupported(Op->getType(), false, Inst, Lp)) {
       return true;
     }
   }
@@ -2005,6 +2075,29 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   return true;
 }
 
+// Returns true if the size of \p BB exceeds threshold.
+// Note: The threshold check should be kept in sync with the CostModelAnalyzer
+// and ideally use the CostModelAnalyzer itself.
+static bool isTooLarge(const BasicBlock *BB, unsigned OptLevel) {
+
+  unsigned MaxInstThreshold = 0;
+
+  if (MaxInstThresholdOption.getNumOccurrences() != 0) {
+    MaxInstThreshold = MaxInstThresholdOption;
+  } else {
+    MaxInstThreshold = (OptLevel > 2) ? O3MaxInstThreshold : O2MaxInstThreshold;
+  }
+
+  if (BB->size() > MaxInstThreshold) {
+    LLVM_DEBUG(dbgs() << "Excluding basic block: ");
+    LLVM_DEBUG(BB->printAsOperand(dbgs(), false));
+    LLVM_DEBUG(dbgs() << " as it is too big ");
+    return true;
+  }
+
+  return false;
+}
+
 void HIRRegionIdentification::createRegion(
     const ArrayRef<const Loop *> &Loops,
     const SmallPtrSetImpl<const BasicBlock *> *IntermediateBlocks) {
@@ -2018,24 +2111,49 @@ void HIRRegionIdentification::createRegion(
   IRRegion::RegionBBlocksTy BBlocks;
   IRRegion::RegionBBlocksTy NonLoopBBlocks;
 
+  // TODO: perform size check on all non-loop bblocks.
   if (IntermediateBlocks) {
     NonLoopBBlocks.append(IntermediateBlocks->begin(),
                           IntermediateBlocks->end());
   }
 
-  BasicBlock *EntryBB = Loops.front()->getHeader();
+  auto *FirstLp = Loops.front();
+  BasicBlock *EntryBB = FirstLp->getHeader();
   BasicBlock *ExitBB = nullptr;
 
+  bool IsSmallTCInnermostFirstLp = false;
+
+  if (FirstLp->isInnermost()) {
+    auto *ConstBECount =
+        dyn_cast<SCEVConstant>(SE.getBackedgeTakenCount(FirstLp));
+
+    if (ConstBECount &&
+        (ConstBECount->getValue()->getZExtValue() < SmallTripThreshold)) {
+      IsSmallTCInnermostFirstLp = true;
+    }
+  }
+
+  // Include the preheader for small trip count innermost loops to help
+  // complete unroller's cost model find dominating stores.
   // If the first outermost loop is the outer loop for a convolution loop nest,
   // include its preheader block in the region to ensure hoisted kernel base
   // pointer loads are visible.
-  if (isOuterConvolutionLoop(*Loops.front(), nullptr)) {
-    EntryBB = Loops.front()->getLoopPreheader();
-    NonLoopBBlocks.push_back(EntryBB);
+  if (IsSmallTCInnermostFirstLp || isOuterConvolutionLoop(*FirstLp, nullptr)) {
+    auto *PreheaderBB = FirstLp->getLoopPreheader();
+
+    // Skip including function entry block in the region. The entry block can
+    // contain allocas which can get eliminated by SROA after complete unroll.
+    if ((PreheaderBB != &PreheaderBB->getParent()->getEntryBlock()) &&
+        !AllLoopBasedRegionsBBlocks.count(PreheaderBB) &&
+        !isLoopWithDirective(*FirstLp) && isGenerable(PreheaderBB, nullptr) &&
+        !isTooLarge(PreheaderBB, OptLevel)) {
+      EntryBB = PreheaderBB;
+      NonLoopBBlocks.push_back(PreheaderBB);
+    }
   }
 
   for (auto *Lp : Loops) {
-    bool IsFirstLoop = (Lp == Loops.front());
+    bool IsFirstLoop = (Lp == FirstLp);
     bool IsLastLoop = (Lp == Loops.back());
 
     isLoopWithDirective(*Lp, &NonLoopBBlocks, IsFirstLoop ? &EntryBB : nullptr,
@@ -2433,6 +2551,17 @@ static bool containsAlloca(const BasicBlock *BB) {
 void HIRRegionIdentification::formRegionsForLoopMaterialization(
     Function &Func) {
 
+  // Creation of regions for loop materialization can be expensive in compile
+  // time as we need to analyze and compute SCEV for all blocks in the region.
+  // This doesn't scale well for big functions. Specifically, inserting the
+  // regions in lexical order can be very expensive. If we choose to enable
+  // this by default we should tune the function size threshold for lexical
+  // insertion and also add a threshold for number of regions created for loop
+  // materialization.
+  if (!AllowRegionsForLoopMaterialization) {
+    return;
+  }
+
   unsigned FunctionSize = Func.size();
 
   auto *EntryBB = &Func.getEntryBlock();
@@ -2783,32 +2912,6 @@ const Value *HIRRegionIdentification::getHeaderPhiOperand(const PHINode *Phi,
   }
 }
 
-bool HIRRegionIdentification::hasNonGEPAccess(
-    const PHINode *AddRecPtrPhi) const {
-  assert(isHeaderPhi(AddRecPtrPhi) && "AddRecPtrPhi is not a header phi!");
-  assert(isa<PointerType>(AddRecPtrPhi->getType()) &&
-         "Pointer type phi expected!");
-
-  auto Inst = cast<Instruction>(getHeaderPhiUpdateVal(AddRecPtrPhi));
-
-  // Trace pointers starting from PhiUpdateInst until we reach AddRecPhi.
-  while (Inst != AddRecPtrPhi) {
-    if (auto GEPInst = dyn_cast<GEPOrSubsOperator>(Inst)) {
-      Inst = dyn_cast<Instruction>(GEPInst->getPointerOperand());
-
-      if (!Inst) {
-        return false;
-      }
-    } else {
-      // Some other kind of instruction is involved, probably a bitcast
-      // instruction.
-      return true;
-    }
-  }
-
-  return false;
-}
-
 const GEPOperator *HIRRegionIdentification::tracebackToGEPOp(
     const Value *Val, SmallPtrSetImpl<const Value *> &VisitedInsts) const {
   while (1) {
@@ -2861,14 +2964,24 @@ HIRRegionIdentification::findPhiElementType(const PHINode *AddRecPhi) const {
   auto *GEPOp = tracebackToGEPOp(AddRecPhi, VisitedInsts);
 
   if (!GEPOp) {
-    auto *PhiTy = cast<PointerType>(AddRecPhi->getType());
-
-    // This check will try to keep parsing identical for non-opaque ptrs.
-    // Parsing will change in some case with opaque ptrs.
-    // See phi-base-with-bitcast-ptr-element-type.ll for an example.
-    return PhiTy->isOpaque() ? nullptr
-                             : PhiTy->getNonOpaquePointerElementType();
+    return nullptr;
   }
 
-  return GEPOp->getResultElementType();
+  // Valid element types are those where we can represent IVs. These can be
+  // represented in ptr or array dimensions for which we create subscripts but
+  // excludes struct element types. The following loop returns the last
+  // 'inductive' type.
+  bool LastAccessIsStructTy = false;
+  Type *LastPtrOrArrElemTy = nullptr;
+
+  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
+    auto *IndexedTy = I.getIndexedType();
+
+    if (!LastAccessIsStructTy)
+      LastPtrOrArrElemTy = IndexedTy;
+
+    LastAccessIsStructTy = isa<StructType>(IndexedTy);
+  }
+
+  return LastPtrOrArrElemTy;
 }

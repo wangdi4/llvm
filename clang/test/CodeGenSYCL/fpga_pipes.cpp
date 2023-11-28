@@ -1,6 +1,6 @@
-// UNSUPPORTED: intel_opencl
-// RUN: %clang_cc1 -fsycl-is-device %s -opaque-pointers -emit-llvm -triple spir64-unknown-unknown -disable-llvm-passes -o - | FileCheck %s
+// RUN: %clang_cc1 -fsycl-is-device %s -emit-llvm -triple spir64-unknown-unknown -disable-llvm-passes -o - | FileCheck %s
 // INTEL_CUSTOMIZATION
+// UNSUPPORTED: intel_opencl
 // INTEL_FEATURE_CSA
 // INTEL - Disable test for CSA compiler as it is flaky.
 // UNSUPPORTED: csa-registered-target

@@ -3,7 +3,7 @@
 ; RUN: opt -passes='vplan-vec' -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-print-after-predicator -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPLAN
 ; RUN: opt -passes='vplan-vec' -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CG
 
-define void @foo(i64 *%p, i1 *%uniform.ptr) {
+define void @foo(ptr %p, ptr %uniform.ptr) {
 ; VPLAN-LABEL:  VPlan after predicator:
 ; VPLAN-NEXT:  VPlan IR for: foo:header.#{{[0-9]+}}
 ; VPLAN-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -22,7 +22,7 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_COND]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = load i1* [[UNIFORM_PTR0:%.*]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = load ptr [[UNIFORM_PTR0:%.*]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[VP_UNIFORM]]
 ; VPLAN-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; VPLAN-EMPTY:
@@ -53,8 +53,8 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB3]]: # preds: [[BB9]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_ST_BLEND_BB8:%.*]] = blend [ i64 -1, i1 true ], [ i64 [[VP_VAL]], i1 [[VP_COND]] ]
-; VPLAN-NEXT:     [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_IV]]
-; VPLAN-NEXT:     [DA: Div] store i64 [[VP_ST_BLEND_BB8]] i64* [[VP_GEP]]
+; VPLAN-NEXT:     [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr i64, ptr [[P0:%.*]] i64 [[VP_IV]]
+; VPLAN-NEXT:     [DA: Div] store i64 [[VP_ST_BLEND_BB8]] ptr [[VP_GEP]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB10:BB[0-9]+]], [[BB2]]
@@ -70,7 +70,7 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; VPLAN-NEXT:  Id: 0   no underlying for i64 [[VP_IV_IND_FINAL]]
 ;
 ;
-; CG:  define void @foo(i64* [[P0:%.*]], i1* [[UNIFORM_PTR0:%.*]]) {
+; CG:  define void @foo(ptr [[P0:%.*]], ptr [[UNIFORM_PTR0:%.*]]) {
 ; CG:       vector.body:
 ; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10:%.*]] ], [ [[TMP14:%.*]], [[VPLANNEDBB90:%.*]] ]
 ; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB10]] ], [ [[TMP13:%.*]], [[VPLANNEDBB90]] ]
@@ -83,7 +83,7 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; CG-NEXT:    br i1 [[TMP2]], label [[PRED_LOAD_IF0:%.*]], label [[TMP4:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  pred.load.if:
-; CG-NEXT:    [[TMP3:%.*]] = load i1, i1* [[UNIFORM_PTR0]], align 1
+; CG-NEXT:    [[TMP3:%.*]] = load i1, ptr [[UNIFORM_PTR0]], align 1
 ; CG-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i1> poison, i1 [[TMP3]], i64 0
 ; CG-NEXT:    br label [[TMP4]]
 ; CG-EMPTY:
@@ -122,9 +122,8 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB9:
 ; CG-NEXT:    [[PREDBLEND120:%.*]] = select <2 x i1> [[TMP0]], <2 x i64> [[BROADCAST_SPLAT110]], <2 x i64> <i64 -1, i64 -1>
-; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, i64* [[P0]], i64 [[UNI_PHI0]]
-; CG-NEXT:    [[TMP12:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <2 x i64>*
-; CG-NEXT:    store <2 x i64> [[PREDBLEND120]], <2 x i64>* [[TMP12]], align 4
+; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, ptr [[P0]], i64 [[UNI_PHI0]]
+; CG-NEXT:    store <2 x i64> [[PREDBLEND120]], ptr [[SCALAR_GEP0]], align 4
 ; CG-NEXT:    [[TMP13]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CG-NEXT:    [[TMP14]] = add nuw nsw i64 [[UNI_PHI0]], 2
 ; CG-NEXT:    [[TMP15:%.*]] = icmp uge i64 [[TMP14]], 4
@@ -140,7 +139,7 @@ header:
   br i1 %cond, label %uni.start, label %latch
 
 uni.start:
-  %uniform = load i1, i1 *%uniform.ptr
+  %uniform = load i1, ptr %uniform.ptr
   br i1 %uniform, label %if.then, label %if.else
 
 if.then:
@@ -159,8 +158,8 @@ uni.end:
 
 latch:
   %st = phi i64 [ -1, %header ], [ %val, %uni.end]
-  %gep = getelementptr i64, i64 *%p, i64 %iv
-  store i64 %st, i64 *%gep
+  %gep = getelementptr i64, ptr %p, i64 %iv
+  store i64 %st, ptr %gep
   %iv.next = add nsw nuw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 4
   br i1 %exitcond, label %exit, label %header
@@ -172,7 +171,7 @@ exit:
 
 ; Used to crash with the first iteration of the patch. Not sure how to reproduce
 ; the same now that blends with undef are optimized inside predicator.
-define void @uniform_with_undef(i64 *%p, i64 %n) {
+define void @uniform_with_undef(ptr %p, i64 %n) {
 ; VPLAN-LABEL:  VPlan after predicator:
 ; VPLAN-NEXT:  VPlan IR for: uniform_with_undef:header.#{{[0-9]+}}
 ; VPLAN-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -204,8 +203,8 @@ define void @uniform_with_undef(i64 *%p, i64 %n) {
 ; VPLAN-NEXT:     [DA: Uni] br [[BB3]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB3]]: # preds: [[BB6]]
-; VPLAN-NEXT:     [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_IV]]
-; VPLAN-NEXT:     [DA: Div] store i64 1 i64* [[VP_GEP]]
+; VPLAN-NEXT:     [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr i64, ptr [[P0:%.*]] i64 [[VP_IV]]
+; VPLAN-NEXT:     [DA: Div] store i64 1 ptr [[VP_GEP]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]]
@@ -221,7 +220,7 @@ define void @uniform_with_undef(i64 *%p, i64 %n) {
 ; VPLAN-NEXT:  Id: 0   no underlying for i64 [[VP_IV_IND_FINAL]]
 ;
 ;
-; CG:  define void @uniform_with_undef(i64* [[P0:%.*]], i64 [[N0:%.*]]) {
+; CG:  define void @uniform_with_undef(ptr [[P0:%.*]], i64 [[N0:%.*]]) {
 ; CG:       vector.body:
 ; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10]] ], [ [[TMP5:%.*]], [[VPLANNEDBB60:%.*]] ]
 ; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB10]] ], [ [[TMP4:%.*]], [[VPLANNEDBB60]] ]
@@ -240,9 +239,8 @@ define void @uniform_with_undef(i64 *%p, i64 %n) {
 ; CG-NEXT:    br label [[VPLANNEDBB60]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB6:
-; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, i64* [[P0]], i64 [[UNI_PHI0]]
-; CG-NEXT:    [[TMP3:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <2 x i64>*
-; CG-NEXT:    store <2 x i64> <i64 1, i64 1>, <2 x i64>* [[TMP3]], align 4
+; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, ptr [[P0]], i64 [[UNI_PHI0]]
+; CG-NEXT:    store <2 x i64> <i64 1, i64 1>, ptr [[SCALAR_GEP0]], align 4
 ; CG-NEXT:    [[TMP4]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CG-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI0]], 2
 ; CG-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], 4
@@ -270,8 +268,8 @@ if.end:
   br label %latch
 
 latch:
-  %gep = getelementptr i64, i64 *%p, i64 %iv
-  store i64 %blend, i64 *%gep
+  %gep = getelementptr i64, ptr %p, i64 %iv
+  store i64 %blend, ptr %gep
   %iv.next = add nsw nuw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 4
   br i1 %exitcond, label %exit, label %header

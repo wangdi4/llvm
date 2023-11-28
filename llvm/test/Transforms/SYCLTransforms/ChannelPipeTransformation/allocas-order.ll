@@ -5,9 +5,9 @@
 ;
 ; channel char bar;
 ; typedef double double16 __attribute__((ext_vector_type(16)));
-; channel double far;
+; channel double16 far;
 ;
-; __kernel void foo(char c, __global double *d) {
+; __kernel void foo(char c, __global double16 *d) {
 ;   write_channel_intel(bar, c);
 ;   *d = read_channel_intel(far);
 ; }
@@ -15,15 +15,15 @@
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL1.2
 ; opt -passes=sycl-kernel-target-ext-type-lower,sycl-kernel-equalizer %s -S
 ; ----------------------------------------------------
-; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation -run-twice %s -S | FileCheck %s
+
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation -run-twice %s -S | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-@bar = addrspace(1) global target("spirv.Channel") zeroinitializer, align 1, !packet_size !0, !packet_align !0
-@far = addrspace(1) global target("spirv.Channel") zeroinitializer, align 128, !packet_size !1, !packet_align !1
+@bar = addrspace(1) global ptr addrspace(1) null, align 8, !packet_size !0, !packet_align !0
+@far = addrspace(1) global ptr addrspace(1) null, align 128, !packet_size !1, !packet_align !1
 
 ; CHECK: define {{.*}} void @foo
 ; CHECK: %write.src = alloca i8

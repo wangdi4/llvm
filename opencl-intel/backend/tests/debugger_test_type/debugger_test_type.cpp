@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2022 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -172,21 +172,6 @@ int main(int argc, char **argv) {
   DTT_LOG("<---------------------------------");
   DTT_LOG("Starting debug_test_type");
 
-#ifdef _WIN32
-  std::string envVar;
-  Intel::OpenCL::Utils::getEnvVar(envVar, "CL_CONFIG_USE_NATIVE_DEBUGGER");
-  bool useNativeDebugger =
-      Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(envVar);
-  NamedPipeThread *thread = nullptr;
-  if (!useNativeDebugger) {
-    // Create a thread that will simulate client configuration write
-    thread = new NamedPipeThread();
-    thread->Start();
-
-    // Allow thread to run (write the data)
-    Sleep(1000);
-  }
-#endif
   vector<string> args = read_commandline(argc, argv);
 
   if (args.size() < 3) {
@@ -323,13 +308,6 @@ int main(int argc, char **argv) {
     cerr << "Error: " << err.what() << endl;
     rc = 1;
   }
-
-#ifdef _WIN32
-  if (!useNativeDebugger) {
-    // Wait for thread to finish
-    thread->Join();
-  }
-#endif
 
   DTT_LOG("debug_test_type done.");
   DTT_LOG("--------------------------------->");

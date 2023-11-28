@@ -18,10 +18,9 @@
 ; CHECK: VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT: VPlan IR for: _Z3foov:omp.inner.for.body
 ; CHECK:  BB1: # preds: BB4
-; CHECK-NEXT:   %struct.str* [[VP_LPRIV:%.*]] = allocate-priv %struct.str = type { i32 }, OrigAlign = 4
-; CHECK-NEXT:   i8* [[VP_LPRIV_BCAST:%.*]] = bitcast %struct.str* [[VP_LPRIV]]
-; CHECK-NEXT:   call i64 4 i8* [[VP_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:   %struct.str* [[TMP0:%.*]] = call %struct.str* [[VP_LPRIV]] %struct.str* (%struct.str*)* @_ZTS3str.omp.def_constr
+; CHECK-NEXT:   ptr [[VP_LPRIV:%.*]] = allocate-priv %struct.str = type { i32 }, OrigAlign = 4
+; CHECK-NEXT:   call i64 4 ptr [[VP_LPRIV]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:   ptr [[TMP0:%.*]] = call ptr [[VP_LPRIV]] ptr @_ZTS3str.omp.def_constr
 ; CHECK-NEXT:   i32 [[TMP1:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:   i32 [[TMP2:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:   br BB2
@@ -32,10 +31,9 @@
 ; CHECK-NEXT:   br i1 [[TMP5]], BB3, BB2
 ; CHECK:  BB3: # preds: BB2
 ; CHECK-NEXT:   i32 [[TMP6:%.*]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:   private-last-value-nonpod CopyAssign: _ZTS3str.omp.copy_assign %struct.str* [[VP_LPRIV]] %struct.str* [[X_LPRIV:%.*]]
-; CHECK-NEXT:   call %struct.str* [[VP_LPRIV]] void (%struct.str*)* @_ZTS3str.omp.destr
-; CHECK-NEXT:   i8* [[VP_LPRIV_BCAST:%.*]] = bitcast %struct.str* [[VP_LPRIV]]
-; CHECK-NEXT:   call i64 4 i8* [[VP_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
+; CHECK-NEXT:   private-last-value-nonpod CopyAssign: _ZTS3str.omp.copy_assign ptr [[VP_LPRIV]] ptr [[X_LPRIV:%.*]]
+; CHECK-NEXT:   call ptr [[VP_LPRIV]] ptr @_ZTS3str.omp.destr
+; CHECK-NEXT:   call i64 4 ptr [[VP_LPRIV]] ptr @llvm.lifetime.end.p0 
 ; CHECK-NEXT:   br BB5
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -50,19 +48,16 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:    [[X_LPRIV:%.*]] = alloca [[STRUCT_STR:%.*]], align 4
 ; CHECK-NEXT:    [[I_LINEAR_IV:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[X:%.*]] = alloca [[STRUCT_STR]], align 4
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast %struct.str* [[X]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull [[TMP0]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 4, ptr nonnull [[X]])
 ; CHECK-NEXT:    [[X_LPRIV_VEC:%.*]] = alloca [2 x %struct.str], align 8
-; CHECK-NEXT:    [[X_LPRIV_VEC_BC:%.*]] = bitcast [2 x %struct.str]* [[X_LPRIV_VEC]] to %struct.str*
-; CHECK-NEXT:    [[X_LPRIV_VEC_BASE_ADDR:%.*]] = getelementptr [[STRUCT_STR]], %struct.str* [[X_LPRIV_VEC_BC]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_1_:%.*]] = extractelement <2 x %struct.str*> [[X_LPRIV_VEC_BASE_ADDR]], i32 1
-; CHECK-NEXT:    [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <2 x %struct.str*> [[X_LPRIV_VEC_BASE_ADDR]], i32 0
+; CHECK-NEXT:    [[X_LPRIV_VEC_BASE_ADDR:%.*]] = getelementptr [[STRUCT_STR]], ptr [[X_LPRIV_VEC]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_1_:%.*]] = extractelement <2 x ptr> [[X_LPRIV_VEC_BASE_ADDR]], i32 1
+; CHECK-NEXT:    [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <2 x ptr> [[X_LPRIV_VEC_BASE_ADDR]], i32 0
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[X_LPRIV_VEC_BCAST:%.*]] = bitcast [2 x %struct.str]* [[X_LPRIV_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[X_LPRIV_VEC_BCAST]])
-; CHECK-NEXT:    [[TMP1:%.*]] = call %struct.str* @_ZTS3str.omp.def_constr(%struct.str* [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
-; CHECK-NEXT:    [[TMP2:%.*]] = call %struct.str* @_ZTS3str.omp.def_constr(%struct.str* [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_1_]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8, ptr [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
+; CHECK-NEXT:    [[TMP1:%.*]] = call ptr @_ZTS3str.omp.def_constr(ptr [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
+; CHECK-NEXT:    [[TMP2:%.*]] = call ptr @_ZTS3str.omp.def_constr(ptr [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_1_]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
@@ -72,23 +67,21 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i32 [[TMP4]], 10000
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB3:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB3:
-; CHECK-NEXT:    call void @_ZTS3str.omp.copy_assign(%struct.str* [[X_LPRIV]], %struct.str* [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_1_]])
-; CHECK-NEXT:    call void @_ZTS3str.omp.destr(%struct.str* [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
-; CHECK-NEXT:    call void @_ZTS3str.omp.destr(%struct.str* [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_1_]])
-; CHECK-NEXT:    [[X_LPRIV_VEC_BCAST:%.*]] = bitcast [2 x %struct.str]* [[X_LPRIV_VEC]] to i8* 
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8, i8* [[X_LPRIV_VEC_BCAST]]) 
+; CHECK-NEXT:    call void @_ZTS3str.omp.copy_assign(ptr [[X_LPRIV]], ptr [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_1_]])
+; CHECK-NEXT:    call void @_ZTS3str.omp.destr(ptr [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
+; CHECK-NEXT:    call void @_ZTS3str.omp.destr(ptr [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_1_]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 8, ptr [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]]) 
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ;
 DIR.OMP.SIMD.115:
   %x.lpriv = alloca %struct.str, align 4
   %i.linear.iv = alloca i32, align 4
   %x = alloca %struct.str, align 4
-  %0 = bitcast %struct.str* %x to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0)
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %x)
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.115
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(%struct.str* %x.lpriv, %struct.str zeroinitializer, i32 1, %struct.str* (%struct.str*)* @_ZTS3str.omp.def_constr, void (%struct.str*, %struct.str*)* @_ZTS3str.omp.copy_assign, void (%struct.str*)* @_ZTS3str.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(ptr %x.lpriv, %struct.str zeroinitializer, i32 1, ptr @_ZTS3str.omp.def_constr, ptr @_ZTS3str.omp.copy_assign, ptr @_ZTS3str.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
@@ -101,24 +94,22 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %om
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.216, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.216:                             ; preds = %omp.inner.for.body
-  %a = getelementptr inbounds %struct.str, %struct.str* %x.lpriv, i64 0, i32 0
-  store i32 9999, i32* %a, align 4
+  store i32 9999, ptr %x.lpriv, align 4
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.216
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SIMD"() ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.OMP.END.SIMD.4
 
 DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
-  call void @_ZTS3str.omp.copy_assign(%struct.str* nonnull %x, %struct.str* nonnull %x.lpriv)
-  %a2 = getelementptr inbounds %struct.str, %struct.str* %x, i64 0, i32 0
-  %2 = load i32, i32* %a2, align 4
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0)
-  ret i32 %2
+  call void @_ZTS3str.omp.copy_assign(ptr nonnull %x, ptr nonnull %x.lpriv)
+  %1 = load i32, ptr %x, align 4
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %x)
+  ret i32 %1
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn mustprogress
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
@@ -127,26 +118,24 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 ; Function Attrs: nofree norecurse nosync nounwind readnone uwtable willreturn mustprogress
-define internal %struct.str* @_ZTS3str.omp.def_constr(%struct.str* readnone returned %0) section ".text.startup" {
+define internal ptr @_ZTS3str.omp.def_constr(ptr readnone returned %0) section ".text.startup" {
 entry:
-  ret %struct.str* %0
+  ret ptr %0
 }
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable willreturn mustprogress
-define internal void @_ZTS3str.omp.copy_assign(%struct.str* nocapture %0, %struct.str* nocapture readonly %1) {
+define internal void @_ZTS3str.omp.copy_assign(ptr nocapture %0, ptr nocapture readonly %1) {
 entry:
-  %2 = getelementptr inbounds %struct.str, %struct.str* %1, i64 0, i32 0
-  %3 = getelementptr inbounds %struct.str, %struct.str* %0, i64 0, i32 0
-  %4 = load i32, i32* %2, align 4
-  store i32 %4, i32* %3, align 4
+  %2 = load i32, ptr %1, align 4
+  store i32 %2, ptr %0, align 4
   ret void
 }
 
 ; Function Attrs: nofree norecurse nosync nounwind readnone uwtable willreturn mustprogress
-define internal void @_ZTS3str.omp.destr(%struct.str* nocapture %0) section ".text.startup" {
+define internal void @_ZTS3str.omp.destr(ptr nocapture %0) section ".text.startup" {
 entry:
   ret void
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn mustprogress
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)

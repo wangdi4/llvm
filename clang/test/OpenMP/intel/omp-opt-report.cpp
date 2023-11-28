@@ -370,23 +370,13 @@ void bar() {
 #pragma omp target parallel
   {
 
-    //TARG: --- !Missed
-    //TARG: Pass:{{.*}}openmp
-    //TARG: Name:{{.*}}Region
-    //TARG: DebugLoc: { File: '{{.*}}omp-opt-report.cpp',
-    //TARG: Line: 381, Column: 13 }
-    //TARG: Function:{{.*}}bar
-    //TARG: Construct:{{.*}}task
-    //TARG: String:{{.*}}unsupported construct ignored by clang
-#pragma omp task
-    baz();
     int k = 0;
 
     //TARG: --- !Passed
     //TARG: Pass:{{.*}}openmp
     //TARG: Name:{{.*}}Region
     //TARG: DebugLoc: { File: '{{.*}}omp-opt-report.cpp',
-    //TARG: Line: 393, Column: 1 }
+    //TARG: Line: 383, Column: 1 }
     //TARG: Function:{{.*}}bar
     //TARG: Construct:{{.*}}atomic update
     //TARG: String:{{.*}}construct handled by clang
@@ -405,7 +395,7 @@ void bat() {
     //TARG: Pass:{{.*}}openmp
     //TARG: Name:{{.*}}Region
     //TARG: DebugLoc: { File: '{{.*}}omp-opt-report.cpp',
-    //TARG: Line: 412, Column: 38 }
+    //TARG: Line: 402, Column: 38 }
     //TARG: Function:{{.*}}bat
     //TARG: Construct:{{.*}}flush
     //TARG: String:{{.*}}unsupported construct ignored by clang

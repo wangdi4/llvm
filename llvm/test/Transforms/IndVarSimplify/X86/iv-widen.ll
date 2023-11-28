@@ -166,10 +166,7 @@ define void @loop_2(i32 %size, i32 %nsteps, i32 %hsize, ptr %lined, i8 %tmp1) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[SIZE]] to i64
 ; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[HSIZE:%.*]] to i64
 ; CHECK-NEXT:    [[SMAX:%.*]] = call i32 @llvm.smax.i32(i32 [[NSTEPS:%.*]], i32 1)
-; INTEL_CUSTOMIZATION
-; zext changed to sext
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT14:%.*]] = sext i32 [[SMAX]] to i64
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT14:%.*]] = zext i32 [[SMAX]] to i64
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV9:%.*]] = phi i64 [ [[INDVARS_IV_NEXT10:%.*]], [[FOR_INC:%.*]] ], [ 0, [[ENTRY:%.*]] ]
@@ -177,9 +174,7 @@ define void @loop_2(i32 %size, i32 %nsteps, i32 %hsize, ptr %lined, i8 %tmp1) {
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw i64 [[TMP2]], [[TMP1]]
 ; CHECK-NEXT:    br i1 [[CMP215]], label [[FOR_BODY2_PREHEADER:%.*]], label [[FOR_INC]]
 ; CHECK:       for.body2.preheader:
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[SIZE]] to i64
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[SIZE]] to i64
 ; CHECK-NEXT:    br label [[FOR_BODY2:%.*]]
 ; CHECK:       for.body2:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 1, [[FOR_BODY2_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY2]] ]
@@ -192,9 +187,7 @@ define void @loop_2(i32 %size, i32 %nsteps, i32 %hsize, ptr %lined, i8 %tmp1) {
 ; CHECK:       for.body3.preheader:
 ; CHECK-NEXT:    [[TMP5:%.*]] = trunc i64 [[TMP3]] to i32
 ; CHECK-NEXT:    [[TMP6:%.*]] = zext i32 [[TMP5]] to i64
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT7:%.*]] = sext i32 [[SIZE]] to i64
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT7:%.*]] = zext i32 [[SIZE]] to i64
 ; CHECK-NEXT:    br label [[FOR_BODY3:%.*]]
 ; CHECK:       for.body3:
 ; CHECK-NEXT:    [[INDVARS_IV3:%.*]] = phi i64 [ 1, [[FOR_BODY3_PREHEADER]] ], [ [[INDVARS_IV_NEXT4:%.*]], [[FOR_BODY3]] ]

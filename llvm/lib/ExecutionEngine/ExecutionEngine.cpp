@@ -357,7 +357,7 @@ void *ArgvArray::reset(LLVMContext &C, ExecutionEngine *EE,
   Array = std::make_unique<char[]>((InputArgv.size()+1)*PtrSize);
 
   LLVM_DEBUG(dbgs() << "JIT: ARGV = " << (void *)Array.get() << "\n");
-  Type *SBytePtr = Type::getInt8PtrTy(C);
+  Type *SBytePtr = PointerType::getUnqual(C);
 
   for (unsigned i = 0; i != InputArgv.size(); ++i) {
     unsigned Size = InputArgv[i].size()+1;
@@ -447,7 +447,7 @@ int ExecutionEngine::runFunctionAsMain(Function *Fn,
   // Check main() type
   unsigned NumArgs = Fn->getFunctionType()->getNumParams();
   FunctionType *FTy = Fn->getFunctionType();
-  Type* PPInt8Ty = Type::getInt8PtrTy(Fn->getContext())->getPointerTo();
+  Type *PPInt8Ty = PointerType::get(Fn->getContext(), 0);
 
   // Check the argument types.
   if (NumArgs > 3)
@@ -488,7 +488,7 @@ EngineBuilder::EngineBuilder() : EngineBuilder(nullptr) {}
 
 EngineBuilder::EngineBuilder(std::unique_ptr<Module> M)
     : M(std::move(M)), WhichEngine(EngineKind::Either), ErrorStr(nullptr),
-      OptLevel(CodeGenOpt::Default), MemMgr(nullptr), Resolver(nullptr) {
+      OptLevel(CodeGenOptLevel::Default), MemMgr(nullptr), Resolver(nullptr) {
 // IR module verification is enabled by default in debug builds, and disabled
 // by default in release builds.
 #ifndef NDEBUG
@@ -645,11 +645,23 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
             getConstantValue(UndefValue::get(ATy->getElementType()));
       }
       break;
+#else
+      case Type::ArrayTyID: {
+        auto *ArrTy = cast<ArrayType>(C->getType());
+        Type *ElemTy = ArrTy->getElementType();
+        unsigned int elemNum = ArrTy->getNumElements();
+        Result.AggregateVal.resize(elemNum);
+        if (ElemTy->isIntegerTy())
+          for (unsigned int i = 0; i < elemNum; ++i)
+            Result.AggregateVal[i].IntVal =
+                APInt(ElemTy->getPrimitiveSizeInBits(), 0);
+        break;
+      }
 #endif // INTEL_CUSTOMIZATION
       case Type::ScalableVectorTyID:
         report_fatal_error(
             "Scalable vector support not yet implemented in ExecutionEngine");
-      case Type::FixedVectorTyID:
+      case Type::FixedVectorTyID: {
         // if the whole vector is 'undef' just reserve memory for the value.
         auto *VTy = cast<FixedVectorType>(C->getType());
         Type *ElemTy = VTy->getElementType();
@@ -660,6 +672,7 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
             Result.AggregateVal[i].IntVal =
                 APInt(ElemTy->getPrimitiveSizeInBits(), 0);
         break;
+      }
     }
     return Result;
   }

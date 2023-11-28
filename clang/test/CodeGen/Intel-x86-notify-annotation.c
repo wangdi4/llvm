@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm -opaque-pointers -o - %s | FileCheck %s -check-prefix=X64
-// RUN: %clang_cc1 -triple i386-unknown-linux-gnu -emit-llvm -opaque-pointers -o - %s | FileCheck %s -check-prefix=X86
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s -check-prefix=X64
+// RUN: %clang_cc1 -triple i386-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s -check-prefix=X86
 extern void bar(void *, void *, void *);
 int foo(int zc, void *lock) {
     static int lock2 = 2;
@@ -43,7 +43,7 @@ int foo(int zc, void *lock) {
 //X64:      if.else:                                          ; preds = %entry
 //X64-NEXT:   fence syncscope("singlethread") seq_cst
 //X64-NEXT:   %2 = load ptr, ptr %lock.addr, align 8
-//X64-NEXT:   %add.ptr = getelementptr i8, ptr %2, i64 4
+//X64-NEXT:   %add.ptr = getelementptr inbounds i8, ptr %2, i64 4
 //X64-NEXT:   call void @llvm.notify.nzc(ptr @.str.1, ptr %add.ptr)
 //X64-NEXT:   br label %if.end
 
@@ -51,7 +51,7 @@ int foo(int zc, void *lock) {
 //X64-NEXT:   %3 = load ptr, ptr %lock.addr, align 8
 //X64-NEXT:   %4 = load i32, ptr %zc.addr, align 4
 //X64-NEXT:   %idx.ext = sext i32 %4 to i64
-//X64-NEXT:   %add.ptr1 = getelementptr i8, ptr %3, i64 %idx.ext
+//X64-NEXT:   %add.ptr1 = getelementptr inbounds i8, ptr %3, i64 %idx.ext
 //X64-NEXT:   call void @llvm.notify.zc(ptr @.str, ptr %add.ptr1)
 //X64-NEXT:   %5 = load i32, ptr @foo.lock2, align 4
 //X64-NEXT:   %6 = load i32, ptr @foo.lock3, align 4
@@ -94,14 +94,14 @@ int foo(int zc, void *lock) {
 //X86:      if.else:                                          ; preds = %entry
 //X86-NEXT:   fence syncscope("singlethread") seq_cst
 //X86-NEXT:   %2 = load ptr, ptr %lock.addr, align 4
-//X86-NEXT:   %add.ptr = getelementptr i8, ptr %2, i32 4
+//X86-NEXT:   %add.ptr = getelementptr inbounds i8, ptr %2, i32 4
 //X86-NEXT:   call void @llvm.notify.nzc(ptr @.str.1, ptr %add.ptr)
 //X86-NEXT:   br label %if.end
 
 //X86:      if.end:                                           ; preds = %if.else, %if.then
 //X86-NEXT:   %3 = load ptr, ptr %lock.addr, align 4
 //X86-NEXT:   %4 = load i32, ptr %zc.addr, align 4
-//X86-NEXT:   %add.ptr1 = getelementptr i8, ptr %3, i32 %4
+//X86-NEXT:   %add.ptr1 = getelementptr inbounds i8, ptr %3, i32 %4
 //X86-NEXT:   call void @llvm.notify.zc(ptr @.str, ptr %add.ptr1)
 //X86-NEXT:   %5 = load i32, ptr @foo.lock2, align 4
 //X86-NEXT:   %6 = load i32, ptr @foo.lock3, align 4

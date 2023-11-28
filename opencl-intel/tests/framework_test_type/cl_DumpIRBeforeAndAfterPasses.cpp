@@ -18,13 +18,12 @@
 // stderr.
 #if (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)) && !defined(_WIN32)
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/wait.h>
-
 #include "CL/cl.h"
 #include "FrameworkTest.h"
 #include "gtest_wrapper.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/wait.h>
 
 extern cl_device_type gDeviceType;
 
@@ -81,7 +80,7 @@ static void CheckOutput(int fd) {
 
   int i = 0;
   while (getline(&buf, &size, fin) != -1 && i < TEST_NUM) {
-    if (strncmp(refs[i], buf, strlen(refs[i])) == 0)
+    if (strstr(buf, refs[i]) != NULL)
       i++;
   }
   // consume all output

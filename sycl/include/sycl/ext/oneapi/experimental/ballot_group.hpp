@@ -7,8 +7,19 @@
 //===----------------------------------------------------------------------===//
 
 #pragma once
-#include <sycl/ext/oneapi/experimental/non_uniform_groups.hpp>
-#include <sycl/ext/oneapi/sub_group_mask.hpp>
+
+#include <sycl/aspects.hpp>
+#include <sycl/detail/pi.h>            // for PI_ERROR_INVALID_DEVICE
+#include <sycl/detail/type_traits.hpp> // for is_group, is_user_cons...
+#include <sycl/exception.hpp>          // for runtime_error
+#include <sycl/ext/oneapi/experimental/non_uniform_groups.hpp> // for GetMask
+#include <sycl/ext/oneapi/sub_group_mask.hpp> // for sub_group_mask
+#include <sycl/id.hpp>                        // for id
+#include <sycl/memory_enums.hpp>              // for memory_scope
+#include <sycl/range.hpp>                     // for range
+#include <sycl/sub_group.hpp>                 // for sub_group
+
+#include <type_traits> // for enable_if_t, decay_t
 
 namespace sycl {
 inline namespace _V1 {
@@ -17,6 +28,10 @@ namespace ext::oneapi::experimental {
 template <typename ParentGroup> class ballot_group;
 
 template <typename Group>
+#ifdef __SYCL_DEVICE_ONLY__
+[[__sycl_detail__::__uses_aspects__(
+    sycl::aspect::ext_oneapi_non_uniform_groups)]]
+#endif
 inline std::enable_if_t<sycl::is_group_v<std::decay_t<Group>> &&
                             std::is_same_v<Group, sycl::sub_group>,
                         ballot_group<Group>>
@@ -132,6 +147,7 @@ inline std::enable_if_t<sycl::is_group_v<std::decay_t<Group>> &&
 get_ballot_group(Group group, bool predicate) {
   (void)group;
 #ifdef __SYCL_DEVICE_ONLY__
+#if defined(__SPIR__) || defined(__NVPTX__)
   // ballot_group partitions into two groups using the predicate
   // Membership mask for one group is negation of the other
   sub_group_mask mask = sycl::ext::oneapi::group_ballot(group, predicate);
@@ -140,6 +156,7 @@ get_ballot_group(Group group, bool predicate) {
   } else {
     return ballot_group<sycl::sub_group>(~mask, predicate);
   }
+#endif
 #else
   (void)predicate;
   throw runtime_error("Non-uniform groups are not supported on host device.",

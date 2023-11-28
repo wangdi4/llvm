@@ -4,7 +4,7 @@
 
 ; Verify the divergence information for the outermost loop for.body.
 
-define void @test1(float* nocapture %ptr, i64 %n) {
+define void @test1(ptr nocapture %ptr, i64 %n) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]]<latch><exiting>
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header><latch><exiting>
 ; CHECK-EMPTY:
@@ -18,8 +18,8 @@ define void @test1(float* nocapture %ptr, i64 %n) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] i64 [[VP_IDX:%.*]] = add i64 [[VP_ROW]] i64 [[VP_IV2]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_TRUNC:%.*]] = trunc i64 [[VP_IDX]] to i32
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_VAL:%.*]] = sitofp i32 [[VP_TRUNC]] to float
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float* [[PTR0:%.*]] i64 [[VP_IDX]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] store float [[VP_VAL]] float* [[VP_ARRAYIDX]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[PTR0:%.*]] i64 [[VP_IDX]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] store float [[VP_VAL]] ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV_NEXT2]] = add i64 [[VP_IV2]] i64 1
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_EXITCOND2:%.*]] = icmp sge i64 [[VP_IV_NEXT2]] i64 [[VP_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] br i1 [[VP_EXITCOND2]], [[BB2]], [[BB1]]
@@ -54,8 +54,8 @@ for.body2:
   %idx = add i64 %row, %iv2
   %trunc = trunc i64 %idx to i32
   %val = sitofp i32 %trunc to float
-  %arrayidx = getelementptr inbounds float, float* %ptr, i64 %idx
-  store float %val, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %ptr, i64 %idx
+  store float %val, ptr %arrayidx, align 4
   %iv.next2 = add nuw nsw i64 %iv2, 1
   %exitcond2 = icmp sge i64 %iv.next2, %iv
   br i1 %exitcond2, label %for.latch, label %for.body2

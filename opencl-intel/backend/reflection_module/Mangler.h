@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,7 +16,6 @@
 #define __MANGLER_H_
 
 #include "llvm/IR/DerivedTypes.h"
-
 #include <string>
 
 using namespace llvm;

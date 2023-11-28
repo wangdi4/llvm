@@ -10,12 +10,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 
-define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture readonly %ub, i32 %k) local_unnamed_addr {
+define dso_local void @foo(ptr nocapture readonly %a, i32 %m, ptr nocapture readonly %ub, i32 %k) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[UB0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp slt i32 [[VP0]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST_NOT:%.*]] = not i1 [[VP_TOPTEST]]
 ; CHECK-NEXT:     [DA: Div] br i1 [[VP_TOPTEST]], [[BB1:BB[0-9]+]], [[BB2:BB[0-9]+]]
@@ -32,12 +32,12 @@ define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture r
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:         [DA: Div] i32 [[VP_MUL:%.*]] = mul i32 [[VP2]] i32 [[VP1]]
-; CHECK-NEXT:         [DA: Uni] i32** [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds i32** [[A0:%.*]] i64 [[VP_IV]]
-; CHECK-NEXT:         [DA: Uni] i32* [[VP4:%.*]] = load i32** [[VP_ARRAYIDX5]]
-; CHECK-NEXT:         [DA: Div] i32* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32* [[VP4]] i64 [[VP_LANE]]
-; CHECK-NEXT:         [DA: Div] store i32 [[VP_MUL]] i32* [[VP_ARRAYIDX7]]
+; CHECK-NEXT:         [DA: Uni] ptr [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds ptr, ptr [[A0:%.*]] i64 [[VP_IV]]
+; CHECK-NEXT:         [DA: Uni] ptr [[VP4:%.*]] = load ptr [[VP_ARRAYIDX5]]
+; CHECK-NEXT:         [DA: Div] ptr [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds i32, ptr [[VP4]] i64 [[VP_LANE]]
+; CHECK-NEXT:         [DA: Div] store i32 [[VP_MUL]] ptr [[VP_ARRAYIDX7]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
-; CHECK-NEXT:         [DA: Div] i32 [[VP3]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:         [DA: Div] i32 [[VP3]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP5:%.*]] = sext i32 [[VP3]] to i64
 ; CHECK-NEXT:         [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp slt i64 [[VP_IV]] i64 [[VP5]]
 ; CHECK-NEXT:         [DA: Uni] br [[BB4]]
@@ -56,8 +56,8 @@ define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture r
 ;
 entry:
   %lane = call i64 @llvm.vplan.laneid()
-  %arrayidx = getelementptr inbounds i32, i32* %ub, i64 %lane
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ub, i64 %lane
+  %0 = load i32, ptr %arrayidx, align 4
   %toptest = icmp slt i32 %0, 0
   br i1 %toptest, label %exit, label %preheader
 
@@ -69,12 +69,12 @@ header:
   %iv = phi i64 [ 0, %preheader ], [ %iv.next, %header ]
   %2 = phi i32 [ %0, %preheader ], [ %4, %header ]
   %mul = mul nsw i32 %2, %1
-  %arrayidx5 = getelementptr inbounds i32*, i32** %a, i64 %iv
-  %3 = load i32*, i32** %arrayidx5, align 8
-  %arrayidx7 = getelementptr inbounds i32, i32* %3, i64 %lane
-  store i32 %mul, i32* %arrayidx7, align 4
+  %arrayidx5 = getelementptr inbounds ptr, ptr %a, i64 %iv
+  %3 = load ptr, ptr %arrayidx5, align 8
+  %arrayidx7 = getelementptr inbounds i32, ptr %3, i64 %lane
+  store i32 %mul, ptr %arrayidx7, align 4
   %iv.next = add nuw nsw i64 %iv, 1
-  %4 = load i32, i32* %arrayidx, align 4
+  %4 = load i32, ptr %arrayidx, align 4
   %5 = sext i32 %4 to i64
   %continue.cond = icmp slt i64 %iv, %5
   br i1 %continue.cond, label %header, label %loop.exit

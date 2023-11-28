@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019-2022 Intel Corporation.
+// Copyright 2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -30,10 +30,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
 // The following include and 3 defines replace inclusion of "int_lib.h" in the
 // original file.
 #include <stdbool.h>
-
 #define COMPILE_TIME_ASSERT(expr) COMPILE_TIME_ASSERT1(expr, __COUNTER__)
 #define COMPILE_TIME_ASSERT1(expr, cnt) COMPILE_TIME_ASSERT2(expr, cnt)
 #define COMPILE_TIME_ASSERT2(expr, cnt)

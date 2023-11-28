@@ -3,7 +3,7 @@
 ; RUN: -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-vplan-codegen | FileCheck %s
 
 ; in-memory conditional last private
-define dso_local i64 @_Z3fooPlS_(i64* nocapture %arr1, i64* nocapture %arr2) local_unnamed_addr #0 {
+define dso_local i64 @_Z3fooPlS_(ptr nocapture %arr1, ptr nocapture %arr2) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: _Z3fooPlS_:omp.inner.for.body
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
@@ -14,44 +14,43 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture %arr1, i64* nocapture %arr2) loc
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Private tag: InMemory
-; CHECK-NEXT:    Linked values: i64* [[RET_LPRIV0:%.*]], i64* [[VP_RET_LPRIV:%.*]], void [[VP_STORE:%.*]], i64 [[VP__PRIV_FINAL:%.*]],
-; CHECK-NEXT:   Memory: i64* [[RET_LPRIV0]]
+; CHECK-NEXT:    Linked values: ptr [[RET_LPRIV0:%.*]], ptr [[VP_RET_LPRIV:%.*]], void [[VP_STORE:%.*]], i64 [[VP__PRIV_FINAL:%.*]],
+; CHECK-NEXT:   Memory: ptr [[RET_LPRIV0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     i64* [[VP_RET_LPRIV]] = allocate-priv i64, OrigAlign = 8
-; CHECK-NEXT:     i8* [[VP_RET_LPRIV_BCAST:%.*]] = bitcast i64* [[VP_RET_LPRIV]]
-; CHECK-NEXT:     call i64 8 i8* [[VP_RET_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     ptr [[VP_RET_LPRIV]] = allocate-priv i64, OrigAlign = 8
+; CHECK-NEXT:     call i64 8 ptr [[VP_RET_LPRIV]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_018_IND_INIT]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_018_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     i64* [[VP_PRIV_IDX_MEM:%.*]] = allocate-priv i64, OrigAlign = 8
-; CHECK-NEXT:     store i64 -1 i64* [[VP_PRIV_IDX_MEM]]
+; CHECK-NEXT:     ptr [[VP_PRIV_IDX_MEM:%.*]] = allocate-priv i64, OrigAlign = 8
+; CHECK-NEXT:     store i64 -1 ptr [[VP_PRIV_IDX_MEM]]
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_018]] = phi  [ i64 [[VP__OMP_IV_LOCAL_018_IND_INIT]], [[BB2]] ],  [ i64 [[VP_ADD8]], [[BB3]] ]
-; CHECK-NEXT:     i64* [[VP_PTRIDX:%.*]] = getelementptr inbounds i64* [[ARR10:%.*]] i64 [[VP__OMP_IV_LOCAL_018]]
-; CHECK-NEXT:     i64 [[VP0:%.*]] = load i64* [[VP_PTRIDX]]
+; CHECK-NEXT:     ptr [[VP_PTRIDX:%.*]] = getelementptr inbounds i64, ptr [[ARR10:%.*]] i64 [[VP__OMP_IV_LOCAL_018]]
+; CHECK-NEXT:     i64 [[VP0:%.*]] = load ptr [[VP_PTRIDX]]
 ; CHECK-NEXT:     i1 [[VP_TOBOOL:%.*]] = icmp eq i64 [[VP0]] i64 0
 ; CHECK-NEXT:     br i1 [[VP_TOBOOL]], [[BB3]], [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
-; CHECK-NEXT:       i64* [[VP_PTRIDX1:%.*]] = getelementptr inbounds i64* [[ARR20:%.*]] i64 [[VP__OMP_IV_LOCAL_018]]
-; CHECK-NEXT:       i64 [[VP1:%.*]] = load i64* [[VP_PTRIDX1]]
+; CHECK-NEXT:       ptr [[VP_PTRIDX1:%.*]] = getelementptr inbounds i64, ptr [[ARR20:%.*]] i64 [[VP__OMP_IV_LOCAL_018]]
+; CHECK-NEXT:       i64 [[VP1:%.*]] = load ptr [[VP_PTRIDX1]]
 ; CHECK-NEXT:       i1 [[VP_TOBOOL2:%.*]] = icmp eq i64 [[VP1]] i64 0
 ; CHECK-NEXT:       br i1 [[VP_TOBOOL2]], [[BB5:BB[0-9]+]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB6]]: # preds: [[BB4]]
-; CHECK-NEXT:         store i64 [[VP__OMP_IV_LOCAL_018]] i64* [[VP_PRIV_IDX_MEM]]
-; CHECK-NEXT:         store i64 [[VP1]] i64* [[VP_RET_LPRIV]]
-; CHECK-NEXT:         call i64* [[VP_RET_LPRIV]] void (i64*)* @_Z3bazPl
-; CHECK-NEXT:         store i64 0 i64* [[VP_PTRIDX1]]
+; CHECK-NEXT:         store i64 [[VP__OMP_IV_LOCAL_018]] ptr [[VP_PRIV_IDX_MEM]]
+; CHECK-NEXT:         store i64 [[VP1]] ptr [[VP_RET_LPRIV]]
+; CHECK-NEXT:         call ptr [[VP_RET_LPRIV]] ptr @_Z3bazPl
+; CHECK-NEXT:         store i64 0 ptr [[VP_PTRIDX1]]
 ; CHECK-NEXT:         br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB4]], [[BB6]]
-; CHECK-NEXT:       store i64 0 i64* [[VP_PTRIDX]]
+; CHECK-NEXT:       store i64 0 ptr [[VP_PTRIDX]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]], [[BB5]]
@@ -61,12 +60,11 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture %arr1, i64* nocapture %arr2) loc
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB3]]
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_018_IND_FINAL]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     i64 [[VP_LOADED_PRIV:%.*]] = load i64* [[VP_RET_LPRIV]]
-; CHECK-NEXT:     i64 [[VP_LOADED_PRIV_IDX:%.*]] = load i64* [[VP_PRIV_IDX_MEM]]
-; CHECK-NEXT:     i64 [[VP__PRIV_FINAL]] = private-final-c-mem i64 [[VP_LOADED_PRIV]] i64 [[VP_LOADED_PRIV_IDX]] i64* [[RET_LPRIV0]]
-; CHECK-NEXT:     store i64 [[VP__PRIV_FINAL]] i64* [[RET_LPRIV0]]
-; CHECK-NEXT:     i8* [[VP_RET_LPRIV_BCAST1:%.*]] = bitcast i64* [[VP_RET_LPRIV]]
-; CHECK-NEXT:     call i64 8 i8* [[VP_RET_LPRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     i64 [[VP_LOADED_PRIV:%.*]] = load ptr [[VP_RET_LPRIV]]
+; CHECK-NEXT:     i64 [[VP_LOADED_PRIV_IDX:%.*]] = load ptr [[VP_PRIV_IDX_MEM]]
+; CHECK-NEXT:     i64 [[VP__PRIV_FINAL]] = private-final-c-mem i64 [[VP_LOADED_PRIV]] i64 [[VP_LOADED_PRIV_IDX]] ptr [[RET_LPRIV0]]
+; CHECK-NEXT:     store i64 [[VP__PRIV_FINAL]] ptr [[RET_LPRIV0]]
+; CHECK-NEXT:     call i64 8 ptr [[VP_RET_LPRIV]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
@@ -74,34 +72,34 @@ define dso_local i64 @_Z3fooPlS_(i64* nocapture %arr1, i64* nocapture %arr2) loc
 omp.inner.for.body.lr.ph:
   %ret.lpriv = alloca i64, align 8
   %l1.linear.iv = alloca i64, align 8
-  store i64 0, i64* %ret.lpriv, align 8
+  store i64 0, ptr %ret.lpriv, align 8
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i64* %ret.lpriv, i64 0, i64 1), "QUAL.OMP.LINEAR:IV.TYPED"(i64* %l1.linear.iv, i64 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(ptr %ret.lpriv, i64 0, i64 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %l1.linear.iv, i64 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.1, %omp.inner.for.inc
   %.omp.iv.local.018 = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %add8, %omp.inner.for.inc ]
-  %ptridx = getelementptr inbounds i64, i64* %arr1, i64 %.omp.iv.local.018
-  %1 = load i64, i64* %ptridx, align 8
+  %ptridx = getelementptr inbounds i64, ptr %arr1, i64 %.omp.iv.local.018
+  %1 = load i64, ptr %ptridx, align 8
   %tobool = icmp eq i64 %1, 0
   br i1 %tobool, label %omp.inner.for.inc, label %if.then
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %ptridx1 = getelementptr inbounds i64, i64* %arr2, i64 %.omp.iv.local.018
-  %2 = load i64, i64* %ptridx1, align 8
+  %ptridx1 = getelementptr inbounds i64, ptr %arr2, i64 %.omp.iv.local.018
+  %2 = load i64, ptr %ptridx1, align 8
   %tobool2 = icmp eq i64 %2, 0
   br i1 %tobool2, label %if.end, label %if.then3
 
 if.then3:                                         ; preds = %if.then
-  store i64 %2, i64* %ret.lpriv, align 8
-  call void @_Z3bazPl(i64* nonnull %ret.lpriv)
-  store i64 0, i64* %ptridx1, align 8
+  store i64 %2, ptr %ret.lpriv, align 8
+  call void @_Z3bazPl(ptr nonnull %ret.lpriv)
+  store i64 0, ptr %ptridx1, align 8
   br label %if.end
 
 if.end:                                           ; preds = %if.then3, %if.then
-  store i64 0, i64* %ptridx, align 8
+  store i64 0, ptr %ptridx, align 8
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %if.end, %omp.inner.for.body
@@ -114,11 +112,11 @@ DIR.OMP.END.SIMD.4:                               ; preds = %omp.inner.for.inc
   br label %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4
-  %3 = load i64, i64* %ret.lpriv, align 8
+  %3 = load i64, ptr %ret.lpriv, align 8
   ret i64 %3
 }
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
-declare dso_local void @_Z3bazPl(i64*)
+declare dso_local void @_Z3bazPl(ptr)

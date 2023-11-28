@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %s 2>&1 | FileCheck %s
+; RUN: opt -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;

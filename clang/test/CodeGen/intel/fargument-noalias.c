@@ -1,5 +1,5 @@
 // Support for Intel customization LangOptions::FArgumentNoalias
-// RUN: %clang_cc1 -fintel-compatibility -fargument-noalias -triple x86_64-unknown-linux-gnu -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -fargument-noalias -triple x86_64-unknown-linux-gnu -emit-llvm %s -o - | FileCheck %s
 
 // CHECK: define{{.*}}void @{{.+}}(ptr noalias noundef %{{.+}}, ptr noalias noundef %{{.+}}) #0 {
 void test1(int *a, int *b) {

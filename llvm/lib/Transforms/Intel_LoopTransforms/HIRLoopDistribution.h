@@ -1,6 +1,6 @@
 //===- HIRLoopDistribution.h - Implements Loop Distribution ---------------===//
 //
-// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -36,12 +36,6 @@ namespace llvm {
 namespace loopopt {
 
 namespace distribute {
-const unsigned MaxDistributedLoop = 25;
-const unsigned MaxArrayTempsAllowed = 50;
-const unsigned SmallTripCount = 16;
-const unsigned StripmineSize = 64;
-// For stress testing, use small max resource
-// const unsigned MaxMemResourceToDistribute = 2;
 
 enum PragmaReturnCode {
   NotProcessed,
@@ -60,61 +54,103 @@ enum class DistHeuristics : unsigned char {
   BreakMemRec,      // Break recurrence among mem refs ie A[i] -> A[i+i]
 };
 
-struct DistAnalysis {
-  bool MemRef;      // Break loop due to excessive Memref count
-  bool UserCall;    // Distribute User calls to different loop
-  bool SAR;         // Distribute away Sparse Array Reduction from loop
-  bool Recurrence;  // Break recurrence among scalars.
-  bool PreventsVec; // Distribute vectorization-preventing edge from loop
-
-  DistAnalysis() { reset(); }
-
-  void reset() {
-    MemRef = false;
-    UserCall = false;
-    SAR = false;
-    Recurrence = false;
-    PreventsVec = false;
-  }
-
-  bool onlyForMemRefCount() const {
-    return MemRef && !UserCall && !SAR && !Recurrence && !PreventsVec;
-  }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  LLVM_DUMP_METHOD void dumpResult() {
-    bool Distributed = MemRef || UserCall || SAR || Recurrence || PreventsVec;
-    if (!Distributed) {
-      dbgs() << "Loop was not Distributed!\n";
-    } else {
-      dbgs() << "Loop was Distributed due to";
-      if (MemRef) {
-        dbgs() << " - MemRef Count";
-      }
-      if (UserCall) {
-        dbgs() << " - UserCall";
-      }
-      if (SAR) {
-        dbgs() << " - SparseArrayReduction";
-      }
-      if (Recurrence) {
-        dbgs() << " - Recurrence";
-      }
-      if (PreventsVec) {
-        dbgs() << " - Vec Preventing Edge";
-      }
-      dbgs() << "\n";
-    }
-  }
-#endif
-};
-
 typedef SmallVector<DDRef *, 8> DDRefList;
 typedef SmallVector<HLDDNode *, 12> HLDDNodeList;
 typedef SmallVector<PiBlock *, 4> PiBlockList;
 typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
                                         IsAddressOfRefs)>
     Gatherer;
+typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
+typedef SmallVector<DistPPNode *, 32> MergedPiBlockTy;
+
+// Collects vectorization related info for loop chunks.
+struct ChunkVectorizationInfo {
+  unsigned NumUnitStrideRefs;
+  unsigned NumNonUnitStrideRefs;
+  unsigned NumFPOperations;
+  unsigned NumIntOperations;
+  unsigned NumCalls;
+
+  bool IsLegal;
+  // This flag is set if the vectorization preventing lexically backward edge is
+  // across PiBlocks so it can be converted into forward edge with distribution
+  // mmaking vectorization legal.
+  bool IsLegalAfterDistribution;
+  bool HasSafeReductions;
+  bool HasVConflictIdioms;
+
+  // Default constructor for empty chunks. Empty chunk is vectorizable.
+  ChunkVectorizationInfo()
+      : NumUnitStrideRefs(0), NumNonUnitStrideRefs(0), NumFPOperations(0),
+        NumIntOperations(0), NumCalls(0), IsLegal(true),
+        IsLegalAfterDistribution(true), HasSafeReductions(false),
+        HasVConflictIdioms(false) {}
+
+  bool isLegal() const { return (IsLegal || IsLegalAfterDistribution); }
+
+  bool isTrivial() const {
+    return !HasSafeReductions && !HasVConflictIdioms && !NumCalls &&
+           ((NumFPOperations + NumIntOperations == 0) ||
+            ((NumUnitStrideRefs < 2) &&
+             (NumFPOperations + NumIntOperations == 1)));
+  }
+
+  // Disable vectorization if the chunk is trivial or when there are too many
+  // non-unit stride refs in comparison to number of unit stride refs. Trivial
+  // chunks are not profitable as we increase loop overhead (especially if
+  // scalar expansion is needed) without having a chunk which has enough
+  // computation for vectorization.
+  bool isProfitable() const {
+    assert(isLegal() && "Checking profitability of illegal chunk!");
+    return !isTrivial() && (HasVConflictIdioms ||
+                            (NumUnitStrideRefs >= (2 * NumNonUnitStrideRefs)));
+  }
+
+  // Accumulate results of CVI into this object.
+  void accumulate(const ChunkVectorizationInfo &CVI) {
+    NumUnitStrideRefs += CVI.NumUnitStrideRefs;
+    NumNonUnitStrideRefs += CVI.NumNonUnitStrideRefs;
+    NumFPOperations += CVI.NumFPOperations;
+    NumIntOperations += CVI.NumIntOperations;
+    NumCalls += CVI.NumCalls;
+
+    IsLegal = IsLegal && CVI.IsLegal;
+    IsLegalAfterDistribution =
+        IsLegalAfterDistribution && CVI.IsLegalAfterDistribution;
+
+    HasSafeReductions = HasSafeReductions || CVI.HasSafeReductions;
+    HasVConflictIdioms = HasVConflictIdioms || CVI.HasVConflictIdioms;
+  }
+
+  void clear() {
+    NumUnitStrideRefs = 0;
+    NumNonUnitStrideRefs = 0;
+    NumFPOperations = 0;
+    NumIntOperations = 0;
+    NumCalls = 0;
+    IsLegal = true;
+    IsLegalAfterDistribution = true;
+    HasSafeReductions = false;
+    HasVConflictIdioms = false;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD void dump() {
+    dbgs() << "NumUnitStrideRefs: " << NumUnitStrideRefs << "\n";
+    dbgs() << "NumNonUnitStrideRefs: " << NumNonUnitStrideRefs << "\n";
+    dbgs() << "NumFPOperations: " << NumFPOperations << "\n";
+    dbgs() << "NumIntOperations: " << NumIntOperations << "\n";
+    dbgs() << "NumCalls: " << NumCalls << "\n";
+    dbgs() << "IsLegal: " << (IsLegal ? "yes" : "no") << "\n";
+    dbgs() << "IsLegalAfterDistribution: "
+           << (IsLegalAfterDistribution ? "yes" : "no") << "\n";
+    dbgs() << "HasSafeReductions: " << (HasSafeReductions ? "yes" : "no")
+           << "\n";
+    dbgs() << "HasVConflictIdioms: " << (HasVConflictIdioms ? "yes" : "no")
+           << "\n";
+  }
+#endif
+};
 
 class ScalarExpansion {
 public:
@@ -241,15 +277,24 @@ private:
   // Find the instruction that defines \p RVal.
   bool findDepInst(const RegDDRef *RVal, const HLInst *&DepInst);
 
+  // Sort Candidates by TS num if we successfully removed redundant
+  // dependencies.
+  void sortCandidatesByTopSortNum();
+
+  // Remove redundant dependencies that do not require scalar expansion.
+  void removeDependencies();
+
   // Check if \p TmpDef is safe to recompute in loop with \p ChunkIdx rather
-  // than use a temp.
-  bool isSafeToRecompute(const RegDDRef *TmpDef, unsigned ChunkIdx,
+  // than use a temp. \p AllowLoads is used to disable recomputing loads
+  // in presence of unsafe calls.
+  bool isSafeToRecompute(const RegDDRef *TmpDef, bool AllowLoads,
+                         unsigned UseChunkIdx,
                          const SymbaseLoopSetTy &SymbaseLoopSet,
                          const HLInst *&DepInst);
 
   void analyze(ArrayRef<HLDDNodeList> Chunks);
 
-  bool shouldLoadUnconditionally(Candidate &Cand, DDRef *TmpUse);
+  bool shouldLoadUnconditionally(Candidate &Cand, DDRef *TmpUse) const;
 
   template <bool IsDef> void getInsertNodeForTmpDefsUses(Candidate &Cand);
 
@@ -276,18 +321,22 @@ class HIRLoopDistribution {
   typedef bool InsertOrMove;
 
 public:
-  HIRLoopDistribution(HIRFramework &HIRF, HIRDDAnalysis &DDA,
+  HIRLoopDistribution(HIRFramework &HIRF, const TargetLibraryInfo &TLI,
+                      const TargetTransformInfo &TTI, HIRDDAnalysis &DDA,
                       HIRSafeReductionAnalysis &SRA,
                       HIRSparseArrayReductionAnalysis &SARA,
                       HIRLoopResource &HLR, HIRLoopLocality &HLL,
                       DistHeuristics DistCostModel)
-      : HIRF(HIRF), DDA(DDA), SRA(SRA), SARA(SARA), HNU(HIRF.getHLNodeUtils()),
-        HLR(HLR), HLL(HLL), DistCostModel(DistCostModel) {}
+      : HIRF(HIRF), TLI(TLI), TTI(TTI), DDA(DDA), SRA(SRA), SARA(SARA),
+        HNU(HIRF.getHLNodeUtils()), HLR(HLR), HLL(HLL),
+        DistCostModel(DistCostModel) {}
 
   bool run();
 
 private:
   HIRFramework &HIRF;
+  const TargetLibraryInfo &TLI;
+  const TargetTransformInfo &TTI;
   HIRDDAnalysis &DDA;
   HIRSafeReductionAnalysis &SRA;
   HIRSparseArrayReductionAnalysis &SARA;
@@ -296,32 +345,30 @@ private:
   HIRLoopLocality &HLL;
 
   DistHeuristics DistCostModel;
-  DistAnalysis Analysis;
   SmallDenseMap<const HLDDNode *, std::pair<LoopNum, InsertOrMove>, 16>
       DistDirectiveNodeMap;
 
   SmallDenseMap<const HLDDNode *, std::pair<LoopNum, LoopNum>, 16> IfNodeMap;
 
+  // Stores vectorization info for each of the chunks distribution is proposing
+  // to distribute the loop into.
+  SmallVector<ChunkVectorizationInfo, 8> ChunkVecInfos;
+
 private:
   void findDistPoints(const HLLoop *L, std::unique_ptr<PiGraph> const &PGraph,
                       SmallVectorImpl<PiBlockList> &DistPoints);
-
-  // Returns true if this edge contains dd edge with (<) at loop level
-  // Such an edge would be eliminated by distributing the src sink piblocks
-  // into separate loops
-  bool piEdgeIsMemRecurrence(const HLLoop *Lp, const PiGraphEdge &PiEdge) const;
 
   // Loop may be discarded prior to any analysis by some heuristics.
   // For example, the costmodel may consider only innermost loops, no need
   // to do potentially expensive analysis on others
   bool loopIsCandidate(HLLoop *L) const;
 
-  // Breaks up pi graph into loops(loop is formed by a list of piblocks)
-  // according to appropriate "cost model".  Very primitive and missing
-  // important considerations such as trip count, predicted vectorizability
-  void breakPiBlockRecurrences(const HLLoop *L,
-                               std::unique_ptr<PiGraph> const &PiGraph,
-                               SmallVectorImpl<PiBlockList> &DistPoints);
+  // Breaks up PiBlocks into loop chunks to enable vectorization for some of the
+  // chunks.
+  void
+  breakPiBlocksToEnableVectorization(const HLLoop *L,
+                                     std::unique_ptr<PiGraph> const &PiGraph,
+                                     SmallVectorImpl<PiBlockList> &DistPoints);
 
   // Breaks up pigraph with intent to form perfect loop nests, even at cost
   // of skipping creation of potentially vectorizable loops
@@ -340,7 +387,8 @@ private:
   void distributeLoop(HLLoop *L,
                       SmallVectorImpl<HLDDNodeList> &DistributedLoops,
                       ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
-                      bool ExtraStripmineSetup, bool ForDirective);
+                      bool ExtraStripmineSetup, bool ForDirective,
+                      bool VersionedForSmallTC);
 
   // After calling Stripmining util, temp iv coeffs need to fixed
   // as single IV:  TEMP[i2], while other indexes have i1, i2
@@ -367,21 +415,14 @@ private:
 
   void
   processPiBlocksToHLNodes(const std::unique_ptr<PiGraph> &PGraph,
-                           ArrayRef<PiBlockList> GroupsOfPiBlocks,
+                           ArrayRef<MergedPiBlockTy> MergedPiBlocks,
                            SmallVectorImpl<HLDDNodeList> &DistributedLoops);
 
   void invalidateLoop(HLLoop *Loop) const;
-};
 
-class HIRLoopDistributionLegacyPass : public HIRTransformPass {
-  DistHeuristics DistCostModel;
-
-public:
-  HIRLoopDistributionLegacyPass(char &ID, DistHeuristics DistCostModel)
-      : HIRTransformPass(ID), DistCostModel(DistCostModel) {}
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  bool runOnFunction(Function &F) override;
+  // Scales threshold for scalar expanded temps based on how profitable the
+  // distributed chunks looks like for vectorization.
+  unsigned getScaledScalarExpandedTempThreshold() const;
 };
 
 } // namespace distribute

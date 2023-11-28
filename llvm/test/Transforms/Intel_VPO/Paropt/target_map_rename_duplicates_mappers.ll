@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -aa-pipeline=basic-aa -passes='vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -aa-pipeline=basic-aa -passes='vpo-paropt' -S %s | FileCheck %s
 ;
 ; Check that duplicate values in target entry's map bundles are renamed before
 ; outlining. That would guarantee that each map clause's base pointer always

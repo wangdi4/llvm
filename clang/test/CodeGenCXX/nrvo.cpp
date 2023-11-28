@@ -4,9 +4,9 @@
 // UNSUPPORTED: i386-unknown-unknown
 // end INTEL_CUSTOMIZATION
 
-// RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-unknown -emit-llvm -disable-llvm-passes -o - %s | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-unknown -emit-llvm -fcxx-exceptions -fexceptions -disable-llvm-passes -std=c++03 -o - %s | FileCheck --check-prefixes=CHECK-EH-03 %s
-// RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-unknown -emit-llvm -fcxx-exceptions -fexceptions -disable-llvm-passes -std=c++11 -DCXX11 -o - %s | FileCheck --check-prefixes=CHECK-EH-11 %s
+// RUN: %clang_cc1 -triple i386-unknown-unknown -emit-llvm -disable-llvm-passes -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i386-unknown-unknown -emit-llvm -fcxx-exceptions -fexceptions -disable-llvm-passes -std=c++03 -o - %s | FileCheck --check-prefixes=CHECK-EH-03 %s
+// RUN: %clang_cc1 -triple i386-unknown-unknown -emit-llvm -fcxx-exceptions -fexceptions -disable-llvm-passes -std=c++11 -DCXX11 -o - %s | FileCheck --check-prefixes=CHECK-EH-11 %s
 
 // Test code generation for the named return value optimization.
 class X {
@@ -765,7 +765,6 @@ X test5() { // http://wg21.link/p2025r2#ex-14
 }
 #endif
 
-// rdar://problem/10430868
 // CHECK-LABEL: @_Z5test6v(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[RESULT_PTR:%.*]] = alloca ptr, align 4

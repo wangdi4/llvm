@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2023 Intel Corporation.
+// Copyright 2008 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,11 +15,11 @@
 #include "out_of_order_command_queue.h"
 #include "Device.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_utils.h"
 #include "enqueue_commands.h"
 #include "events_manager.h"
 #include "ocl_event.h"
 #include <assert.h>
-#include <cl_utils.h>
 
 using namespace Intel::OpenCL::Framework;
 
@@ -44,9 +44,7 @@ cl_err_code OutOfOrderCommandQueue::Initialize() {
   }
 
   Command *pDepOnAll = new MarkerCommand(this, 0);
-  if (nullptr == pDepOnAll) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   // This floating dependence will be resolved at the completion of
   // clEnqueueMarker/Barrier sequence to this queue (AddDependentOnAll)
   pDepOnAll->GetEvent()->AddFloatingDependence();
@@ -179,9 +177,6 @@ cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command *cmd) {
   assert(nullptr != cmd);
 
   Command *pNewDepOnAll = new MarkerCommand(this, 0);
-  if (nullptr == pNewDepOnAll) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   SharedPtr<QueueEvent> pNewDepnOnAllEvent = pNewDepOnAll->GetEvent();
   SharedPtr<QueueEvent> pCommandEvent = cmd->GetEvent();

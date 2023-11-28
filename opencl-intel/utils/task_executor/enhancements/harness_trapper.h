@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2022 Intel Corporation.  All Rights Reserved.
+    Copyright 2005 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -21,9 +21,8 @@
 #ifndef HARNESS_TRAPPER_H
 #include "spin_barrier.h"
 #include "task_group_with_reference.h"
-
-#include <tbb/task_arena.h>
-#include <tbb/task_group.h>
+#include "tbb/task_arena.h"
+#include "tbb/task_group.h"
 
 #ifndef ASSERT
 #define ASSERT __TBB_ASSERT

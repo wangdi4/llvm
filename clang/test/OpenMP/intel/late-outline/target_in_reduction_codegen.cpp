@@ -8,13 +8,13 @@
 // NOTE: (2) In test3, explicitly check (CHECK-NOT) that 'shared' clause
 // NOTE: omitted from implicit task for target in_reduction variable.
 //
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN: -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
 // RUN: -triple x86_64-unknown-linux-gnu -emit-pch %s -o %t
 
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
 // RUN: -triple x86_64-unknown-linux-gnu \
 // RUN: -include-pch %t -emit-llvm %s -o - | FileCheck %s
 // expected-no-diagnostics

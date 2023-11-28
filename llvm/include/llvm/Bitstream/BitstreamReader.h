@@ -132,7 +132,7 @@ public:
 
   /// Return the bit # of the bit we are reading.
   uint64_t GetCurrentBitNo() const {
-    return uint64_t(NextChar)*CHAR_BIT - BitsInCurWord; // INTEL
+    return uint64_t(NextChar)*CHAR_BIT - BitsInCurWord;
   }
 
   // Return the byte # of the current bit.
@@ -186,8 +186,7 @@ public:
     if (BitcodeBytes.size() >= NextChar + sizeof(word_t)) {
       BytesRead = sizeof(word_t);
       CurWord =
-          support::endian::read<word_t, support::little, support::unaligned>(
-              NextCharPtr);
+          support::endian::read<word_t, llvm::endianness::little>(NextCharPtr);
     } else {
       // Short read.
       BytesRead = BitcodeBytes.size() - NextChar;

@@ -1,0 +1,65 @@
+; INTEL_CUSTOMIZATION
+;
+; INTEL CONFIDENTIAL
+;
+; Modifications, Copyright (C) 2023 Intel Corporation
+;
+; This software and the related documents are Intel copyrighted materials, and
+; your use of them is governed by the express license under which they were
+; provided to you ("License"). Unless the License provides otherwise, you may
+; not use, modify, copy, publish, distribute, disclose or transmit this software
+; or the related documents without Intel's prior written permission.
+;
+; This software and the related documents are provided as is, with no express
+; or implied warranties, other than those that are expressly stated in the
+; License.
+;
+LIBRARY omptarget.rtl.opencl.dll
+EXPORTS
+    __tgt_rtl_create_interop
+    __tgt_rtl_data_aligned_alloc
+    __tgt_rtl_data_alloc
+    __tgt_rtl_data_alloc_base
+    __tgt_rtl_data_delete
+    __tgt_rtl_data_exchange
+    __tgt_rtl_data_realloc
+    __tgt_rtl_data_retrieve
+    __tgt_rtl_data_retrieve_async
+    __tgt_rtl_data_submit
+    __tgt_rtl_data_submit_async
+    __tgt_rtl_flush_queue
+    __tgt_rtl_get_context_handle
+    __tgt_rtl_get_data_alloc_info
+    __tgt_rtl_get_device_from_ptr
+    __tgt_rtl_get_device_info
+    __tgt_rtl_get_device_name
+    __tgt_rtl_get_groups_shape
+    __tgt_rtl_get_interop_property_info
+    __tgt_rtl_get_interop_property_value
+    __tgt_rtl_get_interop_rc_desc
+    __tgt_rtl_get_mem_resources
+    __tgt_rtl_get_num_interop_properties
+    __tgt_rtl_init_device
+    __tgt_rtl_init_requires
+    __tgt_rtl_is_accessible_addr_range
+    __tgt_rtl_is_data_exchangable
+    __tgt_rtl_is_private_arg_on_host
+    __tgt_rtl_is_supported_device
+    __tgt_rtl_is_valid_binary
+    __tgt_rtl_launch_kernel
+    __tgt_rtl_load_binary
+    __tgt_rtl_manifest_data_for_region
+    __tgt_rtl_notify_indirect_access
+    __tgt_rtl_number_of_devices
+    __tgt_rtl_omp_alloc
+    __tgt_rtl_omp_free
+    __tgt_rtl_register_lib
+    __tgt_rtl_release_interop
+    __tgt_rtl_requires_mapping
+    __tgt_rtl_run_target_team_nd_region
+    __tgt_rtl_set_function_ptr_map
+    __tgt_rtl_sync_barrier
+    __tgt_rtl_synchronize
+    __tgt_rtl_unregister_lib
+    __tgt_rtl_use_interop
+; end INTEL_CUSTOMIZATION

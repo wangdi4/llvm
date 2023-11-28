@@ -1,4 +1,21 @@
 //===-- LVCodeViewVisitor.cpp ---------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -465,13 +482,10 @@ LVScope *LVNamespaceDeduction::get(LVStringRefs Components) {
 LVScope *LVNamespaceDeduction::get(StringRef ScopedName, bool CheckScope) {
   LVStringRefs Components = getAllLexicalComponents(ScopedName);
   if (CheckScope)
-    Components.erase(std::remove_if(Components.begin(), Components.end(),
-                                    [&](StringRef Component) {
-                                      LookupSet::iterator Iter =
-                                          IdentifiedNamespaces.find(Component);
-                                      return Iter == IdentifiedNamespaces.end();
-                                    }),
-                     Components.end());
+    llvm::erase_if(Components, [&](StringRef Component) {
+      LookupSet::iterator Iter = IdentifiedNamespaces.find(Component);
+      return Iter == IdentifiedNamespaces.end();
+    });
 
   LLVM_DEBUG(
       { dbgs() << formatv("ScopedName: '{0}'\n", ScopedName.str().c_str()); });
@@ -1688,6 +1702,48 @@ Error LVSymbolVisitor::visitKnownRecord(CVSymbol &Record,
   return Error::success();
 }
 
+// S_ARMSWITCHTABLE
+Error LVSymbolVisitor::visitKnownRecord(CVSymbol &CVR,
+                                        JumpTableSym &JumpTable) {
+  LLVM_DEBUG({
+    W.printHex("BaseOffset", JumpTable.BaseOffset);
+    W.printNumber("BaseSegment", JumpTable.BaseSegment);
+    W.printFlags("SwitchType", static_cast<uint16_t>(JumpTable.SwitchType),
+                 getJumpTableEntrySizeNames());
+    W.printHex("BranchOffset", JumpTable.BranchOffset);
+    W.printHex("TableOffset", JumpTable.TableOffset);
+    W.printNumber("BranchSegment", JumpTable.BranchSegment);
+    W.printNumber("TableSegment", JumpTable.TableSegment);
+    W.printNumber("EntriesCount", JumpTable.EntriesCount);
+  });
+  return Error::success();
+}
+
+// S_CALLERS, S_CALLEES, S_INLINEES
+Error LVSymbolVisitor::visitKnownRecord(CVSymbol &Record, CallerSym &Caller) {
+  LLVM_DEBUG({
+    llvm::StringRef FieldName;
+    switch (Caller.getKind()) {
+    case SymbolRecordKind::CallerSym:
+      FieldName = "Callee";
+      break;
+    case SymbolRecordKind::CalleeSym:
+      FieldName = "Caller";
+      break;
+    case SymbolRecordKind::InlineesSym:
+      FieldName = "Inlinee";
+      break;
+    default:
+      return llvm::make_error<CodeViewError>(
+          "Unknown CV Record type for a CallerSym object!");
+    }
+    for (auto FuncID : Caller.Indices) {
+      printTypeIndex(FieldName, FuncID);
+    }
+  });
+  return Error::success();
+}
+
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "CodeViewLogicalVisitor"
 
@@ -2651,6 +2707,53 @@ Error LVLogicalVisitor::visitKnownRecord(CVType &Record,
   });
   return Error::success();
 }
+
+// LF_REFSYM (TPI)/(IPI)
+Error LVLogicalVisitor::visitKnownRecord(CVType &Record, RefSymRecord &Ref,
+                                         TypeIndex TI, LVElement *Element) {
+  LLVM_DEBUG({
+    printTypeBegin(Record, TI, Element, StreamTPI);
+    ArrayRef<uint8_t> SymData = Ref.getSym();
+    W.getOStream() << "SymData:" << SymData.data() << "\n";
+    printTypeEnd(Record);
+  });
+  return Error::success();
+}
+
+// LF_DIMVARU (TPI)/(IPI)
+Error LVLogicalVisitor::visitKnownRecord(CVType &Record, DimVarURecord &DVU,
+                                         TypeIndex TI, LVElement *Element) {
+  LLVM_DEBUG({
+    printTypeBegin(Record, TI, Element, StreamTPI);
+    printTypeIndex("IndexType", DVU.getIndexType(), StreamIPI);
+    W.printNumber("Rank", DVU.getRank());
+
+    ArrayRef<TypeIndex> BoundsArr = DVU.getBounds();
+    uint32_t Size = BoundsArr.size();
+    ListScope Bounds(W, "Bounds");
+    for (uint32_t I = 0; I < Size; ++I)
+      printTypeIndex("Bound", BoundsArr[I], StreamIPI);
+    printTypeEnd(Record);
+  });
+  return Error::success();
+}
+
+// LF_DIMVARLU (TPI)/(IPI)
+Error LVLogicalVisitor::visitKnownRecord(CVType &Record, DimVarLURecord &DVLU,
+                                         TypeIndex TI, LVElement *Element) {
+  LLVM_DEBUG({
+    printTypeBegin(Record, TI, Element, StreamTPI);
+    printTypeIndex("IndexType", DVLU.getIndexType(), StreamIPI);
+    W.printNumber("Rank", DVLU.getRank());
+    ArrayRef<TypeIndex> BoundsArr = DVLU.getBounds();
+    uint32_t Size = BoundsArr.size();
+    ListScope Bounds(W, "Bounds");
+    for (uint32_t I = 0; I < Size; ++I)
+      printTypeIndex("Bound", BoundsArr[I], StreamIPI);
+    printTypeEnd(Record);
+  });
+  return Error::success();
+}
 #endif //INTEL_CUSTOMIZATION
 
 Error LVLogicalVisitor::visitUnknownMember(CVMemberRecord &Record,
@@ -2961,7 +3064,7 @@ Error LVLogicalVisitor::finishVisitation(CVType &Record, TypeIndex TI,
 // Customized version of 'FieldListVisitHelper'.
 Error LVLogicalVisitor::visitFieldListMemberStream(
     TypeIndex TI, LVElement *Element, ArrayRef<uint8_t> FieldList) {
-  BinaryByteStream Stream(FieldList, llvm::support::little);
+  BinaryByteStream Stream(FieldList, llvm::endianness::little);
   BinaryStreamReader Reader(Stream);
   FieldListDeserializer Deserializer(Reader);
   TypeVisitorCallbackPipeline Pipeline;

@@ -31,7 +31,7 @@ This document describes an extension that adds pipes to SYCL.  Pipes are first i
 
 == Notice
 
-Copyright (c) 2019-2023 Intel Corporation.  All rights reserved.
+Copyright (c) 2019 Intel Corporation.  All rights reserved.
 
 == Status
 

@@ -22,13 +22,10 @@
 ; CHECK-LABEL: Function: test_scalar
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           %priv.mem.bc = &((i32*)(%priv.mem)[0]);
-; CHECK:           <RVAL-REG> &((i32*)(LINEAR <4 x i32>* %priv.mem)[i64 0]) inbounds  {sb:[[PRIV_MEM_SYM:.*]]}
 ; CHECK:        + DO i64 i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK:        |   %.vec = (<4 x i32>*)(%iarr)[i1];
 ; CHECK:        |   (<4 x i32>*)(%priv.mem)[0] = %.vec;
-; CHECK:        |   <LVAL-REG> {al:4}(<4 x i32>*)(LINEAR <4 x i32>* %priv.mem)[i64 0] inbounds  {sb:[[PRIV_MEM_SYM]]}
 ; CHECK:        |   %.vec3 = (<4 x i8>*)(%priv.mem.bc)[<i32 0, i32 1, i32 2, i32 3>];
-; CHECK:        |   <RVAL-REG> {al:4}(<4 x i8>*)(LINEAR i32* %priv.mem.bc)[<4 x i32> <i32 0, i32 1, i32 2, i32 3>] inbounds  {sb:[[PRIV_MEM_SYM]]}
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 
@@ -47,39 +44,33 @@
 ; CHECK-LABEL: Function: test_array
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           %priv.mem.bc = &(([100 x i32]*)(%priv.mem)[0]);
-; CHECK:           <RVAL-REG> &(([100 x i32]*)(LINEAR [4 x [100 x i32]]* %priv.mem)[i64 0]) inbounds  {sb:[[PRIV_MEM_SYM:.*]]}
 ; CHECK:        + DO i64 i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK:        |   %.vec = (<4 x i32>*)(%ip)[i1];
-; CHECK:        |   %nsbgepcopy = &((<4 x [100 x i32]*>)(%priv.mem.bc)[<i32 0, i32 1, i32 2, i32 3>]);
-; CHECK:        |   <RVAL-REG> &((<4 x [100 x i32]*>)(LINEAR [100 x i32]* %priv.mem.bc)[<4 x i32> <i32 0, i32 1, i32 2, i32 3>]) inbounds  {sb:[[PRIV_MEM_SYM]]}
+; CHECK:        |   %nsbgepcopy = &((<4 x ptr>)(%priv.mem.bc)[<i32 0, i32 1, i32 2, i32 3>]);
 ; CHECK:        |   (<4 x i32>*)(%nsbgepcopy)[0][i1 + <i64 0, i64 1, i64 2, i64 3>] = %.vec;
-; CHECK:        |   <LVAL-REG> {al:4}(<4 x i32>*)(NON-LINEAR <4 x [100 x i32]*> %nsbgepcopy)[<4 x i64> 0][LINEAR <4 x i64> i1 + <i64 0, i64 1, i64 2, i64 3>] inbounds  {sb:[[PRIV_MEM_SYM]]}
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 
 ; Function Attrs: nounwind uwtable
-define void @test_scalar(i32* nocapture readonly %iarr)  {
+define void @test_scalar(ptr nocapture readonly %iarr)  {
 ; CHECK-LABEL: @test_scalar(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[A:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[PRIV_MEM:%.*]] = alloca <4 x i32>, align 16
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x i32>* [[PRIV_MEM]] to i32*
-; CHECK-NEXT:    br label [[LOOP_23:%.*]]
-; CHECK:       loop.23:
-; CHECK-NEXT:    [[I1_I64_0:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[NEXTIVLOOP_23:%.*]], [[LOOP_23]] ]
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i32, i32* [[IARR:%.*]], i64 [[I1_I64_0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[TMP1]] to <4 x i32>*
-; CHECK-NEXT:    [[GEPLOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    store <4 x i32> [[GEPLOAD]], <4 x i32>* [[PRIV_MEM]], align 4
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP0]], i64 0
-; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <4 x i32*> [[DOTSPLATINSERT]], <4 x i32*> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, <4 x i32*> [[DOTSPLAT]], <4 x i64> <i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <4 x i32*> [[TMP3]] to <4 x i8*>
-; CHECK-NEXT:    [[TMP5:%.*]] = call <4 x i8> @llvm.masked.gather.v4i8.v4p0i8(<4 x i8*> [[TMP4]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i8> poison)
-; CHECK-NEXT:    [[NEXTIVLOOP_23]] = add nuw nsw i64 [[I1_I64_0]], 4
-; CHECK-NEXT:    [[CONDLOOP_23:%.*]] = icmp sle i64 [[NEXTIVLOOP_23]], 99
-; CHECK-NEXT:    br i1 [[CONDLOOP_23]], label [[LOOP_23]], label [[AFTERLOOP_23:%.*]], [[LOOP0:!llvm.loop !.*]]
-; CHECK:       afterloop.23:
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x ptr> poison, ptr [[PRIV_MEM]], i64 0
+; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <4 x ptr> [[DOTSPLATINSERT]], <4 x ptr> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i32, <4 x ptr> [[DOTSPLAT]], <4 x i64> <i64 0, i64 1, i64 2, i64 3>
+; CHECK-NEXT:    br label [[LOOP_22:%.*]]
+; CHECK:       loop.22:
+; CHECK-NEXT:    [[I1_I64_0:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[NEXTIVLOOP_22:%.*]], [[LOOP_22]] ]
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i32, ptr [[IARR:%.*]], i64 [[I1_I64_0]]
+; CHECK-NEXT:    [[GEPLOAD:%.*]] = load <4 x i32>, ptr [[TMP1]], align 4
+; CHECK-NEXT:    store <4 x i32> [[GEPLOAD]], ptr [[PRIV_MEM]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = call <4 x i8> @llvm.masked.gather.v4i8.v4p0(<4 x ptr> [[TMP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i8> poison)
+; CHECK-NEXT:    [[NEXTIVLOOP_22]] = add nuw nsw i64 [[I1_I64_0]], 4
+; CHECK-NEXT:    [[CONDLOOP_22:%.*]] = icmp sle i64 [[NEXTIVLOOP_22]], 99
+; CHECK-NEXT:    br i1 [[CONDLOOP_22]], label [[LOOP_22]], label [[AFTERLOOP_22:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
+; CHECK:       afterloop.22:
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -87,7 +78,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %a, i32 0, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %a, i32 0, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
@@ -95,13 +86,12 @@ DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.QUAL.LIST.END.2
   %.omp.iv.05 = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %add1, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %iarr, i64 %.omp.iv.05
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %iarr, i64 %.omp.iv.05
+  %0 = load i32, ptr %arrayidx, align 4
   ; Unit-strided store to private
-  store i32 %0, i32* %a, align 4
-  %cast = bitcast i32 *%a to i8 *
+  store i32 %0, ptr %a, align 4
   ; Non unit-strided access to private
-  %priv.ld = load i8, i8* %cast, align 4
+  %priv.ld = load i8, ptr %a, align 4
   %add1 = add nuw nsw i64 %.omp.iv.05, 1
   %exitcond = icmp eq i64 %add1, 100
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
@@ -115,29 +105,27 @@ DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
 }
 
 ; Function Attrs: nounwind uwtable
-define void @test_array(i32* nocapture readonly %ip)  {
+define void @test_array(ptr nocapture readonly %ip)  {
 ; CHECK-LABEL: @test_array(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ARR:%.*]] = alloca [100 x i32], align 4
 ; CHECK-NEXT:    [[PRIV_MEM:%.*]] = alloca [4 x [100 x i32]], align 4
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [4 x [100 x i32]]* [[PRIV_MEM]] to [100 x i32]*
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x ptr> poison, ptr [[PRIV_MEM]], i64 0
+; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <4 x ptr> [[DOTSPLATINSERT]], <4 x ptr> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds [100 x i32], <4 x ptr> [[DOTSPLAT]], <4 x i64> <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    br label [[LOOP_22:%.*]]
 ; CHECK:       loop.22:
 ; CHECK-NEXT:    [[I1_I64_0:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[NEXTIVLOOP_22:%.*]], [[LOOP_22]] ]
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i32, i32* [[IP:%.*]], i64 [[I1_I64_0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[TMP1]] to <4 x i32>*
-; CHECK-NEXT:    [[GEPLOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x [100 x i32]*> poison, [100 x i32]* [[TMP0]], i64 0
-; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <4 x [100 x i32]*> [[DOTSPLATINSERT]], <4 x [100 x i32]*> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds [100 x i32], <4 x [100 x i32]*> [[DOTSPLAT]], <4 x i64> <i64 0, i64 1, i64 2, i64 3>
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i32, ptr [[IP:%.*]], i64 [[I1_I64_0]]
+; CHECK-NEXT:    [[GEPLOAD:%.*]] = load <4 x i32>, ptr [[TMP1]], align 4
 ; CHECK-NEXT:    [[DOTSPLATINSERT2:%.*]] = insertelement <4 x i64> poison, i64 [[I1_I64_0]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT3:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT2]], <4 x i64> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP4:%.*]] = add <4 x i64> <i64 0, i64 1, i64 2, i64 3>, [[DOTSPLAT3]]
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds [100 x i32], <4 x [100 x i32]*> [[TMP3]], <4 x i64> zeroinitializer, <4 x i64> [[TMP4]]
-; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[GEPLOAD]], <4 x i32*> [[TMP5]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+; CHECK-NEXT:    [[TMP2:%.*]] = add <4 x i64> <i64 0, i64 1, i64 2, i64 3>, [[DOTSPLAT3]]
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds [100 x i32], <4 x ptr> [[TMP0]], <4 x i64> zeroinitializer, <4 x i64> [[TMP2]]
+; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0(<4 x i32> [[GEPLOAD]], <4 x ptr> [[TMP3]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ; CHECK-NEXT:    [[NEXTIVLOOP_22]] = add nuw nsw i64 [[I1_I64_0]], 4
 ; CHECK-NEXT:    [[CONDLOOP_22:%.*]] = icmp sle i64 [[NEXTIVLOOP_22]], 99
-; CHECK-NEXT:    br i1 [[CONDLOOP_22]], label [[LOOP_22]], label [[AFTERLOOP_22:%.*]], [[LOOP4:!llvm.loop !.*]]
+; CHECK-NEXT:    br i1 [[CONDLOOP_22]], label [[LOOP_22]], label [[AFTERLOOP_22:%.*]], !llvm.loop [[LOOP5:![0-9]+]]
 ; CHECK:       afterloop.22:
 ; CHECK-NEXT:    ret void
 ;
@@ -146,7 +134,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([100 x i32]* %arr, i32 0, i32 100) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr, i32 0, i32 100) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
@@ -154,10 +142,10 @@ DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.QUAL.LIST.END.2
   %.omp.iv.05 = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %add1, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %.omp.iv.05
-  %0 = load i32, i32* %arrayidx, align 4
-  %priv.idx = getelementptr inbounds [100 x i32], [100 x i32]* %arr, i64 0, i64 %.omp.iv.05
-  store i32 %0, i32* %priv.idx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %.omp.iv.05
+  %0 = load i32, ptr %arrayidx, align 4
+  %priv.idx = getelementptr inbounds [100 x i32], ptr %arr, i64 0, i64 %.omp.iv.05
+  store i32 %0, ptr %priv.idx, align 4
   %add1 = add nuw nsw i64 %.omp.iv.05, 1
   %exitcond = icmp eq i64 %add1, 100
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

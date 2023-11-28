@@ -31,13 +31,14 @@ protected:
   void setup() {
     buildVPlanFromString(
         "declare void @llvm.assume(i1)\n"
-        "define void @foo(i32* %p) {\n"
+        "define void @foo(ptr %p) {\n"
         "entry:\n"
         "  br label %for.body\n"
         "for.body:\n"
         "  %ind = phi i32 [ 0, %entry ], [ %ind.next, %for.body ]\n"
-        "  call void @llvm.assume(i1 true) [ \"align\"(i32* %p, i32 16), \"nonnull\"(i32* %p) ]\n"
-        "  store i32 1, i32* %p\n"
+        "  call void @llvm.assume(i1 true) [ \"align\"(ptr %p, i32 16), "
+        "\"nonnull\"(ptr %p) ]\n"
+        "  store i32 1, ptr %p\n"
         "  %ind.next = add nuw nsw i32 %ind, 1\n"
         "  %cond = icmp eq i32 %ind.next, 256\n"
         "  br i1 %cond, label %for.body, label %exit\n"

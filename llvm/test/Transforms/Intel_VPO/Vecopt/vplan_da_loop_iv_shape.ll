@@ -7,7 +7,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture %ary, i32 %x, i32 %y) {
+define void @foo(ptr nocapture %ary, i32 %x, i32 %y) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
@@ -16,14 +16,14 @@ define void @foo(i32* nocapture %ary, i32 %x, i32 %y) {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_UNIT_STRIDE_IV:%.*]] = phi  [ i64 [[VP_UNIT_STRIDE_IV_IND_INIT:%.*]], [[BB1]] ],  [ i64 [[VP_UNIT_STRIDE_IV_NEXT:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 -1] i64 [[VP_UNIT_NEG_STRIDE_IV:%.*]] = phi  [ i64 [[VP_UNIT_NEG_STRIDE_IV_IND_INIT:%.*]], [[BB1]] ],  [ i64 [[VP_UNIT_NEG_STRIDE_IV_NEXT:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_VAR_STRIDE_IV:%.*]] = phi  [ i64 [[VP_VAR_STRIDE_IV_IND_INIT:%.*]], [[BB1]] ],  [ i64 [[VP_VAR_STRIDE_IV_NEXT:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 16] i32* [[VP_STRIDED_GEP:%.*]] = getelementptr inbounds i32* [[ARY0:%.*]] i64 [[VP_STRIDED_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP0:%.*]] = load i32* [[VP_STRIDED_GEP]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_UNIT_STRIDE_GEP:%.*]] = getelementptr inbounds i32* [[ARY0]] i64 [[VP_UNIT_STRIDE_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP1:%.*]] = load i32* [[VP_UNIT_STRIDE_GEP]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] i32* [[VP_UNIT_NEG_STRIDE_GEP:%.*]] = getelementptr inbounds i32* [[ARY0]] i64 [[VP_UNIT_NEG_STRIDE_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP2:%.*]] = load i32* [[VP_UNIT_NEG_STRIDE_GEP]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_VAR_STRIDE_GEP:%.*]] = getelementptr inbounds i32* [[ARY0]] i64 [[VP_VAR_STRIDE_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP3:%.*]] = load i32* [[VP_VAR_STRIDE_GEP]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 16] ptr [[VP_STRIDED_GEP:%.*]] = getelementptr inbounds i32, ptr [[ARY0:%.*]] i64 [[VP_STRIDED_IV]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP0:%.*]] = load ptr [[VP_STRIDED_GEP]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP_UNIT_STRIDE_GEP:%.*]] = getelementptr inbounds i32, ptr [[ARY0]] i64 [[VP_UNIT_STRIDE_IV]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP1:%.*]] = load ptr [[VP_UNIT_STRIDE_GEP]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] ptr [[VP_UNIT_NEG_STRIDE_GEP:%.*]] = getelementptr inbounds i32, ptr [[ARY0]] i64 [[VP_UNIT_NEG_STRIDE_IV]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP2:%.*]] = load ptr [[VP_UNIT_NEG_STRIDE_GEP]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_VAR_STRIDE_GEP:%.*]] = getelementptr inbounds i32, ptr [[ARY0]] i64 [[VP_VAR_STRIDE_IV]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP3:%.*]] = load ptr [[VP_VAR_STRIDE_GEP]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i64 [[VP_STRIDED_IV_NEXT]] = add i64 [[VP_STRIDED_IV]] i64 [[VP_STRIDED_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_UNIT_STRIDE_IV_NEXT]] = add i64 [[VP_UNIT_STRIDE_IV]] i64 [[VP_UNIT_STRIDE_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 -1] i64 [[VP_UNIT_NEG_STRIDE_IV_NEXT]] = add i64 [[VP_UNIT_NEG_STRIDE_IV]] i64 [[VP_UNIT_NEG_STRIDE_IV_IND_INIT_STEP:%.*]]
@@ -47,7 +47,7 @@ pre.entry:
   br label %entry
 
 entry:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED"(i64* %i, i64 0, i32 1, i32 -1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:TYPED"(ptr %i, i64 0, i32 1, i32 -1) ]
   br label %for.preheader
 
 for.preheader:
@@ -64,14 +64,14 @@ for.body:                                         ; preds = %entry, %for.body
   %var.stride.iv = phi i64 [ 0, %for.preheader ], [ %var.stride.iv.next, %for.body ]
 
   ; Users of IVs
-  %strided.gep = getelementptr inbounds i32, i32* %ary, i64 %strided.iv
-  %0 = load i32, i32* %strided.gep, align 4
-  %unit.stride.gep = getelementptr inbounds i32, i32* %ary, i64 %unit.stride.iv
-  %1 = load i32, i32* %unit.stride.gep, align 4
-  %unit.neg.stride.gep = getelementptr inbounds i32, i32* %ary, i64 %unit.neg.stride.iv
-  %2 = load i32, i32* %unit.neg.stride.gep, align 4
-  %var.stride.gep = getelementptr inbounds i32, i32* %ary, i64 %var.stride.iv
-  %3 = load i32, i32* %var.stride.gep, align 4
+  %strided.gep = getelementptr inbounds i32, ptr %ary, i64 %strided.iv
+  %0 = load i32, ptr %strided.gep, align 4
+  %unit.stride.gep = getelementptr inbounds i32, ptr %ary, i64 %unit.stride.iv
+  %1 = load i32, ptr %unit.stride.gep, align 4
+  %unit.neg.stride.gep = getelementptr inbounds i32, ptr %ary, i64 %unit.neg.stride.iv
+  %2 = load i32, ptr %unit.neg.stride.gep, align 4
+  %var.stride.gep = getelementptr inbounds i32, ptr %ary, i64 %var.stride.iv
+  %3 = load i32, ptr %var.stride.gep, align 4
 
   ; Stride updates for IVs
   %strided.iv.next = add nuw nsw i64 %strided.iv, 4

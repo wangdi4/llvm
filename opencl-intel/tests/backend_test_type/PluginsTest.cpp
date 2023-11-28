@@ -22,7 +22,6 @@ File Name:  PluginsTest.cpp
 #include "cl_env.h"
 #include "common_utils.h"
 #include "plugin_manager.h"
-
 #include "gtest_wrapper.h"
 #include <assert.h>
 #include <stdio.h>

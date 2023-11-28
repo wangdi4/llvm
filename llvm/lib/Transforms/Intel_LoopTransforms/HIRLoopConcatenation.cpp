@@ -1,6 +1,6 @@
 //===--- HIRLoopConcatenation.cpp - Implements Loop Concatenation class ---===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1466,44 +1466,4 @@ PreservedAnalyses HIRLoopConcatenationPass::runImpl(
   ModifiedHIR =
       HIRLoopConcatenation(HIRF, AM.getResult<TargetIRAnalysis>(F)).run();
   return PreservedAnalyses::all();
-}
-
-class HIRLoopConcatenationLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRLoopConcatenationLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRLoopConcatenationLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      LLVM_DEBUG(dbgs() << "HIR Loop Concatenation disabled \n");
-      return false;
-    }
-
-    return HIRLoopConcatenation(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-               getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F))
-        .run();
-  }
-};
-
-char HIRLoopConcatenationLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopConcatenationLegacyPass, "hir-loop-concatenation",
-                      "HIR Loop Concatenation", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRLoopConcatenationLegacyPass, "hir-loop-concatenation",
-                    "HIR Loop Concatenation", false, false)
-
-FunctionPass *llvm::createHIRLoopConcatenationPass() {
-  return new HIRLoopConcatenationLegacyPass();
 }

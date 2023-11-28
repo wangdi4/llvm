@@ -14,7 +14,7 @@
 ; LOOP END
 
 ; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=low < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=low < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=low < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
 
 ; CHECK:       LOOP BEGIN at test.cpp (2, 1)
 ; CHECK-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
@@ -214,14 +214,13 @@ attributes #4 = { nofree nosync nounwind readnone willreturn }
 !47 = !DILocation(line: 8, column: 5, scope: !24)
 !48 = !{!"llvm.loop.mustprogress"}
 !49 = !{!"llvm.loop.unroll.disable"}
-!50 = distinct !{!"intel.optreport.rootnode", !51}
-!51 = distinct !{!"intel.optreport", !52, !53, !56}
+!50 = distinct !{!"intel.optreport", !52, !53, !56}
 !52 = !{!"intel.optreport.debug_location", !35}
 !53 = !{!"intel.optreport.remarks", !54, !55}
-!54 = !{!"intel.optreport.remark", i32 25423, !"Invariant If condition%s hoisted out of this loop", !" at line 5"}
-!55 = !{!"intel.optreport.remark", i32 25439, !"Loop unrolled with remainder by %d", i32 8}
+!54 = !{!"intel.optreport.remark", i32 25423, !" at line 5"}
+!55 = !{!"intel.optreport.remark", i32 25439, i32 8}
 !56 = !{!"intel.optreport.origin", !57}
-!57 = !{!"intel.optreport.remark", i32 25476, !"Predicate Optimized v%d", i32 1}
+!57 = !{!"intel.optreport.remark", i32 25476, i32 1}
 !58 = !DILocation(line: 9, column: 3, scope: !25)
 !59 = !DILocation(line: 3, column: 3, scope: !18)
 !60 = distinct !{!60, !31, !61, !62}

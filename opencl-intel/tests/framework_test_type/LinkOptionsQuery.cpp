@@ -3,7 +3,6 @@
 #include "cl_types.h"
 #include "gtest_wrapper.h"
 #include <stdio.h>
-
 #include <string>
 
 extern cl_device_type gDeviceType;
@@ -140,7 +139,7 @@ void clGetProgramBuildInfoTest() {
   ASSERT_EQ(CL_SUCCESS, iRet)
       << " Device failed to return compile options size.";
 
-  char *OptsPr012Linked = (char *)malloc(SizePr01Linked);
+  char *OptsPr012Linked = (char *)malloc(SizePr012Linked);
   iRet = clGetProgramBuildInfo(Pr012Linked, device, CL_PROGRAM_BUILD_OPTIONS,
                                SizePr012Linked, OptsPr012Linked, NULL);
   ASSERT_EQ(CL_SUCCESS, iRet)
@@ -156,4 +155,7 @@ void clGetProgramBuildInfoTest() {
   clReleaseProgram(Pr01LinkedToLib);
   clReleaseProgram(Pr012Linked);
   clReleaseContext(context);
+
+  free(OptsPr01Linked);
+  free(OptsPr012Linked);
 }

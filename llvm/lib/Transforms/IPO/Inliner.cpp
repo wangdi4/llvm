@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -30,7 +30,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/Inliner.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/PriorityWorklist.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
@@ -140,10 +139,10 @@ static cl::opt<bool>
     EnablePostSCCAdvisorPrinting("enable-scc-inline-advisor-printing",
                                  cl::init(false), cl::Hidden);
 
+#if INTEL_CUSTOMIZATION
 namespace llvm {
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 }
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
 extern cl::opt<bool> DTransInlineHeuristics;
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -719,10 +718,14 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           if (NewCallee) {
             if (!NewCallee->isDeclaration()) {
 #if INTEL_CUSTOMIZATION
-              if (IsAlwaysInlineRecursive)
-                 ICB->addFnAttr(Attribute::AlwaysInlineRecursive);
-              if (IsInlineHintRecursive)
-                 ICB->addFnAttr(Attribute::InlineHintRecursive);
+              // do not propagate recursive inline attributes if callee
+              // is noinline
+              if (!NewCallee->hasFnAttribute(Attribute::NoInline)) {
+                if (IsAlwaysInlineRecursive)
+                  ICB->addFnAttr(Attribute::AlwaysInlineRecursive);
+                if (IsInlineHintRecursive)
+                  ICB->addFnAttr(Attribute::InlineHintRecursive);
+              }
 #endif // INTEL_CUSTOMIZATION
               Calls.push_back({ICB, NewHistoryID});
               // Continually inlining through an SCC can result in huge compile

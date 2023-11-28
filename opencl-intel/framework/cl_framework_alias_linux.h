@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2019 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -173,6 +173,7 @@ DECLARE_ALIAS(clEnqueueMemAdviseINTEL);
 DECLARE_ALIAS(clCreateBufferWithPropertiesINTEL);
 DECLARE_ALIAS(clSetContextDestructorCallback);
 DECLARE_ALIAS(clSetProgramReleaseCallback);
+DECLARE_ALIAS(clGetKernelMaxConcurrentWorkGroupCountINTEL);
 } // namespace Framework
 } // namespace OpenCL
 } // namespace Intel

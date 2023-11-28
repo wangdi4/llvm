@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s
 
 ; No reroll happens.
 ; SR Chain - A set of instructions in a SR chain shouldn't co-exist
@@ -95,12 +95,12 @@ for.body:                                         ; preds = %for.body, %for.body
   %i.0104 = phi i32 [ %add, %for.body ], [ 0, %for.body.preheader ]
   %v_sum0.sroa.0.0103 = phi <2 x double> [ %add.i.i.i71, %for.body ], [ zeroinitializer, %for.body.preheader ]
   %v_sum1.sroa.0.0102 = phi <2 x double> [ %add.i.i.i55, %for.body ], [ zeroinitializer, %for.body.preheader ]
-  %0 = load <16 x i8>, ptr %src1.addr.0105, align 1, !tbaa !14, !noalias !17
-  %1 = load <16 x i8>, ptr %src2.addr.0106, align 1, !tbaa !14, !noalias !22
-  %add.ptr = getelementptr inbounds i32, ptr %src1.addr.0105, i64 4, !intel-tbaa !27
-  %2 = load <16 x i8>, ptr %add.ptr, align 1, !tbaa !14, !noalias !29
-  %add.ptr1 = getelementptr inbounds i32, ptr %src2.addr.0106, i64 4, !intel-tbaa !27
-  %3 = load <16 x i8>, ptr %add.ptr1, align 1, !tbaa !14, !noalias !34
+  %0 = load <16 x i8>, ptr %src1.addr.0105, align 1
+  %1 = load <16 x i8>, ptr %src2.addr.0106, align 1
+  %add.ptr = getelementptr inbounds i32, ptr %src1.addr.0105, i64 4
+  %2 = load <16 x i8>, ptr %add.ptr, align 1
+  %add.ptr1 = getelementptr inbounds i32, ptr %src2.addr.0106, i64 4
+  %3 = load <16 x i8>, ptr %add.ptr1, align 1
   %psrldq.i.i57 = shufflevector <16 x i8> %1, <16 x i8> poison, <16 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
   %4 = bitcast <16 x i8> %psrldq.i.i57 to <4 x i32>
   %shuffle.i.i.i58 = shufflevector <4 x i32> %4, <4 x i32> undef, <2 x i32> <i32 0, i32 1>
@@ -138,10 +138,10 @@ for.body:                                         ; preds = %for.body, %for.body
   %mul.i.i.i54 = fmul contract <2 x double> %conv.i.i9.i53, %conv.i.i12.i51
   %add.i.i.i55 = fadd contract <2 x double> %mul.i.i.i54, %add.i.i18.i49
   %add = add nuw nsw i32 %i.0104, 8
-  %add.ptr3 = getelementptr inbounds i32, ptr %src1.addr.0105, i64 8, !intel-tbaa !27
-  %add.ptr4 = getelementptr inbounds i32, ptr %src2.addr.0106, i64 8, !intel-tbaa !27
+  %add.ptr3 = getelementptr inbounds i32, ptr %src1.addr.0105, i64 8
+  %add.ptr4 = getelementptr inbounds i32, ptr %src2.addr.0106, i64 8
   %cmp = icmp slt i32 %add, %sub
-  br i1 %cmp, label %for.body, label %for.end.loopexit, !llvm.loop !39
+  br i1 %cmp, label %for.body, label %for.end.loopexit
 
 for.end.loopexit:                                 ; preds = %for.body
   %add.i.i.i71.lcssa = phi <2 x double> [ %add.i.i.i71, %for.body ]
@@ -171,8 +171,8 @@ for.body8:                                        ; preds = %for.body8, %for.bod
   %src1.addr.196 = phi ptr [ %add.ptr12, %for.body8 ], [ %src1.addr.0.lcssa, %for.body8.preheader ]
   %i.195 = phi i32 [ %add11, %for.body8 ], [ %i.0.lcssa, %for.body8.preheader ]
   %v_sum0.sroa.0.194 = phi <2 x double> [ %add.i.i.i, %for.body8 ], [ %add.i.i, %for.body8.preheader ]
-  %14 = load <16 x i8>, ptr %src1.addr.196, align 1, !tbaa !14, !noalias !41
-  %15 = load <16 x i8>, ptr %src2.addr.197, align 1, !tbaa !14, !noalias !46
+  %14 = load <16 x i8>, ptr %src1.addr.196, align 1
+  %15 = load <16 x i8>, ptr %src2.addr.197, align 1
   %psrldq.i.i = shufflevector <16 x i8> %15, <16 x i8> poison, <16 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
   %16 = bitcast <16 x i8> %psrldq.i.i to <4 x i32>
   %shuffle.i.i.i = shufflevector <4 x i32> %16, <4 x i32> undef, <2 x i32> <i32 0, i32 1>
@@ -192,10 +192,10 @@ for.body8:                                        ; preds = %for.body8, %for.bod
   %mul.i.i.i = fmul contract <2 x double> %conv.i.i9.i, %conv.i.i12.i
   %add.i.i.i = fadd contract <2 x double> %mul.i.i.i, %add.i.i18.i
   %add11 = add nuw nsw i32 %i.195, 4
-  %add.ptr12 = getelementptr inbounds i32, ptr %src1.addr.196, i64 4, !intel-tbaa !27
-  %add.ptr13 = getelementptr inbounds i32, ptr %src2.addr.197, i64 4, !intel-tbaa !27
+  %add.ptr12 = getelementptr inbounds i32, ptr %src1.addr.196, i64 4
+  %add.ptr13 = getelementptr inbounds i32, ptr %src2.addr.197, i64 4
   %cmp7 = icmp slt i32 %add11, %sub6
-  br i1 %cmp7, label %for.body8, label %for.end14.loopexit, !llvm.loop !51
+  br i1 %cmp7, label %for.body8, label %for.end14.loopexit
 
 for.end14.loopexit:                               ; preds = %for.body8
   %add.i.i.i.lcssa = phi <2 x double> [ %add.i.i.i, %for.body8 ]
@@ -238,58 +238,58 @@ for.body.i:                                       ; preds = %for.body.i, %for.bo
   %indvars.iv82.i = phi i64 [ 0, %for.body.preheader.i ], [ %indvars.iv.next83.i, %for.body.i ]
   %result.079.i = phi double [ 0.000000e+00, %for.body.preheader.i ], [ %add33.i, %for.body.i ]
   %ptridx.i = getelementptr inbounds i32, ptr %src1.addr.1.lcssa, i64 %indvars.iv82.i
-  %23 = load i32, ptr %ptridx.i, align 4, !tbaa !27
+  %23 = load i32, ptr %ptridx.i, align 4
   %conv.i = sitofp i32 %23 to double
   %ptridx2.i = getelementptr inbounds i32, ptr %src2.addr.1.lcssa, i64 %indvars.iv82.i
-  %24 = load i32, ptr %ptridx2.i, align 4, !tbaa !27
+  %24 = load i32, ptr %ptridx2.i, align 4
   %conv3.i = sitofp i32 %24 to double
   %mul.i = fmul contract double %conv.i, %conv3.i
   %25 = or i64 %indvars.iv82.i, 1
   %ptridx5.i = getelementptr inbounds i32, ptr %src1.addr.1.lcssa, i64 %25
-  %26 = load i32, ptr %ptridx5.i, align 4, !tbaa !27
+  %26 = load i32, ptr %ptridx5.i, align 4
   %conv6.i = sitofp i32 %26 to double
   %ptridx9.i = getelementptr inbounds i32, ptr %src2.addr.1.lcssa, i64 %25
-  %27 = load i32, ptr %ptridx9.i, align 4, !tbaa !27
+  %27 = load i32, ptr %ptridx9.i, align 4
   %conv10.i = sitofp i32 %27 to double
   %mul11.i = fmul contract double %conv6.i, %conv10.i
   %add12.i = fadd contract double %mul.i, %mul11.i
   %28 = or i64 %indvars.iv82.i, 2
   %ptridx15.i = getelementptr inbounds i32, ptr %src1.addr.1.lcssa, i64 %28
-  %29 = load i32, ptr %ptridx15.i, align 4, !tbaa !27
+  %29 = load i32, ptr %ptridx15.i, align 4
   %conv16.i = sitofp i32 %29 to double
   %ptridx19.i = getelementptr inbounds i32, ptr %src2.addr.1.lcssa, i64 %28
-  %30 = load i32, ptr %ptridx19.i, align 4, !tbaa !27
+  %30 = load i32, ptr %ptridx19.i, align 4
   %conv20.i = sitofp i32 %30 to double
   %mul21.i = fmul contract double %conv16.i, %conv20.i
   %add22.i = fadd contract double %add12.i, %mul21.i
   %31 = or i64 %indvars.iv82.i, 3
   %ptridx25.i = getelementptr inbounds i32, ptr %src1.addr.1.lcssa, i64 %31
-  %32 = load i32, ptr %ptridx25.i, align 4, !tbaa !27
+  %32 = load i32, ptr %ptridx25.i, align 4
   %conv26.i = sitofp i32 %32 to double
   %ptridx29.i = getelementptr inbounds i32, ptr %src2.addr.1.lcssa, i64 %31
-  %33 = load i32, ptr %ptridx29.i, align 4, !tbaa !27
+  %33 = load i32, ptr %ptridx29.i, align 4
   %conv30.i = sitofp i32 %33 to double
   %mul31.i = fmul contract double %conv26.i, %conv30.i
   %add32.i = fadd contract double %add22.i, %mul31.i
   %add33.i = fadd contract double %result.079.i, %add32.i
   %indvars.iv.next83.i = add nuw nsw i64 %indvars.iv82.i, 4
   %cmp.not.i = icmp ugt i64 %indvars.iv.next83.i, %20
-  br i1 %cmp.not.i, label %for.cond35.preheader.loopexit.i, label %for.body.i, !llvm.loop !52
+  br i1 %cmp.not.i, label %for.cond35.preheader.loopexit.i, label %for.body.i
 
 for.body37.i:                                     ; preds = %for.body37.i, %for.body37.preheader.i
   %indvars.iv.i = phi i64 [ %22, %for.body37.preheader.i ], [ %indvars.iv.next.i, %for.body37.i ]
   %result.176.i = phi double [ %result.0.lcssa.i, %for.body37.preheader.i ], [ %add45.i, %for.body37.i ]
   %ptridx39.i = getelementptr inbounds i32, ptr %src1.addr.1.lcssa, i64 %indvars.iv.i
-  %34 = load i32, ptr %ptridx39.i, align 4, !tbaa !27
+  %34 = load i32, ptr %ptridx39.i, align 4
   %conv40.i = sitofp i32 %34 to double
   %ptridx42.i = getelementptr inbounds i32, ptr %src2.addr.1.lcssa, i64 %indvars.iv.i
-  %35 = load i32, ptr %ptridx42.i, align 4, !tbaa !27
+  %35 = load i32, ptr %ptridx42.i, align 4
   %conv43.i = sitofp i32 %35 to double
   %mul44.i = fmul contract double %conv40.i, %conv43.i
   %add45.i = fadd contract double %result.176.i, %mul44.i
   %indvars.iv.next.i = add nuw nsw i64 %indvars.iv.i, 1
   %exitcond.not.i = icmp eq i64 %indvars.iv.next.i, %wide.trip.count.i
-  br i1 %exitcond.not.i, label %"??$dotProd_@H@opt_SSE4_1@cv@@YANPEBH0H@Z.exit.loopexit", label %for.body37.i, !llvm.loop !53
+  br i1 %exitcond.not.i, label %"??$dotProd_@H@opt_SSE4_1@cv@@YANPEBH0H@Z.exit.loopexit", label %for.body37.i
 
 "??$dotProd_@H@opt_SSE4_1@cv@@YANPEBH0H@Z.exit.loopexit": ; preds = %for.body37.i
   %add45.i.lcssa = phi double [ %add45.i, %for.body37.i ]
@@ -304,63 +304,5 @@ for.body37.i:                                     ; preds = %for.body37.i, %for.
   ret double %add18
 }
 
-attributes #0 = { nofree nounwind sspstrong uwtable "frame-pointer"="none" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" }
 
-!llvm.linker.options = !{!0, !1, !2, !3, !4, !5, !6, !7, !8, !9, !10}
-!llvm.module.flags = !{!11, !12}
-!llvm.ident = !{!13}
 
-!0 = !{!"/DEFAULTLIB:msvcrt.lib"}
-!1 = !{!"/DEFAULTLIB:libircmt.lib"}
-!2 = !{!"/DEFAULTLIB:svml_dispmd.lib"}
-!3 = !{!"/DEFAULTLIB:libdecimal.lib"}
-!4 = !{!"/DEFAULTLIB:libmmd.lib"}
-!5 = !{!"/DEFAULTLIB:oldnames.lib"}
-!6 = !{!"/FAILIFMISMATCH:\22_MSC_VER=1900\22"}
-!7 = !{!"/FAILIFMISMATCH:\22_ITERATOR_DEBUG_LEVEL=0\22"}
-!8 = !{!"/FAILIFMISMATCH:\22RuntimeLibrary=MT_StaticRelease\22"}
-!9 = !{!"/DEFAULTLIB:libcpmt.lib"}
-!10 = !{!"/FAILIFMISMATCH:\22_CRT_STDIO_ISO_WIDE_SPECIFIERS=0\22"}
-!11 = !{i32 1, !"wchar_size", i32 2}
-!12 = !{i32 7, !"PIC Level", i32 2}
-!13 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2021.2.0 (2021.x.0.YYYYMMDD)"}
-!14 = !{!15, !15, i64 0}
-!15 = !{!"omnipotent char", !16, i64 0}
-!16 = !{!"Simple C++ TBAA"}
-!17 = !{!18, !20}
-!18 = distinct !{!18, !19, !"?v_load@hal_SSE4_1@cv@@YA?AUv_int32x4@12@PEBH@Z: %agg.result"}
-!19 = distinct !{!19, !"?v_load@hal_SSE4_1@cv@@YA?AUv_int32x4@12@PEBH@Z"}
-!20 = distinct !{!20, !21, !"?vx_load@simd128_cpp@hal_SSE4_1@cv@@YA?AUv_int32x4@23@PEBH@Z: %agg.result"}
-!21 = distinct !{!21, !"?vx_load@simd128_cpp@hal_SSE4_1@cv@@YA?AUv_int32x4@23@PEBH@Z"}
-!22 = !{!23, !25}
-!23 = distinct !{!23, !24, !"?v_load@hal_SSE4_1@cv@@YA?AUv_int32x4@12@PEBH@Z: %agg.result"}
-!24 = distinct !{!24, !"?v_load@hal_SSE4_1@cv@@YA?AUv_int32x4@12@PEBH@Z"}
-!25 = distinct !{!25, !26, !"?vx_load@simd128_cpp@hal_SSE4_1@cv@@YA?AUv_int32x4@23@PEBH@Z: %agg.result"}
-!26 = distinct !{!26, !"?vx_load@simd128_cpp@hal_SSE4_1@cv@@YA?AUv_int32x4@23@PEBH@Z"}
-!27 = !{!28, !28, i64 0}
-!28 = !{!"int", !15, i64 0}
-!29 = !{!30, !32}
-!30 = distinct !{!30, !31, !"?v_load@hal_SSE4_1@cv@@YA?AUv_int32x4@12@PEBH@Z: %agg.result"}
-!31 = distinct !{!31, !"?v_load@hal_SSE4_1@cv@@YA?AUv_int32x4@12@PEBH@Z"}
-!32 = distinct !{!32, !33, !"?vx_load@simd128_cpp@hal_SSE4_1@cv@@YA?AUv_int32x4@23@PEBH@Z: %agg.result"}
-!33 = distinct !{!33, !"?vx_load@simd128_cpp@hal_SSE4_1@cv@@YA?AUv_int32x4@23@PEBH@Z"}
-!34 = !{!35, !37}
-!35 = distinct !{!35, !36, !"?v_load@hal_SSE4_1@cv@@YA?AUv_int32x4@12@PEBH@Z: %agg.result"}
-!36 = distinct !{!36, !"?v_load@hal_SSE4_1@cv@@YA?AUv_int32x4@12@PEBH@Z"}
-!37 = distinct !{!37, !38, !"?vx_load@simd128_cpp@hal_SSE4_1@cv@@YA?AUv_int32x4@23@PEBH@Z: %agg.result"}
-!38 = distinct !{!38, !"?vx_load@simd128_cpp@hal_SSE4_1@cv@@YA?AUv_int32x4@23@PEBH@Z"}
-!39 = distinct !{!39, !40}
-!40 = !{!"llvm.loop.mustprogress"}
-!41 = !{!42, !44}
-!42 = distinct !{!42, !43, !"?v_load@hal_SSE4_1@cv@@YA?AUv_int32x4@12@PEBH@Z: %agg.result"}
-!43 = distinct !{!43, !"?v_load@hal_SSE4_1@cv@@YA?AUv_int32x4@12@PEBH@Z"}
-!44 = distinct !{!44, !45, !"?vx_load@simd128_cpp@hal_SSE4_1@cv@@YA?AUv_int32x4@23@PEBH@Z: %agg.result"}
-!45 = distinct !{!45, !"?vx_load@simd128_cpp@hal_SSE4_1@cv@@YA?AUv_int32x4@23@PEBH@Z"}
-!46 = !{!47, !49}
-!47 = distinct !{!47, !48, !"?v_load@hal_SSE4_1@cv@@YA?AUv_int32x4@12@PEBH@Z: %agg.result"}
-!48 = distinct !{!48, !"?v_load@hal_SSE4_1@cv@@YA?AUv_int32x4@12@PEBH@Z"}
-!49 = distinct !{!49, !50, !"?vx_load@simd128_cpp@hal_SSE4_1@cv@@YA?AUv_int32x4@23@PEBH@Z: %agg.result"}
-!50 = distinct !{!50, !"?vx_load@simd128_cpp@hal_SSE4_1@cv@@YA?AUv_int32x4@23@PEBH@Z"}
-!51 = distinct !{!51, !40}
-!52 = distinct !{!52, !40}
-!53 = distinct !{!53, !40}

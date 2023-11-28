@@ -8,7 +8,18 @@
 
 #pragma once
 
-#include <sycl/ext/oneapi/experimental/non_uniform_groups.hpp>
+#include <sycl/aspects.hpp>
+#include <sycl/detail/pi.h>            // for PI_ERROR_INVALID_DEVICE
+#include <sycl/detail/type_traits.hpp> // for is_fixed_size_group, is_group
+#include <sycl/exception.hpp>          // for runtime_error
+#include <sycl/ext/oneapi/sub_group_mask.hpp> // for sub_group_mask
+#include <sycl/id.hpp>                        // for id
+#include <sycl/memory_enums.hpp>              // for memory_scope
+#include <sycl/range.hpp>                     // for range
+#include <sycl/sub_group.hpp>                 // for sub_group
+
+#include <stddef.h>    // for size_t
+#include <type_traits> // for enable_if_t, true_type, dec...
 
 namespace sycl {
 inline namespace _V1 {
@@ -17,6 +28,10 @@ namespace ext::oneapi::experimental {
 template <size_t PartitionSize, typename ParentGroup> class fixed_size_group;
 
 template <size_t PartitionSize, typename Group>
+#ifdef __SYCL_DEVICE_ONLY__
+[[__sycl_detail__::__uses_aspects__(
+    sycl::aspect::ext_oneapi_non_uniform_groups)]]
+#endif
 inline std::enable_if_t<sycl::is_group_v<std::decay_t<Group>> &&
                             std::is_same_v<Group, sycl::sub_group>,
                         fixed_size_group<PartitionSize, Group>>

@@ -7,7 +7,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local i32 @_Z3fooPi(i32* nocapture readonly %a) local_unnamed_addr #0 {
+define dso_local i32 @_Z3fooPi(ptr nocapture readonly %a) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: _Z3fooPi:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -20,8 +20,8 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %a) local_unnamed_addr #0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[V1_LPRIV_PROMOTED0:%.*]], [[BB1]] ],  [ i32 [[VP_V1_LPRIV_2:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP_ADD1:%.*]] = add i32 [[VP0]] i32 15
-; CHECK-NEXT:     i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP1:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i1 [[VP_CMP2:%.*]] = icmp sgt i32 [[VP1]] i32 0
 ; CHECK-NEXT:     i32 [[VP_V1_LPRIV_2]] = select i1 [[VP_CMP2]] i32 [[VP1]] i32 [[VP_ADD1]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
@@ -46,19 +46,19 @@ DIR.OMP.SIMD.122:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.122
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %v1.lpriv, i32 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %v1.lpriv, i32 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %v1.lpriv.promoted = load i32, i32* %v1.lpriv, align 4
+  %v1.lpriv.promoted = load i32, ptr %v1.lpriv, align 4
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %1 = phi i32 [ %v1.lpriv.promoted, %DIR.OMP.SIMD.2 ], [ %v1.lpriv.2, %omp.inner.for.body ]
   %add1 = add nsw i32 %1, 15
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx, align 4
   %cmp2 = icmp sgt i32 %2, 0
   %v1.lpriv.2 = select i1 %cmp2, i32 %2, i32 %add1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

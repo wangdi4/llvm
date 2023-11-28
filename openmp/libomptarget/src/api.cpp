@@ -39,7 +39,7 @@
 #include <cstring>
 #include <mutex>
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 /// API functions that can access host-to-target data map need to load device
 /// image to get correct mapping information for global data. This macro is
 /// called in such functions.
@@ -49,7 +49,7 @@
     if (checkDeviceAndCtors(DeviceID, nullptr) != OFFLOAD_SUCCESS)             \
       return RetVal;                                                           \
   } while(0)
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 EXTERN int omp_get_num_devices(void) {
   TIMESCOPE();
@@ -113,13 +113,8 @@ EXTERN void llvm_omp_target_free_shared(void *Ptre, int DeviceNum) {
 EXTERN void *llvm_omp_target_dynamic_shared_alloc() { return nullptr; }
 EXTERN void *llvm_omp_get_dynamic_shared() { return nullptr; }
 
-#if INTEL_CUSTOMIZATION
-EXTERN_ATTR([[nodiscard]])
-void *llvm_omp_target_lock_mem(void *Ptr, size_t Size, int DeviceNum) {
-#else  // INTEL_CUSTOMIZATION
 EXTERN [[nodiscard]] void *llvm_omp_target_lock_mem(void *Ptr, size_t Size,
                                                     int DeviceNum) {
-#endif // INTEL_CUSTOMIZATION
   return targetLockExplicit(Ptr, Size, DeviceNum, __func__);
 }
 
@@ -150,9 +145,9 @@ EXTERN int omp_target_is_present(const void *Ptr, int DeviceNum) {
        "false\n");
     return false;
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   CHECK_DEVICE_AND_CTORS_RET(DeviceNum, false);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
   // omp_target_is_present tests whether a host pointer refers to storage that
@@ -283,7 +278,7 @@ static int memcpyRect3D(void *Dst, const void *Src, size_t ElementSize,
 #endif // INTEL_CUSTOMIZATION
 
 // The helper function that calls omp_target_memcpy or omp_target_memcpy_rect
-static int libomp_target_memcpy_async_helper(kmp_int32 Gtid, kmp_task_t *Task) {
+static int libomp_target_memcpy_async_task(kmp_int32 Gtid, kmp_task_t *Task) {
   if (Task == nullptr)
     return OFFLOAD_FAIL;
 
@@ -295,18 +290,18 @@ static int libomp_target_memcpy_async_helper(kmp_int32 Gtid, kmp_task_t *Task) {
   // Call blocked version
   int Rc = OFFLOAD_SUCCESS;
   if (Args->IsRectMemcpy) {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
     Rc = omp_target_memcpy_rect(
         Args->Dst, Args->Src, Args->ElementSize, Args->NumDims,
         Args->getVolume(), Args->getDstOffsets(), Args->getSrcOffsets(),
         Args->getDstDimensions(), Args->getSrcDimensions(), Args->DstDevice,
         Args->SrcDevice);
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
     Rc = omp_target_memcpy_rect(
         Args->Dst, Args->Src, Args->ElementSize, Args->NumDims, Args->Volume,
         Args->DstOffsets, Args->SrcOffsets, Args->DstDimensions,
         Args->SrcDimensions, Args->DstDevice, Args->SrcDevice);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
     DP("omp_target_memcpy_rect returns %d\n", Rc);
   } else {
     Rc = omp_target_memcpy(Args->Dst, Args->Src, Args->Length, Args->DstOffset,
@@ -321,50 +316,132 @@ static int libomp_target_memcpy_async_helper(kmp_int32 Gtid, kmp_task_t *Task) {
   return Rc;
 }
 
-// Allocate and launch helper task
-static int libomp_helper_task_creation(TargetMemcpyArgsTy *Args,
-                                       int DepObjCount,
-                                       omp_depend_t *DepObjList) {
+static int libomp_target_memset_async_task(kmp_int32 Gtid, kmp_task_t *Task) {
+  if (!Task)
+    return OFFLOAD_FAIL;
+
+  auto *Args = reinterpret_cast<TargetMemsetArgsTy *>(Task->shareds);
+  if (!Args)
+    return OFFLOAD_FAIL;
+
+  // call omp_target_memset()
+  omp_target_memset(Args->Ptr, Args->C, Args->N, Args->DeviceNum);
+
+  delete Args;
+
+  return OFFLOAD_SUCCESS;
+}
+
+static inline void
+convertDepObjVector(llvm::SmallVector<kmp_depend_info_t> &Vec, int DepObjCount,
+                    omp_depend_t *DepObjList) {
+  for (int i = 0; i < DepObjCount; ++i) {
+    omp_depend_t DepObj = DepObjList[i];
+    Vec.push_back(*((kmp_depend_info_t *)DepObj));
+  }
+}
+
+template <class T>
+static inline int
+libomp_helper_task_creation(T *Args, int (*Fn)(kmp_int32, kmp_task_t *),
+                            int DepObjCount, omp_depend_t *DepObjList) {
   // Create global thread ID
   int Gtid = __kmpc_global_thread_num(nullptr);
-  int (*Fn)(kmp_int32, kmp_task_t *) = &libomp_target_memcpy_async_helper;
 
-  // Setup the hidden helper flags;
+  // Setup the hidden helper flags
   kmp_int32 Flags = 0;
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 // This flag is set by __kmpc_omp_target_task_alloc when helper task is
 // supported.
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
   kmp_tasking_flags_t *InputFlags = (kmp_tasking_flags_t *)&Flags;
   InputFlags->hidden_helper = 1;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
-  // Alloc helper task
-  kmp_task_t *Ptr = __kmpc_omp_target_task_alloc(nullptr, Gtid, Flags,
-                                                 sizeof(kmp_task_t), 0, Fn, -1);
-
-  if (Ptr == nullptr) {
-    // Task allocation failed, delete the argument object
+  // Alloc the helper task
+  kmp_task_t *Task = __kmpc_omp_target_task_alloc(
+      nullptr, Gtid, Flags, sizeof(kmp_task_t), 0, Fn, -1);
+  if (!Task) {
     delete Args;
-
     return OFFLOAD_FAIL;
   }
 
-  // Setup the arguments passed to helper task
-  Ptr->shareds = Args;
+  // Setup the arguments for the helper task
+  Task->shareds = Args;
 
-  // Convert the type of depend objects
+  // Convert types of depend objects
   llvm::SmallVector<kmp_depend_info_t> DepObjs;
-  for (int i = 0; i < DepObjCount; i++) {
-    omp_depend_t DepObj = DepObjList[i];
-    DepObjs.push_back(*((kmp_depend_info_t *)DepObj));
-  }
+  convertDepObjVector(DepObjs, DepObjCount, DepObjList);
 
   // Launch the helper task
-  int Rc = __kmpc_omp_task_with_deps(nullptr, Gtid, Ptr, DepObjCount,
+  int Rc = __kmpc_omp_task_with_deps(nullptr, Gtid, Task, DepObjCount,
                                      DepObjs.data(), 0, nullptr);
 
   return Rc;
+}
+
+EXTERN void *omp_target_memset(void *Ptr, int ByteVal, size_t NumBytes,
+                               int DeviceNum) {
+  TIMESCOPE();
+  DP("Call to omp_target_memset, device %d, device pointer %p, size %zu\n",
+     DeviceNum, Ptr, NumBytes);
+
+  // Behave as a no-op if N==0 or if Ptr is nullptr (as a useful implementation
+  // of unspecified behavior, see OpenMP spec).
+  if (!Ptr || NumBytes == 0) {
+    return Ptr;
+  }
+
+  if (DeviceNum == omp_get_initial_device()) {
+    DP("filling memory on host via memset");
+    memset(Ptr, ByteVal, NumBytes); // ignore return value, memset() cannot fail
+  } else {
+    // TODO: replace the omp_target_memset() slow path with the fast path.
+    // That will require the ability to execute a kernel from within
+    // libomptarget.so (which we do not have at the moment).
+
+    // This is a very slow path: create a filled array on the host and upload
+    // it to the GPU device.
+    int InitialDevice = omp_get_initial_device();
+    void *Shadow = omp_target_alloc(NumBytes, InitialDevice);
+    if (Shadow) {
+      (void)memset(Shadow, ByteVal, NumBytes);
+      (void)omp_target_memcpy(Ptr, Shadow, NumBytes, 0, 0, DeviceNum,
+                              InitialDevice);
+      (void)omp_target_free(Shadow, InitialDevice);
+    } else {
+      // If the omp_target_alloc has failed, let's just not do anything.
+      // omp_target_memset does not have any good way to fail, so we
+      // simply avoid a catastrophic failure of the process for now.
+      DP("omp_target_memset failed to fill memory due to error with "
+         "omp_target_alloc");
+    }
+  }
+
+  DP("omp_target_memset returns %p\n", Ptr);
+  return Ptr;
+}
+
+EXTERN void *omp_target_memset_async(void *Ptr, int ByteVal, size_t NumBytes,
+                                     int DeviceNum, int DepObjCount,
+                                     omp_depend_t *DepObjList) {
+  DP("Call to omp_target_memset_async, device %d, device pointer %p, size %zu",
+     DeviceNum, Ptr, NumBytes);
+
+  // Behave as a no-op if N==0 or if Ptr is nullptr (as a useful implementation
+  // of unspecified behavior, see OpenMP spec).
+  if (!Ptr || NumBytes == 0)
+    return Ptr;
+
+  // Create the task object to deal with the async invocation
+  auto *Args = new TargetMemsetArgsTy{Ptr, ByteVal, NumBytes, DeviceNum};
+
+  // omp_target_memset_async() cannot fail via a return code, so ignore the
+  // return code of the helper function
+  (void)libomp_helper_task_creation(Args, &libomp_target_memset_async_task,
+                                    DepObjCount, DepObjList);
+
+  return Ptr;
 }
 
 EXTERN int omp_target_memcpy_async(void *Dst, const void *Src, size_t Length,
@@ -387,7 +464,8 @@ EXTERN int omp_target_memcpy_async(void *Dst, const void *Src, size_t Length,
       Dst, Src, Length, DstOffset, SrcOffset, DstDevice, SrcDevice);
 
   // Create and launch helper task
-  int Rc = libomp_helper_task_creation(Args, DepObjCount, DepObjList);
+  int Rc = libomp_helper_task_creation(Args, &libomp_target_memcpy_async_task,
+                                       DepObjCount, DepObjList);
 
   DP("omp_target_memcpy_async returns %d\n", Rc);
   return Rc;
@@ -420,11 +498,11 @@ omp_target_memcpy_rect(void *Dst, const void *Src, size_t ElementSize,
     return OFFLOAD_FAIL;
   }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   int Rc = OFFLOAD_SUCCESS;
-#else // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
   int Rc;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   if (NumDims == 1) {
     Rc = omp_target_memcpy(Dst, Src, ElementSize * Volume[0],
                            ElementSize * DstOffsets[0],
@@ -487,18 +565,18 @@ EXTERN int omp_target_memcpy_rect_async(
     return INT_MAX;
   }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   // Use the same check as in synchronous version to fail fast.
   if (!Dst || !Src || ElementSize < 1 || NumDims < 1 || !Volume ||
       !DstOffsets || !SrcOffsets || !DstDimensions || !SrcDimensions) {
     REPORT("Call to omp_target_memcpy_rect_async with invalid arguments\n");
     return OFFLOAD_FAIL;
   }
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
   // Check the source and dest address
   if (Dst == nullptr || Src == nullptr)
     return OFFLOAD_FAIL;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   // Create task object
   TargetMemcpyArgsTy *Args = new TargetMemcpyArgsTy(
@@ -506,7 +584,8 @@ EXTERN int omp_target_memcpy_rect_async(
       DstDimensions, SrcDimensions, DstDevice, SrcDevice);
 
   // Create and launch helper task
-  int Rc = libomp_helper_task_creation(Args, DepObjCount, DepObjList);
+  int Rc = libomp_helper_task_creation(Args, &libomp_target_memcpy_async_task,
+                                       DepObjCount, DepObjList);
 
   DP("omp_target_memcpy_rect_async returns %d\n", Rc);
   return Rc;
@@ -534,9 +613,9 @@ EXTERN int omp_target_associate_ptr(const void *HostPtr, const void *DevicePtr,
     REPORT("omp_target_associate_ptr returns OFFLOAD_FAIL\n");
     return OFFLOAD_FAIL;
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   CHECK_DEVICE_AND_CTORS_RET(DeviceNum, OFFLOAD_FAIL);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
   void *DeviceAddr = (void *)((uint64_t)DevicePtr + (uint64_t)DeviceOffset);
@@ -567,9 +646,9 @@ EXTERN int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum) {
     REPORT("omp_target_disassociate_ptr returns OFFLOAD_FAIL\n");
     return OFFLOAD_FAIL;
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   CHECK_DEVICE_AND_CTORS_RET(DeviceNum, OFFLOAD_FAIL);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
   int Rc = Device.disassociatePtr(const_cast<void *>(HostPtr));
@@ -577,7 +656,7 @@ EXTERN int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum) {
   return Rc;
 }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 EXTERN int omp_target_is_accessible(const void *Ptr, size_t Size,
                                     int DeviceNum) {
   TIMESCOPE();
@@ -610,7 +689,6 @@ EXTERN int omp_target_is_accessible(const void *Ptr, size_t Size,
   return Ret;
 }
 
-#if INTEL_CUSTOMIZATION
 static int32_t checkInteropCall(const omp_interop_t Interop,
                                 const char *FnName) {
   if (!Interop) {
@@ -793,7 +871,6 @@ EXTERN const char *omp_get_interop_rc_desc(
 
   return Device.getInteropRcDesc(RetCode);
 }
-#endif // INTEL_CUSTOMIZATION
 
 EXTERN void *omp_target_alloc_device(size_t Size, int DeviceNum) {
   return targetAllocExplicit(Size, DeviceNum, TARGET_ALLOC_DEVICE, __func__);
@@ -1140,7 +1217,7 @@ EXTERN int ompx_get_device_from_ptr(const void *Ptr) {
 
   return Ret;
 }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum) {
   TIMESCOPE();
@@ -1172,9 +1249,9 @@ EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum) {
     REPORT("Device %d is not ready, returning nullptr.\n", DeviceNum);
     return nullptr;
   }
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   CHECK_DEVICE_AND_CTORS_RET(DeviceNum, nullptr);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   auto &Device = *PM->Devices[DeviceNum];
   TargetPointerResultTy TPR = Device.getTgtPtrBegin(const_cast<void *>(Ptr), 1,

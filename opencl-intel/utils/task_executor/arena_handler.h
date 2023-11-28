@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2020 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -18,12 +18,11 @@
 #include "cl_shutdown.h"
 #include "harness_trapper.h"
 #include "task_executor.h"
-
+#include "tbb/task_arena.h"
+#include "tbb/task_group.h"
+#include "tbb/task_scheduler_observer.h"
 #include <atomic>
 #include <mutex>
-#include <tbb/task_arena.h>
-#include <tbb/task_group.h>
-#include <tbb/task_scheduler_observer.h>
 #include <vector>
 
 #ifdef DEVICE_NATIVE

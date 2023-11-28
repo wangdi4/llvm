@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -S -passes=vec-clone %s | FileCheck %s
+; RUN: opt -S -passes=vec-clone %s | FileCheck %s
 
 ; Checks that the gep/store of expanded return values are placed after all phi
 ; nodes inside a basic block.
@@ -9,12 +9,11 @@ define i32 @bar(i32 %N) #0 {
 ; CHECK-LABEL: define <16 x i32> @_ZGVeN16v_bar
 ; CHECK-NEXT: entry:
 ; CHECK:       %vec.retval = alloca <16 x i32>, align 64
-; CHECK:       [[RET_CAST:%.*]] = bitcast <16 x i32>* %vec.retval to i32*
 ; CHECK:      for:
 ; CHECK-NEXT:  [[TOTAL:%.*]] = phi i32 [ 0, %simd.loop.header ], [ [[ADD:%.*]], %for ]
 ; CHECK-NEXT:  [[I:%.*]] = phi i32 [ 0, %simd.loop.header ], [ [[INC:%.*]], %for ]
-; CHECK-NEXT:  [[RET_CAST_GEP:%.*]] = getelementptr i32, i32* [[RET_CAST]], i32
-; CHECK-NEXT:  store i32 [[TOTAL]], i32* [[RET_CAST_GEP]], align 4
+; CHECK-NEXT:  [[RET_CAST_GEP:%.*]] = getelementptr i32, ptr %vec.retval, i32
+; CHECK-NEXT:  store i32 [[TOTAL]], ptr [[RET_CAST_GEP]], align 4
 ; CHECK-NEXT:  [[CALL:%.*]] = call i32 @foo(i32 [[I]])
 ; CHECK-NEXT:  [[ADD]] = add i32 [[TOTAL]], [[CALL]]
 ; CHECK-NEXT:  [[INC]] = add i32 [[I]], 1

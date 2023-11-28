@@ -1,4 +1,4 @@
-; RUN: opt -enable-native-debug=true -passes=sycl-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=sycl-kernel-barrier -S < %s | FileCheck %s
 
 ;;*****************************************************************************

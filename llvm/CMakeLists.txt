@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2023 Intel Corporation
+# Modifications, Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -23,10 +23,17 @@ set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
 include(${LLVM_COMMON_CMAKE_UTILS}/Modules/CMakePolicy.cmake
   NO_POLICY_SCOPE)
 
-set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
+# Builds with custom install names and installation rpath setups may not work
+# in the build tree. Allow these cases to use CMake's default build tree
+# behavior by setting `LLVM_NO_INSTALL_NAME_DIR_FOR_BUILD_TREE` to do this.
+option(LLVM_NO_INSTALL_NAME_DIR_FOR_BUILD_TREE "If set, use CMake's default build tree install name directory logic (Darwin only)" OFF)
+mark_as_advanced(LLVM_NO_INSTALL_NAME_DIR_FOR_BUILD_TREE)
+if(NOT LLVM_NO_INSTALL_NAME_DIR_FOR_BUILD_TREE)
+  set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
+endif()
 
 if(NOT DEFINED LLVM_VERSION_MAJOR)
-  set(LLVM_VERSION_MAJOR 17)
+  set(LLVM_VERSION_MAJOR 18)
 endif()
 if(NOT DEFINED LLVM_VERSION_MINOR)
   set(LLVM_VERSION_MINOR 0)
@@ -49,12 +56,6 @@ if(NOT DEFINED LLVM_SHLIB_SYMBOL_VERSION)
 endif()
 
 set(INTEL_CUSTOMIZATION ON)
-
-if (INTEL_CUSTOMIZATION)
-# CMP0091 introduces a new "MSVC_RUNTIME_LIBRARY" abstraction to select the
-# MSVC runtime library, but various subprojects are not yet aware of this.
-cmake_policy(SET CMP0091 OLD)
-endif (INTEL_CUSTOMIZATION)
 
 if ((CMAKE_GENERATOR MATCHES "Visual Studio") AND (MSVC_TOOLSET_VERSION LESS 142) AND (CMAKE_GENERATOR_TOOLSET STREQUAL ""))
   message(WARNING "Visual Studio generators use the x86 host compiler by "
@@ -89,8 +90,8 @@ if (INTEL_CUSTOMIZATION)
 
   set(DPCPP_VERSION_QUALITY " ")
   set(DPCPP_VERSION_MAJOR "2024")
-  set(DPCPP_VERSION_MINOR "0")
-  set(DPCPP_VERSION_PATCH "1")
+  set(DPCPP_VERSION_MINOR "1")
+  set(DPCPP_VERSION_PATCH "0")
   set(VERSION "${DPCPP_VERSION_MAJOR}.${DPCPP_VERSION_MINOR}.${DPCPP_VERSION_PATCH}")
   set(DPCPP_PRODUCT_VERSION ${VERSION})
   set(FULL_VERSION ${DPCPP_PRODUCT_VERSION})
@@ -168,7 +169,11 @@ endif()
 # LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
 # This allows an easy way of setting up a build directory for llvm and another
 # one for llvm+clang+... using the same sources.
-set(LLVM_ALL_PROJECTS "bolt;clang;clang-tools-extra;compiler-rt;cross-project-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;mlir;openmp;polly;pstl")
+# INTEL_CUSTOMIZATION
+# The polly project has been removed to avoid IP scan hits. Removing it from
+# this list will cause an error to be reported if someone tries to use it.
+set(LLVM_ALL_PROJECTS "bolt;clang;clang-tools-extra;compiler-rt;cross-project-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;mlir;openmp;pstl")
+# end INTEL_CUSTOMIZATION
 set(LLVM_ALL_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTERNAL_PROJECTS}")
 # The flang project is not yet part of "all" projects (see C++ requirements)
 set(LLVM_EXTRA_PROJECTS "flang")
@@ -177,7 +182,6 @@ set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS}")
 if (INTEL_CUSTOMIZATION)
   # List of Intel specific projects
   set(LLVM_INTEL_EXTRA_PROJECTS "opencl;aocl-ioc64;libdevice")
-  set(OPENCL_CLANG_LIBRARY_NAME "common_clang" CACHE STRING "")
   # List of all known projects in the mono repo
   set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS};${LLVM_INTEL_EXTRA_PROJECTS}")
 endif (INTEL_CUSTOMIZATION)
@@ -384,6 +388,12 @@ include(VersionFromVCS)
 
 option(LLVM_APPEND_VC_REV
   "Embed the version control system revision in LLVM" ON)
+
+set(LLVM_FORCE_VC_REVISION
+  "" CACHE STRING "Force custom VC revision for LLVM_APPEND_VC_REV")
+
+set(LLVM_FORCE_VC_REPOSITORY
+  "" CACHE STRING "Force custom VC repository for LLVM_APPEND_VC_REV")
 
 option(LLVM_TOOL_LLVM_DRIVER_BUILD "Enables building the llvm multicall tool" OFF)
 
@@ -724,6 +734,9 @@ option(LLVM_USE_OPROFILE
 option(LLVM_EXTERNALIZE_DEBUGINFO
   "Generate dSYM files and strip executables and libraries (Darwin Only)" OFF)
 
+option(LLVM_EXPERIMENTAL_DEBUGINFO_ITERATORS
+  "Add extra Booleans to ilist_iterators to communicate facts for debug-info" OFF)
+
 set(LLVM_CODESIGNING_IDENTITY "" CACHE STRING
   "Sign executables and dylibs with the given identity or skip if empty (Darwin Only)")
 
@@ -769,6 +782,9 @@ endif()
 set(LIT_ARGS_DEFAULT "-sv")
 if (MSVC_IDE OR XCODE)
   set(LIT_ARGS_DEFAULT "${LIT_ARGS_DEFAULT} --no-progress-bar")
+endif()
+if(LLVM_INDIVIDUAL_TEST_COVERAGE)
+   set(LIT_ARGS_DEFAULT "${LIT_ARGS_DEFAULT} --per-test-coverage")
 endif()
 set(LLVM_LIT_ARGS "${LIT_ARGS_DEFAULT}" CACHE STRING "Default options for lit")
 
@@ -891,24 +907,25 @@ if (MSVC_IDE)
   option(LLVM_ADD_NATIVE_VISUALIZERS_TO_SOLUTION "Configure project to use Visual Studio native visualizers" TRUE)
 endif()
 
-if (LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERAGE OR
-    LLVM_ENABLE_IR_PGO)
-  if(NOT LLVM_PROFILE_MERGE_POOL_SIZE)
-    # A pool size of 1-2 is probably sufficient on a SSD. 3-4 should be fine
-    # for spining disks. Anything higher may only help on slower mediums.
-    set(LLVM_PROFILE_MERGE_POOL_SIZE "4")
-  endif()
-  if(NOT LLVM_PROFILE_FILE_PATTERN)
-    if(NOT LLVM_PROFILE_DATA_DIR)
-      file(TO_NATIVE_PATH "${LLVM_BINARY_DIR}/profiles" LLVM_PROFILE_DATA_DIR)
+if(NOT LLVM_INDIVIDUAL_TEST_COVERAGE)
+  if(LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERAGE OR LLVM_ENABLE_IR_PGO)
+    if(NOT LLVM_PROFILE_MERGE_POOL_SIZE)
+      # A pool size of 1-2 is probably sufficient on an SSD. 3-4 should be fine
+      # for spinning disks. Anything higher may only help on slower mediums.
+      set(LLVM_PROFILE_MERGE_POOL_SIZE "4")
     endif()
-    file(TO_NATIVE_PATH "${LLVM_PROFILE_DATA_DIR}/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_PROFILE_FILE_PATTERN)
-  endif()
-  if(NOT LLVM_CSPROFILE_FILE_PATTERN)
-    if(NOT LLVM_CSPROFILE_DATA_DIR)
-      file(TO_NATIVE_PATH "${LLVM_BINARY_DIR}/csprofiles" LLVM_CSPROFILE_DATA_DIR)
+    if(NOT LLVM_PROFILE_FILE_PATTERN)
+      if(NOT LLVM_PROFILE_DATA_DIR)
+        file(TO_NATIVE_PATH "${LLVM_BINARY_DIR}/profiles" LLVM_PROFILE_DATA_DIR)
+      endif()
+      file(TO_NATIVE_PATH "${LLVM_PROFILE_DATA_DIR}/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_PROFILE_FILE_PATTERN)
     endif()
-    file(TO_NATIVE_PATH "${LLVM_CSPROFILE_DATA_DIR}/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_CSPROFILE_FILE_PATTERN)
+    if(NOT LLVM_CSPROFILE_FILE_PATTERN)
+      if(NOT LLVM_CSPROFILE_DATA_DIR)
+        file(TO_NATIVE_PATH "${LLVM_BINARY_DIR}/csprofiles" LLVM_CSPROFILE_DATA_DIR)
+      endif()
+      file(TO_NATIVE_PATH "${LLVM_CSPROFILE_DATA_DIR}/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_CSPROFILE_FILE_PATTERN)
+    endif()
   endif()
 endif()
 
@@ -965,29 +982,34 @@ include(config-ix)
 # invocation time. Except on 64-bit AIX, where the system toolchain
 # expect 32-bit objects by default.
 if("${LLVM_HOST_TRIPLE}" MATCHES "^powerpc64-ibm-aix")
-  string(REGEX REPLACE "^powerpc64" "powerpc" LLVM_DEFAULT_TARGET_TRIPLE_default "${LLVM_HOST_TRIPLE}")
+  string(REGEX REPLACE "^powerpc64" "powerpc" LLVM_DEFAULT_TARGET_TRIPLE_DEFAULT "${LLVM_HOST_TRIPLE}")
 else()
   # Only set default triple when native target is enabled.
   if (LLVM_NATIVE_TARGET)
-    set(LLVM_DEFAULT_TARGET_TRIPLE_default "${LLVM_HOST_TRIPLE}")
+    set(LLVM_DEFAULT_TARGET_TRIPLE_DEFAULT "${LLVM_HOST_TRIPLE}")
   endif()
 endif()
 
-include(SetTargetTriple)
-set_llvm_target_triple()
+set(LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE_DEFAULT}" CACHE STRING
+    "Default target for which LLVM will generate code." )
+message(STATUS "LLVM default target triple: ${LLVM_DEFAULT_TARGET_TRIPLE}")
+
+set(LLVM_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
 
 # INTEL_CUSTOMIZATION
 if (UWD_BUILD)
   add_definitions( -DWINDOWS_ONECORE )
   if (CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(LLVM_USE_CRT_RELEASE "MT" CACHE STRING "Link rintime library statically" FORCE)
     set(CMAKE_STANDARD_LIBRARIES "OneCore.lib libcmt.lib libvcruntime.lib libucrt.lib"
         CACHE STRING "Building with OneCore.lib" FORCE)
   elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(LLVM_USE_CRT_DEBUG "MTd" CACHE STRING "Link rintime library statically" FORCE)
     set(CMAKE_STANDARD_LIBRARIES "OneCore.lib libcmtd.lib libvcruntimed.lib libucrtd.lib"
         CACHE STRING "Building with OneCore.lib" FORCE)
   endif()
+
+  # Choose (static) MultiThreaded unless the build configuration is "Debug", in
+  # which case we choose MultiThreadedDebug.
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 #end INTEL_CUSTOMIZATION
 if(WIN32 OR CYGWIN)
@@ -1012,17 +1034,6 @@ if(NOT LLVM_ENABLE_NEW_PASS_MANAGER)
                   " be removed in a future release.")
 endif()
 endif(INTEL_CUSTOMIZATION)
-
-set(DPCPP_ENABLE_OPAQUE_POINTERS TRUE CACHE BOOL
-   "Enable opaque pointers by default.")
-if (DPCPP_ENABLE_OPAQUE_POINTERS)
-  add_definitions("-DENABLE_OPAQUE_POINTERS=1")
-endif(DPCPP_ENABLE_OPAQUE_POINTERS)
-set(SPIRV_ENABLE_OPAQUE_POINTERS FALSE CACHE BOOL
-    "Enable opaque pointers for SPIR-V offload by default.")
-if(SPIRV_ENABLE_OPAQUE_POINTERS)
-  add_definitions("-DSPIRV_ENABLE_OPAQUE_POINTERS=1")
-endif()
 
 include(HandleLLVMOptions)
 
@@ -1211,10 +1222,6 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_RYL)
 # end INTEL_FEATURE_CPU_RYL
-# INTEL_FEATURE_CPU_LNL
-      list(APPEND features_enabled_by_default
-          ${LLVM_INTELFEATURE_PREFIX}_CPU_LNL)
-# end INTEL_FEATURE_CPU_LNL
 # INTEL_FEATURE_MARKERCOUNT
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_MARKERCOUNT)
@@ -1450,10 +1457,6 @@ ${LLVM_INTELFEATURE_PREFIX}_ISA_SM4_EVEX)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_BF16_BASE)
 # end INTEL_FEATURE_ISA_BF16_BASE
-# INTEL_FEATURE_ISA_APX_F
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_APX_F)
-# end INTEL_FEATURE_ISA_APX_F
 # INTEL_FEATURE_ISA_AVX512_MINMAX
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_MINMAX)
@@ -1507,12 +1510,6 @@ ${LLVM_INTELFEATURE_PREFIX}_ISA_SM4_EVEX)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_MOVRS_PREFETCHST2)
 # end INTEL_FEATURE_ISA_MOVRS_PREFETCHST2
-# INTEL_FEATURE_ISA_UMSR
-# AUTO GENERATED BY TOOL
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_UMSR)
-# end AUTO GENERATED BY TOOL
-# end INTEL_FEATURE_ISA_UMSR
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
@@ -1601,17 +1598,25 @@ foreach(t ${LLVM_TARGETS_TO_BUILD})
 # end INTEL_FEATURE_CSA
   endif(INTEL_CUSTOMIZATION)
 
-  list(FIND LLVM_ALL_TARGETS ${t} idx)
-  list(FIND LLVM_EXPERIMENTAL_TARGETS_TO_BUILD ${t} idy)
-  # At this point, LLVMBUILDTOOL already checked all the targets passed in
-  # LLVM_TARGETS_TO_BUILD and LLVM_EXPERIMENTAL_TARGETS_TO_BUILD, so
-  # this test just makes sure that any experimental targets were passed via
+  # Make sure that any experimental targets were passed via
   # LLVM_EXPERIMENTAL_TARGETS_TO_BUILD, not LLVM_TARGETS_TO_BUILD.
-  if( idx LESS 0 AND idy LESS 0 )
-    message(FATAL_ERROR "The target `${t}' is experimental and must be passed "
-      "via LLVM_EXPERIMENTAL_TARGETS_TO_BUILD.")
+  # We allow experimental targets that are not in LLVM_ALL_EXPERIMENTAL_TARGETS,
+  # as long as they are passed via LLVM_EXPERIMENTAL_TARGETS_TO_BUILD.
+  if ( NOT "${t}" IN_LIST LLVM_ALL_TARGETS AND NOT "${t}" IN_LIST LLVM_EXPERIMENTAL_TARGETS_TO_BUILD )
+    if( "${t}" IN_LIST LLVM_ALL_EXPERIMENTAL_TARGETS )
+      message(FATAL_ERROR "The target `${t}' is experimental and must be passed "
+        "via LLVM_EXPERIMENTAL_TARGETS_TO_BUILD.")
+    else()
+      message(FATAL_ERROR "The target `${t}' is not a core tier target. It may be "
+        "experimental, if so it must be passed via "
+        "LLVM_EXPERIMENTAL_TARGETS_TO_BUILD.\n"
+        "Core tier targets: ${LLVM_ALL_TARGETS}\n"
+        "Known experimental targets: ${LLVM_ALL_EXPERIMENTAL_TARGETS}")
+    endif()
   else()
     set(LLVM_ENUM_TARGETS "${LLVM_ENUM_TARGETS}LLVM_TARGET(${t})\n")
+    string(TOUPPER ${t} T_UPPER)
+    set(LLVM_HAS_${T_UPPER}_TARGET 1)
   endif()
 
   file(GLOB asmp_file "${td}/*AsmPrinter.cpp")
@@ -1778,10 +1783,16 @@ if (CMAKE_SYSTEM_NAME MATCHES "OS390")
   add_compile_definitions(_OPEN_SYS_FILE_EXT) # Needed for EBCDIC I/O.
 endif()
 
+# INTEL_CUSTOMIZATION)
+# JIRA: CMPLRLLVM-52386, CMPLRLLVM-42781
+# This flag will not impact any x86_64, and will help solve runtime problems
+# with i386 on zsc16(or any systems that have too many files)
 # Build with _FILE_OFFSET_BITS=64 on Solaris to match g++ >= 9.
-if (UNIX AND ${CMAKE_SYSTEM_NAME} MATCHES "SunOS")
-          add_compile_definitions(_FILE_OFFSET_BITS=64)
+if (CMAKE_SYSTEM_NAME MATCHES "Linux" 
+    OR (UNIX AND ${CMAKE_SYSTEM_NAME} MATCHES "SunOS"))
+  add_compile_definitions(_FILE_OFFSET_BITS=64)
 endif()
+# end INTEL_CUSTOMIZATION
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -1882,6 +1893,9 @@ if (INTEL_CUSTOMIZATION)
 endif (INTEL_CUSTOMIZATION)
 
 if( LLVM_INCLUDE_TESTS )
+  set(LLVM_GTEST_RUN_UNDER
+    "" CACHE STRING
+    "Define the wrapper program that LLVM unit tests should be run under.")
   if(EXISTS ${LLVM_MAIN_SRC_DIR}/projects/test-suite AND TARGET clang)
     include(LLVMExternalProjectUtils)
     llvm_ExternalProject_Add(test-suite ${LLVM_MAIN_SRC_DIR}/projects/test-suite
@@ -2037,8 +2051,8 @@ if (INTEL_CUSTOMIZATION)
     set(INTEL_DEPLOY_COMPONENTS_LIST
       # LLVM components
       clang lld llc llvm-link llvm-profdata llvm-profgen llvm-spirv
-      clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
-      clang-resource-headers llvm-cov llvm-ml clang-docs llvm-nm
+      clang_rt.profile-x86_64 clang_rt.profile-i386 clang_rt_glibc_alias
+      llvm-config clang-resource-headers llvm-cov llvm-ml clang-docs llvm-nm
       # Clang tools
       clang-format clang-rename
       # Clang tools extra
@@ -2139,6 +2153,17 @@ if (INTEL_CUSTOMIZATION)
           sanitizer-rt-symbols
         )
       endif()
+      if (WIN32)
+        # These are Windows only components.
+        list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+          # Address sanitizer thunk libs.
+          clang_rt.asan_dll_thunk-x86_64
+          clang_rt.asan_dynamic_runtime_thunk-x86_64
+
+          # Builtins
+          clang_rt.builtins-x86_64
+        )
+      endif()
     endif()
 
     # Deploying fuzzer libraries.
@@ -2151,7 +2176,7 @@ if (INTEL_CUSTOMIZATION)
       # Libdev components
       libdev-libirc libdev-frtl libdev-libbfp754 libdev-libifport
       libdev-libistrconv libdev-svml libdev-libimf libdev-libirng
-      libdev-include libdev-sdlt
+      libdev-include libdev-sdlt libdev-itt
 
       # IFX -check-uninit support
       libdev-frtl-msan libdev-libirc-msan libdev-svml-msan

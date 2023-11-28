@@ -11,6 +11,8 @@
 #include "llvm/Transforms/SYCLTransforms/DeduceMaxWGDim.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
@@ -22,12 +24,13 @@ using namespace CompilationUtils;
 
 #define DEBUG_TYPE "sycl-kernel-deduce-max-dim"
 
-static bool runOnFunction(Function &F, CallGraph &CG) {
+static void runOnFunction(Function &F, CallGraph &CG,
+                          OptimizationRemarkEmitter &ORE) {
   // If we have subgroups, then at least one vector iteration is expected,
   // it can't be achieved without a loop.
   auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(&F);
   if (KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get())
-    return false;
+    return;
 
   int MaxDim = -1;
   std::string GID = mangledGetGID();
@@ -46,7 +49,7 @@ static bool runOnFunction(Function &F, CallGraph &CG) {
       // If kernel has work group builtins, max WG dimension should not be
       // changed.
       if (isWorkGroupBuiltin(CalleeName))
-        return false;
+        return;
 
       if (CalleeName != GID && CalleeName != LID)
         continue;
@@ -59,35 +62,36 @@ static bool runOnFunction(Function &F, CallGraph &CG) {
 
   // No point in saying that kernel needs 3D.
   if (MaxDim >= 2)
-    return false;
+    return;
 
   KIMD.MaxWGDimensions.set(MaxDim + 1);
 
-  return true;
-}
-
-bool DeduceMaxWGDimPass::runImpl(Module &M, RuntimeService &RTS,
-                                 CallGraph &CG) {
-  FuncSet ForbiddenFuncUsers;
-  LoopUtils::fillAtomicBuiltinUsers(M, RTS, ForbiddenFuncUsers);
-  LoopUtils::fillWorkItemPipeBuiltinUsers(M, ForbiddenFuncUsers);
-  LoopUtils::fillPrintfs(M, ForbiddenFuncUsers);
-
-  // Run on all scalar kernels.
-  bool Changed = false;
-  FuncSet Kernels = getAllKernels(M);
-  for (auto *F : Kernels)
-    if (!F->hasOptNone() && !ForbiddenFuncUsers.contains(F))
-      Changed |= runOnFunction(*F, CG);
-
-  return Changed;
+  ORE.emit([&]() {
+    return OptimizationRemark(DEBUG_TYPE, "MaxWGDimension", &F)
+           << "max work-group dimension of kernel " << F.getName()
+           << " is deduced to " << Twine(MaxDim + 1).str();
+  });
 }
 
 PreservedAnalyses DeduceMaxWGDimPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
   BuiltinLibInfo *BLI = &AM.getResult<BuiltinLibInfoAnalysis>(M);
   CallGraph &CG = AM.getResult<CallGraphAnalysis>(M);
-  (void)runImpl(M, BLI->getRuntimeService(), CG);
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
+  FuncSet ForbiddenFuncUsers;
+  LoopUtils::fillAtomicBuiltinUsers(M, BLI->getRuntimeService(),
+                                    ForbiddenFuncUsers);
+  LoopUtils::fillWorkItemPipeBuiltinUsers(M, ForbiddenFuncUsers);
+  LoopUtils::fillPrintfs(M, ForbiddenFuncUsers);
+
+  // Run on all scalar kernels.
+  FuncSet Kernels = getAllKernels(M);
+  for (auto *F : Kernels)
+    if (!F->hasOptNone() && !ForbiddenFuncUsers.contains(F))
+      runOnFunction(*F, CG,
+                    FAM.getResult<OptimizationRemarkEmitterAnalysis>(*F));
+
   // Only modifies metadata.
   return PreservedAnalyses::all();
 }

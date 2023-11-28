@@ -224,6 +224,10 @@ public:
 
 #if INTEL_CUSTOMIZATION
   virtual void PrintArgsFile(raw_ostream &OS, bool Quote) const;
+
+  llvm::sys::ProcessInfo
+  ExecuteAsync(ArrayRef<std::optional<StringRef>> Redirects,
+               std::string *ErrMsg, bool *ExecutionFailed) const;
 #endif // INTEL_CUSTOMIZATION
 
   virtual int Execute(ArrayRef<std::optional<StringRef>> Redirects,

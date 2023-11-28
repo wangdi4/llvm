@@ -1,4 +1,4 @@
-#include "CL\cl.h"
+#include "CL/cl.h"
 #include "FrameworkTest.h"
 #include "Logger.h"
 #include "cl_device_api.h"

@@ -66,7 +66,7 @@
 ; CHECK-NEXT:    Increments:
 ; CHECK-NEXT:      i32 [[VP14]] = add i32 [[VP12]] i32 1
 ; CHECK-NEXT:    Stores:
-; CHECK-NEXT:      store i32 [[TMP0]] i32* [[VP_SUBSCRIPT:%.*]]
+; CHECK-NEXT:      store i32 [[TMP0]] ptr [[VP_SUBSCRIPT:%.*]]
 ; CHECK-NEXT:    Indices:
 ; CHECK-NEXT:      i64 [[VP15:%.*]] = add i64 [[VP0:%.*]] i64 [[VP16:%.*]]
 ; CHECK-EMPTY:
@@ -91,7 +91,7 @@
 ; CHECK-NEXT:    Increments:
 ; CHECK-NEXT:      i32 [[VP19]] = add i32 [[VP12]] i32 1
 ; CHECK-NEXT:    Stores:
-; CHECK-NEXT:      store i32 [[VP_LOAD:%.*]] i32* [[VP_SUBSCRIPT_1:%.*]]
+; CHECK-NEXT:      store i32 [[VP_LOAD:%.*]] ptr [[VP_SUBSCRIPT_1:%.*]]
 ; CHECK-NEXT:    Indices:
 ; CHECK-NEXT:      i64 [[VP10:%.*]] = add i64 [[VP22:%.*]] i64 [[VP16:%.*]]
 ; CHECK-EMPTY:
@@ -100,17 +100,17 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* %intel_list.0.val, i64 %maxnbors.0.val, i32* %ncachej.0.val, i32 %0, i1 %cmp348) {
+define void @foo(ptr %intel_list.0.val, i64 %maxnbors.0.val, ptr %ncachej.0.val, i32 %0, i1 %cmp348) {
 DIR.OMP.PARALLEL.2:
   %1 = trunc i64 %maxnbors.0.val to i32
   %mul133 = mul nsw i32 %0, %1
   %idx.ext134 = sext i32 %mul133 to i64
-  %add.ptr141 = getelementptr inbounds i32, i32* %ncachej.0.val, i64 %idx.ext134
+  %add.ptr141 = getelementptr inbounds i32, ptr %ncachej.0.val, i64 %idx.ext134
   br label %for.body149
 
 for.body149:                                      ; preds = %DIR.OMP.PARALLEL.2
   %idx.ext.pn310.pn = sext i32 %0 to i64
-  %neighptr.priv.0323 = getelementptr inbounds i32, i32* %intel_list.0.val, i64 %idx.ext.pn310.pn
+  %neighptr.priv.0323 = getelementptr inbounds i32, ptr %intel_list.0.val, i64 %idx.ext.pn310.pn
   br label %for.body322.preheader
 
 for.body322.preheader:                            ; preds = %for.body149
@@ -149,8 +149,8 @@ if.end390:                                        ; preds = %if.then375, %if.els
 if.then392:                                       ; preds = %if.end390
   %inc393 = add nsw i32 %n.priv.0292, 1
   %idxprom394 = sext i32 %n.priv.0292 to i64
-  %arrayidx395 = getelementptr inbounds i32, i32* %neighptr.priv.0323, i64 %idxprom394
-  store i32 %0, i32* %arrayidx395, align 4
+  %arrayidx395 = getelementptr inbounds i32, ptr %neighptr.priv.0323, i64 %idxprom394
+  store i32 %0, ptr %arrayidx395, align 4
   br label %if.end396
 
 if.end396:                                        ; preds = %if.then392, %if.end390, %if.then375, %if.else357, %if.then353
@@ -172,12 +172,12 @@ for.body405:                                      ; preds = %if.end442, %for.bod
   br i1 true, label %if.end442, label %if.then438
 
 if.then438:                                       ; preds = %for.body405
-  %arrayidx409 = getelementptr inbounds i32, i32* %add.ptr141, i64 %indvars.iv341
-  %2 = load i32, i32* %arrayidx409, align 4
+  %arrayidx409 = getelementptr inbounds i32, ptr %add.ptr141, i64 %indvars.iv341
+  %2 = load i32, ptr %arrayidx409, align 4
   %inc439 = add nsw i32 %n.priv.2296, 1
   %idxprom440 = sext i32 %n.priv.2296 to i64
-  %arrayidx441 = getelementptr inbounds i32, i32* %neighptr.priv.0323, i64 %idxprom440
-  store i32 %2, i32* %arrayidx441, align 4
+  %arrayidx441 = getelementptr inbounds i32, ptr %neighptr.priv.0323, i64 %idxprom440
+  store i32 %2, ptr %arrayidx441, align 4
   br label %if.end442
 
 if.end442:                                        ; preds = %if.then438, %for.body405

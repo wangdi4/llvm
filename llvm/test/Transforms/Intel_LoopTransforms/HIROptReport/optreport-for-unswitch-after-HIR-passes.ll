@@ -11,7 +11,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter,hir-cg" -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 ;
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT:    remark: Loop has been unswitched via {{.*}}{{[[:space:]]}}
+; OPTREPORT:    remark #15339: pragma format ignored
 ; OPTREPORT:    remark #15300: LOOP WAS VECTORIZED
 ; OPTREPORT:    remark #15305: vectorization support: vector length {{.*}}
 ; OPTREPORT: LOOP END{{[[:space:]]}}
@@ -61,7 +61,8 @@ attributes #0 = { norecurse nounwind writeonly "correctly-rounded-divide-sqrt-fp
 !5 = !{!"omnipotent char", !6, i64 0}
 !6 = !{!"Simple C/C++ TBAA"}
 !7 = distinct !{!7, !8}
-!8 = distinct !{!"intel.optreport.rootnode", !9}
-!9 = distinct !{!"intel.optreport", !10}
+!8 = distinct !{!"intel.optreport", !10}
 !10 = !{!"intel.optreport.remarks", !11}
-!11 = !{!"intel.optreport.remark", i32 0, !"Loop has been unswitched via %s", !"cmp113"}
+; There is currently no remark created for unswitching, so we simply use
+; an arbitrary remark here.
+!11 = !{!"intel.optreport.remark", i32 15339}

@@ -5,21 +5,20 @@
 ; We enlarge the array size of i1, i2 and i3, because the offset i1 + 1, i2 + 1 and i3 + 1 in MinRef.
 ; We enlarge the upper bound of i1 in the extracted loop, because the distance between (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][0] and (%"jacobian_$Q")[i1 + 2][%mod][%mod26][0] is 1 at this dimension.
 ;
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -hir-details 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -disable-output 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array" -hir-create-function-level-region -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -hir-details 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Store Result Into Temp Array ***
 ;Function: jacobian_
 ;
 ;<0>          BEGIN REGION { }
 ;<13>                  %"jacobian_$M.0" = undef;
-;<138:36>           + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + -1, 1   <DO_LOOP>
-;<139:35>           |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
+;<138:36>           + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + -1, 1
+;<139:35>           |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1
 ;<32:17>            |   |   %mod = i2 + 3  %  %"jacobian_$NY_fetch";
 ;<140:34>           |   |
-;<140:34>           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
+;<140:34>           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1
 ;<44:19>            |   |   |   %mod26 = i3 + 2  %  %"jacobian_$NX_fetch";
 ;<50:20>            |   |   |   %"jacobian_$Q[]52[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][0];
 ;<51:20>            |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][1]  /  %"jacobian_$Q[]52[][][]_fetch";
@@ -59,59 +58,56 @@
 ;*** IR Dump After HIR Store Result Into Temp Array ***
 ;Function: jacobian_
 ;
-; CHECK:    BEGIN REGION { modified }
-; CHECK:           %call = @llvm.stacksave();
-; CHECK:           %array_size = sext.i32.i64(%"jacobian_$NY_fetch") + 1  *  sext.i32.i64(%"jacobian_$NX_fetch") + 1;
-; CHECK:           %array_size4 = sext.i32.i64(%"jacobian_$NZ_fetch1") + 1  *  %array_size;
-; CHECK:           %TempArray = alloca %array_size4;
+; CHECK: BEGIN REGION { modified }
+; CHECK:       %call = @llvm.stacksave.p0();
+; CHECK:       %array_size = sext.i32.i64(%"jacobian_$NY_fetch") + 1  *  sext.i32.i64(%"jacobian_$NX_fetch") + 1;
+; CHECK:       %array_size4 = sext.i32.i64(%"jacobian_$NZ_fetch1") + 1  *  %array_size;
+; CHECK:       %TempArray = alloca %array_size4;
 ;
-; CHECK:           + DO i64 i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1"), 1   <DO_LOOP>
-; CHECK:           |   + DO i64 i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch"), 1   <DO_LOOP>
-; CHECK:           |   |   + DO i64 i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch"), 1   <DO_LOOP>
-; CHECK:           |   |   |   %"jacobian_$Q[]52[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][0];
-; CHECK:           |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][1]  /  %"jacobian_$Q[]52[][][]_fetch";
-; CHECK:           |   |   |   %div86 = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][2]  /  %"jacobian_$Q[]52[][][]_fetch";
-; CHECK:           |   |   |   %mul98 = %div  *  %div;
-; CHECK:           |   |   |   %mul100 = %div86  *  %div86;
-; CHECK:           |   |   |   %add101 = %mul98  +  %mul100;
-; CHECK:           |   |   |   %mul102 = %add101  *  2.000000e+00;
-; CHECK:           |   |   |   %mul106 = %mul102  *  2.000000e+00;
-; CHECK:           |   |   |   %div105 = %mul106  /  %"jacobian_$Q[]52[][][]_fetch";
-; CHECK:           |   |   |   (%TempArray)[i1][i2][i3] = @llvm.pow.f64(%div105,  2.500000e+00);
-; CHECK:           |   |   |      <LVAL-REG> (LINEAR {{.*}} %TempArray)[LINEAR i64 i1][LINEAR i64 i2][LINEAR i64 i3] inbounds  {sb:[[ALLOCASB:.*]]}
-; CHECK:           |   |   + END LOOP
-; CHECK:           |   + END LOOP
-; CHECK:           + END LOOP
+; CHECK:       + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1"), 1
+; CHECK:       |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch"), 1
+; CHECK:       |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch"), 1
+;              |   |   |   %"jacobian_$Q[]52[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][0];
+;              |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][1]  /  %"jacobian_$Q[]52[][][]_fetch";
+;              |   |   |   %div86 = (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][2]  /  %"jacobian_$Q[]52[][][]_fetch";
+;              |   |   |   %mul98 = %div  *  %div;
+;              |   |   |   %mul100 = %div86  *  %div86;
+;              |   |   |   %add101 = %mul98  +  %mul100;
+;              |   |   |   %mul102 = %add101  *  2.000000e+00;
+;              |   |   |   %mul106 = %mul102  *  2.000000e+00;
+;              |   |   |   %div105 = %mul106  /  %"jacobian_$Q[]52[][][]_fetch";
+; CHECK:       |   |   |   (%TempArray)[i1][i2][i3] = @llvm.pow.f64(%div105,  2.500000e+00);
+;              |   |   + END LOOP
+;              |   + END LOOP
+;              + END LOOP
 ;
 ;
-; CHECK:              %"jacobian_$M.0" = undef;
-; CHECK:           + DO i64 i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + -1, 1   <DO_LOOP>
-; CHECK:           |   + DO i64 i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
-; CHECK:           |   |   %mod = i2 + 3  %  %"jacobian_$NY_fetch";
-; CHECK:           |   |
-; CHECK:           |   |   + DO i64 i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
-; CHECK:           |   |   |   %mod26 = i3 + 2  %  %"jacobian_$NX_fetch";
-; CHECK:           |   |   |   %func_result = (%TempArray)[i1][i2][i3];
-; CHECK:           |   |   |      <RVAL-REG> (LINEAR {{.*}} %TempArray){{.*}} {sb:[[ALLOCASB]]}
+;                 %"jacobian_$M.0" = undef;
+; CHECK:       + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + -1, 1
+; CHECK:       |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1
+;              |   |   %mod = i2 + 3  %  %"jacobian_$NY_fetch";
+;              |   |
+; CHECK:       |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1
+;              |   |   |   %mod26 = i3 + 2  %  %"jacobian_$NX_fetch";
+; CHECK:       |   |   |   %func_result = (%TempArray)[i1][i2][i3];
+; CHECK:       |   |   |   %func_result242 = (%TempArray)[i1 + 1][zext.i32.i64(%mod) + -1][zext.i32.i64(%mod26) + -1];
+;              |   |   |   %add243 = %"jacobian_$M.0"  +  %func_result242;
+;              |   |   |   %"jacobian_$M.0" = %func_result  +  %add243;
+;              |   |   + END LOOP
+;              |   + END LOOP
+;              + END LOOP
+;                 (i8*)(%addressof)[0] = 48;
+;                 (%addressof)[0][1] = 1;
+;                 (%addressof)[0][2] = 1;
+;                 (%addressof)[0][3] = 0;
+;                 (double*)(%ARGBLOCK_0)[0] = %"jacobian_$M.0";
+;                 %func_result280 = @for_write_seq_lis(&((%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0]),  &((%ARGBLOCK_0)[0]));
+;
+; CHECK:       @llvm.stackrestore.p0(&((%call)[0]));
+;              ret ;
+;        END REGION
 
-; CHECK:           |   |   |   %func_result242 = (%TempArray)[i1 + 1][zext.i32.i64(%mod) + -1][zext.i32.i64(%mod26) + -1];
-; CHECK:           |   |   |      <RVAL-REG> (LINEAR {{.*}} %TempArray){{.*}} {sb:[[ALLOCASB]]}
 
-; CHECK:           |   |   |   %add243 = %"jacobian_$M.0"  +  %func_result242;
-; CHECK:           |   |   |   %"jacobian_$M.0" = %func_result  +  %add243;
-; CHECK:           |   |   + END LOOP
-; CHECK:           |   + END LOOP
-; CHECK:           + END LOOP
-; CHECK:              (%addressof)[0][0] = 48;
-; CHECK:              (%addressof)[0][1] = 1;
-; CHECK:              (%addressof)[0][2] = 1;
-; CHECK:              (%addressof)[0][3] = 0;
-; CHECK:              (%ARGBLOCK_0)[0].0 = %"jacobian_$M.0";
-; CHECK:              %func_result280 = @for_write_seq_lis(&({{.*}}(%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &({{.*}}(%ARGBLOCK_0)[0]));
-;
-; CHECK:            @llvm.stackrestore(&((%call)[0]));
-; CHECK:           ret ;
-; CHECK:     END REGION
 
 ; Verify that pass is dumped with print-changed when it triggers.
 
@@ -125,22 +121,22 @@ source_filename = "j.f90"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @jacobian_(double* noalias nocapture readonly %"jacobian_$Q", i32* noalias nocapture readonly %"jacobian_$NX", i32* noalias nocapture readonly %"jacobian_$NY", i32* noalias nocapture readonly %"jacobian_$NZ") local_unnamed_addr #0 !dbg !5 {
+define void @jacobian_(ptr noalias nocapture readonly %"jacobian_$Q", ptr noalias nocapture readonly %"jacobian_$NX", ptr noalias nocapture readonly %"jacobian_$NY", ptr noalias nocapture readonly %"jacobian_$NZ") local_unnamed_addr #0 !dbg !5 {
 alloca_0:
   %"var$1" = alloca [8 x i64], align 16
   %addressof = alloca [4 x i8], align 1, !dbg !8
   %ARGBLOCK_0 = alloca { double }, align 8, !dbg !8
-  call void @llvm.dbg.declare(metadata double* %"jacobian_$Q", metadata !9, metadata !DIExpression()), !dbg !8
-  call void @llvm.dbg.declare(metadata i32* %"jacobian_$NX", metadata !11, metadata !DIExpression()), !dbg !13
-  call void @llvm.dbg.declare(metadata i32* %"jacobian_$NY", metadata !14, metadata !DIExpression()), !dbg !15
-  call void @llvm.dbg.declare(metadata i32* %"jacobian_$NZ", metadata !16, metadata !DIExpression()), !dbg !17
-  %"jacobian_$NX_fetch" = load i32, i32* %"jacobian_$NX", align 1, !dbg !18
-  %"jacobian_$NY_fetch" = load i32, i32* %"jacobian_$NY", align 1, !dbg !18
+  call void @llvm.dbg.declare(metadata ptr %"jacobian_$Q", metadata !9, metadata !DIExpression()), !dbg !8
+  call void @llvm.dbg.declare(metadata ptr %"jacobian_$NX", metadata !11, metadata !DIExpression()), !dbg !13
+  call void @llvm.dbg.declare(metadata ptr %"jacobian_$NY", metadata !14, metadata !DIExpression()), !dbg !15
+  call void @llvm.dbg.declare(metadata ptr %"jacobian_$NZ", metadata !16, metadata !DIExpression()), !dbg !17
+  %"jacobian_$NX_fetch" = load i32, ptr %"jacobian_$NX", align 1, !dbg !18
+  %"jacobian_$NY_fetch" = load i32, ptr %"jacobian_$NY", align 1, !dbg !18
   %int_sext = sext i32 %"jacobian_$NX_fetch" to i64, !dbg !19
   %mul = mul nsw i64 %int_sext, 40, !dbg !19
   %int_sext27 = sext i32 %"jacobian_$NY_fetch" to i64, !dbg !19
   %mul28 = mul nsw i64 %mul, %int_sext27, !dbg !19
-  %"jacobian_$NZ_fetch1" = load i32, i32* %"jacobian_$NZ", align 1, !dbg !20
+  %"jacobian_$NZ_fetch1" = load i32, ptr %"jacobian_$NZ", align 1, !dbg !20
   %rel = icmp slt i32 %"jacobian_$NZ_fetch1", 2, !dbg !21
   %rel4 = icmp slt i32 %"jacobian_$NY_fetch", 2, !dbg !22
   %or.cond = or i1 %rel4, %rel, !dbg !21
@@ -164,9 +160,9 @@ bb21:                                             ; preds = %bb21.preheader, %bb
   call void @llvm.dbg.value(metadata i64 %indvars.iv354, metadata !31, metadata !DIExpression()), !dbg !30
   call void @llvm.dbg.value(metadata i32 1, metadata !32, metadata !DIExpression()), !dbg !30
   %indvars.iv.next355 = add nuw nsw i64 %indvars.iv354, 1, !dbg !25
-  %"jacobian_$Q[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul28, double* elementtype(double) %"jacobian_$Q", i64 %indvars.iv.next355), !dbg !19
+  %"jacobian_$Q[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %mul28, ptr elementtype(double) %"jacobian_$Q", i64 %indvars.iv.next355), !dbg !19
   %3 = add nuw nsw i64 %indvars.iv354, 2, !dbg !33
-  %"jacobian_$Q[]119" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul28, double* elementtype(double) %"jacobian_$Q", i64 %3), !dbg !33
+  %"jacobian_$Q[]119" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %mul28, ptr elementtype(double) %"jacobian_$Q", i64 %3), !dbg !33
   br label %bb30.preheader, !dbg !34
 
 bb30.preheader:                                   ; preds = %bb31, %bb21
@@ -180,9 +176,9 @@ bb30.preheader:                                   ; preds = %bb31, %bb21
   %5 = add i32 %4, 2, !dbg !37
   %mod = srem i32 %5, %"jacobian_$NY_fetch", !dbg !37
   call void @llvm.dbg.value(metadata i32 %mod, metadata !35, metadata !DIExpression()), !dbg !30
-  %"jacobian_$Q[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* elementtype(double) %"jacobian_$Q[]", i64 %indvars.iv349), !dbg !19
+  %"jacobian_$Q[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul, ptr elementtype(double) %"jacobian_$Q[]", i64 %indvars.iv349), !dbg !19
   %int_sext157 = zext i32 %mod to i64, !dbg !33
-  %"jacobian_$Q[]119[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* elementtype(double) %"jacobian_$Q[]119", i64 %int_sext157), !dbg !33
+  %"jacobian_$Q[]119[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul, ptr elementtype(double) %"jacobian_$Q[]119", i64 %int_sext157), !dbg !33
   br label %bb30, !dbg !27
 
 bb30:                                             ; preds = %bb30.preheader, %bb30
@@ -194,15 +190,15 @@ bb30:                                             ; preds = %bb30.preheader, %bb
   %6 = trunc i64 %indvars.iv.next to i32, !dbg !39
   %mod26 = srem i32 %6, %"jacobian_$NX_fetch", !dbg !39
   call void @llvm.dbg.value(metadata i32 %mod26, metadata !40, metadata !DIExpression()), !dbg !30
-  %"jacobian_$Q[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) %"jacobian_$Q[][]", i64 %indvars.iv), !dbg !19
-  %"jacobian_$Q[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[][][]", i64 2), !dbg !19
-  %"jacobian_$Q[][][][]_fetch" = load double, double* %"jacobian_$Q[][][][]", align 1, !dbg !19
-  %"jacobian_$Q[]52[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[][][]", i64 1), !dbg !19
-  %"jacobian_$Q[]52[][][]_fetch" = load double, double* %"jacobian_$Q[]52[][][]", align 1, !dbg !19
+  %"jacobian_$Q[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) %"jacobian_$Q[][]", i64 %indvars.iv), !dbg !19
+  %"jacobian_$Q[][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"jacobian_$Q[][][]", i64 2), !dbg !19
+  %"jacobian_$Q[][][][]_fetch" = load double, ptr %"jacobian_$Q[][][][]", align 1, !dbg !19
+  %"jacobian_$Q[]52[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"jacobian_$Q[][][]", i64 1), !dbg !19
+  %"jacobian_$Q[]52[][][]_fetch" = load double, ptr %"jacobian_$Q[]52[][][]", align 1, !dbg !19
   %div = fdiv double %"jacobian_$Q[][][][]_fetch", %"jacobian_$Q[]52[][][]_fetch", !dbg !41
   call void @llvm.dbg.value(metadata double %div, metadata !42, metadata !DIExpression()), !dbg !30
-  %"jacobian_$Q[]63[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[][][]", i64 3), !dbg !43
-  %"jacobian_$Q[]63[][][]_fetch" = load double, double* %"jacobian_$Q[]63[][][]", align 1, !dbg !43
+  %"jacobian_$Q[]63[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"jacobian_$Q[][][]", i64 3), !dbg !43
+  %"jacobian_$Q[]63[][][]_fetch" = load double, ptr %"jacobian_$Q[]63[][][]", align 1, !dbg !43
   %div86 = fdiv double %"jacobian_$Q[]63[][][]_fetch", %"jacobian_$Q[]52[][][]_fetch", !dbg !44
   call void @llvm.dbg.value(metadata double %div86, metadata !45, metadata !DIExpression()), !dbg !30
   %mul98 = fmul double %div, %div, !dbg !46
@@ -216,15 +212,15 @@ bb30:                                             ; preds = %bb30.preheader, %bb
   %func_result = tail call double @llvm.pow.f64(double %div105, double 2.500000e+00), !dbg !54
   call void @llvm.dbg.value(metadata double %func_result, metadata !55, metadata !DIExpression()), !dbg !30
   %int_sext154 = zext i32 %mod26 to i64, !dbg !33
-  %"jacobian_$Q[]119[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) %"jacobian_$Q[]119[]", i64 %int_sext154), !dbg !33
-  %"jacobian_$Q[]119[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[]119[][]", i64 2), !dbg !33
-  %"jacobian_$Q[]119[][][]_fetch" = load double, double* %"jacobian_$Q[]119[][][]", align 1, !dbg !33
-  %"jacobian_$Q[]144[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[]119[][]", i64 1), !dbg !33
-  %"jacobian_$Q[]144[][][]_fetch" = load double, double* %"jacobian_$Q[]144[][][]", align 1, !dbg !33
+  %"jacobian_$Q[]119[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) %"jacobian_$Q[]119[]", i64 %int_sext154), !dbg !33
+  %"jacobian_$Q[]119[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"jacobian_$Q[]119[][]", i64 2), !dbg !33
+  %"jacobian_$Q[]119[][][]_fetch" = load double, ptr %"jacobian_$Q[]119[][][]", align 1, !dbg !33
+  %"jacobian_$Q[]144[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"jacobian_$Q[]119[][]", i64 1), !dbg !33
+  %"jacobian_$Q[]144[][][]_fetch" = load double, ptr %"jacobian_$Q[]144[][][]", align 1, !dbg !33
   %div152 = fdiv double %"jacobian_$Q[]119[][][]_fetch", %"jacobian_$Q[]144[][][]_fetch", !dbg !56
   call void @llvm.dbg.value(metadata double %div152, metadata !57, metadata !DIExpression()), !dbg !30
-  %"jacobian_$Q[]165[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[]119[][]", i64 3), !dbg !58
-  %"jacobian_$Q[]165[][][]_fetch" = load double, double* %"jacobian_$Q[]165[][][]", align 1, !dbg !58
+  %"jacobian_$Q[]165[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"jacobian_$Q[]119[][]", i64 3), !dbg !58
+  %"jacobian_$Q[]165[][][]_fetch" = load double, ptr %"jacobian_$Q[]165[][][]", align 1, !dbg !58
   %div202 = fdiv double %"jacobian_$Q[]165[][][]_fetch", %"jacobian_$Q[]144[][][]_fetch", !dbg !59
   call void @llvm.dbg.value(metadata double %div202, metadata !60, metadata !DIExpression()), !dbg !30
   %mul214 = fmul double %div152, %div152, !dbg !61
@@ -266,19 +262,15 @@ bb133:                                            ; preds = %bb26
   call void @llvm.dbg.value(metadata double %add244.lcssa.lcssa.lcssa, metadata !28, metadata !DIExpression()), !dbg !30
   call void @llvm.dbg.value(metadata double %add244.lcssa.lcssa.lcssa, metadata !28, metadata !DIExpression()), !dbg !30
   call void @llvm.dbg.value(metadata double %add244.lcssa.lcssa.lcssa, metadata !28, metadata !DIExpression()), !dbg !30
-  %.fca.0.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 0, !dbg !73
-  store i8 48, i8* %.fca.0.gep, align 1, !dbg !73
-  %.fca.1.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 1, !dbg !73
-  store i8 1, i8* %.fca.1.gep, align 1, !dbg !73
-  %.fca.2.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 2, !dbg !73
-  store i8 1, i8* %.fca.2.gep, align 1, !dbg !73
-  %.fca.3.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 3, !dbg !73
-  store i8 0, i8* %.fca.3.gep, align 1, !dbg !73
-  %BLKFIELD_ = getelementptr inbounds { double }, { double }* %ARGBLOCK_0, i64 0, i32 0, !dbg !73
-  store double %add244.lcssa.lcssa.lcssa, double* %BLKFIELD_, align 8, !dbg !73
-  %ptr_cast = bitcast [8 x i64]* %"var$1" to i8*, !dbg !73
-  %ptr_cast278 = bitcast { double }* %ARGBLOCK_0 to i8*, !dbg !73
-  %func_result280 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %ptr_cast, i32 -1, i64 1239157112576, i8* nonnull %.fca.0.gep, i8* nonnull %ptr_cast278), !dbg !73
+  store i8 48, ptr %addressof, align 1, !dbg !73
+  %.fca.1.gep = getelementptr inbounds [4 x i8], ptr %addressof, i64 0, i64 1, !dbg !73
+  store i8 1, ptr %.fca.1.gep, align 1, !dbg !73
+  %.fca.2.gep = getelementptr inbounds [4 x i8], ptr %addressof, i64 0, i64 2, !dbg !73
+  store i8 1, ptr %.fca.2.gep, align 1, !dbg !73
+  %.fca.3.gep = getelementptr inbounds [4 x i8], ptr %addressof, i64 0, i64 3, !dbg !73
+  store i8 0, ptr %.fca.3.gep, align 1, !dbg !73
+  store double %add244.lcssa.lcssa.lcssa, ptr %ARGBLOCK_0, align 8, !dbg !73
+  %func_result280 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %"var$1", i32 -1, i64 1239157112576, ptr nonnull %addressof, ptr nonnull %ARGBLOCK_0), !dbg !73
   br label %bb1, !dbg !74
 
 bb1:                                              ; preds = %alloca_0, %bb133
@@ -289,12 +281,12 @@ bb1:                                              ; preds = %alloca_0, %bb133
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #2
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #2
 
 ; Function Attrs: nounwind readnone speculatable willreturn
 declare double @llvm.pow.f64(double, double) #1
 
-declare i32 @for_write_seq_lis(i8*, i32, i64, i8*, i8*, ...) local_unnamed_addr
+declare i32 @for_write_seq_lis(ptr, i32, i64, ptr, ptr, ...) local_unnamed_addr
 
 ; Function Attrs: nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata) #1

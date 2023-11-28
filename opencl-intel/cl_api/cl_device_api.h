@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2023 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,11 +14,10 @@
 
 #pragma once
 
+#include "CL/cl.h"
+#include "CL/cl_internal_ext.h"
 #include "common_dev_limits.h"
 #include "llvm/Transforms/SYCLTransforms/KernelArgType.h"
-
-#include "CL/cl.h"
-#include "CL/cl_gvp_ext.h"
 #include <cassert>
 #include <climits>
 #include <cstring>

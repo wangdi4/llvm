@@ -1,6 +1,6 @@
 //===---- HIRLocalityAnalysis.cpp - Computes Locality Analysis ------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -283,8 +283,16 @@ uint64_t HIRLoopLocality::computeExtraCacheLines(LocalityInfo &LI,
     int64_t Dist;
     auto Res = DDRefUtils::getConstByteDistance(CurRef, PrevRef, &Dist);
     (void)Res;
-    assert((Res && (Dist >= 0)) &&
-           "Refs do not have constant non-negative distance!");
+
+    if (!Res || Dist < 0) {
+      LLVM_DEBUG(dbgs() << "CurRef: "; CurRef->dump(true); dbgs() << "\n");
+      LLVM_DEBUG(dbgs() << "CurNode: "; CurRef->getHLDDNode()->dump());
+
+      LLVM_DEBUG(dbgs() << "PrevRef: "; PrevRef->dump(true); dbgs() << "\n");
+      LLVM_DEBUG(dbgs() << "PrevNode: "; PrevRef->getHLDDNode()->dump());
+
+      llvm_unreachable("Refs do not have constant non-negative distance!");
+    }
 
     if (Dist == 0) {
       continue;
@@ -915,18 +923,15 @@ static bool aliasesWithAnotherGroup(const HIRLoopLocality::RefGroupTy &CurGroup,
 }
 
 unsigned HIRLoopLocality::getTemporalLocalityImpl(
-    const HLLoop *Lp, HIRDDAnalysis *HDDA, unsigned ReuseThreshold,
+    const HLLoop *Lp, HIRDDAnalysis *HDDA,
+    LocalityRefGatherer::MapTy &MemRefMap, unsigned ReuseThreshold,
     TemporalLocalityType LocalityType, bool IgnoreConditionalRefs,
     bool IgnoreEqualRefs, bool CheckPresence) {
   assert(Lp && " Loop parameter is null!");
 
   unsigned Level = Lp->getNestingLevel();
-
   RefGroupVecTy RefGroups;
-  LocalityRefGatherer::MapTy MemRefMap;
 
-  LocalityRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
-                                   MemRefMap);
   LocalityRefGatherer::sort(MemRefMap);
 
   DDRefGrouping::groupMap(RefGroups, MemRefMap,

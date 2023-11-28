@@ -1,6 +1,6 @@
 //===- BarrierUtils.cpp - Barrier Utils -----------------------------------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -97,6 +97,22 @@ CompilationUtils::InstVec BarrierUtils::getAllSynchronizeInstructions() {
                           DummyBarriers.end());
 
   return SyncInstructions;
+}
+
+CompilationUtils::InstVec BarrierUtils::getDeviceBarrierCallInsts() {
+  CompilationUtils::InstVec RGcallInstructions;
+  std::string Names[] = {CompilationUtils::mangledDeviceBarrier(),
+                         CompilationUtils::mangledDeviceBarrierWithScope()};
+  for (const auto &Name : Names) {
+    Function *Func = M->getFunction(Name);
+    if (Func) {
+      for (User *U : Func->users()) {
+        CallInst *CI = cast<CallInst>(U);
+        RGcallInstructions.push_back(CI);
+      }
+    }
+  }
+  return RGcallInstructions;
 }
 
 CompilationUtils::InstVec BarrierUtils::getWGCallInstructions(CALL_BI_TYPE Ty) {
@@ -222,10 +238,10 @@ Instruction *BarrierUtils::createBarrier(Instruction *InsertBefore) {
     // Module has no barrier declaration. Create one
     Type *Result = Type::getVoidTy(M->getContext());
     Type *FuncArgTys[] = {IntegerType::get(M->getContext(), 32)};
-    BarrierFunc =
-        createFunctionDeclaration(CompilationUtils::mangledWGBarrier(
-                                      CompilationUtils::BarrierType::NoScope),
-                                  Result, FuncArgTys);
+    BarrierFunc = CompilationUtils::createFunctionDeclaration(
+        CompilationUtils::mangledWGBarrier(
+            CompilationUtils::BarrierType::NoScope),
+        Result, FuncArgTys, M);
     BarrierFunc->setAttributes(BarrierFunc->getAttributes().addFnAttribute(
         BarrierFunc->getContext(),
         Attribute::Convergent));
@@ -246,8 +262,8 @@ Instruction *BarrierUtils::createDummyBarrier(Instruction *InsertBefore) {
     // Module has no Dummy barrier declaration
     // Create one
     Type *Result = Type::getVoidTy(M->getContext());
-    DummyBarrierFunc =
-        createFunctionDeclaration(DUMMY_BARRIER_FUNC_NAME, Result, {});
+    DummyBarrierFunc = CompilationUtils::createFunctionDeclaration(
+        DUMMY_BARRIER_FUNC_NAME, Result, {}, M);
   }
   return CallInst::Create(DummyBarrierFunc, "", InsertBefore);
 }
@@ -276,9 +292,9 @@ Instruction *BarrierUtils::createGetSpecialBuffer(Instruction *InsertBefore) {
     // Create one
     Type *Result =
         PointerType::get(SpecialBufferValueTy, SPECIAL_BUFFER_ADDR_SPACE);
-    GetSpecialBufferFunc = createFunctionDeclaration(
-        CompilationUtils::nameSpecialBuffer(), Result, {});
-    SetFunctionAttributeReadNone(GetSpecialBufferFunc);
+    GetSpecialBufferFunc = CompilationUtils::createFunctionDeclaration(
+        CompilationUtils::nameSpecialBuffer(), Result, {}, M);
+    CompilationUtils::SetFunctionAttributeReadNone(GetSpecialBufferFunc);
   }
   return CallInst::Create(GetSpecialBufferFunc, "pSB", InsertBefore);
 }
@@ -316,8 +332,9 @@ Instruction *BarrierUtils::createGetBaseGlobalId(Value *Dim,
     // Create one
     Type *Result = IntegerType::get(M->getContext(), UISizeT);
     Type *FuncArgTys[] = {IntegerType::get(M->getContext(), 32)};
-    GetBaseGIDFunc = createFunctionDeclaration(FuncName, Result, FuncArgTys);
-    SetFunctionAttributeReadNone(GetBaseGIDFunc);
+    GetBaseGIDFunc = CompilationUtils::createFunctionDeclaration(
+        FuncName, Result, FuncArgTys, M);
+    CompilationUtils::SetFunctionAttributeReadNone(GetBaseGIDFunc);
   }
   return CallInst::Create(
       GetBaseGIDFunc, Dim,
@@ -335,8 +352,9 @@ Instruction *BarrierUtils::createGetLocalId(unsigned Dim, IRBuilderBase &B) {
     // Create one
     Type *Result = IntegerType::get(M->getContext(), UISizeT);
     Type *FuncArgTys[] = {IntegerType::get(M->getContext(), 32)};
-    GetLIDFunc = createFunctionDeclaration(strLID, Result, FuncArgTys);
-    SetFunctionAttributeReadNone(GetLIDFunc);
+    GetLIDFunc = CompilationUtils::createFunctionDeclaration(strLID, Result,
+                                                             FuncArgTys, M);
+    CompilationUtils::SetFunctionAttributeReadNone(GetLIDFunc);
   }
   Type *uintType = IntegerType::get(M->getContext(), 32);
   Value *constDim = ConstantInt::get(uintType, Dim, false);
@@ -354,8 +372,9 @@ Instruction *BarrierUtils::createGetGlobalId(unsigned Dim, IRBuilderBase &B) {
     // Create one
     Type *Result = IntegerType::get(M->getContext(), UISizeT);
     Type *FuncArgTys[] = {IntegerType::get(M->getContext(), 32)};
-    GetGIDFunc = createFunctionDeclaration(strGID, Result, FuncArgTys);
-    SetFunctionAttributeReadNone(GetGIDFunc);
+    GetGIDFunc = CompilationUtils::createFunctionDeclaration(strGID, Result,
+                                                             FuncArgTys, M);
+    CompilationUtils::SetFunctionAttributeReadNone(GetGIDFunc);
   }
   Type *uintType = IntegerType::get(M->getContext(), 32);
   Value *constDim = ConstantInt::get(uintType, Dim, false);
@@ -449,7 +468,8 @@ CallInst *BarrierUtils::createWorkGroupSortCopyBuiltin(
     FuncArgTys.push_back(LocalSizeType);
     // Gen direction param type
     FuncArgTys.push_back(DirectionType);
-    CopyFunc = createFunctionDeclaration(CopyFuncName, VoidResult, FuncArgTys);
+    CopyFunc = CompilationUtils::createFunctionDeclaration(
+        CopyFuncName, VoidResult, FuncArgTys, &M);
   }
   // Put other needed params to copy call
   FuncArgValues.push_back(LLID);
@@ -471,6 +491,28 @@ void BarrierUtils::replaceSortSizeWithTotalSize(IRBuilderBase &B,
   Value *NewSize = B.CreateMul(OldSize, Size32, "sort.size", /*HasNUW=*/true,
                                /*HasNSW=*/true);
   WGCallInst->setArgOperand(ArgIdx, NewSize);
+}
+
+CallInst *BarrierUtils::createDeviceBarrierWithWGCount(Value *NumsGroup,
+                                                       IRBuilderBase &B) {
+  const std::string StrRGBarrier = CompilationUtils::mangledDeviceBarrier();
+  if (!DeviceBarrierFunc) {
+    // Get existing intel_device_barrier function
+    DeviceBarrierFunc = M->getFunction(StrRGBarrier);
+  }
+  if (!DeviceBarrierFunc) {
+    // Create one
+    Type *VoidResult = B.getVoidTy();
+    Type *FuncArgTys[] = {IntegerType::get(M->getContext(), 32)};
+    DeviceBarrierFunc = CompilationUtils::createFunctionDeclaration(
+        StrRGBarrier, VoidResult, FuncArgTys, M);
+    CompilationUtils::SetFunctionAttributeReadNone(DeviceBarrierFunc);
+  }
+  Type *NewType = IntegerType::get(M->getContext(), 32);
+  Value *NumsGroup32 = B.CreateTrunc(NumsGroup, NewType, "nums32");
+
+  CallInst *NewRgCallInst = B.CreateCall(DeviceBarrierFunc, NumsGroup32);
+  return NewRgCallInst;
 }
 
 bool BarrierUtils::doesCallModuleFunction(Function *Func) {
@@ -539,40 +581,14 @@ Instruction *BarrierUtils::createGetLocalSize(unsigned Dim,
     // Create one
     Type *Result = SizetTy;
     Type *FuncArgTys[] = {I32Ty};
-    GetLocalSizeFunc = createFunctionDeclaration(strGID, Result, FuncArgTys);
-    SetFunctionAttributeReadNone(GetLocalSizeFunc);
+    GetLocalSizeFunc = CompilationUtils::createFunctionDeclaration(
+        strGID, Result, FuncArgTys, M);
+    CompilationUtils::SetFunctionAttributeReadNone(GetLocalSizeFunc);
   }
   Value *ConstDim = ConstantInt::get(I32Ty, Dim, false);
   return CallInst::Create(
       GetLocalSizeFunc, ConstDim,
       CompilationUtils::AppendWithDimension("LocalSize_", Dim), InsertBefore);
-}
-
-Function *BarrierUtils::createFunctionDeclaration(StringRef Name, Type *Result,
-                                                  ArrayRef<Type *> FuncArgTys) {
-  FunctionType *FuncTy = FunctionType::get(
-      /*Result=*/Result,
-      /*Params=*/FuncArgTys,
-      /*isVarArg=*/false);
-
-  assert(FuncTy && "Failed to create new function type");
-
-  Function *NewFunc = Function::Create(
-      /*Type=*/FuncTy,
-      /*Linkage=*/GlobalValue::ExternalLinkage,
-      /*Name=*/Name, M); //(external, no body)
-  assert(NewFunc && "Failed to create new function declaration");
-  NewFunc->setCallingConv(CallingConv::C);
-  return NewFunc;
-}
-
-void BarrierUtils::SetFunctionAttributeReadNone(Function *Func) {
-  AttrBuilder attBuilder(Func->getContext());
-  attBuilder.addAttribute(Attribute::NoUnwind); /* .addAttribute(Attribute::UWTable) */
-  attBuilder.addMemoryAttr(llvm::MemoryEffects::none());
-  auto FuncFactorialPAL = AttributeList::get(
-      Func->getContext(), AttributeList::FunctionIndex, attBuilder);
-  Func->setAttributes(FuncFactorialPAL);
 }
 
 bool BarrierUtils::isCrossedByBarrier(const InstSet &SyncInstructions,

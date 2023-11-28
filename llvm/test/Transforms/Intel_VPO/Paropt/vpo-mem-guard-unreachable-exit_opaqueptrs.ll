@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -pass-remarks-missed=openmp -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %s 2>&1 | FileCheck %s
+; RUN: opt -pass-remarks-missed=openmp -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %s 2>&1 | FileCheck %s
 
 ;; Check that unmatched "DIR.VPO.GUARD.MEM.MOTION" is removed, together with
 ;; DIR.OMP.SIMD.

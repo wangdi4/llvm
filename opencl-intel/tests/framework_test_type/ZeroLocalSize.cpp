@@ -1,6 +1,6 @@
 //==--- ZeroLocalSize.cpp - Test on choosing optimal local size-*- C++ -*---==//
 ////
-//// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+//// Copyright (C) 2015 Intel Corporation. All rights reserved.
 ////
 //// The information and source code contained herein is the exclusive property
 //// of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,7 +8,7 @@
 ////
 //// ===--------------------------------------------------------------------= //
 #include "CL.h"
-#include <CL/cl_ext.h>
+#include "CL/cl_ext.h"
 
 TEST_F(CL, DISABLED_ZeroLocalSize) {
   cl_int iRet = CL_SUCCESS;

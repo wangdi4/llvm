@@ -1,6 +1,6 @@
 //===---------------- DynClone.cpp - DTransDynClonePass -------------------===//
 //
-// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1027,9 +1027,6 @@ bool DynCloneImpl<InfoClass>::prunePossibleCandidateFields(void) {
   auto IsSimpleFPtrBitCast = [&](Value *CalledValue, CallInst *CI) {
     Type *CalledValueType = CalledValue->getType();
     if (!isa<PointerType>(CalledValueType))
-      return false;
-    PointerType *PTy = cast<PointerType>(CalledValueType);
-    if (!PTy->isOpaqueOrPointeeTypeMatches(CI->getFunctionType()))
       return false;
     if (auto *BC = dyn_cast<BitCastOperator>(CalledValue))
       if (isa<Function>(BC->getOperand(0)))
@@ -2870,11 +2867,12 @@ void DynCloneImpl<InfoClass>::transformInitRoutine(void) {
                                             InitRoutine, PostLoopBB);
 
     IRBuilder<> PLB(PreLoopBB->getTerminator());
-
+    LLVMContext &Ctx = CI->getModule()->getContext();
     Value *LCount = AllocCallSizes[CI];
     Value *SrcPtr =
-        PLB.CreateBitCast(AllocCallRets[CI], OrigTy->getPointerTo());
-    Value *DstPtr = PLB.CreateBitCast(AllocCallRets[CI], NewTy->getPointerTo());
+        PLB.CreateBitCast(AllocCallRets[CI], PointerType::getUnqual(Ctx));
+    Value *DstPtr =
+        PLB.CreateBitCast(AllocCallRets[CI], PointerType::getUnqual(Ctx));
 
     PLB.CreateBr(LoopBB);
     PreLoopBB->getTerminator()->eraseFromParent();
@@ -2982,9 +2980,10 @@ void DynCloneImpl<InfoClass>::transformInitRoutine(void) {
     Value *Index = IRB.CreateSDiv(PtrDiff, SSize);
     // Use Index to get position of the pointer in new layout.
     Type *NewTy = TransformedTypeMap[cast<StructType>(StTy)];
-    Value *BC = IRB.CreateBitCast(RetPtr, NewTy->getPointerTo());
+    LLVMContext &Ctx = RetPtr->getModule()->getContext();
+    Value *BC = IRB.CreateBitCast(RetPtr, PointerType::getUnqual(Ctx));
     Value *NewPtr = IRB.CreateInBoundsGEP(NewTy, BC, ArrayRef(Index));
-    Value *NewBCPtr = IRB.CreateBitCast(NewPtr, StTy->getPointerTo());
+    Value *NewBCPtr = IRB.CreateBitCast(NewPtr, PointerType::getUnqual(Ctx));
     auto *UBI = IRB.CreateBr(MergeBB);
     (void)UBI;
 
@@ -3089,7 +3088,8 @@ void DynCloneImpl<InfoClass>::transformInitRoutine(void) {
           IRBuilder<> LBody(AddInst);
           Indices.clear();
           Indices.push_back(LoopIdx);
-          Type *PTy = Ty->getPointerTo();
+          LLVMContext &Ctx = CI->getModule()->getContext();
+          Type *PTy = PointerType::getUnqual(Ctx);
           Value *GEP = LBody.CreateInBoundsGEP(PTy, LPair.first, Indices);
           LLVM_DEBUG(dbgs() << "  " << *GEP << "\n");
 
@@ -3977,13 +3977,7 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
     StructType *OldStTy = cast<StructType>(GEP->getSourceElementType());
     Type *NewStTy = TransformedTypeMap[OldStTy];
     assert(NewStTy && "Expected transformed type");
-    Type *DstTy = NewStTy->getPointerTo();
     Value *Src = GEP->getPointerOperand();
-    if (!Src->getType()->isOpaquePointerTy() || !DstTy->isOpaquePointerTy()) {
-      CastInst *BC = CastInst::CreateBitOrPointerCast(Src, DstTy, "", GEP);
-      Src = BC;
-    }
-
     SmallVector<Value *, 2> Indices;
     Indices.push_back(GEP->getOperand(1));
     if (NumIndices == 2) {
@@ -4080,12 +4074,6 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
     unsigned NewIdx = TransformedIndexes[OldTy][LdElem.second];
     Value *SrcOp = LI->getPointerOperand();
     Type *NewTy = NewSt->getElementType(NewIdx);
-    Type *PNewTy = NewTy->getPointerTo();
-    if (!SrcOp->getType()->isOpaquePointerTy() ||
-        !PNewTy->isOpaquePointerTy()) {
-      Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", LI);
-      SrcOp = NewSrcOp;
-    }
     Instruction *NewLI = new LoadInst(
         NewTy, SrcOp, "", LI->isVolatile(), DL.getABITypeAlign(NewTy),
         LI->getOrdering(), LI->getSyncScopeID(), LI);
@@ -4151,7 +4139,6 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
     StructType *NewSt = TransformedTypeMap[OldTy];
     unsigned NewIdx = TransformedIndexes[OldTy][StElem.second];
     Type *NewTy = NewSt->getElementType(NewIdx);
-    Type *PNewTy = NewTy->getPointerTo();
     Value *ValOp = SI->getValueOperand();
     Value *NewVal = nullptr;
     // (Reencoding) if encoding is not needed, then all values should fit
@@ -4165,11 +4152,6 @@ template <class InfoClass> void DynCloneImpl<InfoClass>::transformIR(void) {
       NewVal = CastInst::CreateIntegerCast(ValOp, NewTy, true, "", SI);
 
     Value *SrcOp = SI->getPointerOperand();
-    if (!SrcOp->getType()->isOpaquePointerTy() ||
-        !PNewTy->isOpaquePointerTy()) {
-      Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", SI);
-      SrcOp = NewSrcOp;
-    }
     LLVM_DEBUG(dbgs() << "Store after convert: \n"
                       << *NewVal << "\n"
                       << *SrcOp << "\n");

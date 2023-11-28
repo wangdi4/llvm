@@ -50,8 +50,3 @@ endif(INCLUDE_MKL)
 add_subdirectory(common/builtin_kernels)
 add_subdirectory(cpu_device)
 add_subdirectory(device_commands)
-
-if(NOT WIN32)
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
-  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
-endif(NOT WIN32)

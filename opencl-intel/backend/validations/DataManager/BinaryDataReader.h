@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,10 +15,6 @@
 #ifndef __BINARY_DATA_READER_H__
 #define __BINARY_DATA_READER_H__
 
-#include <fstream>
-#include <string>
-#include <vector>
-
 #include "Buffer.h"
 #include "DataVersion.h"
 #include "Exception.h"
@@ -28,6 +24,9 @@
 #include "IMemoryObject.h"
 #include "Image.h"
 #include "llvm/Support/DataTypes.h"
+#include <fstream>
+#include <string>
+#include <vector>
 
 namespace Validation {
 /// @brief IBufferContainerList binary reader

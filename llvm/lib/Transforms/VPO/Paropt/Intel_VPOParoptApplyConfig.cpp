@@ -1,6 +1,6 @@
 //===--------------------- Intel_VPOParoptApplyConfig ---------------------===//
 //
-//   Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -283,6 +283,11 @@ static bool applyConfig(Function &F, WRegionInfo &WI,
     W->setEntryDirective(CI);
 #endif
   }
+
+  for (OffloadEntry *OE : OffloadEntries)
+    delete OE;
+  OffloadEntries.clear();
+
   return Changed;
 }
 } // end anonymous namespace

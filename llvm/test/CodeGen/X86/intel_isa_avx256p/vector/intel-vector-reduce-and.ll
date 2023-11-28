@@ -5,15 +5,14 @@
 define i32 @test_truncated_v32i32(<32 x i32> %0) {
 ; CHECK-LABEL: test_truncated_v32i32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpmovdb %ymm3, %xmm3 # encoding: [0x62,0xf2,0x7e,0x28,0x31,0xdb]
-; CHECK-NEXT:    vpmovdb %ymm2, %xmm2 # encoding: [0x62,0xf2,0x7e,0x28,0x31,0xd2]
-; CHECK-NEXT:    vpunpcklqdq %xmm3, %xmm2, %xmm2 # EVEX TO VEX Compression encoding: [0xc5,0xe9,0x6c,0xd3]
-; CHECK-NEXT:    # xmm2 = xmm2[0],xmm3[0]
 ; CHECK-NEXT:    vpmovdb %ymm1, %xmm1 # encoding: [0x62,0xf2,0x7e,0x28,0x31,0xc9]
+; CHECK-NEXT:    vpmovdb %ymm3, %xmm3 # encoding: [0x62,0xf2,0x7e,0x28,0x31,0xdb]
+; CHECK-NEXT:    vinserti128 $1, %xmm3, %ymm1, %ymm1 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x75,0x38,0xcb,0x01]
 ; CHECK-NEXT:    vpmovdb %ymm0, %xmm0 # encoding: [0x62,0xf2,0x7e,0x28,0x31,0xc0]
-; CHECK-NEXT:    vpunpcklqdq %xmm1, %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf9,0x6c,0xc1]
-; CHECK-NEXT:    # xmm0 = xmm0[0],xmm1[0]
+; CHECK-NEXT:    vpmovdb %ymm2, %xmm2 # encoding: [0x62,0xf2,0x7e,0x28,0x31,0xd2]
 ; CHECK-NEXT:    vinserti128 $1, %xmm2, %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x7d,0x38,0xc2,0x01]
+; CHECK-NEXT:    vpunpcklqdq %ymm1, %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0x6c,0xc1]
+; CHECK-NEXT:    # ymm0 = ymm0[0],ymm1[0],ymm0[2],ymm1[2]
 ; CHECK-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm0 # encoding: [0x62,0xf1,0x7d,0x38,0xdb,0x05,A,A,A,A]
 ; CHECK-NEXT:    # fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1 # EVEX TO VEX Compression encoding: [0xc5,0xf1,0xef,0xc9]

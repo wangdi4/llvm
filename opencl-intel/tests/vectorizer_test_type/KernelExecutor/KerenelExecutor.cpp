@@ -261,7 +261,6 @@ string KerenelExecutor::getFileContent(const string &fileName) {
   }
   int contentStrSize = stbuf.st_size;
   char *contentStr = new char[contentStrSize + 1];
-  assert(contentStr);
 
   ifstream inFile(fileName.c_str());
   if (!inFile) {

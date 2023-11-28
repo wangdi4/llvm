@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2022 Intel Corporation
+# Copyright (C) 2011 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -27,6 +27,8 @@ calculate_target_sources()
 add_opencl_library(
   ${TARGET_NAME}
   STATIC
-  ${TARGET_SOURCES})
+  ${TARGET_SOURCES}
+  COMPONENTS
+  cl_sys_utils)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME})

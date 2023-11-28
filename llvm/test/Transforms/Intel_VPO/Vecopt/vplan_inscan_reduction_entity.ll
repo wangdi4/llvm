@@ -17,13 +17,13 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @omp_scan(float* %A, float* %B) {
+define void @omp_scan(ptr %A, ptr %B) {
 ;
 ; CHECK-LABEL:  Reduction list
-; CHECK-NEXT:   (+) Start: float* [[X_RED0:%.*]]
+; CHECK-NEXT:   (+) Start: ptr [[X_RED0:%.*]]
 ; CHECK-NEXT:    Linked values:
 ; CHECK-NEXT:    inscan ReductionKind: inclusive
-; CHECK-NEXT:   Memory: float* [[X_RED0]]
+; CHECK-NEXT:   Memory: ptr [[X_RED0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1024 BinOp: [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] (SVAOpBits 0->FV 1->FV )
@@ -31,10 +31,10 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   IntInduction(+) Start: i32 [[VP0:undef]] Step: i32 1 StartVal: ? EndVal: ? need close form
 ; CHECK-NEXT:    Linked values:
-; CHECK-NEXT:   Memory: i32* [[I_LINEAR_IV0:%.*]]
+; CHECK-NEXT:   Memory: ptr [[I_LINEAR_IV0:%.*]]
 ; CHECK:         [[BB2:BB[0-9]+]]: # preds: [[BB1:BB[0-9]+]]
-; CHECK:          [DA: Div, SVA: (F )] float* [[VP_X_RED:%.*]] = allocate-priv float, OrigAlign = 4 (SVAOpBits )
-; CHECK:          [DA: Uni, SVA: (F  )] float [[VP_LOAD:%.*]] = load float* [[X_RED0]] (SVAOpBits 0->F )
+; CHECK:          [DA: Div, SVA: (F )] ptr [[VP_X_RED:%.*]] = allocate-priv float, OrigAlign = 4 (SVAOpBits )
+; CHECK:          [DA: Uni, SVA: (F  )] float [[VP_LOAD:%.*]] = load ptr [[X_RED0]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] float [[VP_X_REDINSCAN_RED_INIT:%.*]] = reduction-init-scalar float 0.000000e+00 float [[VP_LOAD]] (SVAOpBits 0->F 1->F )
 ; CHECK:          [DA: Uni, SVA: (F  )] br [[BB0:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
@@ -42,8 +42,8 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB3]] ] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] float [[VP_INSCAN_ACCUM:%.*]] = phi  [ float [[VP_X_REDINSCAN_RED_INIT]], [[BB2]] ],  [ float [[VP3:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP4:%.*]] = phi  [ i32 [[VP_I_LINEAR_IV_IND_INIT:%.*]], [[BB2]] ],  [ i32 [[VP5:%.*]], [[BB3]] ] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP4]] i32* [[VP_I_LINEAR_IV:%.*]] (SVAOpBits 0->V 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float 0.000000e+00 float* [[VP_X_RED]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP4]] ptr [[VP_I_LINEAR_IV:%.*]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float 0.000000e+00 ptr [[VP_X_RED]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB13:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB13]]: # preds: [[BB0]]
@@ -54,12 +54,12 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB15]]: # preds: [[BB14]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0_1:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32 (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP0_1]] i32* [[VP_I_LINEAR_IV]] (SVAOpBits 0->V 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP6:%.*]] = load float* [[VP_ARRAYIDX]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP7:%.*]] = load float* [[VP_X_RED]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP0_1]] ptr [[VP_I_LINEAR_IV]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP6:%.*]] = load ptr [[VP_ARRAYIDX]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP7:%.*]] = load ptr [[VP_X_RED]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_ADD5:%.*]] = fadd float [[VP7]] float [[VP6]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP_ADD5]] float* [[VP_X_RED]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP_ADD5]] ptr [[VP_X_RED]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB15]]
@@ -69,9 +69,9 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB44]]
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_LOAD_2:%.*]] = load float* [[VP_X_RED]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_LOAD_2:%.*]] = load ptr [[VP_X_RED]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_INCL_SCAN:%.*]] = running-inclusive-reduction{fadd} float [[VP_LOAD_2]] float [[VP_INSCAN_ACCUM]] float 0.000000e+00 (SVAOpBits 0->V 1->F 2->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP_INCL_SCAN]] float* [[VP_X_RED]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP_INCL_SCAN]] ptr [[VP_X_RED]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (  L)] float [[VP3]] = extract-last-vector-lane float [[VP_INCL_SCAN]] (SVAOpBits 0->L )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB6:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
@@ -82,11 +82,11 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB23:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB23]]: # preds: [[BB66]]
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP8:%.*]] = load float* [[VP_X_RED]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP9:%.*]] = load i32* [[VP_I_LINEAR_IV]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP8:%.*]] = load ptr [[VP_X_RED]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP9:%.*]] = load ptr [[VP_I_LINEAR_IV]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_IDXPROM6:%.*]] = sext i32 [[VP9]] to i64 (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] float* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds float* [[B0:%.*]] i64 [[VP_IDXPROM6]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP8]] float* [[VP_ARRAYIDX7]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds float, ptr [[B0:%.*]] i64 [[VP_IDXPROM6]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP8]] ptr [[VP_ARRAYIDX7]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F )] br [[BB20:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
@@ -100,7 +100,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] float [[VP_X_REDINSCAN_RED_FINAL:%.*]] = reduction-final-inscan float [[VP3]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] store float [[VP_X_REDINSCAN_RED_FINAL]] float* [[X_RED0]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] store float [[VP_X_REDINSCAN_RED_FINAL]] ptr [[X_RED0]] (SVAOpBits 0->F 1->F )
 ; CHECK:          [DA: Uni, SVA: (F  )] br [[BB8:BB[0-9]+]] (SVAOpBits 0->F )
 ;
 
@@ -110,11 +110,11 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  store float 0.000000e+00, float* %x.red, align 4
+  store float 0.000000e+00, ptr %x.red, align 4
   br label %DIR.OMP.SIMD.138
 
 DIR.OMP.SIMD.138:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(float* %x.red, float zeroinitializer, i32 1, i64 1), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr %x.red, float zeroinitializer, i32 1, i64 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.VPO.END.GUARD.MEM.MOTION.426
 
 DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.OMP.SIMD.138, %DIR.VPO.END.GUARD.MEM.MOTION.4
@@ -122,7 +122,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.OMP.SIMD.138, %
   br label %DIR.VPO.GUARD.MEM.MOTION.2
 
 DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.426
-  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red) ]
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.SIMD.139
 
 DIR.OMP.SIMD.139:                                 ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
@@ -130,12 +130,12 @@ DIR.OMP.SIMD.139:                                 ; preds = %DIR.VPO.GUARD.MEM.M
 
 DIR.OMP.END.SCAN.335:                             ; preds = %DIR.OMP.SIMD.139
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %i.linear.iv, align 4
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %2 = load float, float* %arrayidx, align 4
-  %3 = load float, float* %x.red, align 4
+  store i32 %1, ptr %i.linear.iv, align 4
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx, align 4
+  %3 = load float, ptr %x.red, align 4
   %add5 = fadd fast float %3, %2
-  store float %add5, float* %x.red, align 4
+  store float %add5, ptr %x.red, align 4
   br label %DIR.VPO.END.GUARD.MEM.MOTION.552
 
 DIR.VPO.END.GUARD.MEM.MOTION.552:                 ; preds = %DIR.OMP.END.SCAN.335
@@ -143,7 +143,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.552:                 ; preds = %DIR.OMP.END.SCAN.33
   br label %DIR.OMP.SCAN.3
 
 DIR.OMP.SCAN.3:                                   ; DIR.VPO.END.GUARD.MEM.MOTION.552
-  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(float* %x.red, i64 1) ]
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SCAN"(), "QUAL.OMP.INCLUSIVE"(ptr %x.red, i64 1) ]
   br label %DIR.OMP.SCAN.2
 
 DIR.OMP.SCAN.2:                                   ; preds = %DIR.OMP.SCAN.3
@@ -155,15 +155,15 @@ DIR.OMP.END.SCAN.5:                               ; preds = %DIR.OMP.SCAN.2
   br label %DIR.OMP.END.SCAN.9.split
 
 DIR.OMP.END.SCAN.9.split:
-  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red) ]
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.3
 
 DIR.OMP.END.SCAN.3:                               ; preds = %DIR.OMP.END.SCAN.5
-  %5 = load float, float* %x.red, align 4
-  %6 = load i32, i32* %i.linear.iv, align 4
+  %5 = load float, ptr %x.red, align 4
+  %6 = load i32, ptr %i.linear.iv, align 4
   %idxprom6 = sext i32 %6 to i64
-  %arrayidx7 = getelementptr inbounds float, float* %B, i64 %idxprom6
-  store float %5, float* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds float, ptr %B, i64 %idxprom6
+  store float %5, ptr %arrayidx7, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   br label %DIR.VPO.END.GUARD.MEM.MOTION.8
 

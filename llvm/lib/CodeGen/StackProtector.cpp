@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -195,8 +195,7 @@ static bool HasAddressTaken(const Instruction *AI, TypeSize AllocSize,
     // the bounds of the allocated object.
     std::optional<MemoryLocation> MemLoc = MemoryLocation::getOrNone(I);
     if (MemLoc && MemLoc->Size.hasValue() &&
-        !TypeSize::isKnownGE(AllocSize,
-                             TypeSize::getFixed(MemLoc->Size.getValue())))
+        !TypeSize::isKnownGE(AllocSize, MemLoc->Size.getValue()))
       return true;
     switch (I->getOpcode()) {
     case Instruction::Store:
@@ -469,7 +468,7 @@ static bool CreatePrologue(Function *F, Module *M, Instruction *CheckLoc,
                            const TargetLoweringBase *TLI, AllocaInst *&AI) {
   bool SupportsSelectionDAGSP = false;
   IRBuilder<> B(&F->getEntryBlock().front());
-  PointerType *PtrTy = Type::getInt8PtrTy(CheckLoc->getContext());
+  PointerType *PtrTy = PointerType::getUnqual(CheckLoc->getContext());
   AI = B.CreateAlloca(PtrTy, nullptr, "StackGuardSlot");
 
   Value *GuardSlot = getStackGuard(TLI, M, B, &SupportsSelectionDAGSP);
@@ -485,7 +484,7 @@ static Instruction *findNoReturnFunc(BasicBlock &BB) {
     if (!CB)
       continue;
     // Do stack check before non-return calls (e.g: __cxa_throw)
-    if (CB->doesNotReturn())
+    if (CB->doesNotReturn() && !CB->doesNotThrow())
       return CB;
   }
   return nullptr;
@@ -654,7 +653,7 @@ BasicBlock *StackProtector::CreateFailBB() {
   if (Trip.isOSOpenBSD()) {
     StackChkFail = M->getOrInsertFunction("__stack_smash_handler",
                                           Type::getVoidTy(Context),
-                                          Type::getInt8PtrTy(Context));
+                                          PointerType::getUnqual(Context));
     Args.push_back(B.CreateGlobalStringPtr(F->getName(), "SSH"));
   } else {
     StackChkFail =

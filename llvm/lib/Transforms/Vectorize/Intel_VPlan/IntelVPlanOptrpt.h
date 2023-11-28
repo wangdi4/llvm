@@ -36,17 +36,13 @@ struct OptReportStatsTracker {
     RemarkRecord(LLVMContext &C, OptRemarkID ID,
                  OptReportVerbosity::Level Verbosity, Args &&...RemarkArgs)
         : MessageVerbosity(Verbosity) {
-      Remark = OptRemark::get(C, static_cast<unsigned>(ID),
-                              OptReportDiag::getMsg(ID),
-                              std::forward<Args>(RemarkArgs)...);
+      Remark = OptRemark::get(C, ID, std::forward<Args>(RemarkArgs)...);
     };
     // High verbosity is assumed
     template <typename... Args>
     RemarkRecord(LLVMContext &C, OptRemarkID ID, Args &&...RemarkArgs)
         : MessageVerbosity(OptReportVerbosity::High) {
-      Remark = OptRemark::get(C, static_cast<unsigned>(ID),
-                              OptReportDiag::getMsg(ID),
-                              std::forward<Args>(RemarkArgs)...);
+      Remark = OptRemark::get(C, ID, std::forward<Args>(RemarkArgs)...);
     };
   };
 

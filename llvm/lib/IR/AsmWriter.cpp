@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -56,6 +56,7 @@
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/DebugProgramInstruction.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalAlias.h"
@@ -129,6 +130,10 @@ static cl::opt<bool> PrintProfCounts(
     "print-prof-counts", cl::init(false), cl::Hidden,
     cl::desc(
         "Print profile branch count data beside instructions as comments"));
+static cl::opt<bool>
+    PrintBlocksPreOrder("print-blocks-preorder", cl::init(false), cl::Hidden,
+                        cl::desc("Print BBlocks in Pre-order. "
+                                 "Useful for printing IR from Fortran FE."));
 #endif
 
 #if INTEL_PRODUCT_RELEASE
@@ -336,12 +341,21 @@ static const Module *getModuleFromVal(const Value *V) {
   return nullptr;
 }
 
+static const Module *getModuleFromDPI(const DPMarker *Marker) {
+  const Function *M =
+      Marker->getParent() ? Marker->getParent()->getParent() : nullptr;
+  return M ? M->getParent() : nullptr;
+}
+
+static const Module *getModuleFromDPI(const DPValue *DPV) {
+  return getModuleFromDPI(DPV->getMarker());
+}
+
 static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   switch (cc) {
   default:                         Out << "cc" << cc; break;
   case CallingConv::Fast:          Out << "fastcc"; break;
   case CallingConv::Cold:          Out << "coldcc"; break;
-  case CallingConv::WebKit_JS:     Out << "webkit_jscc"; break;
   case CallingConv::AnyReg:        Out << "anyregcc"; break;
   case CallingConv::PreserveMost:  Out << "preserve_mostcc"; break;
   case CallingConv::PreserveAll:   Out << "preserve_allcc"; break;
@@ -413,6 +427,7 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
     break;
   case CallingConv::AMDGPU_KERNEL: Out << "amdgpu_kernel"; break;
   case CallingConv::AMDGPU_Gfx:    Out << "amdgpu_gfx"; break;
+  case CallingConv::M68k_RTD:      Out << "m68k_rtdcc"; break;
   }
 }
 
@@ -658,22 +673,9 @@ void TypePrinting::print(Type *Ty, raw_ostream &OS) {
   }
   case Type::PointerTyID: {
     PointerType *PTy = cast<PointerType>(Ty);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     OS << "ptr";
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-    if (PTy->isOpaque()) {
-      OS << "ptr";
-      if (unsigned AddressSpace = PTy->getAddressSpace())
-        OS << " addrspace(" << AddressSpace << ')';
-      return;
-    }
-    print(PTy->getNonOpaquePointerElementType(), OS);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     if (unsigned AddressSpace = PTy->getAddressSpace())
       OS << " addrspace(" << AddressSpace << ')';
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-    OS << '*';
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     return;
   }
   case Type::ArrayTyID: {
@@ -1145,12 +1147,13 @@ int SlotTracker::processIndex() {
 
   // The first block of slots are just the module ids, which start at 0 and are
   // assigned consecutively. Since the StringMap iteration order isn't
-  // guaranteed, use a std::map to order by module ID before assigning slots.
-  std::map<uint64_t, StringRef> ModuleIdToPathMap;
-  for (auto &[ModPath, ModId] : TheIndex->modulePaths())
-    ModuleIdToPathMap[ModId.first] = ModPath;
-  for (auto &ModPair : ModuleIdToPathMap)
-    CreateModulePathSlot(ModPair.second);
+  // guaranteed, order by path string before assigning slots.
+  std::vector<StringRef> ModulePaths;
+  for (auto &[ModPath, _] : TheIndex->modulePaths())
+    ModulePaths.push_back(ModPath);
+  llvm::sort(ModulePaths.begin(), ModulePaths.end());
+  for (auto &ModPath : ModulePaths)
+    CreateModulePathSlot(ModPath);
 
   // Start numbering the GUIDs after the module ids.
   GUIDNext = ModulePathNext;
@@ -1422,6 +1425,9 @@ static void WriteOptimizationInfo(raw_ostream &Out, const User *U) {
   } else if (const GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
     if (GEP->isInBounds())
       Out << " inbounds";
+  } else if (const auto *NNI = dyn_cast<PossiblyNonNegInst>(U)) {
+    if (NNI->hasNonNeg())
+      Out << " nneg";
   }
 }
 
@@ -2684,6 +2690,12 @@ public:
   void printBasicBlock(const BasicBlock *BB);
   void printInstructionLine(const Instruction &I);
   void printInstruction(const Instruction &I);
+  void printDPMarker(const DPMarker &DPI);
+  void printDPValue(const DPValue &DPI);
+
+#if INTEL_CUSTOMIZATION
+  void printFunctionBlocksPreOrder(const Function *F);
+#endif // INTEL_CUSTOMIZATION
 
   void printUseListOrder(const Value *V, const std::vector<unsigned> &Shuffle);
   void printUseLists(const Function *F);
@@ -2870,6 +2882,8 @@ static void printMapTypeAsComment(raw_ostream &Out,
   }
 
   TEST_MAPTYPE(NON_CONTIG);
+  TEST_MAPTYPE(USE_HOST_MEM);
+  TEST_MAPTYPE(USE_ZERO_INIT_MEM);
   TEST_MAPTYPE(OMPX_HOLD);
   TEST_MAPTYPE(PRESENT);
   TEST_MAPTYPE(ND_DESC);
@@ -3079,12 +3093,11 @@ void AssemblyWriter::printModuleSummaryIndex() {
   std::string RegularLTOModuleName =
       ModuleSummaryIndex::getRegularLTOModuleName();
   moduleVec.resize(TheIndex->modulePaths().size());
-  for (auto &[ModPath, ModId] : TheIndex->modulePaths())
+  for (auto &[ModPath, ModHash] : TheIndex->modulePaths())
     moduleVec[Machine.getModulePathSlot(ModPath)] = std::make_pair(
-        // A module id of -1 is a special entry for a regular LTO module created
-        // during the thin link.
-        ModId.first == -1u ? RegularLTOModuleName : std::string(ModPath),
-        ModId.second);
+        // An empty module path is a special entry for a regular LTO module
+        // created during the thin link.
+        ModPath.empty() ? RegularLTOModuleName : std::string(ModPath), ModHash);
 
   unsigned i = 0;
   for (auto &ModPair : moduleVec) {
@@ -3962,8 +3975,72 @@ void AssemblyWriter::printTypeIdentities() {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+
+/// Print all Blocks of \p F in pre-order, starting from the entry block.
+/// This may not work for cycles of blocks that are not reachable from
+/// entry, for which we will fall-back to printing them in the order
+/// of their iterators in \p F.
+void AssemblyWriter::printFunctionBlocksPreOrder(const Function *F) {
+  if (F->empty())
+    return;
+
+  SmallPtrSet<const BasicBlock *, 32> Visited;
+
+  auto PrintBlocksPreOrderStartingWith = [&](const BasicBlock *RootBB) {
+    SmallVector<const BasicBlock *, 128> ToVisit;
+    ToVisit.push_back(RootBB);
+
+    while (!ToVisit.empty()) {
+      const BasicBlock *Current = ToVisit.pop_back_val();
+
+      if (!Visited.insert(Current).second)
+        continue; // Already visited.
+
+      printBasicBlock(Current);
+
+      // Push successors of the current BB onto the stack in reverse
+      // so that we visit them in pre-order.
+      for (const BasicBlock *Succ : reverse(successors(Current)))
+        ToVisit.push_back(Succ);
+    }
+  };
+
+  // For most cases we shouldn't have any blocks unreachable from entry, so we
+  // just need a single pre-order walk starting from EntryBB.
+  PrintBlocksPreOrderStartingWith(&F->getEntryBlock());
+
+  if (Visited.size() == F->size())
+    return;
+
+  // Next, we collect any unvisited blocks that have zero predecessors.
+  SmallVector<const BasicBlock *, 32> RootBBs;
+  for (const BasicBlock &BB : *F)
+    if (!Visited.count(&BB))
+      if (pred_empty(&BB))
+        RootBBs.push_back(&BB);
+
+  // And do a pre-order walk starting with those unreachable blocks as root.
+  for (const BasicBlock *RootBB : RootBBs)
+    PrintBlocksPreOrderStartingWith(RootBB);
+
+  if (Visited.size() == F->size())
+    return;
+
+  // If there are still some BBs in cycles that are unreachable from function
+  // entry, print them as-is without trying to sort them. Such unreachable
+  // cycles are likely a bug in the IR anyway.
+  for (const auto &BB : *F)
+    if (!Visited.count(&BB))
+      printBasicBlock(&BB);
+}
+
+#endif // INTEL_CUSTOMIZATION
 /// printFunction - Print all aspects of a function.
 void AssemblyWriter::printFunction(const Function *F) {
+  bool ConvertBack = F->IsNewDbgInfoFormat;
+  if (ConvertBack)
+    const_cast<Function *>(F)->convertFromNewDbgValues();
   if (AnnotationWriter) AnnotationWriter->emitFunctionAnnot(F, Out);
 
   if (F->isMaterializable())
@@ -4097,8 +4174,19 @@ void AssemblyWriter::printFunction(const Function *F) {
 
     Out << " {";
     // Output all of the function's basic blocks.
-    for (const BasicBlock &BB : *F)
-      printBasicBlock(&BB);
+#if INTEL_CUSTOMIZATION
+    if (PrintProfCounts) {
+      auto EntryCount = F->getEntryCount(false);
+      if (EntryCount && EntryCount.value().getType() == Function::PCT_Real)
+        Out << "\n; entry_count = " << EntryCount.value().getCount();
+    }
+    if (PrintBlocksPreOrder) {
+      printFunctionBlocksPreOrder(F);
+    } else {
+      for (const BasicBlock &BB : *F)
+        printBasicBlock(&BB);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // Output the function's use-lists.
     printUseLists(F);
@@ -4106,6 +4194,8 @@ void AssemblyWriter::printFunction(const Function *F) {
     Out << "}\n";
   }
 
+  if (ConvertBack)
+    const_cast<Function *>(F)->convertToNewDbgValues();
   Machine.purgeFunction();
 }
 
@@ -4200,8 +4290,15 @@ void AssemblyWriter::printInfoComment(const Value &V) {
   if (const auto *Relocate = dyn_cast<GCRelocateInst>(&V))
     printGCRelocateComment(*Relocate);
 
-  if (AnnotationWriter)
+  if (AnnotationWriter) {
     AnnotationWriter->printInfoComment(V, Out);
+  } else if (const Instruction *I = dyn_cast<Instruction>(&V)) {
+    if (I->DbgMarker) {
+      // In the new, experimental DPValue representation of debug-info, print
+      // out which instructions have DPMarkers and where they are.
+      Out << "; dbgmarker @ " << I->DbgMarker;
+    }
+  }
 }
 
 static void maybePrintCallAddrSpace(const Value *Operand, const Instruction *I,
@@ -4675,13 +4772,50 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
 
   if (PrintProfCounts && hasBranchWeightMD(I)) {
     SmallVector<uint32_t, 4> Weights;
+    uint64_t TotalWeight = 0;
+    extractProfTotalWeight(I, TotalWeight);
     extractBranchWeights(getBranchWeightMDNode(I), Weights);
     Out << " ; Weights = ";
     ListSeparator LS(", ");
-    for (auto W : Weights)
+    for (auto W : Weights) {
       Out << LS << W;
+      if (TotalWeight)
+        Out << " ["
+            << format("%3.1f", 100.0f * static_cast<float>(W) / TotalWeight)
+            << "%]";
+    }
   }
 #endif // INTEL_CUSTOMIZATION
+}
+
+void AssemblyWriter::printDPMarker(const DPMarker &Marker) {
+  // There's no formal representation of a DPMarker -- print purely as a
+  // debugging aid.
+  for (const DPValue &DPI2 : Marker.StoredDPValues) {
+    printDPValue(DPI2);
+    Out << "\n";
+  }
+
+  Out << "  DPMarker -> { ";
+  printInstruction(*Marker.MarkedInstr);
+  Out << " }";
+  return;
+}
+
+void AssemblyWriter::printDPValue(const DPValue &Value) {
+  // There's no formal representation of a DPValue -- print purely as a
+  // debugging aid.
+  Out << "  DPValue { ";
+  auto WriterCtx = getContext();
+  WriteAsOperandInternal(Out, Value.getRawLocation(), WriterCtx, true);
+  Out << ", ";
+  WriteAsOperandInternal(Out, Value.getVariable(), WriterCtx, true);
+  Out << ", ";
+  WriteAsOperandInternal(Out, Value.getExpression(), WriterCtx, true);
+  Out << ", ";
+  WriteAsOperandInternal(Out, Value.getDebugLoc().get(), WriterCtx, true);
+  Out << " marker @" << Value.getMarker();
+  Out << " }";
 }
 
 void AssemblyWriter::printMetadataAttachments(
@@ -4829,11 +4963,19 @@ void BasicBlock::print(raw_ostream &ROS, AssemblyAnnotationWriter *AAW,
 
 void Module::print(raw_ostream &ROS, AssemblyAnnotationWriter *AAW,
                    bool ShouldPreserveUseListOrder, bool IsForDebug) const {
+  // RemoveDIs: always print with debug-info in intrinsic format.
+  bool ConvertAfter = IsNewDbgInfoFormat;
+  if (IsNewDbgInfoFormat)
+    const_cast<Module *>(this)->convertFromNewDbgValues();
+
   SlotTracker SlotTable(this);
   formatted_raw_ostream OS(ROS);
   AssemblyWriter W(OS, SlotTable, this, AAW, IsForDebug,
                    ShouldPreserveUseListOrder);
   W.printModule(this);
+
+  if (ConvertAfter)
+    const_cast<Module *>(this)->convertToNewDbgValues();
 }
 
 void NamedMDNode::print(raw_ostream &ROS, bool IsForDebug) const {
@@ -4908,6 +5050,53 @@ static bool isReferencingMDNode(const Instruction &I) {
             if (isa<MDNode>(V->getMetadata()))
               return true;
   return false;
+}
+
+void DPMarker::print(raw_ostream &ROS, bool IsForDebug) const {
+
+  ModuleSlotTracker MST(getModuleFromDPI(this), true);
+  print(ROS, MST, IsForDebug);
+}
+
+void DPValue::print(raw_ostream &ROS, bool IsForDebug) const {
+
+  ModuleSlotTracker MST(getModuleFromDPI(this), true);
+  print(ROS, MST, IsForDebug);
+}
+
+void DPMarker::print(raw_ostream &ROS, ModuleSlotTracker &MST,
+                     bool IsForDebug) const {
+  // There's no formal representation of a DPMarker -- print purely as a
+  // debugging aid.
+  formatted_raw_ostream OS(ROS);
+  SlotTracker EmptySlotTable(static_cast<const Module *>(nullptr));
+  SlotTracker &SlotTable =
+      MST.getMachine() ? *MST.getMachine() : EmptySlotTable;
+  auto incorporateFunction = [&](const Function *F) {
+    if (F)
+      MST.incorporateFunction(*F);
+  };
+  incorporateFunction(getParent() ? getParent()->getParent() : nullptr);
+  AssemblyWriter W(OS, SlotTable, getModuleFromDPI(this), nullptr, IsForDebug);
+  W.printDPMarker(*this);
+}
+
+void DPValue::print(raw_ostream &ROS, ModuleSlotTracker &MST,
+                    bool IsForDebug) const {
+  // There's no formal representation of a DPValue -- print purely as a
+  // debugging aid.
+  formatted_raw_ostream OS(ROS);
+  SlotTracker EmptySlotTable(static_cast<const Module *>(nullptr));
+  SlotTracker &SlotTable =
+      MST.getMachine() ? *MST.getMachine() : EmptySlotTable;
+  auto incorporateFunction = [&](const Function *F) {
+    if (F)
+      MST.incorporateFunction(*F);
+  };
+  incorporateFunction(Marker->getParent() ? Marker->getParent()->getParent()
+                                          : nullptr);
+  AssemblyWriter W(OS, SlotTable, getModuleFromDPI(this), nullptr, IsForDebug);
+  W.printDPValue(*this);
 }
 
 void Value::print(raw_ostream &ROS, bool IsForDebug) const {
@@ -5153,6 +5342,14 @@ void ModuleSlotTracker::collectMDNodes(MachineMDNodeListType &L, unsigned LB,
 // Value::dump - allow easy printing of Values from the debugger.
 LLVM_DUMP_METHOD
 void Value::dump() const { print(dbgs(), /*IsForDebug=*/true); dbgs() << '\n'; }
+
+// Value::dump - allow easy printing of Values from the debugger.
+LLVM_DUMP_METHOD
+void DPMarker::dump() const { print(dbgs(), /*IsForDebug=*/true); dbgs() << '\n'; }
+
+// Value::dump - allow easy printing of Values from the debugger.
+LLVM_DUMP_METHOD
+void DPValue::dump() const { print(dbgs(), /*IsForDebug=*/true); dbgs() << '\n'; }
 
 // Type::dump - allow easy printing of Types from the debugger.
 LLVM_DUMP_METHOD

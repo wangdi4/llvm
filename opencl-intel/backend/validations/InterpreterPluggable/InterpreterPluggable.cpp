@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2022 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,11 +12,8 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#define DEBUG_TYPE "interpreterPluggable"
-
 #include "InterpreterPluggable.h"
 #include "InterpreterPlugIn.h"
-
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
@@ -30,10 +27,12 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
-
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+
+#define DEBUG_TYPE "interpreterPluggable"
+
 using namespace llvm;
 
 STATISTIC(NumDynamicInsts, "Number of dynamic instructions executed");

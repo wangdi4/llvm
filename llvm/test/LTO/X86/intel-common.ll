@@ -1,10 +1,8 @@
 ; RUN: llvm-as < %s > %t1.o
-; RUN: llvm-lto2 run -use-new-pm=true -print-after-all -o %t2 %t1.o -save-temps -r %t1.o,MAIN__,px -r %t1.o,for_set_reentrancy,x -r %t1.o,__BLNK__,px 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-NEW
+; RUN: llvm-lto2 run -use-new-pm=true -print-after-all -o %t2 %t1.o -save-temps -r %t1.o,MAIN__,px -r %t1.o,for_set_reentrancy,x -r %t1.o,__BLNK__,px 2>&1 | FileCheck %s
 
 ; Check that the definition of the blank common is the right size
 
-; CHECK-OLD: IR Dump After Module Verifier
-; CHECK-NEW: IR Dump After VerifierPass on [module]
 ; CHECK: @__BLNK__ = common unnamed_addr global [6643930048 x i8] zeroinitializer, align 32
 
 ; Check that the reference to the blank common has the right size

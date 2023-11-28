@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -48,7 +48,9 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#if INTEL_CUSTOMIZATION
 #include <unordered_set>
+#endif // INTEL_CUSTOMIZATION
 #include <vector>
 
 using namespace llvm;
@@ -295,8 +297,8 @@ getCompilerBuildLog(const CLProgramUPtr &ProgramUPtr, cl_device_id Device) {
                          CLErr);
 }
 
-#if INTEL_PRODUCT_RELEASE
 #if INTEL_CUSTOMIZATION
+#if INTEL_PRODUCT_RELEASE
 class HelpPrinter {
 public:
   explicit HelpPrinter() = default;
@@ -334,8 +336,8 @@ public:
 private:
   StringMap<cl::Option *> OptMap;
 };
-#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
 
 int main(int Argc, char *Argv[]) {
   // step 0: set command line options
@@ -440,10 +442,10 @@ int main(int Argc, char *Argv[]) {
                                     cl::ReallyHidden);                         \
     IgnoredAOCOptions.insert(&name)
 #include "Intel_IgnoredOptions.def"
-#endif
+#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_PRODUCT_RELEASE
 #if INTEL_CUSTOMIZATION
+#if INTEL_PRODUCT_RELEASE
   // --help option implementation is disabled in LLVM CommandLine
   // library for xmain release builds, adding custom --help implementation
   StringMap<cl::Option *> &OptionsMap = cl::getRegisteredOptions();
@@ -452,8 +454,8 @@ int main(int Argc, char *Argv[]) {
       "help", cl::desc("Display available options"),
       cl::location(HelpPrinterInstance), cl::ValueDisallowed);
   cl::alias OptHelpA("h", cl::desc("Alias for --help"), cl::aliasopt(OptHelp));
-#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
 
   cl::ParseCommandLineOptions(
       Argc, Argv,

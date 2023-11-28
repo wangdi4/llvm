@@ -1430,14 +1430,10 @@ PreservedAnalyses VPOParoptLowerSimdPass::run(Function &F,
   // Only consider functions marked with !sycl_explicit_simd
   bool isOmpSpirKernel = false;
 
-  if ((F.getMetadata("omp_simd_kernel") != nullptr) ||
-      (F.getMetadata("omp_declare_target_simd_function") != nullptr) ||
-      (F.getMetadata("sycl_explicit_simd") == nullptr &&
-       F.getCallingConv() == CallingConv::SPIR_KERNEL)) {
+  if (F.getMetadata("omp_simd_kernel") != nullptr ||
+      F.getMetadata("omp_declare_target_simd_function") != nullptr) {
     IRBuilder<> Builder(F.getEntryBlock().getFirstNonPHI());
-    int simdWidth = 1;
-    Metadata *AttrMDArgs[] = {
-        ConstantAsMetadata::get(Builder.getInt32(simdWidth))};
+    Metadata *AttrMDArgs[] = {ConstantAsMetadata::get(Builder.getInt32(1))};
     F.setMetadata("intel_reqd_sub_group_size",
                   MDNode::get(F.getContext(), AttrMDArgs));
     // for omp_declare_target_simd_function there's no need to generate all

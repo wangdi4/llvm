@@ -73,10 +73,18 @@ using namespace llvm::vpo;
 #define DEBUG_TYPE "vplan-divergence-analysis"
 
 static cl::opt<bool>
-    VPlanDAIgnoreOverflow("vplan-da-ignore-integer-overflow", cl::init(false),
+    VPlanDAIgnoreOverflow("vplan-da-ignore-integer-overflow", cl::init(true),
                           cl::Hidden,
                           cl::desc("Allow VPlan's divergence analysis to "
                                    "ignore integer overflow checks."));
+
+static cl::opt<bool>
+    VPlanDAEnableAndOptimization("vplan-da-enable-and-optimization",
+                                 cl::init(false),
+                                 cl::Hidden,
+                                 cl::desc("Allow VPlan's divergence analysis "
+                                          "to enable 'and' clamping "
+                                          "optimization."));
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
     DumpDA("vplan-dump-da", cl::init(false), cl::Hidden,
@@ -782,6 +790,106 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForUnaryInst(
   return getRandomVectorShape();
 }
 
+static bool fitsInInteger(unsigned NumBits, APInt MinVal, APInt MaxVal) {
+  int64_t Min = MinVal.getSExtValue();
+  int64_t Max = MaxVal.getSExtValue();
+  if (NumBits == 64)
+    return true;
+  if (NumBits == 32 && Min >= std::numeric_limits<int32_t>::min() &&
+     Max <= std::numeric_limits<int32_t>::max())
+    return true;
+  if (NumBits == 16 && Min >= std::numeric_limits<int16_t>::min() &&
+      Max <= std::numeric_limits<int16_t>::max())
+    return true;
+  if (NumBits == 8 && Min >= std::numeric_limits<int8_t>::min() &&
+      Max <= std::numeric_limits<int8_t>::max())
+    return true;
+  return false;
+}
+
+bool VPlanDivergenceAnalysis::isSafeToPropagateNonRandomShape(
+    const VPInstruction *I) {
+  // It's safe to propagate a non-random shape for any operation that is not
+  // an overflowing binary operator, if the operation is known to not overflow,
+  // or if we know that the value can fit within ranges allowed for both signed
+  // and unsigned integers.
+  if (!I->isOverflowingOperation())
+    return true;
+  if (I->hasNoSignedWrap() && I->hasNoUnsignedWrap())
+    return true;
+
+  // It's safe to propagate non-random shapes when we know that an overflow
+  // operation has nuw and all users use the value as unsigned. Sign extending
+  // an unsigned value remains unsigned so this is also safe.
+  bool HasAllUnsignedUsers =
+    llvm::all_of(I->users(), [&](const VPUser *U) {
+      auto *UserInst = dyn_cast<VPInstruction>(U);
+      if (UserInst &&
+          (UserInst->getOpcode() == Instruction::UDiv ||
+           UserInst->getOpcode() == Instruction::URem ||
+           UserInst->getOpcode() == Instruction::ZExt ||
+           UserInst->getOpcode() == Instruction::UIToFP))
+        return true;
+
+      auto *CmpInst = dyn_cast_or_null<VPCmpInst>(UserInst);
+      if (CmpInst &&
+          (CmpInst->getPredicate() == CmpInst::ICMP_UGT ||
+           CmpInst->getPredicate() == CmpInst::ICMP_UGE ||
+           CmpInst->getPredicate() == CmpInst::ICMP_ULT ||
+           CmpInst->getPredicate() == CmpInst::ICMP_ULE))
+        return true;
+
+      return false;
+    });
+  if (I->hasNoUnsignedWrap() && HasAllUnsignedUsers)
+    return true;
+
+  // It's safe to propagate non-random shapes when we know that an overflow
+  // operation has nsw and all users use the value as signed.
+  bool HasAllSignedUsers =
+    llvm::all_of(I->users(), [&](const VPUser *U) {
+      auto *UserInst = dyn_cast<VPInstruction>(U);
+      if (UserInst &&
+          (UserInst->getOpcode() == Instruction::SDiv ||
+           UserInst->getOpcode() == Instruction::SRem ||
+           UserInst->getOpcode() == Instruction::SExt ||
+           UserInst->getOpcode() == Instruction::SIToFP))
+        return true;
+
+      auto *CmpInst = dyn_cast_or_null<VPCmpInst>(UserInst);
+      if (CmpInst &&
+          (CmpInst->getPredicate() == CmpInst::ICMP_SGT ||
+           CmpInst->getPredicate() == CmpInst::ICMP_SGE ||
+           CmpInst->getPredicate() == CmpInst::ICMP_SLT ||
+           CmpInst->getPredicate() == CmpInst::ICMP_SLE))
+        return true;
+
+      return false;
+    });
+  if (I->hasNoSignedWrap() && HasAllSignedUsers)
+    return true;
+
+  Type *Ty = I->getType();
+  if (VPVT && Ty->isIntegerTy()) {
+    auto KB = VPVT->getKnownBits(I, I);
+    if (!KB.isUnknown()) {
+      // Conservatively check that min/max values can fit into both signed
+      // and unsigned ranges.
+      auto MinVal = KB.getMinValue();
+      auto MaxVal = KB.getMaxValue();
+      auto SignedMinVal = KB.getSignedMinValue();
+      auto SignedMaxVal = KB.getSignedMaxValue();
+      unsigned TySize = Ty->getScalarSizeInBits();
+      if (fitsInInteger(TySize, SignedMinVal, SignedMaxVal) &&
+          fitsInInteger(TySize, MinVal, MaxVal)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
     const VPInstruction *I) {
 
@@ -801,6 +909,19 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
 
   if (Shape0.isUniform() && Shape1.isUniform())
     return getUniformVectorShape();
+
+  // By default, DA is more aggressive when propagating shapes due to empirical
+  // evidence that has shown there have been no stability issues in not being
+  // able to always prove no overflow exists. Cases where theoretically there
+  // can be overflow are currently known to be corner cases where overflow is
+  // still likely to not happen. E.g., these cases typically include some large
+  // unknown uniform value added to some linear value. While technically we
+  // cannot prove these expressions cannot overflow, the assumption they do not
+  // has not resulted in any known stability issues. Enabled overflow checking
+  // by default, however, will lead to some severe performance regressions.
+  // Thus, the default behavior remains more aggressive.
+  if (!VPlanDAIgnoreOverflow && !isSafeToPropagateNonRandomShape(I))
+    return getRandomVectorShape();
 
   VPVectorShape::VPShapeDescriptor Desc0 = Shape0.getShapeDescriptor();
   VPVectorShape::VPShapeDescriptor Desc1 = Shape1.getShapeDescriptor();
@@ -885,10 +1006,12 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
       return {NewDesc, NewStride};
     }
     case Instruction::And: {
-      if (VPlanDAIgnoreOverflow) {
+      if (VPlanDAEnableAndOptimization) {
         // AND operation with UINT_MAX indicates an integer overflow check and
         // clamping. Propagate the shape of the operand being checked for
-        // overflow.
+        // overflow. Note: this is currently enabled under a separate flag
+        // instead of VPlanDAIgnoreOverflow because it will cause stability
+        // issues if enabled by default.
         if (auto *ConstOp1 = dyn_cast<VPConstant>(Op1)) {
           if (ConstOp1->isConstantInt() && ConstOp1->getZExtValue() == UINT_MAX)
             return {Desc0, Shape0.getStride()};
@@ -1455,6 +1578,18 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocateInst(
     return getSOASequentialVectorShape(StrideVal);
   }
 
+  // When dealing with an array type where the alignment specified is
+  // greater than this type's preferred alignment the vector code generated
+  // will need to serialize the alloca to ensure that that allocated memory
+  // is properly aligned for every lane. We need to return random shape for this
+  // case. The only exception is if the type's allocated size matches the
+  // specified alignment(in which case no padding is needed).
+  Align OrigAlignment = AI->getOrigAlignment();
+  Align PrefAlignment = Plan->getDataLayout()->getPrefTypeAlign(PointeeTy);
+  if (OrigAlignment > PrefAlignment &&
+      OrigAlignment != Plan->getDataLayout()->getTypeAllocSize(PointeeTy))
+    return getRandomVectorShape();
+
   // We set the stride in terms of bytes.
   int64_t Stride = getTypeSizeInBytes(PointeeTy);
   updateVectorShape(AI, getStridedVectorShape(Stride));
@@ -1526,9 +1661,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
 
     // i8 element type for opaque pointer inductions
     unsigned TypeSizeInBytes =
-        InitShape.isUniform()
-            ? getTypeSizeInBytes(getInt8OrPointerElementTy(Init->getType()))
-            : InitShape.getStrideVal();
+        InitShape.isUniform() ? getTypeSizeInBytes(getInt8(Init->getType()))
+                              : InitShape.getStrideVal();
 
     StepInt = TypeSizeInBytes * StepConst->getZExtValue();
   } else
@@ -1729,7 +1863,14 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
   else if (Opcode == VPInstruction::EarlyExitLane)
     NewShape = getUniformVectorShape();
-  else {
+  else if (Opcode == VPInstruction::EarlyExitID)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::SelectValOrLane) {
+    assert(getObservedShape(ParentBB, *cast<VPSelectValOrLane>(I)->getVal())
+               .isUniform() &&
+           "Value operand of SelectValOrLane is expected to be uniform.");
+    NewShape = getUniformVectorShape();
+  } else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
     assert(Opcode <= Instruction::OtherOpsEnd &&

@@ -14,13 +14,13 @@ define ptr @FindChar(ptr %CurPtr) {
 ; CHECK-NEXT:    xorl %edi, %edi
 ; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %esi
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB0_1: # %.split ;INTEL
+; CHECK-NEXT:  .LBB0_1: # %bb
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    movzbl (%esi,%edi), %eax
 ; CHECK-NEXT:    incl %edi
 ; CHECK-NEXT:    cmpl $120, %eax
 ; CHECK-NEXT:    je .LBB0_3
-; CHECK-NEXT:  # %bb.2: # %.split ;INTEL
+; CHECK-NEXT:  # %bb.2: # %bb
 ; CHECK-NEXT:    # in Loop: Header=BB0_1 Depth=1
 ; CHECK-NEXT:    testl %eax, %eax
 ; CHECK-NEXT:    jne .LBB0_1

@@ -1,6 +1,6 @@
 //===- HIRLoopFusionGraph.h - Implements Loop Fusion Graph ----------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -292,6 +292,10 @@ private:
 
   void constructNaiveEdges(GraphNodeMapTy &GraphNodeMap,
                            FusibleCacheTy &FusibleCache);
+
+  // Find the collapse range for merging fusenodes by traversing fusegraph
+  void collectGoodPathsFrom(unsigned NodeV, unsigned NodeW, BitVector &Visited,
+                            CollapseRangeTy &CollapseRange);
 
   // Run weighted fusion algorithm.
   void weightedFusion();

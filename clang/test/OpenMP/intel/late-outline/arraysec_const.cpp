@@ -1,6 +1,6 @@
 // INTEL_COLLAB
-//RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline \
-//RUN:  -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu -emit-llvm \
+//RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
+//RUN:  -triple x86_64-unknown-linux-gnu -emit-llvm \
 //RUN:  -o - %s | FileCheck %s
 
 static int y_Array[3][4][5];

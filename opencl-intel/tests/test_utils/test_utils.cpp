@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2021 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,13 +17,12 @@
 #include "cl_sys_info.h"
 #include "cl_types.h"
 #include "cl_utils.h"
+#include "gtest_wrapper.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-
-#include "gtest_wrapper.h"
 
 #ifdef _WIN32
 #include <windows.h>

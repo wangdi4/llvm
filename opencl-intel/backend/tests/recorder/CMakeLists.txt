@@ -19,16 +19,23 @@ include_directories(
   ${OCL_SOURCE_DIR}/tests/test_utils/export
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export)
 
-# adding the executable
-add_opencl_executable(
-  ${TARGET_NAME} EXCLUDE_FROM_ALL_BUILD recorder_test.cpp
-  ${OCL_SOURCE_DIR}/utils/cl_sys_utils/cl_utils.cpp
-  ${OCL_SOURCE_DIR}/tests/test_utils/test_utils.cpp)
+if(NOT WIN32)
+  set(LINK_LIBRARIES ${PTHREAD_LIB})
+else(NOT WIN32)
+  set(LINK_LIBRARIES delayimp)
+endif(NOT WIN32)
 
 # linking
 link_directories(${CMAKE_INSTALL_PREFIX}/bin/)
 
-target_link_libraries(${TARGET_NAME} PRIVATE
+# adding the executable
+add_opencl_executable(
+  ${TARGET_NAME}
+  EXCLUDE_FROM_ALL_BUILD
+  recorder_test.cpp
+  ${OCL_SOURCE_DIR}/utils/cl_sys_utils/cl_utils.cpp
+  ${OCL_SOURCE_DIR}/tests/test_utils/test_utils.cpp
+  LINK_LIBS
   LLVMSupport
   LLVMTargetParser
   llvm_gtest
@@ -36,13 +43,8 @@ target_link_libraries(${TARGET_NAME} PRIVATE
   cl_hw_utils
   cl_sys_utils
   OpenCL-ICD
+  ${LINK_LIBRARIES}
   )
-
-if(NOT WIN32)
-  target_link_libraries(${TARGET_NAME} PRIVATE ${PTHREAD_LIB})
-else(NOT WIN32)
-  target_link_libraries(${TARGET_NAME} PRIVATE delayimp)
-endif(NOT WIN32)
 
 link_target_with_tbb_library(${TARGET_NAME})
 

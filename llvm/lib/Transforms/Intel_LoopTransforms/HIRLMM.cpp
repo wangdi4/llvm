@@ -1,6 +1,6 @@
 //===--- HIRLMM.cpp -Implements Loop Memory Motion Pass -*- C++ -*---===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -208,12 +208,42 @@ static bool foundRegionDominatingLoadOrStore(DominatorTree &DT,
 /* =========================================================== */
 
 void MemRefGroup::analyze(const HLLoop *Lp, DominatorTree *DT,
-                          bool LoopNestHoistingOnly) {
+                          bool LoopNestHoistingOnly,
+                          SmallVectorImpl<const HLGoto *> &Gotos) {
+
+  assert(!RefVec.empty() && "Group can't be empty");
+
   // Only analyze once
   assert(!IsAnalyzed && "Analyze ONCE only\n");
 
   const HLNode *LoopTail = Lp->getLastChild();
   const HLNode *LoopHead = Lp->getFirstChild();
+
+  // Check if the first ref of the group happens before an early exit, and it
+  // doesn't dominates the goto. In that case we can't apply the
+  // transformation.
+  auto *FirstRef = RefVec.front();
+  for (auto &Goto : Gotos) {
+    bool RefMayExecuteBeforeExit =
+        FirstRef->getHLDDNode()->getTopSortNum() < Goto->getTopSortNum();
+    if (RefMayExecuteBeforeExit &&
+        !HLNodeUtils::dominates(FirstRef->getHLDDNode(), Goto)) {
+      IsAnalyzed = true;
+      IsProfitable = false;
+      LLVM_DEBUG({
+        auto *RefNode = FirstRef->getHLDDNode();
+        dbgs() << "  Legality failure: Ref ";
+        FirstRef->dump();
+        dbgs() << " in node <" << RefNode->getNumber()
+               << "> doesn't dominate goto <" << Goto->getNumber() << ">\n";
+        dbgs() << "    Node: ";
+        RefNode->dump();
+        dbgs() << "    Goto: ";
+        Goto->dump();
+      });
+      return;
+    }
+  }
 
   bool IsInnermost = Lp->isInnermost();
   bool AllRefsInSameLoop = true;
@@ -1417,7 +1447,7 @@ static RegDDRef *findMemRefLoadBeforeLoop(HLLoop *Lp, RegDDRef *MemRef) {
 // - Call updateDefLevel() for the Lval of the new store
 //
 void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
-                                   bool NeedLoadInPrehdr) const {
+                                   bool LoadCreatedInPrehdr) const {
   // Debug: Examine the Loop
   // LLVM_DEBUG(Lp->dump(););
 
@@ -1432,7 +1462,7 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
     // Collect all the Gotos if it is a multi-exit loop
     SmallVector<HLGoto *, 16> Gotos;
     Lp->populateEarlyExits(Gotos);
-    bool TmpIsInitialized = NeedLoadInPrehdr;
+    bool TmpIsInitialized = LoadCreatedInPrehdr;
     bool RequiresIVComparisonIf = true;
 
     for (auto &Goto : Gotos) {

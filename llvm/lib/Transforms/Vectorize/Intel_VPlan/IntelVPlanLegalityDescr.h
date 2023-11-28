@@ -1,6 +1,6 @@
 //===-- IntelVPlanLegalityDescr.h -------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -90,7 +90,17 @@ public:
   // DescrValue classs is base class for DescrWithAliases as well as
   // DescrWithInitValue. To distinguish classes and provide RTTI support
   // following enum is required.
-  enum DescrKind { DK_SimpleDescr, DK_WithAliases, DK_WithInitValue };
+  enum DescrKind {
+    DK_SimpleDescr,
+    DK_WithAliases,
+    DK_WithInitValue,
+    DK_RedDescr,
+    DK_RedDescrUDR,
+    DK_LinearDescr,
+    DK_PrivDescr,
+    DK_PrivDescrNonPOD,
+    DK_PrivDescrF90DV
+  };
 
 private:
   INTEL_INTRODUCE_INSTRUCTION(Value)
@@ -293,6 +303,10 @@ class DescrWithInitValue : public DescrWithAliases<Value> {
   // descriptor/alias may have multiple updating instructions within the loop.
   const Value *InitValue;
 
+protected:
+  DescrWithInitValue(Value *RefV, DescrKind K)
+      : DescrWithAliases<Value>(RefV, K), InitValue(nullptr) {}
+
 public:
   DescrWithInitValue(Value *RefV)
       : DescrWithAliases<Value>(RefV, DescrKind::DK_WithInitValue),
@@ -308,6 +322,13 @@ public:
     return InitValue && DescrValue<Value>::getUpdateInstructions().size() > 0;
   }
 
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const DescrValue<Value> *Descr) {
+    auto DK = Descr->getKind();
+    return DK == DescrKind::DK_WithInitValue || DK == DescrKind::DK_RedDescr ||
+           DK == DescrKind::DK_RedDescrUDR || DK == DescrKind::DK_LinearDescr;
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {
     DescrWithAliases<Value>::print(OS);
@@ -318,14 +339,6 @@ public:
     }
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  static bool classof(const DescrWithAliases<Value> *Descr) {
-    return Descr->getKind() == DescrKind::DK_WithInitValue;
-  }
-
-  static bool classof(const DescrValue<Value> *Descr) {
-    return Descr->getKind() == DescrKind::DK_WithInitValue;
-  }
 };
 
 // Specialized class to represent reduction descriptors specified explicitly
@@ -333,15 +346,22 @@ public:
 // information is also stored within this class.
 template <typename Value> class RedDescr : public DescrWithInitValue<Value> {
 private:
+  using DescrKind = typename DescrValue<Value>::DescrKind;
   RecurKind Kind;
   bool IsSigned;
   bool IsComplex;
   Type* RedType;
 
+protected:
+  RedDescr(Value *RegV, DescrKind K, RecurKind KindV, bool Signed, bool Complex,
+           Type *Ty)
+      : DescrWithInitValue<Value>(RegV, K), Kind(KindV), IsSigned(Signed),
+        IsComplex(Complex), RedType(Ty) {}
+
 public:
   RedDescr(Value *RegV, RecurKind KindV, bool Signed, bool Complex, Type *Ty)
-      : DescrWithInitValue<Value>(RegV), Kind(KindV), IsSigned(Signed),
-        IsComplex(Complex), RedType(Ty) {}
+      : DescrWithInitValue<Value>(RegV, DescrKind::DK_RedDescr), Kind(KindV),
+        IsSigned(Signed), IsComplex(Complex), RedType(Ty) {}
 
   // Move constructor
   RedDescr(RedDescr &&Other) = default;
@@ -356,6 +376,12 @@ public:
   bool isComplex() const { return IsComplex; }
 
   Type *getType() const { return RedType; }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const DescrValue<Value> *Descr) {
+    return Descr->getKind() == DescrKind::DK_RedDescr ||
+           Descr->getKind() == DescrKind::DK_RedDescrUDR;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {
@@ -375,6 +401,7 @@ public:
 // specified explicitly via SIMD reduction clause.
 template <typename Value> class RedDescrUDR : public RedDescr<Value> {
 private:
+  using DescrKind = typename DescrValue<Value>::DescrKind;
   Function *Combiner = nullptr;
   Function *Initializer = nullptr;
   Function *Ctor = nullptr;
@@ -385,8 +412,8 @@ public:
   RedDescrUDR(Value *RegV, Type *Ty, Function *Combiner, Function *Initializer,
               Function *Ctor, Function *Dtor,
               std::optional<InscanReductionKind> InscanRedKind = std::nullopt)
-      : RedDescr<Value>(RegV, RecurKind::Udr, false /*Signed*/,
-                        false /*Complex*/, Ty),
+      : RedDescr<Value>(RegV, DescrKind::DK_RedDescrUDR, RecurKind::Udr,
+                        false /*Signed*/, false /*Complex*/, Ty),
         Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor),
         InscanRedKind(InscanRedKind) {}
 
@@ -404,6 +431,11 @@ public:
   /// Get inscan reduction type (optional).
   std::optional<InscanReductionKind> getInscanReductionKind() const {
     return InscanRedKind;
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const DescrValue<Value> *Descr) {
+    return Descr->getKind() == DescrKind::DK_RedDescrUDR;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -449,11 +481,16 @@ private:
   // Special flag for F90_[NONPOD|DV] incomming directive
   bool IsF90;
 
+protected:
+  PrivDescr(Value *RegV, DescrKind K, Type *Ty, PrivateKind KindV, bool IsF90)
+      : DescrWithAliases<Value>(RegV, K), PrivKind(KindV), Ty(Ty),
+        IsF90(IsF90) {}
+
 public:
   // Value can be of type llvm::Value or loopopt::DDRef
   PrivDescr(Value *RegV, Type *Ty, PrivateKind KindV, bool IsF90)
-      : DescrWithAliases<Value>(RegV, DescrKind::DK_WithAliases),
-        PrivKind(KindV), Ty(Ty), IsF90(IsF90) {}
+      : DescrWithAliases<Value>(RegV, DescrKind::DK_PrivDescr), PrivKind(KindV),
+        Ty(Ty), IsF90(IsF90) {}
 
   // Copy constructor
   PrivDescr(const PrivDescr &Other)
@@ -494,6 +531,11 @@ public:
   /// Get the private Type.
   Type *getType() const { return Ty; }
 
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const DescrValue<Value> *Descr) {
+    return Descr->getKind() >= DescrKind::DK_PrivDescr;
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {
     DescrWithAliases<Value>::print(OS);
@@ -511,6 +553,7 @@ public:
 // explicitly via SIMD private clause.
 template <typename Value> class PrivDescrNonPOD : public PrivDescr<Value> {
   using PrivateKind = typename PrivDescr<Value>::PrivateKind;
+  using DescrKind = typename DescrValue<Value>::DescrKind;
   Function *Ctor;
   Function *Dtor;
   Function *CopyAssign;
@@ -519,8 +562,8 @@ public:
   // Value can be of type llvm::Value or loopopt::DDRef
   PrivDescrNonPOD(Value *RegV, Type *Ty, PrivateKind KindV, bool IsF90,
                   Function *Ctor, Function *Dtor, Function *CopyAssign)
-      : PrivDescr<Value>(RegV, Ty, KindV, IsF90), Ctor(Ctor), Dtor(Dtor),
-        CopyAssign(CopyAssign) {
+      : PrivDescr<Value>(RegV, DescrKind::DK_PrivDescrNonPOD, Ty, KindV, IsF90),
+        Ctor(Ctor), Dtor(Dtor), CopyAssign(CopyAssign) {
     assert(KindV != PrivateKind::Conditional &&
            "Non POD privates cannot be conditional last privates.");
   }
@@ -568,6 +611,11 @@ public:
   /// Check if private is for non-POD data type.
   bool isNonPOD() const override { return true; }
 
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const DescrValue<Value> *Descr) {
+    return Descr->getKind() == DescrKind::DK_PrivDescrNonPOD;
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {
     PrivDescr<Value>::print(OS);
@@ -587,12 +635,14 @@ public:
 // specified explicitly via SIMD private clause.
 template <typename Value> class PrivDescrF90DV : public PrivDescr<Value> {
   using PrivateKind = typename PrivDescr<Value>::PrivateKind;
+  using DescrKind = typename DescrValue<Value>::DescrKind;
   Type *F90DVElementType;
 
 public:
   // Value can be of type llvm::Value or loopopt::DDRef
   PrivDescrF90DV(Value *RegV, Type *Ty, PrivateKind KindV, Type *ElTy)
-      : PrivDescr<Value>(RegV, Ty, KindV, true /* IsF90 */),
+      : PrivDescr<Value>(RegV, DescrKind::DK_PrivDescrF90DV, Ty, KindV,
+                         true /* IsF90 */),
         F90DVElementType(ElTy) {}
 
   // Copy constructor
@@ -624,6 +674,11 @@ public:
 
   /// Get element type of Fortran Dope Vector.
   Type *getF90DVElementType() const { return F90DVElementType; }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const DescrValue<Value> *Descr) {
+    return Descr->getKind() == DescrKind::DK_PrivDescrF90DV;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {

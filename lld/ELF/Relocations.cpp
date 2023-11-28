@@ -70,6 +70,7 @@
 #include "lld/Common/ErrorHandler.h"
 #include "lld/Common/Memory.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/Support/Endian.h"
 #include <algorithm>
@@ -212,17 +213,15 @@ static bool isAbsoluteValue(const Symbol &sym) {
 
 // Returns true if Expr refers a PLT entry.
 static bool needsPlt(RelExpr expr) {
-  return oneof<R_PLT, R_PLT_PC, R_PLT_GOTPLT, R_PPC32_PLTREL, R_PPC64_CALL_PLT>(
-      expr);
+  return oneof<R_PLT, R_PLT_PC, R_PLT_GOTPLT, R_LOONGARCH_PLT_PAGE_PC,
+               R_PPC32_PLTREL, R_PPC64_CALL_PLT>(expr);
 }
 
-// Returns true if Expr refers a GOT entry. Note that this function
-// returns false for TLS variables even though they need GOT, because
-// TLS variables uses GOT differently than the regular variables.
-static bool needsGot(RelExpr expr) {
+bool lld::elf::needsGot(RelExpr expr) {
   return oneof<R_GOT, R_GOT_OFF, R_MIPS_GOT_LOCAL_PAGE, R_MIPS_GOT_OFF,
                R_MIPS_GOT_OFF32, R_AARCH64_GOT_PAGE_PC, R_GOT_PC, R_GOTPLT,
-               R_AARCH64_GOT_PAGE>(expr);
+               R_AARCH64_GOT_PAGE, R_LOONGARCH_GOT, R_LOONGARCH_GOT_PAGE_PC>(
+      expr);
 }
 
 // True if this expression is of the form Sym - X, where X is a position in the
@@ -230,12 +229,14 @@ static bool needsGot(RelExpr expr) {
 static bool isRelExpr(RelExpr expr) {
   return oneof<R_PC, R_GOTREL, R_GOTPLTREL, R_MIPS_GOTREL, R_PPC64_CALL,
                R_PPC64_RELAX_TOC, R_AARCH64_PAGE_PC, R_RELAX_GOT_PC,
-               R_RISCV_PC_INDIRECT, R_PPC64_RELAX_GOT_PC>(expr);
+               R_RISCV_PC_INDIRECT, R_PPC64_RELAX_GOT_PC, R_LOONGARCH_PAGE_PC>(
+      expr);
 }
-
 
 static RelExpr toPlt(RelExpr expr) {
   switch (expr) {
+  case R_LOONGARCH_PAGE_PC:
+    return R_LOONGARCH_PLT_PAGE_PC;
   case R_PPC64_CALL:
     return R_PPC64_CALL_PLT;
   case R_PC:
@@ -254,6 +255,8 @@ static RelExpr fromPlt(RelExpr expr) {
   case R_PLT_PC:
   case R_PPC32_PLTREL:
     return R_PC;
+  case R_LOONGARCH_PLT_PAGE_PC:
+    return R_LOONGARCH_PAGE_PC;
   case R_PPC64_CALL_PLT:
     return R_PPC64_CALL;
   case R_PLT:
@@ -521,8 +524,7 @@ int64_t RelocationScanner::computeMipsAddend(const RelTy &rel, RelExpr expr,
 template <class ELFT>
 static std::string maybeReportDiscarded(Undefined &sym) {
   auto *file = dyn_cast_or_null<ObjFile<ELFT>>(sym.file);
-  if (!file || !sym.discardedSecIdx ||
-      file->getSections()[sym.discardedSecIdx] != &InputSection::discarded)
+  if (!file || !sym.discardedSecIdx)
     return "";
   ArrayRef<typename ELFT::Shdr> objSections =
       file->template getELFShdrs<ELFT>();
@@ -754,7 +756,10 @@ static void reportUndefinedSymbol(const UndefinedDiag &undef,
     uint64_t offset = l.offset;
 
     msg += "\n>>> referenced by ";
-    std::string src = sec.getSrcMsg(sym, offset);
+    // In the absence of line number information, utilize DW_TAG_variable (if
+    // present) for the enclosing symbol (e.g. var in `int *a[] = {&undef};`).
+    Symbol *enclosing = sec.getEnclosingSymbol(offset);
+    std::string src = sec.getSrcMsg(enclosing ? *enclosing : sym, offset);
     if (!src.empty())
       msg += src + "\n>>>               ";
     msg += sec.getObjMsg(offset);
@@ -871,6 +876,23 @@ static void addRelativeReloc(InputSectionBase &isec, uint64_t offsetInSec,
                              RelType type) {
   Partition &part = isec.getPartition();
 
+  if (sym.isTagged()) {
+    std::lock_guard<std::mutex> lock(relocMutex);
+    part.relaDyn->addRelativeReloc(target->relativeRel, isec, offsetInSec, sym,
+                                   addend, type, expr);
+    // With MTE globals, we always want to derive the address tag by `ldg`-ing
+    // the symbol. When we have a RELATIVE relocation though, we no longer have
+    // a reference to the symbol. Because of this, when we have an addend that
+    // puts the result of the RELATIVE relocation out-of-bounds of the symbol
+    // (e.g. the addend is outside of [0, sym.getSize()]), the AArch64 MemtagABI
+    // says we should store the offset to the start of the symbol in the target
+    // field. This is described in further detail in:
+    // https://github.com/ARM-software/abi-aa/blob/main/memtagabielf64/memtagabielf64.rst#841extended-semantics-of-r_aarch64_relative
+    if (addend < 0 || static_cast<uint64_t>(addend) >= sym.getSize())
+      isec.relocations.push_back({expr, type, offsetInSec, addend, &sym});
+    return;
+  }
+
   // Add a relative relocation. If relrDyn section is enabled, and the
   // relocation offset is guaranteed to be even, add the relocation to
   // the relrDyn section, otherwise add it to the relaDyn section.
@@ -901,7 +923,7 @@ static void addPltEntry(PltSection &plt, GotPltSection &gotPlt,
                 sym, 0, R_ABS});
 }
 
-static void addGotEntry(Symbol &sym) {
+void elf::addGotEntry(Symbol &sym) {
   in.got->addEntry(sym);
   uint64_t off = sym.getGotOffset();
 
@@ -968,7 +990,9 @@ bool RelocationScanner::isStaticLinkTimeConstant(RelExpr e, RelType type,
             R_MIPS_GOTREL, R_MIPS_GOT_OFF, R_MIPS_GOT_OFF32, R_MIPS_GOT_GP_PC,
             R_AARCH64_GOT_PAGE_PC, R_GOT_PC, R_GOTONLY_PC, R_GOTPLTONLY_PC,
             R_PLT_PC, R_PLT_GOTPLT, R_PPC32_PLTREL, R_PPC64_CALL_PLT,
-            R_PPC64_RELAX_TOC, R_RISCV_ADD, R_AARCH64_GOT_PAGE>(e))
+            R_PPC64_RELAX_TOC, R_RISCV_ADD, R_AARCH64_GOT_PAGE,
+            R_LOONGARCH_PLT_PAGE_PC, R_LOONGARCH_GOT, R_LOONGARCH_GOT_PAGE_PC>(
+          e))
     return true;
 
   // These never do, except if the entire file is position dependent or if
@@ -1050,6 +1074,10 @@ void RelocationScanner::processAux(RelExpr expr, RelType type, uint64_t offset,
     } else if (!isAbsoluteValue(sym)) {
       expr =
           target->adjustGotPcExpr(type, addend, sec->content().data() + offset);
+      // If the target adjusted the expression to R_RELAX_GOT_PC, we may end up
+      // needing the GOT if we can't relax everything.
+      if (expr == R_RELAX_GOT_PC)
+        in.got->hasGotOffRel.store(true, std::memory_order_relaxed);
     }
   }
 
@@ -1072,7 +1100,9 @@ void RelocationScanner::processAux(RelExpr expr, RelType type, uint64_t offset,
       // for detailed description:
       // ftp://www.linux-mips.org/pub/linux/mips/doc/ABI/mipsabi.pdf
       in.mipsGot->addEntry(*sec->file, sym, addend, expr);
-    } else {
+    } else if (!sym.isTls() || config->emachine != EM_LOONGARCH) {
+      // Many LoongArch TLS relocs reuse the R_LOONGARCH_GOT type, in which
+      // case the NEEDS_GOT flag shouldn't get set.
       sym.setFlags(NEEDS_GOT);
     }
   } else if (needsPlt(expr)) {
@@ -1112,7 +1142,8 @@ void RelocationScanner::processAux(RelExpr expr, RelType type, uint64_t offset,
                     (isa<EhInputSection>(sec) && config->emachine != EM_MIPS));
   if (canWrite) {
     RelType rel = target->getDynRel(type);
-    if (expr == R_GOT || (rel == target->symbolicRel && !sym.isPreemptible)) {
+    if (oneof<R_GOT, R_LOONGARCH_GOT>(expr) ||
+        (rel == target->symbolicRel && !sym.isPreemptible)) {
       addRelativeReloc<true>(*sec, offset, sym, addend, expr, type);
       return;
     } else if (rel != 0) {
@@ -1264,11 +1295,13 @@ static unsigned handleTlsRelocation(RelType type, Symbol &sym,
     return 1;
   }
 
-  // ARM, Hexagon and RISC-V do not support GD/LD to IE/LE relaxation.  For
-  // PPC64, if the file has missing R_PPC64_TLSGD/R_PPC64_TLSLD, disable
+  // ARM, Hexagon, LoongArch and RISC-V do not support GD/LD to IE/LE
+  // relaxation.
+  // For PPC64, if the file has missing R_PPC64_TLSGD/R_PPC64_TLSLD, disable
   // relaxation as well.
   bool toExecRelax = !config->shared && config->emachine != EM_ARM &&
                      config->emachine != EM_HEXAGON &&
+                     config->emachine != EM_LOONGARCH &&
                      config->emachine != EM_RISCV &&
                      !c.file->ppc64DisableTLSRelax;
 
@@ -1285,8 +1318,7 @@ static unsigned handleTlsRelocation(RelType type, Symbol &sym,
   // being suitable for being dynamically loaded via dlopen. GOT[e0] is the
   // module index, with a special value of 0 for the current module. GOT[e1] is
   // unused. There only needs to be one module index entry.
-  if (oneof<R_TLSLD_GOT, R_TLSLD_GOTPLT, R_TLSLD_PC, R_TLSLD_HINT>(
-          expr)) {
+  if (oneof<R_TLSLD_GOT, R_TLSLD_GOTPLT, R_TLSLD_PC, R_TLSLD_HINT>(expr)) {
     // Local-Dynamic relocs can be relaxed to Local-Exec.
     if (toExecRelax) {
       c.addReloc({target->adjustTlsExpr(type, R_RELAX_TLS_LD_TO_LE), type,
@@ -1317,7 +1349,8 @@ static unsigned handleTlsRelocation(RelType type, Symbol &sym,
   }
 
   if (oneof<R_AARCH64_TLSDESC_PAGE, R_TLSDESC, R_TLSDESC_CALL, R_TLSDESC_PC,
-            R_TLSDESC_GOTPLT, R_TLSGD_GOT, R_TLSGD_GOTPLT, R_TLSGD_PC>(expr)) {
+            R_TLSDESC_GOTPLT, R_TLSGD_GOT, R_TLSGD_GOTPLT, R_TLSGD_PC,
+            R_LOONGARCH_TLSGD_PAGE_PC>(expr)) {
     if (!toExecRelax) {
       sym.setFlags(NEEDS_TLSGD);
       c.addReloc({expr, type, offset, addend, &sym});
@@ -1337,8 +1370,8 @@ static unsigned handleTlsRelocation(RelType type, Symbol &sym,
     return target->getTlsGdRelaxSkip(type);
   }
 
-  if (oneof<R_GOT, R_GOTPLT, R_GOT_PC, R_AARCH64_GOT_PAGE_PC, R_GOT_OFF,
-            R_TLSIE_HINT>(expr)) {
+  if (oneof<R_GOT, R_GOTPLT, R_GOT_PC, R_AARCH64_GOT_PAGE_PC,
+            R_LOONGARCH_GOT_PAGE_PC, R_GOT_OFF, R_TLSIE_HINT>(expr)) {
     ctx.hasTlsIe.store(true, std::memory_order_relaxed);
     // Initial-Exec relocs can be relaxed to Local-Exec if the symbol is locally
     // defined.
@@ -1561,7 +1594,8 @@ template <class ELFT> void elf::scanRelocations() {
         scanner.template scanSection<ELFT>(*sec);
       if (part.armExidx && part.armExidx->isLive())
         for (InputSection *sec : part.armExidx->exidxSections)
-          scanner.template scanSection<ELFT>(*sec);
+          if (sec->isLive())
+            scanner.template scanSection<ELFT>(*sec);
     }
   });
 }
@@ -1650,6 +1684,10 @@ void elf::postScanRelocations() {
     auto flags = sym.flags.load(std::memory_order_relaxed);
     if (handleNonPreemptibleIfunc(sym, flags))
       return;
+
+    if (sym.isTagged() && sym.isDefined())
+      mainPart->memtagDescriptors->addSymbol(sym);
+
     if (!sym.needsDynReloc())
       return;
     sym.allocateAux();

@@ -122,7 +122,7 @@ double __complex__ __divdc3(double __a, double __b, double __c, double __d) {
   return __devicelib___divdc3(__a, __b, __c, __d);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // cexp10 is not standard C99 complex API, it is only required by omp libdevice.
 DEVICE_EXTERN_C_INLINE
 double __complex__ cexp10(double __complex__ z) {
@@ -133,7 +133,7 @@ DEVICE_EXTERN_C_INLINE
 double __complex__ clog10(double __complex__ z) {
   return __devicelib_clog10(z);
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target

@@ -14,8 +14,8 @@
 ;
 ; HIR Test.
 ; CHECK:      DO i1 = 0, 1023, 4
-; CHECK-NEXT:    (<4 x i32*>*)(%ip1)[i1] = null;
-; CHECK-NEXT:    (<4 x i32*>*)(%ip2)[i1] = null;
+; CHECK-NEXT:    (<4 x ptr>*)(%ip1)[i1] = null;
+; CHECK-NEXT:    (<4 x ptr>*)(%ip2)[i1] = null;
 ; CHECK-NEXT: END LOOP
 
 ; ModuleID = 'tsmall.c'
@@ -24,18 +24,18 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32** noalias nocapture %ip1, i32** noalias nocapture %ip2) #0 {
+define void @foo(ptr noalias nocapture %ip1, ptr noalias nocapture %ip2) #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %index.06 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
-  %ip2.addr.05 = phi i32** [ %ip2, %entry ], [ %incdec.ptr1, %for.body ]
-  %ip1.addr.04 = phi i32** [ %ip1, %entry ], [ %incdec.ptr, %for.body ]
-  %incdec.ptr = getelementptr inbounds i32*, i32** %ip1.addr.04, i64 1
-  store i32* null, i32** %ip1.addr.04, align 8, !tbaa !1
-  %incdec.ptr1 = getelementptr inbounds i32*, i32** %ip2.addr.05, i64 1
-  store i32* null, i32** %ip2.addr.05, align 8, !tbaa !1
+  %ip2.addr.05 = phi ptr [ %ip2, %entry ], [ %incdec.ptr1, %for.body ]
+  %ip1.addr.04 = phi ptr [ %ip1, %entry ], [ %incdec.ptr, %for.body ]
+  %incdec.ptr = getelementptr inbounds ptr, ptr %ip1.addr.04, i64 1
+  store ptr null, ptr %ip1.addr.04, align 8, !tbaa !1
+  %incdec.ptr1 = getelementptr inbounds ptr, ptr %ip2.addr.05, i64 1
+  store ptr null, ptr %ip2.addr.05, align 8, !tbaa !1
   %inc = add nuw nsw i32 %index.06, 1
   %exitcond = icmp eq i32 %inc, 1024
   br i1 %exitcond, label %for.end, label %for.body

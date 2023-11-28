@@ -11,11 +11,9 @@
 // Internal tests for infinite loops feature
 //
 // ===--------------------------------------------------------------------=== //
-#include "simple_fixture.h"
-
+#include "CL/cl.h"
 #include "gtest_wrapper.h"
-#include <CL/cl.h>
-
+#include "simple_fixture.h"
 #include <string>
 
 class TestInfiniteLoops : public OCLFPGASimpleFixture {};

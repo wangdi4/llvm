@@ -1,6 +1,6 @@
 //===----- RegDDRef.h - Regular data dependency node in HIR -----*- C++ -*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -466,6 +466,9 @@ public:
   }
   uint64_t getDestTypeSizeInBytes() const {
     return getCanonExprUtils().getTypeSizeInBytes(getDestType());
+  }
+  uint64_t getDestTypeStoreSizeInBytes() const {
+    return getCanonExprUtils().getTypeStoreSizeInBytes(getDestType());
   }
 
   // Returns source type size. User is responsible for checking that the type is
@@ -1341,6 +1344,7 @@ public:
   /// NOTE: This function asserts if any of the temp blobs is not contained in
   /// the DDRef.
   unsigned findMaxBlobLevel(unsigned BlobIndex) const;
+  unsigned findMaxBlobLevel(BlobTy Blob) const;
 
   /// Returns true if ref has an IV at \p Level.
   bool hasIV(unsigned Level) const;

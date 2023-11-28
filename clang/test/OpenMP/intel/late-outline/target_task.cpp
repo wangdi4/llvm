@@ -1,11 +1,6 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
-// RUN:  -triple x86_64-unknown-linux-gnu %s \
-// RUN:  | FileCheck --check-prefixes CHECK,CHECK-NEW %s
-
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
-// RUN:  -fno-openmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s \
-// RUN:  | FileCheck --check-prefixes CHECK,CHECK-OLD %s
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 void foo1() {
   double w = 1.0;
@@ -14,14 +9,13 @@ void foo1() {
   // CHECK: [[W:%.+]] = alloca double,
   // CHECK: [[X:%.+]] = alloca i64,
   // CHECK: [[Y:%.+]] = alloca i16,
-  // CHECK-NEW: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
+  // CHECK: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME: "QUAL.OMP.IF"(i32 0)
   // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
   // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[W]]
   // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[X]]
-  // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.OUT"(ptr [[Y]])
-  // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DARR]])
+  // CHECK-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DARR]])
   // CHECK: DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0)
   // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[W]]
@@ -41,11 +35,10 @@ void foo2() {
   // CHECK: [[YP:%.+]] = alloca ptr,
   // CHECK: [[SZ:%.+]] = alloca i32,
   // CHECK: [[YPMAP:%.+]] = alloca ptr, align 8
-  // CHECK-NEW: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
+  // CHECK: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
-  // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.OUT"(ptr [[Y]])
-  // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DARR]])
+  // CHECK-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DARR]])
   // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[YP]]
   // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[Y]]
   // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[SZ]]

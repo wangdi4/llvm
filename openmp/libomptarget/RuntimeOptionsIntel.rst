@@ -3,7 +3,7 @@
 ..
   INTEL CONFIDENTIAL
  
-  Modifications, Copyright (C) 2022-2023 Intel Corporation
+  Modifications, Copyright (C) 2022 Intel Corporation
  
   This software and the related documents are Intel copyrighted materials, and
   your use of them is governed by the express license under which they were
@@ -144,7 +144,7 @@ Only OpenCL plugin supports "CPU" device type.
 <accept-filters> ::= <accept-filter>[;<accept-filter>...]
 <discard-filters> ::= <discard-filter>[;<discard-filter>...]
 <accept-filter> ::= <term>
-<discard-filter> ::= !<term>  // currently  not supported
+<discard-filter> ::= !<term>
 <term> ::= <backend>:<devices>
 <backend> ::= { * | level_zero | opencl | x86_64 }  // case insensitive
 <devices> ::= <device>[,<device>...]
@@ -527,9 +527,21 @@ residency at allocation time.
 ``2``: Make the memory resident on all devices that can access the memory.
 
 For host memory, non-zero value makes the memory resident on all devices, and
-only device memory becomes resident on all devices at allocation time by default.
+only device memory becomes resident on the device that allocates the memory by
+default.
 
 **Default**: ``0x001``
+
+``LIBOMPTARGET_INTEROP_INORDER_SYCL_QUEUE=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Bool> := 1 | T | t | 0 | F | f
+
+Enables/disables use of inorder queue/commandlist for interop objects created
+with sycl queue/commadlist.
+
+**Default**: Disabled
 
 Plugin OpenCL
 -------------

@@ -58,6 +58,9 @@ extern int targetDataUpdate(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
 extern int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
                   KernelArgsTy &KernelArgs, AsyncInfoTy &AsyncInfo);
 
+extern int target_activate_rr(DeviceTy &Device, uint64_t MemorySize,
+                              void *ReqAddr, bool isRecord, bool SaveOutput);
+
 extern int target_replay(ident_t *Loc, DeviceTy &Device, void *HostPtr,
                          void *DeviceMemory, int64_t DeviceMemorySize,
                          void **TgtArgs, ptrdiff_t *TgtOffsets, int32_t NumArgs,
@@ -66,7 +69,6 @@ extern int target_replay(ident_t *Loc, DeviceTy &Device, void *HostPtr,
 
 extern void handleTargetOutcome(bool Success, ident_t *Loc);
 extern bool checkDeviceAndCtors(int64_t &DeviceID, ident_t *Loc);
-extern bool isOffloadDisabled(); // INTEL_COLLAB
 extern void *targetAllocExplicit(size_t Size, int DeviceNum, int Kind,
                                  const char *Name);
 extern void targetFreeExplicit(void *DevicePtr, int DeviceNum, int Kind,
@@ -75,6 +77,9 @@ extern void *targetLockExplicit(void *HostPtr, size_t Size, int DeviceNum,
                                 const char *Name);
 extern void targetUnlockExplicit(void *HostPtr, int DeviceNum,
                                  const char *Name);
+#if INTEL_CUSTOMIZATION
+extern bool isOffloadDisabled();
+#endif // INTEL_CUSTOMIZATION
 
 // This structure stores information of a mapped memory region.
 struct MapComponentInfoTy {
@@ -178,7 +183,7 @@ typedef struct kmp_depend_info {
   } flags;
 } kmp_depend_info_t;
 // functions that extract info from libomp; keep in sync
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 #ifdef _WIN32
 #define LIBOMP_DECL(RetType, FnDecl) RetType __cdecl FnDecl
 #else // _WIN32
@@ -215,7 +220,7 @@ LIBOMP_DECL(kmp_int32,
                                       kmp_depend_info_t *dep_list,
                                       kmp_int32 ndeps_noalias,
                                       kmp_depend_info_t *noalias_dep_list));
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
 int omp_get_default_device(void) __attribute__((weak));
 int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
 int __kmpc_get_target_offload(void) __attribute__((weak));
@@ -244,7 +249,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident_t *loc_ref, kmp_int32 gtid,
                                     kmp_int32 ndeps_noalias,
                                     kmp_depend_info_t *noalias_dep_list)
     __attribute__((weak));
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 /**
  * The argument set that is passed from asynchronous memory copy to block
@@ -282,7 +287,7 @@ struct TargetMemcpyArgsTy {
   const size_t *DstDimensions;
   const size_t *SrcDimensions;
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   /// Captured shape information. This allows the call site to use the same
   /// address for the inputs having different chronological values.
   llvm::SmallVector<size_t> Shape;
@@ -296,7 +301,7 @@ struct TargetMemcpyArgsTy {
   size_t *getDstDimensions() { return Shape.data() + NumDims * 3; }
   /// Return pointer to captured source dimensions
   size_t *getSrcDimensions() { return Shape.data() + NumDims * 4; }
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   /**
    * Constructor for single dimensional copy
@@ -321,7 +326,7 @@ struct TargetMemcpyArgsTy {
         IsRectMemcpy(true), Length(0), DstOffset(0), SrcOffset(0),
         ElementSize(ElementSize), NumDims(NumDims), Volume(Volume),
         DstOffsets(DstOffsets), SrcOffsets(SrcOffsets),
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
         DstDimensions(DstDimensions), SrcDimensions(SrcDimensions) {
     // Positive NumDims is guranteed
     Shape.insert(Shape.end(), Volume, Volume + NumDims);
@@ -330,10 +335,21 @@ struct TargetMemcpyArgsTy {
     Shape.insert(Shape.end(), DstDimensions, DstDimensions + NumDims);
     Shape.insert(Shape.end(), SrcDimensions, SrcDimensions + NumDims);
   }
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
         DstDimensions(DstDimensions), SrcDimensions(SrcDimensions){};
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 };
+
+struct TargetMemsetArgsTy {
+  // Common attributes of a memset operation
+  void *Ptr;
+  int C;
+  size_t N;
+  int DeviceNum;
+
+  // no constructors defined, because this is a PoD
+};
+
 // Invalid GTID as defined by libomp; keep in sync
 #define KMP_GTID_DNE (-2)
 #ifdef __cplusplus
@@ -409,28 +425,6 @@ printKernelArguments(const ident_t *Loc, const int64_t DeviceId,
          getNameFromMapping(VarName).c_str(), ArgSizes[I], Implicit);
   }
 }
-
-#if INTEL_CUSTOMIZATION
-// NOTE: LLVM turns on TIMESCOPE() by default when this file is included.
-#define TIMESCOPE()
-#define TIMESCOPE_WITH_IDENT(IDENT)
-#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)
-#else // INTEL_CUSTOMIZATION
-#include "llvm/Support/TimeProfiler.h"
-#define TIMESCOPE() llvm::TimeTraceScope TimeScope(__FUNCTION__)
-#define TIMESCOPE_WITH_IDENT(IDENT)                                            \
-  SourceInfo SI(IDENT);                                                        \
-  llvm::TimeTraceScope TimeScope(__FUNCTION__, SI.getProfileLocation())
-#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)                             \
-  SourceInfo SI(IDENT);                                                        \
-  llvm::TimeTraceScope TimeScope(NAME, SI.getProfileLocation())
-#endif // INTEL_CUSTOMIZATION
-#else
-#define TIMESCOPE()
-#define TIMESCOPE_WITH_IDENT(IDENT)
-#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)
-
-#endif
 
 // Wrapper for task stored async info objects.
 class TaskAsyncInfoWrapperTy {
@@ -529,3 +523,32 @@ public:
 
   bool isAboveThreshold() const { return Count > CountThreshold; }
 };
+
+#if INTEL_CUSTOMIZATION
+// NOTE: LLVM turns on TIMESCOPE() by default when this file is included.
+#define TIMESCOPE()
+#define TIMESCOPE_WITH_IDENT(IDENT)
+#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)
+#define TIMESCOPE_WITH_RTM_AND_IDENT(RegionTypeMsg, IDENT)
+#else // INTEL_CUSTOMIZATION
+#include "llvm/Support/TimeProfiler.h"
+#define TIMESCOPE() llvm::TimeTraceScope TimeScope(__FUNCTION__)
+#define TIMESCOPE_WITH_IDENT(IDENT)                                            \
+  SourceInfo SI(IDENT);                                                        \
+  llvm::TimeTraceScope TimeScope(__FUNCTION__, SI.getProfileLocation())
+#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)                             \
+  SourceInfo SI(IDENT);                                                        \
+  llvm::TimeTraceScope TimeScope(NAME, SI.getProfileLocation())
+#define TIMESCOPE_WITH_RTM_AND_IDENT(RegionTypeMsg, IDENT)                     \
+  SourceInfo SI(IDENT);                                                        \
+  std::string ProfileLocation = SI.getProfileLocation();                       \
+  std::string RTM = RegionTypeMsg;                                             \
+  llvm::TimeTraceScope TimeScope(__FUNCTION__, ProfileLocation + RTM)
+#endif // INTEL_CUSTOMIZATION
+#else
+#define TIMESCOPE()
+#define TIMESCOPE_WITH_IDENT(IDENT)
+#define TIMESCOPE_WITH_NAME_AND_IDENT(NAME, IDENT)
+#define TIMESCOPE_WITH_RTM_AND_IDENT(RegionTypeMsg, IDENT)
+
+#endif

@@ -1,6 +1,12 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
 ;
+; INTEL_CUSTOMIZATION
+;  CMPLRLLVM-33526:
+;  This test simulates the code that Fortran frontend generates in case of a function with
+;  complex return type, which causes two uses of the return value within the region.
+; end INTEL_CUSTOMIZATION
+
 ; Test src:
 
 ; void use(int v);
@@ -40,36 +46,21 @@ target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
 
 ; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @bar(double* %y) #0 {
+define dso_local void @bar(ptr %y) {
 entry:
-  %y.addr = alloca double*, align 8
-  store double* %y, double** %y.addr, align 8
+  %y.addr = alloca ptr, align 8
+  store ptr %y, ptr %y.addr, align 8
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISPATCH"() ]
-  %call = call i32 (...) @foo() #1 [ "QUAL.OMP.DISPATCH.CALL"() ]
-  call void @use(i32 %call) #1
-  call void @use(i32 %call) #1
+  %call = call i32 (...) @foo() [ "QUAL.OMP.DISPATCH.CALL"() ]
+  call void @use(i32 %call)
+  call void @use(i32 %call)
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.DISPATCH"() ]
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-declare dso_local void @use(i32) #2
-
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
+declare dso_local void @use(i32)
 declare dso_local i32 @foo(...) #3
 
-attributes #0 = { noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { nounwind }
-attributes #2 = { "approx-func-fp-math"="true" "frame-pointer"="all" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #3 = { "approx-func-fp-math"="true" "frame-pointer"="all" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "openmp-variant"="name:foo_gpu;construct:dispatch;arch:gen" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-
-!llvm.module.flags = !{!0, !1, !2, !3}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{i32 7, !"openmp", i32 51}
-!2 = !{i32 7, !"uwtable", i32 1}
-!3 = !{i32 7, !"frame-pointer", i32 2}
+attributes #3 = { "openmp-variant"="name:foo_gpu;construct:dispatch;arch:gen" }

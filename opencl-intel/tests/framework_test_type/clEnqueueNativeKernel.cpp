@@ -1,9 +1,9 @@
+#include "CL/cl.h"
 #include "FrameworkTestThreads.h"
 #include "TestsHelpClasses.h"
-#include <CL/cl.h>
+#include "tbb/global_control.h"
+#include "tbb/parallel_for.h"
 #include <cmath>
-#include <tbb/global_control.h>
-#include <tbb/parallel_for.h>
 
 extern cl_device_type gDeviceType;
 

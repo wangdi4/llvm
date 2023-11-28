@@ -1,6 +1,7 @@
 ; RUN: SATest -BUILD -tsize=1 -enable-expensive-mem-opts=1 -pass-manager-type=ocl -llvm-option=-debug-pass-manager -config=%S/pipeline.tst.cfg 2>&1 | FileCheck %s
 
 ; CHECK:      Running pass: SPIRV::SPIRVToOCL20Pass
+; CHECK-NEXT: Running pass: RemoveDeviceLibAssertFallbackPass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
@@ -8,8 +9,8 @@
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
-
-; CHECK-NEXT: Running pass: AddFunctionAttrsPass
+; CHECK-NEXT: Running pass: LinearIdResolverPass
+; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: SimplifyCFGPass
 
 ; CHECK:      Running pass: SROAPass
@@ -19,8 +20,6 @@
 ; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK-NEXT: Running pass: InstSimplifyPass
-; CHECK-NEXT: Running pass: LinearIdResolverPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
 ; CHECK-NEXT: Running pass: SGRemapWICallPass
 ; CHECK-NEXT: Running pass: PromotePass
@@ -103,10 +102,11 @@
 ; CHECK-NEXT: Running pass: EarlyCSEPass
 ; CHECK-NEXT: Running pass: PromotePass
 ; CHECK-NEXT: Running pass: InstCombinePass
-; CHECK-NEXT: Running pass: TaskSeqAsyncHandling  ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT: Running pass: TaskSeqAsyncHandling
 ; CHECK-NEXT: Running pass: ResolveMatrixFillPass
-; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass
 ; CHECK-NEXT: Running pass: ResolveMatrixWISlicePass
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT: Running pass: InferArgumentAliasPass
 ; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
@@ -119,10 +119,6 @@
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
 ; CHECK:      Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Running pass: DCEPass
-
-; CHECK:      Running pass: SimplifyCFGPass
-
-; CHECK:      Running pass: DCEPass
 
 ; CHECK:      Running pass: SimplifyCFGPass
 
@@ -139,6 +135,7 @@
 ; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
+; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass ; INTEL
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: LoopUnrollPass
 ; CHECK-NEXT: Running pass: OptimizeIDivAndIRemPass
@@ -146,23 +143,6 @@
 ; CHECK:      Running pass: PreventDivCrashesPass
 
 ; CHECK:      Running pass: InstCombinePass
-
-; CHECK:      Running analysis: SYCLAliasAnalysis
-
-; CHECK:      Running pass: GVNPass
-
-; CHECK:      Running pass: VectorCombinePass
-; CHECK-NEXT: Running pass: JumpThreadingPass
-
-; CHECK:      Running pass: LoopUnrollPass
-
-; CHECK:      Running pass: OptimizeIDivAndIRemPass
-
-; CHECK:      Running pass: PreventDivCrashesPass
-
-; CHECK:      Running pass: InstCombinePass
-
-; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK:      Running pass: GVNPass
 
@@ -177,10 +157,6 @@
 
 ; CHECK:      Running pass: SimplifyCFGPass
 
-; CHECK:      Running pass: DCEPass
-
-; CHECK:      Running pass: SimplifyCFGPass
-
 ; CHECK: Running pass: UnifyFunctionExitNodesPass
 ; CHECK: Running pass: ReplaceScalarWithMaskPass
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
@@ -188,39 +164,28 @@
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: PromotePass
 
-; CHECK:      Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running pass: DCEPass
-; CHECK-NEXT: Running pass: SimplifyCFGPass
-; CHECK-NEXT: Running pass: PromotePass
-
-; CHECK:      Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running pass: GroupBuiltinPass
+; CHECK:      Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: BarrierInFunction
 ; CHECK:      Running pass: RemoveDuplicatedBarrierPass
 ; CHECK-NEXT: Running pass: SGBuiltinPass
 ; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
+; CHECK-NEXT: Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SGValueWidenPass
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
-; CHECK-NEXT: Running pass: SGLoopConstructPass
+; CHECK:      Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: SplitBBonBarrier
 ; CHECK-NEXT: Running pass: ReduceCrossBarrierValuesPass
 ; CHECK-NEXT: Running analysis: DataPerValueAnalysis
-; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running analysis: WIRelatedValueAnalysis
 ; CHECK-NEXT: Running analysis: DominanceFrontierAnalysis
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running analysis: DominanceFrontierAnalysis
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running pass: VerifierPass
-; CHECK-NEXT: Running pass: KernelBarrier
-; CHECK-NEXT: Running pass: VerifierPass
-; CHECK-NEXT: Running pass: PromotePass
 
+; CHECK:      Running pass: KernelBarrier
 ; CHECK:      Running pass: PromotePass
 
 ; CHECK:      Running pass: LoopSimplifyPass
@@ -234,14 +199,6 @@
 ; CHECK:      Running pass: BuiltinLICMPass
 ; CHECK:      Running pass: LoopStridedCodeMotionPass
 ; CHECK-NEXT: Running analysis: LoopWIAnalysis
-; CHECK:      Running pass: LoopSimplifyPass
-; CHECK:      Running pass: LoopSimplifyPass
-; CHECK:      Running pass: LCSSAPass
-; CHECK-NEXT: Invalidating analysis: SGSizeAnalysisPass
-; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
-; CHECK-NEXT: Invalidating analysis: DataPerBarrierAnalysis
-; CHECK-NEXT: Invalidating analysis: WIRelatedValueAnalysis
-; CHECK-NEXT: Invalidating analysis: DataPerValueAnalysis
 ; CHECK-NEXT: Running pass: AddImplicitArgsPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
@@ -250,9 +207,6 @@
 ; CHECK:      Running pass: LocalBuffersPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
-; CHECK:      Invalidating analysis: LocalBufferAnalysis
-; CHECK:      Running pass: GlobalOptPass
 
 ; CHECK:      Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
@@ -260,16 +214,12 @@
 ; CHECK:      Running pass: InternalizeGlobalVariablesPass
 
 ; CHECK:      Running pass: BuiltinCallToInstPass
-; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ModuleInlinerWrapperPass
 ; CHECK:      Running pass: InlinerPass
-; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK:      Running pass: PatchCallbackArgsPass
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK-NEXT: Running pass: GlobalDCEPass
 ; CHECK-NEXT: Running pass: DeadArgumentEliminationPass
 ; CHECK-NEXT: Running pass: ArgumentPromotionPass
 ; CHECK-NEXT: Running pass: InstCombinePass
@@ -294,6 +244,8 @@
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
 
+; CHECK:      Running pass: GlobalOptPass
+; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: DCEPass
 
 ; CHECK:      Running pass: SimplifyCFGPass

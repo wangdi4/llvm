@@ -1,6 +1,6 @@
 //===- PrepareKernelArgs.cpp - Prepare DPC++ kernel arguments -------------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -26,8 +26,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "sycl-kernel-prepare-args"
 
-extern bool EnableTLSGlobals;
-
 namespace {
 
 uint64_t STACK_PADDING_BUFFER = DEV_MAXIMUM_ALIGN * 1;
@@ -42,7 +40,7 @@ PreservedAnalyses PrepareKernelArgsPass::run(Module &M,
     return &FAM.getResult<AssumptionAnalysis>(F);
   };
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
-  if (!runImpl(M, UseTLSGlobals, GetAC, IAInfo))
+  if (!runImpl(M, GetAC, IAInfo))
     return PreservedAnalyses::all();
   return PreservedAnalyses::none();
 }
@@ -62,16 +60,16 @@ collectEnqueueKernelAndQueryFuncs(Module &M,
 }
 
 bool PrepareKernelArgsPass::runImpl(
-    Module &M, bool UseTLSGlobals,
-    function_ref<AssumptionCache *(Function &F)> GetAC,
+    Module &M, function_ref<AssumptionCache *(Function &F)> GetAC,
     ImplicitArgsInfo *IAInfo) {
   this->M = &M;
-  this->UseTLSGlobals = UseTLSGlobals | EnableTLSGlobals;
   this->IAInfo = IAInfo;
   LLVMContext &C = M.getContext();
   SizetTy = IntegerType::get(C, M.getDataLayout().getPointerSizeInBits());
   I32Ty = Type::getInt32Ty(C);
   I8Ty = Type::getInt8Ty(C);
+
+  HasTLSGlobals = CompilationUtils::hasTLSGlobals(M);
 
   // Get all kernels (original scalar kernels and vectorized kernels).
   auto kernelsFuncSet = CompilationUtils::getAllKernels(*this->M);
@@ -126,13 +124,67 @@ static Type *getMaxSizeType(const DataLayout &DL, Type *OldTy, Type *NewTy) {
              : OldTy;
 }
 
+std::pair<Value *, Value *> PrepareKernelArgsPass::createHeapMemLoadCmpInst(
+    IRBuilder<> &Builder, Argument *NonUniformArgsBuffer) {
+  PointerType *SizetPtrTy = PointerType::get(SizetTy, 0);
+  Value *HeapMemLoc = Builder.CreateGEP(SizetPtrTy, NonUniformArgsBuffer,
+                                        ConstantInt::get(I32Ty, MAX_WORK_DIM));
+  Value *HeapMem =
+      Builder.Insert(new LoadInst(SizetPtrTy, HeapMemLoc, "", false, Align()));
+  HeapMem->setName("pHeapMem");
+
+  Value *HeapMemNullCmp = Builder.CreateCmp(
+      CmpInst::ICMP_EQ, HeapMem, Constant::getNullValue(HeapMem->getType()));
+  return std::make_pair(HeapMem, HeapMemNullCmp);
+}
+
+// If HeapMem is nullptr, alloca a new array on stack.
+// If HeapMem is not nullptr, use heap memory to store data.
+Value *PrepareKernelArgsPass::allocaArrayForLocalPrivateBuffer(
+    IRBuilder<> &Builder, std::pair<Value *, Value *> HeapMem,
+    const DataLayout &DL, Value *BufferSize, unsigned Alignment,
+    Value *HeapCurrentOffset) {
+  Value *HeapMemPtr = HeapMem.first;
+  Value *HeapMemNullCmp = HeapMem.second;
+  assert(HeapMemPtr && HeapMemNullCmp &&
+         "HeapMem and HeapMemNullCmp should be created.");
+  Value *AllocaSize = Builder.CreateSelect(HeapMemNullCmp, BufferSize,
+                                           ConstantInt::get(SizetTy, 0));
+  LLVM_DEBUG(CompilationUtils::insertPrintf(
+      "LOCAL OR SPECIAL BUFFER USE HEAP MEMORY: ", Builder,
+      {HeapMemNullCmp, AllocaSize}, {"CMP", "ALLOCA_SIZE"}));
+
+  const auto AllocaAddrSpace = DL.getAllocaAddrSpace();
+  AllocaInst *Allocation =
+      new AllocaInst(I8Ty, AllocaAddrSpace, AllocaSize, Align(Alignment));
+  Builder.Insert(Allocation);
+  Value *HeapLocation = Builder.CreateGEP(I8Ty, HeapMemPtr, HeapCurrentOffset);
+  Value *LocalArgBuffer =
+      Builder.CreateSelect(HeapMemNullCmp, Allocation, HeapLocation);
+  return LocalArgBuffer;
+}
+
+static bool hasLocalOrSpecialBuffer(
+    std::vector<KernelArgument> &Arguments,
+    SYCLKernelMetadataAPI::KernelInternalMetadataAPI *KIMD) {
+  for (auto KArg : Arguments)
+    if (KArg.Ty == KRNL_ARG_PTR_LOCAL)
+      return true;
+
+  uint64_t LocalBufferSize =
+      KIMD->LocalBufferSize.hasValue() ? KIMD->LocalBufferSize.get() : 0;
+  uint64_t BarrierBufferSize =
+      KIMD->BarrierBufferSize.hasValue() ? KIMD->BarrierBufferSize.get() : 0;
+  return LocalBufferSize > 0 || BarrierBufferSize > 0;
+}
+
 std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
-    IRBuilder<> &Builder, Function *WrappedKernel, Argument *ArgsBuffer,
-    Argument *WGId, Argument *RuntimeContext) {
+    IRBuilder<> &Builder, Function *WrappedKernel, Argument *UniformArgsBuffer,
+    Argument *NonUniformArgsBuffer, Argument *RuntimeContext) {
   // Get old function's arguments list in the OpenCL level from its metadata
   std::vector<KernelArgument> Arguments;
   std::vector<unsigned int> MemoryArguments;
-  CompilationUtils::parseKernelArguments(M, WrappedKernel, UseTLSGlobals,
+  CompilationUtils::parseKernelArguments(M, WrappedKernel, HasTLSGlobals,
                                          Arguments, MemoryArguments);
 
   std::vector<Value *> Params;
@@ -140,22 +192,31 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(WrappedKernel);
 
   const DataLayout &DL = M->getDataLayout();
+  Value *WGId = NonUniformArgsBuffer;
+  Value *HeapCurrentOffset = ConstantInt::get(SizetTy, 0);
+
+  // The first is heap memory pointer
+  // The sconed is cmp result of heap memory pointer and null
+  std::pair<Value *, Value *> HeapMem(nullptr, nullptr);
+  if (hasLocalOrSpecialBuffer(Arguments, &KIMD))
+    HeapMem = createHeapMemLoadCmpInst(Builder, NonUniformArgsBuffer);
+
   // TODO :  get common code from the following 2 for loops into a function
   // Handle explicit arguments
   for (unsigned ArgNo = 0; ArgNo < Arguments.size(); ++ArgNo) {
     KernelArgument KArg = Arguments[ArgNo];
     //  %0 = getelementptr i8* %pBuffer, i32 CurrOffset
-    Value *GEP = Builder.CreateGEP(ArgsBufferValueTy, ArgsBuffer,
+    Value *GEP = Builder.CreateGEP(ArgsBufferValueTy, UniformArgsBuffer,
                                    ConstantInt::get(I32Ty, KArg.OffsetInBytes));
 
     Value *Arg;
 
     if (KArg.Ty == KRNL_ARG_COMPOSITE || KArg.Ty == KRNL_ARG_VECTOR_BY_REF) {
       // If this is a struct argument, then the struct itself is passed by value
-      // inside ArgsBuffer and the original kernel signature was: foo(...,
-      // MyStruct* byval myStruct, ...) meaning GEP already points to the
-      // structure and we do not need to load it we just need to have a bitcast
-      // from i8* to MyStruct* and pass the pointer (!!!) to foo
+      // inside UniformArgsBuffer and the original kernel signature was:
+      // foo(..., MyStruct* byval myStruct, ...) meaning GEP already points to
+      // the structure and we do not need to load it we just need to have a
+      // bitcast from i8* to MyStruct* and pass the pointer (!!!) to foo
 
       // %myStruct = bitcast i8* to MyStruct*
       // foo(..., %myStruct, ...)
@@ -170,7 +231,6 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
           SizetTy, PointerCast, MaybeAlign(DL.getABITypeAlign(SizetTy)), false);
       // TODO: when buffer size is 0, we might want to set dummy address for
       // debugging!
-      const auto AllocaAddrSpace = DL.getAllocaAddrSpace();
 
       // Set alignment of buffer to type size.
       unsigned Alignment = DEV_MAXIMUM_ALIGN;
@@ -207,20 +267,18 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
         Alignment = NextPowerOf2(DL.getTypeAllocSize(EltTy) - 1);
       }
 
-      // We can't use overload without explicit alloca addrspace because the
-      // BB does not have a parent yet.
-      AllocaInst *Allocation =
-          new AllocaInst(I8Ty, AllocaAddrSpace, BufferSize, Align(Alignment));
-      Builder.Insert(Allocation);
-      Arg = Builder.CreatePointerCast(Allocation, CallIt->getType());
+      Value *LocalArgBuffer = allocaArrayForLocalPrivateBuffer(
+          Builder, HeapMem, DL, BufferSize, Alignment, HeapCurrentOffset);
+      Arg = Builder.CreatePointerCast(LocalArgBuffer, CallIt->getType());
+      HeapCurrentOffset = Builder.CreateAdd(BufferSize, HeapCurrentOffset);
     } else if (KArg.Ty == KRNL_ARG_PTR_BLOCK_LITERAL) {
       Arg = Builder.CreateAddrSpaceCast(GEP, CallIt->getType());
     } else {
       // Otherwise this is some other type, lets say int4, then int4 itself is
-      // passed by value inside ArgsBuffer and the original kernel signature
-      // was: foo(..., int4 vec, ...) meaning GEP points to int4 and we just
-      // need to have a bitcast from i8* to int4* load the int4 and pass the
-      // loaded value (!!!) to foo
+      // passed by value inside UniformArgsBuffer and the original kernel
+      // signature was: foo(..., int4 vec, ...) meaning GEP points to int4 and
+      // we just need to have a bitcast from i8* to int4* load the int4 and pass
+      // the loaded value (!!!) to foo
 
       // %pVec = bitcast i8* %0 to int4 *
       // %vec = load int4 * %pVec {, align <alignment> }
@@ -274,7 +332,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   ImplicitArgsUtils::initImplicitArgProps(PtrSizeInBytes);
   for (unsigned int I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
     Value *Arg = nullptr;
-    if (!UseTLSGlobals)
+    if (!HasTLSGlobals)
       assert(CallIt->getType() == IAInfo->getArgType(I) &&
              "Mismatch in arg found in function and expected arg type");
     assert((I == ImplicitArgsUtils::IA_SLM_BUFFER ||
@@ -293,20 +351,20 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       } else {
         // add stack padding before and after this alloca, to allow unmasked
         // wide loads inside the vectorizer.
-        Type *SLMType =
-            ArrayType::get(I8Ty, SizeInBytes + STACK_PADDING_BUFFER * 2);
-        const auto AllocaAddrSpace = DL.getAllocaAddrSpace();
+        size_t LocalBufferSize = SizeInBytes + STACK_PADDING_BUFFER * 2;
+
         // Set alignment of implicit local buffer to max alignment.
         // TODO: we should choose the min required alignment size
         // move argument up over the lower side padding.
-        AllocaInst *slmBuffer =
-            new AllocaInst(SLMType, AllocaAddrSpace, nullptr,
-                           Align(TypeAlignment::MAX_ALIGNMENT));
-        Builder.Insert(slmBuffer);
+        Value *SLMBuffer = allocaArrayForLocalPrivateBuffer(
+            Builder, HeapMem, DL, ConstantInt::get(SizetTy, LocalBufferSize),
+            TypeAlignment::MAX_ALIGNMENT, HeapCurrentOffset);
         Value *CastBuf =
-            Builder.CreatePointerCast(slmBuffer, PointerType::get(I8Ty, 3));
+            Builder.CreatePointerCast(SLMBuffer, PointerType::get(I8Ty, 3));
         Arg = Builder.CreateGEP(I8Ty, CastBuf,
                                 ConstantInt::get(I32Ty, STACK_PADDING_BUFFER));
+        HeapCurrentOffset = Builder.CreateAdd(
+            ConstantInt::get(SizetTy, LocalBufferSize), HeapCurrentOffset);
       }
     } break;
     case ImplicitArgsUtils::IA_WORK_GROUP_ID:
@@ -400,12 +458,9 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
                                             "BarrierBufferSize",
                                             /*HasNUW*/ true, /*HasNSW*/ true);
 
-      // alloca i8, %BarrierBufferSize
-      // TODO: we should choose the min required alignment size
-      AllocaInst *BarrierBuffer =
-          new AllocaInst(I8Ty, AllocaAddrSpace, BarrierBufferSize,
-                         Align(TypeAlignment::MAX_ALIGNMENT));
-      Builder.Insert(BarrierBuffer);
+      Value *BarrierBuffer = allocaArrayForLocalPrivateBuffer(
+          Builder, HeapMem, DL, BarrierBufferSize, TypeAlignment::MAX_ALIGNMENT,
+          HeapCurrentOffset);
       Arg = BarrierBuffer;
       LLVM_DEBUG(CompilationUtils::insertPrintf(
           "SPECIAL BUFFER: ", Builder, {BarrierBuffer, BarrierBufferSize},
@@ -417,7 +472,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       const ImplicitArgProperties &ImplicitArgProp =
           ImplicitArgsUtils::getImplicitArgProps(I);
       // %0 = getelementptr i8* %pBuffer, i32 CurrOffset
-      Value *GEP = Builder.CreateGEP(ArgsBufferValueTy, ArgsBuffer,
+      Value *GEP = Builder.CreateGEP(ArgsBufferValueTy, UniformArgsBuffer,
                                      ConstantInt::get(I32Ty, CurrOffset));
       Arg = Builder.CreatePointerCast(GEP, IAInfo->getArgType(I));
       WGInfo = Arg;
@@ -426,7 +481,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
     } break;
     }
 
-    if (UseTLSGlobals) {
+    if (HasTLSGlobals) {
       assert(Arg && "No value was created for this TLS global!");
       auto *C = dyn_cast<Constant>(Arg);
       if (!(C && C->isNullValue() &&
@@ -505,25 +560,6 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
     }
   }
 
-  if (M->getContext().supportsTypedPointers()) {
-    for (User *U : WrappedKernel->users()) {
-      // Replace bitcast operator user, e.g. in global value.
-      if (auto *Op = dyn_cast<BitCastOperator>(U)) {
-        auto *WrapperOp = ConstantExpr::getBitCast(Wrapper, Op->getDestTy());
-        Op->replaceAllUsesWith(WrapperOp);
-      } else if (auto *Op = dyn_cast<SelectInst>(U)) {
-        // WrappedKernel is used as select instruction operand
-        auto *WrapperOp =
-            ConstantExpr::getBitCast(Wrapper, Op->getOperand(1)->getType());
-        if (Op->getOperand(1)->getName() == WrappedKernel->getName())
-          Op->setOperand(1, WrapperOp);
-        else
-          Op->setOperand(2, WrapperOp);
-      }
-    }
-    return;
-  }
-
   ValueToValueMapTy VMap;
   VMap[WrappedKernel] = Wrapper;
   ValueMapper VMapper(VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
@@ -535,6 +571,8 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
 
     if (auto *I = dyn_cast<Instruction>(U))
       VMapper.remapInstruction(*I);
+    else if (auto *GV = dyn_cast<GlobalVariable>(U))
+      GV->setInitializer(VMapper.mapConstant(*GV->getInitializer()));
     else if (auto *C = dyn_cast<Constant>(U))
       C->replaceAllUsesWith(VMapper.mapConstant(*C));
     else
@@ -562,8 +600,6 @@ static Value *HandleByValArgument(Type *ByValType, Value *Arg,
                                   Instruction *TheCall,
                                   const Function *CalledFunc,
                                   Align ByValAlignment) {
-  assert(cast<PointerType>(Arg->getType())
-             ->isOpaqueOrPointeeTypeMatches(ByValType));
   Function *Caller = TheCall->getFunction();
   const DataLayout &DL = Caller->getParent()->getDataLayout();
 
@@ -668,16 +704,6 @@ static void inlineWrappedKernel(CallInst *CI, AssumptionCache *AC) {
 
   BasicBlock *Entry = &Caller->getEntryBlock();
   BranchInst::Create(FirstNewBlock, Entry);
-
-  // Move alloca to beginning of caller's entry block.
-  auto InsertPoint = Entry->begin();
-  for (auto I = FirstNewBlock->begin(), E = FirstNewBlock->end(); I != E;) {
-    auto *AI = dyn_cast<AllocaInst>(I++);
-    if (!AI)
-      continue;
-    AI->removeFromParent();
-    AI->insertInto(Entry, InsertPoint);
-  }
 
   // Inject byval arguments initialization.
   for (ByValInit &Init : ByValInits)

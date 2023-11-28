@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2021-2022 Intel Corporation
+# Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -19,7 +19,6 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         Intel_LoopTransforms.cpp
         HIRSSADeconstruction.cpp
         HIRTempCleanup.cpp
-        HIRPrinter.cpp
         HIRCodeGen.cpp
         HIROptPredicate.cpp
         HIRPreVecCompleteUnroll.cpp
@@ -27,7 +26,6 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRCompleteUnroll.cpp
         HIRGeneralUnroll.cpp
         HIRUnrollAndJam.cpp
-        HIRDummyTransformation.cpp
         HIRLoopInterchange.cpp
         HIRRuntimeDD.cpp
         HIRLoopBlocking.cpp
@@ -46,7 +44,6 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRPMSymbolicTripCountCompleteUnroll.cpp
         HIRScalarReplArray.cpp
         ParVecDirectiveInsertion.cpp
-        HIRParDirInsert.cpp
         HIRVecDirInsert.cpp
         HIROptVarPredicate.cpp
         HIRIdiomRecognition.cpp
@@ -89,6 +86,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRLowerSmallMemsetMemcpy.cpp
         HIRNormalizeCasts.cpp
         HIRSpecialOptPredicate.cpp
+        HIRPreprocessNonUnitStrideAccess.cpp
 # INTEL_FEATURE_SW_ADVANCED
         HIRCrossLoopArrayContraction.cpp
         HIRInterLoopBlocking.cpp

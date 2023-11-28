@@ -4,7 +4,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-output -disable-vplan-codegen -debug-only=vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=4 -disable-output -disable-vplan-codegen -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-force-vf=4 -disable-output -disable-vplan-codegen -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
 
 ; Tree conflict should not be lowered to double permute tree reduction for all test cases
 

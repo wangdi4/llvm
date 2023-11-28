@@ -34,7 +34,7 @@ attributes #1 = { alwaysinline "kernel_wrapper"="__Vectorized_.test" }
 !sycl.kernels = !{!0}
 !0 = !{ptr @__test_separated_args, ptr @____Vectorized_.test_separated_args}
 !1 = !{!"int*"}
-!2 = !{i32 addrspace(1)* null}
+!2 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY: WARNING: Missing line 1
 ; DEBUGIFY: WARNING: Missing line 2

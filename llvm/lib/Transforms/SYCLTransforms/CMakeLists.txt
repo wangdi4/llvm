@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2022-2023 Intel Corporation
+# Copyright (C) 2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -86,6 +86,7 @@ add_llvm_component_library(LLVMSYCLTransforms
   RedundantPhiNodePass.cpp
   RelaxedMath.cpp
   RemoveAtexit.cpp
+  RemoveDeviceLibAssertFallback.cpp
   RemoveDuplicatedBarrier.cpp
   ReplaceScalarWithMask.cpp
   ReqdSubGroupSize.cpp
@@ -115,6 +116,7 @@ add_llvm_component_library(LLVMSYCLTransforms
   SYCLRewritePipes.cpp
   Utils/BarrierUtils.cpp
   Utils/CompilationUtils.cpp
+  Utils/DiagnosticInfo.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp
   Utils/LoopPeeling.cpp

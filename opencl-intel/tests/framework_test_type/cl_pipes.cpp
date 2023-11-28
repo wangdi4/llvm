@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2013 Intel Corporation
+// Copyright (c) 2006 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -19,7 +19,6 @@
 // problem reports or change requests be submitted to it directly
 
 #include "CL/cl.h"
-#include "CL/cl_platform.h"
 #include "TestsHelpClasses.h"
 #include "test_utils.h"
 #include <iostream>

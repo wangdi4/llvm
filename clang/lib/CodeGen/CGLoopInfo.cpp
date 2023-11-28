@@ -669,6 +669,11 @@ MDNode *LoopInfo::createMetadata(
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.vector.aligned")};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
+  if (Attrs.VectorizeUnAlignedEnable) {
+    LLVMContext &Ctx = Header->getContext();
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.vector.unaligned")};
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
   if (Attrs.VectorizeDynamicAlignEnable) {
     LLVMContext &Ctx = Header->getContext();
     llvm::SmallVector<llvm::Metadata *, 4> Vals;
@@ -732,6 +737,7 @@ MDNode *LoopInfo::createMetadata(
                             llvm::Type::getInt32Ty(Ctx), Attrs.LoopCountAvg))};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
+
 #endif // INTEL_CUSTOMIZATION
 
   if (Attrs.GlobalSYCLIVDepInfo.has_value()) {
@@ -833,6 +839,14 @@ MDNode *LoopInfo::createMetadata(
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
 
+  // Setting clang::code_align attribute.
+  if (Attrs.CodeAlign > 0) {
+    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.align"),
+                        ConstantAsMetadata::get(ConstantInt::get(
+                            llvm::Type::getInt32Ty(Ctx), Attrs.CodeAlign))};
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
+
   LoopProperties.insert(LoopProperties.end(), AdditionalLoopProperties.begin(),
                         AdditionalLoopProperties.end());
   return createFullUnrollMetadata(Attrs, LoopProperties, HasUserTransforms);
@@ -841,18 +855,18 @@ MDNode *LoopInfo::createMetadata(
 LoopAttributes::LoopAttributes(bool IsParallel)
     : IsParallel(IsParallel), VectorizeEnable(LoopAttributes::Unspecified),
 #if INTEL_CUSTOMIZATION
-      IntelSimdVectorizeEnable(false),
-      IVDepEnable(false), IVDepHLSEnable(false), IVDepHLSIntelEnable(false),
-      IVDepCount(0), IIAtMost(0), IIAtLeast(0), MinIIAtTargetFmaxEnable(false),
+      IntelSimdVectorizeEnable(false), IVDepEnable(false),
+      IVDepHLSEnable(false), IVDepHLSIntelEnable(false), IVDepCount(0),
+      IIAtMost(0), IIAtLeast(0), MinIIAtTargetFmaxEnable(false),
       ForceHyperoptEnable(LoopAttributes::Unspecified),
       FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
       IVDepBack(false), VectorizeAlwaysEnable(false),
-      VectorizeAlwaysAssertEnable(false),
-      VectorizeTemporalEnable(false), VectorizeNonTemporalEnable(false),
-      VectorizeAlignedEnable(false),
-      VectorizeDynamicAlignEnable(false), VectorizeNoDynamicAlignEnable(false),
-      VectorizeVecremainderEnable(false), VectorizeNoVecremainderEnable(false),
-      LoopCountMin(0), LoopCountMax(0), LoopCountAvg(0),
+      VectorizeAlwaysAssertEnable(false), VectorizeTemporalEnable(false),
+      VectorizeNonTemporalEnable(false), VectorizeAlignedEnable(false),
+      VectorizeUnAlignedEnable(false), VectorizeDynamicAlignEnable(false),
+      VectorizeNoDynamicAlignEnable(false), VectorizeVecremainderEnable(false),
+      VectorizeNoVecremainderEnable(false), LoopCountMin(0), LoopCountMax(0),
+      LoopCountAvg(0),
 #endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified),
       UnrollAndJamEnable(LoopAttributes::Unspecified),
@@ -862,8 +876,9 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       SYCLLoopCoalesceNLevels(0), SYCLLoopPipeliningDisable(false),
       SYCLLoopPipeliningEnable(false), UnrollCount(0), UnrollAndJamCount(0),
       DistributeEnable(LoopAttributes::Unspecified), PipelineDisabled(false),
-      PipelineInitiationInterval(0), SYCLNofusionEnable(false),
-      MustProgress(false) {}
+      PipelineInitiationInterval(0), SYCLNofusionEnable(false), CodeAlign(0),
+      MustProgress(false) {
+}
 
 void LoopAttributes::clear() {
   IsParallel = false;
@@ -886,6 +901,7 @@ void LoopAttributes::clear() {
   VectorizeNonTemporalEnable = false;
   VectorizeLength.clear();
   VectorizeAlignedEnable = false;
+  VectorizeUnAlignedEnable = false;
   VectorizeDynamicAlignEnable = false;
   VectorizeNoDynamicAlignEnable = false;
   VectorizeVecremainderEnable = false;
@@ -920,6 +936,7 @@ void LoopAttributes::clear() {
   PipelineDisabled = false;
   PipelineInitiationInterval = 0;
   SYCLNofusionEnable = false;
+  CodeAlign = 0;
   MustProgress = false;
 }
 
@@ -937,8 +954,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
 
   if (!Attrs.IsParallel && Attrs.VectorizeWidth == 0 &&
 #if INTEL_CUSTOMIZATION
-      !Attrs.IntelSimdVectorizeEnable &&
-      Attrs.IVDepCount == 0 &&
+      !Attrs.IntelSimdVectorizeEnable && Attrs.IVDepCount == 0 &&
       Attrs.IIAtMost == 0 && Attrs.IIAtLeast == 0 &&
       !Attrs.MinIIAtTargetFmaxEnable &&
       Attrs.ForceHyperoptEnable == LoopAttributes::Unspecified &&
@@ -946,15 +962,13 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       !Attrs.IVDepHLSIntelEnable && !Attrs.IVDepLoop && !Attrs.IVDepBack &&
       Attrs.FusionEnable == LoopAttributes::Unspecified &&
       !Attrs.VectorizeAlwaysEnable && Attrs.LoopCount.size() == 0 &&
-      !Attrs.VectorizeAlignedEnable &&
+      !Attrs.VectorizeAlignedEnable && !Attrs.VectorizeUnAlignedEnable &&
       !Attrs.VectorizeDynamicAlignEnable &&
       !Attrs.VectorizeNoDynamicAlignEnable &&
       !Attrs.VectorizeVecremainderEnable &&
       !Attrs.VectorizeNoVecremainderEnable &&
-      !Attrs.VectorizeAlwaysAssertEnable &&
-      !Attrs.VectorizeTemporalEnable &&
-      !Attrs.VectorizeNonTemporalEnable &&
-      Attrs.VectorizeLength.size() == 0 &&
+      !Attrs.VectorizeAlwaysAssertEnable && !Attrs.VectorizeTemporalEnable &&
+      !Attrs.VectorizeNonTemporalEnable && Attrs.VectorizeLength.size() == 0 &&
       Attrs.LoopCountMin == 0 && Attrs.LoopCountMax == 0 &&
       Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
@@ -976,7 +990,8 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.UnrollEnable == LoopAttributes::Unspecified &&
       Attrs.UnrollAndJamEnable == LoopAttributes::Unspecified &&
       Attrs.DistributeEnable == LoopAttributes::Unspecified && !StartLoc &&
-      Attrs.SYCLNofusionEnable == false && !EndLoc && !Attrs.MustProgress)
+      Attrs.SYCLNofusionEnable == false && Attrs.CodeAlign == 0 && !StartLoc &&
+      !EndLoc && !Attrs.MustProgress)
     return;
 
   TempLoopID = MDNode::getTemporary(Header->getContext(), std::nullopt);
@@ -1168,6 +1183,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::MinIIAtFmax:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeUnAligned:
       case LoopHintAttr::VectorizeDynamicAlign:
       case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::VectorizeVecremainder:
@@ -1240,6 +1256,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeAligned:
         setVectorizeAlignedEnable();
         break;
+      case LoopHintAttr::VectorizeUnAligned:
+        setVectorizeUnAlignedEnable();
+        break;
       case LoopHintAttr::VectorizeDynamicAlign:
         setVectorizeDynamicAlignEnable();
         break;
@@ -1300,6 +1319,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Fusion:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeUnAligned:
       case LoopHintAttr::VectorizeDynamicAlign:
       case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::VectorizeVecremainder:
@@ -1350,6 +1370,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeUnAligned:
       case LoopHintAttr::VectorizeDynamicAlign:
       case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::VectorizeVecremainder:
@@ -1440,6 +1461,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeUnAligned:
       case LoopHintAttr::VectorizeDynamicAlign:
       case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::VectorizeVecremainder:
@@ -1487,6 +1509,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeUnAligned:
       case LoopHintAttr::VectorizeDynamicAlign:
       case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::VectorizeVecremainder:
@@ -1613,6 +1636,15 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
 
     if (isa<SYCLIntelEnableLoopPipeliningAttr>(A))
       setSYCLLoopPipeliningEnable();
+  }
+
+  // Identify loop attribute 'code_align' from Attrs.
+  // For attribute code_align:
+  // n - 'llvm.loop.align i32 n' metadata will be emitted.
+  if (const auto *CodeAlign = getSpecificAttr<const CodeAlignAttr>(Attrs)) {
+    const auto *CE = cast<ConstantExpr>(CodeAlign->getAlignment());
+    llvm::APSInt ArgVal = CE->getResultAsAPSInt();
+    setCodeAlign(ArgVal.getSExtValue());
   }
 
   setMustProgress(MustProgress);

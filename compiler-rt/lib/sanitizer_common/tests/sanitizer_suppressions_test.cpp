@@ -1,3 +1,21 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 //===-- sanitizer_suppressions_test.cpp -----------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -134,5 +152,37 @@ TEST_F(SuppressionContextTest, RegressionTestForBufferOverflowInSuppressions) {
   EXPECT_DEATH(ctx_.Parse("foo"), "failed to parse suppressions");
 }
 
+#if INTEL_CUSTOMIZATION
+
+TEST_F(SuppressionContextTest, Add1) {
+  ctx_.Add("race", "foo");
+  ctx_.Add("race", "bar");
+  ctx_.Add("race", "baz");
+  CheckSuppressions(3, {"race", "race", "race"}, {"foo", "bar", "baz"});
+}
+
+TEST_F(SuppressionContextTest, AddType) {
+  ctx_.Add("race", "foo");
+  ctx_.Add("thread", "bar");
+  ctx_.Add("mutex", "baz");
+  ctx_.Add("signal", "quz");
+  CheckSuppressions(4, {"race", "thread", "mutex", "signal"},
+                    {"foo", "bar", "baz", "quz"});
+}
+
+TEST_F(SuppressionContextTest, AddHasSuppressionType) {
+  ctx_.Add("race", "foo");
+  ctx_.Add("thread", "bar");
+  EXPECT_TRUE(ctx_.HasSuppressionType("race"));
+  EXPECT_TRUE(ctx_.HasSuppressionType("thread"));
+  EXPECT_FALSE(ctx_.HasSuppressionType("mutex"));
+  EXPECT_FALSE(ctx_.HasSuppressionType("signal"));
+}
+
+TEST_F(SuppressionContextTest, AddWrongType) {
+  EXPECT_DEATH(ctx_.Add("no-such-type", ""), "failed to add suppressions");
+}
+
+#endif  // INTEL_CUSTOMIZATION
 
 }  // namespace __sanitizer

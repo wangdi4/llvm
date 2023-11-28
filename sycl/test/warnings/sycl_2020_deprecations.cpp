@@ -118,6 +118,11 @@ int main() {
   ex.get_cl_code();
   (void)ex;
 
+  // expected-warning@+1{{'online_compiler<sycl::ext::intel::experimental::source_language::opencl_c>' is deprecated}}
+  sycl::ext::intel::experimental::online_compiler<
+      sycl::ext::intel::experimental::source_language::opencl_c>
+      oc(Device);
+
   Queue.submit([](sycl::handler &CGH) {
     // expected-warning@+3{{'nd_range' is deprecated: offsets are deprecated in SYCL2020}}
     // expected-warning@+2{{'nd_range' is deprecated: offsets are deprecated in SYCL2020}}
@@ -133,6 +138,9 @@ int main() {
   // expected-warning@+1{{'byte' is deprecated: use std::byte instead}}
   sycl::byte B;
   (void)B;
+
+  // expected-warning@+1{{abs for floating point types is non-standard and has been deprecated. Please use fabs instead.}}
+  sycl::abs(0.0f);
 
   // expected-warning@+1{{'image_support' is deprecated: deprecated in SYCL 2020, use device::has(aspect::ext_intel_legacy_image) to query for SYCL 1.2.1 image support}}
   using IS = sycl::info::device::image_support;
@@ -328,7 +336,7 @@ int main() {
           // expected-warning@+8{{'legacy' is deprecated: sycl::access::decorated::legacy is deprecated since SYCL 2020}}
           // expected-warning@+8{{'get_pointer' is deprecated: accessor::get_pointer() is deprecated, please use get_multi_ptr()}}
           // expected-warning@+7{{'get_pointer<sycl::access::target::global_buffer, void>' is deprecated: accessor::get_pointer() is deprecated, please use get_multi_ptr()}}
-          // expected-warning@+4{{'make_ptr<int, sycl::access::address_space::global_space, sycl::access::decorated::legacy, std::enable_if<true>>' is deprecated: make_ptr is deprecated since SYCL 2020. Please use address_space_cast instead.}}
+          // expected-warning@+4{{'make_ptr<int, sycl::access::address_space::global_space, sycl::access::decorated::legacy, void>' is deprecated: make_ptr is deprecated since SYCL 2020. Please use address_space_cast instead.}}
           sycl::multi_ptr<int, sycl::access::address_space::global_space,
                           sycl::access::decorated::legacy>
               LegacyGlobalMptr =
@@ -338,7 +346,7 @@ int main() {
           // expected-warning@+5{{'legacy' is deprecated: sycl::access::decorated::legacy is deprecated since SYCL 2020}}
           // expected-warning@+7{{'legacy' is deprecated: sycl::access::decorated::legacy is deprecated since SYCL 2020}}
           // expected-warning@+7{{'get_pointer' is deprecated: local_accessor::get_pointer() is deprecated, please use get_multi_ptr()}}
-          // expected-warning@+4{{'make_ptr<int, sycl::access::address_space::local_space, sycl::access::decorated::legacy, std::enable_if<true>>' is deprecated: make_ptr is deprecated since SYCL 2020. Please use address_space_cast instead.}}
+          // expected-warning@+4{{'make_ptr<int, sycl::access::address_space::local_space, sycl::access::decorated::legacy, void>' is deprecated: make_ptr is deprecated since SYCL 2020. Please use address_space_cast instead.}}
           sycl::multi_ptr<int, sycl::access::address_space::local_space,
                           sycl::access::decorated::legacy>
               LegacyLocalMptr =
@@ -347,7 +355,7 @@ int main() {
                       LocalAcc.get_pointer());
 
           // expected-warning@+4{{'legacy' is deprecated: sycl::access::decorated::legacy is deprecated since SYCL 2020}}
-          // expected-warning@+5{{'make_ptr<int, sycl::access::address_space::private_space, sycl::access::decorated::legacy, std::enable_if<true>>' is deprecated: make_ptr is deprecated since SYCL 2020. Please use address_space_cast instead.}}
+          // expected-warning@+5{{'make_ptr<int, sycl::access::address_space::private_space, sycl::access::decorated::legacy, void>' is deprecated: make_ptr is deprecated since SYCL 2020. Please use address_space_cast instead.}}
           // expected-warning@+6{{'legacy' is deprecated: sycl::access::decorated::legacy is deprecated since SYCL 2020}}
           sycl::multi_ptr<int, sycl::access::address_space::private_space,
                           sycl::access::decorated::legacy>

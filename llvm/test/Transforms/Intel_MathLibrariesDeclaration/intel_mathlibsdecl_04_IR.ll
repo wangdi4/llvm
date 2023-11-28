@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=intel-math-libraries-decl %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes=intel-math-libraries-decl %s -S 2>&1 | FileCheck %s
 
 ; This test case checks that the declarations for
 ; void sincos(double, double*, double*) and double fmod(double, double) were

@@ -24,6 +24,7 @@ File Name:  BWOptions.h
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
 #include <assert.h>
+
 #define PAGE_SIZE 4096
 
 // FIXME 'using namespace' shouldn't be used in header file.

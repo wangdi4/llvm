@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,11 +14,11 @@
 
 #pragma once
 
+#include "Logger.h"
+#include "cl_dynamic_lib.h"
 #include "cl_framework.h"
-#include <Logger.h>
-#include <cl_dynamic_lib.h>
-#include <cl_object.h>
-#include <frontend_api.h>
+#include "cl_object.h"
+#include "frontend_api.h"
 
 namespace Intel {
 namespace OpenCL {

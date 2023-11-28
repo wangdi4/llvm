@@ -1,4 +1,21 @@
 //===- MemProfiler.cpp - memory allocation and access profiler ------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -364,13 +381,13 @@ MemProfiler::isInterestingMemoryAccess(Instruction *I) const {
       StringRef SectionName = GV->getSection();
       // Check if the global is in the PGO counters section.
       auto OF = Triple(I->getModule()->getTargetTriple()).getObjectFormat();
-      if (SectionName.endswith(
+      if (SectionName.ends_with(
               getInstrProfSectionName(IPSK_cnts, OF, /*AddSegmentInfo=*/false)))
         return std::nullopt;
     }
 
     // Do not instrument accesses to LLVM internal variables.
-    if (GV->getName().startswith("__llvm"))
+    if (GV->getName().starts_with("__llvm"))
       return std::nullopt;
   }
 
@@ -562,7 +579,7 @@ bool MemProfiler::instrumentFunction(Function &F) {
     return false;
   if (ClDebugFunc == F.getName())
     return false;
-  if (F.getName().startswith("__memprof_"))
+  if (F.getName().starts_with("__memprof_"))
     return false;
 
   bool FunctionModified = false;
@@ -628,7 +645,7 @@ static void addCallsiteMetadata(Instruction &I,
 
 static uint64_t computeStackId(GlobalValue::GUID Function, uint32_t LineOffset,
                                uint32_t Column) {
-  llvm::HashBuilder<llvm::TruncatedBLAKE3<8>, llvm::support::endianness::little>
+  llvm::HashBuilder<llvm::TruncatedBLAKE3<8>, llvm::endianness::little>
       HashBuilder;
   HashBuilder.add(Function, LineOffset, Column);
   llvm::BLAKE3Result<8> Hash = HashBuilder.final();
@@ -679,12 +696,26 @@ static void readMemprof(Module &M, Function &F,
                         const TargetLibraryInfo &TLI) {
   auto &Ctx = M.getContext();
 
-  auto FuncName = getPGOFuncName(F);
+  auto FuncName = getIRPGOFuncName(F);
   auto FuncGUID = Function::getGUID(FuncName);
-  Expected<memprof::MemProfRecord> MemProfResult =
-      MemProfReader->getMemProfRecord(FuncGUID);
-  if (Error E = MemProfResult.takeError()) {
-    handleAllErrors(std::move(E), [&](const InstrProfError &IPE) {
+  std::optional<memprof::MemProfRecord> MemProfRec;
+  auto Err = MemProfReader->getMemProfRecord(FuncGUID).moveInto(MemProfRec);
+  if (Err) {
+    // If we don't find getIRPGOFuncName(), try getPGOFuncName() to handle
+    // profiles built by older compilers
+    Err = handleErrors(std::move(Err), [&](const InstrProfError &IE) -> Error {
+      if (IE.get() != instrprof_error::unknown_function)
+        return make_error<InstrProfError>(IE);
+      auto FuncName = getPGOFuncName(F);
+      auto FuncGUID = Function::getGUID(FuncName);
+      if (auto Err =
+              MemProfReader->getMemProfRecord(FuncGUID).moveInto(MemProfRec))
+        return Err;
+      return Error::success();
+    });
+  }
+  if (Err) {
+    handleAllErrors(std::move(Err), [&](const InstrProfError &IPE) {
       auto Err = IPE.get();
       bool SkipWarning = false;
       LLVM_DEBUG(dbgs() << "Error in reading profile for Func " << FuncName
@@ -715,6 +746,12 @@ static void readMemprof(Module &M, Function &F,
     return;
   }
 
+  // Detect if there are non-zero column numbers in the profile. If not,
+  // treat all column numbers as 0 when matching (i.e. ignore any non-zero
+  // columns in the IR). The profiled binary might have been built with
+  // column numbers disabled, for example.
+  bool ProfileHasColumns = false;
+
   // Build maps of the location hash to all profile data with that leaf location
   // (allocation info and the callsites).
   std::map<uint64_t, std::set<const AllocationInfo *>> LocHashToAllocInfo;
@@ -722,21 +759,22 @@ static void readMemprof(Module &M, Function &F,
   // the frame array (see comments below where the map entries are added).
   std::map<uint64_t, std::set<std::pair<const SmallVector<Frame> *, unsigned>>>
       LocHashToCallSites;
-  const auto MemProfRec = std::move(MemProfResult.get());
-  for (auto &AI : MemProfRec.AllocSites) {
+  for (auto &AI : MemProfRec->AllocSites) {
     // Associate the allocation info with the leaf frame. The later matching
     // code will match any inlined call sequences in the IR with a longer prefix
     // of call stack frames.
     uint64_t StackId = computeStackId(AI.CallStack[0]);
     LocHashToAllocInfo[StackId].insert(&AI);
+    ProfileHasColumns |= AI.CallStack[0].Column;
   }
-  for (auto &CS : MemProfRec.CallSites) {
+  for (auto &CS : MemProfRec->CallSites) {
     // Need to record all frames from leaf up to and including this function,
     // as any of these may or may not have been inlined at this point.
     unsigned Idx = 0;
     for (auto &StackFrame : CS) {
       uint64_t StackId = computeStackId(StackFrame);
       LocHashToCallSites[StackId].insert(std::make_pair(&CS, Idx++));
+      ProfileHasColumns |= StackFrame.Column;
       // Once we find this function, we can stop recording.
       if (StackFrame.Function == FuncGUID)
         break;
@@ -785,21 +823,21 @@ static void readMemprof(Module &M, Function &F,
         if (Name.empty())
           Name = DIL->getScope()->getSubprogram()->getName();
         auto CalleeGUID = Function::getGUID(Name);
-        auto StackId =
-            computeStackId(CalleeGUID, GetOffset(DIL), DIL->getColumn());
-        // LeafFound will only be false on the first iteration, since we either
-        // set it true or break out of the loop below.
+        auto StackId = computeStackId(CalleeGUID, GetOffset(DIL),
+                                      ProfileHasColumns ? DIL->getColumn() : 0);
+        // Check if we have found the profile's leaf frame. If yes, collect
+        // the rest of the call's inlined context starting here. If not, see if
+        // we find a match further up the inlined context (in case the profile
+        // was missing debug frames at the leaf).
         if (!LeafFound) {
           AllocInfoIter = LocHashToAllocInfo.find(StackId);
           CallSitesIter = LocHashToCallSites.find(StackId);
-          // Check if the leaf is in one of the maps. If not, no need to look
-          // further at this call.
-          if (AllocInfoIter == LocHashToAllocInfo.end() &&
-              CallSitesIter == LocHashToCallSites.end())
-            break;
-          LeafFound = true;
+          if (AllocInfoIter != LocHashToAllocInfo.end() ||
+              CallSitesIter != LocHashToCallSites.end())
+            LeafFound = true;
         }
-        InlinedCallStack.push_back(StackId);
+        if (LeafFound)
+          InlinedCallStack.push_back(StackId);
       }
       // If leaf not in either of the maps, skip inst.
       if (!LeafFound)
@@ -812,7 +850,7 @@ static void readMemprof(Module &M, Function &F,
       if (AllocInfoIter != LocHashToAllocInfo.end()) {
         // Only consider allocations via new, to reduce unnecessary metadata,
         // since those are the only allocations that will be targeted initially.
-        if (!IntelMemoryBuiltins::isNewLikeFn(CI, &TLI))
+        if (!IntelMemoryBuiltins::isNewLikeFn(CI, &TLI)) // INTEL
           continue;
         // We may match this instruction's location list to multiple MIB
         // contexts. Add them to a Trie specialized for trimming the contexts to

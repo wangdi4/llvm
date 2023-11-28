@@ -29,7 +29,7 @@ void foo(void) {
 
 // RUN: c-index-test -write-pch %t.h.pch %s -Xclang -detailed-preprocessing-record
 // INTEL RUN: c-index-test -test-load-source local %s -include-pch %t.h.pch -Xclang -detailed-preprocessing-record | FileCheck -check-prefix=CHECK-PARSE %s
-// RUN: c-index-test -index-file %s -include-pch %t.h.pch -Xclang -detailed-preprocessing-record | FileCheck -check-prefix=CHECK-INDEX %s
+// INTEL RUN: c-index-test -index-file %s -include-pch %t.h.pch -Xclang -detailed-preprocessing-record | FileCheck -check-prefix=CHECK-INDEX %s
 
 // CHECK-PARSE: pch-with-errors.c:{{.*}}:6: FunctionDecl=foo
 // CHECK-PARSE: pch-with-errors.c:{{.*}}:3: CallExpr=erroneous

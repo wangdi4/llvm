@@ -15,6 +15,8 @@ define internal void @MAIN__.DIR.OMP.PARALLEL.LOOP.1.split81(ptr nocapture %"_un
 ; CHECK-NEXT:  DIR.OMP.SIMD.2:
 ; CHECK-NEXT:    br label [[OMP_COLLAPSED_LOOP_BODY_LR_PH:%.*]]
 ; CHECK:       omp.pdo.body8:
+; CHECK-NEXT:    br label [[OMP_PDO_BODY8_SPLIT:%.*]]
+; CHECK:       omp.pdo.body8.split:
 ; CHECK-NEXT:    br label [[DO_COND18_PREHEADER:%.*]]
 ; CHECK:       do.cond18.preheader:
 ; CHECK-NEXT:    [[ADD_9:%.*]] = add nuw nsw i64 0, 1
@@ -56,6 +58,8 @@ define internal void @MAIN__.DIR.OMP.PARALLEL.LOOP.1.split81(ptr nocapture %"_un
 ; CHECK:       omp.collapsed.loop.body.split.split.us:
 ; CHECK-NEXT:    br label [[OMP_PDO_BODY8_US:%.*]]
 ; CHECK:       omp.pdo.body8.us:
+; CHECK-NEXT:    br label [[OMP_PDO_BODY8_US_SPLIT:%.*]]
+; CHECK:       omp.pdo.body8.us.split:
 ; CHECK-NEXT:    br label [[DO_COND18_PREHEADER_US:%.*]]
 ; CHECK:       do.cond18.preheader.us:
 ; CHECK-NEXT:    [[ADD_9_US:%.*]] = add nuw nsw i64 0, 1

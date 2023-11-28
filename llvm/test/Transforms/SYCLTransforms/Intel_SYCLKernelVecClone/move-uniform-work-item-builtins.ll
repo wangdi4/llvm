@@ -149,7 +149,7 @@ attributes #2 = { convergent nounwind readnone }
 !17 = !{!"int", !18, i64 0}
 !18 = !{!"omnipotent char", !19, i64 0}
 !19 = !{!"Simple C/C++ TBAA"}
-!20 = !{[16384 x i32] addrspace(1)* null, [16384 x i32] addrspace(1)* null, [16384 x i32] addrspace(1)* null}
+!20 = !{ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} call

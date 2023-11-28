@@ -173,6 +173,14 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
 #define OPENMP_AT_KIND(Name) .Case(#Name, OMPC_AT_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_AT_unknown);
+#if INTEL_CUSTOMIZATION
+  case OMPC_ompx_register_alloc_mode:
+    return llvm::StringSwitch<OpenMPXRegisterAllocModeKind>(Str)
+#define OPENMPX_REGISTER_ALLOC_MODE_KIND(Name)                                 \
+  .Case(#Name, OMPC_REGISTER_ALLOC_MODE_##Name)
+#include "clang/Basic/OpenMPKinds.def"
+        .Default(OMPC_REGISTER_ALLOC_MODE_unknown);
+#endif // INTEL_CUSTOMIZATION
   case OMPC_severity:
     return llvm::StringSwitch<OpenMPSeverityClauseKind>(Str)
 #define OPENMP_SEVERITY_KIND(Name) .Case(#Name, OMPC_SEVERITY_##Name)
@@ -483,6 +491,18 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'at' clause type");
+#if INTEL_CUSTOMIZATION
+  case OMPC_ompx_register_alloc_mode:
+    switch (Type) {
+    case OMPC_REGISTER_ALLOC_MODE_unknown:
+      return "unknow";
+#define OPENMPX_REGISTER_ALLOC_MODE_KIND(Name)                                 \
+  case OMPC_REGISTER_ALLOC_MODE_##Name:                                        \
+    return #Name;
+#include "clang/Basic/OpenMPKinds.def"
+    }
+    llvm_unreachable("Invalid OpenMP 'ompx_register_alloc_mode' clause kind");
+#endif // INTEL_CUSTOMIZATION
   case OMPC_severity:
     switch (Type) {
     case OMPC_SEVERITY_unknown:
@@ -892,6 +912,13 @@ bool clang::isOpenMPCombinedParallelADirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_parallel_sections;
 }
 
+bool clang::needsTaskBasedThreadLimit(OpenMPDirectiveKind DKind) {
+  return DKind == OMPD_target || DKind == OMPD_target_parallel ||
+         DKind == OMPD_target_parallel_for ||
+         DKind == OMPD_target_parallel_for_simd || DKind == OMPD_target_simd ||
+         DKind == OMPD_target_parallel_loop;
+}
+
 void clang::getOpenMPCaptureRegions(
     SmallVectorImpl<OpenMPDirectiveKind> &CaptureRegions,
     OpenMPDirectiveKind DKind) {
@@ -994,8 +1021,8 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_distribute_simd:
 #if INTEL_COLLAB
   case OMPD_target_variant_dispatch:
-  case OMPD_scope:
 #endif // INTEL_COLLAB
+  case OMPD_scope:
   case OMPD_dispatch:
     CaptureRegions.push_back(OMPD_unknown);
     break;

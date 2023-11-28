@@ -126,7 +126,6 @@ class ClientCDB(TestClient):
             self.reset()
 
         env = os.environ.copy()
-        env["CL_CONFIG_USE_NATIVE_DEBUGGER"] = "1"
         exe_dir, exe_name = os.path.split(self.debuggee_exe_path)
         cwd = os.path.abspath(exe_dir)
 

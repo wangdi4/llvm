@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,18 +13,16 @@
 // License.
 
 #include "CL/cl.h"
+#include "FrameworkTest.h"
+#include "cl_sys_info.h"
+#include "cl_utils.h"
 #include "gtest_wrapper.h"
-
+#include "options.hpp"
 #include <fstream>
 #include <map>
 #include <memory>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include "FrameworkTest.h"
-#include "cl_sys_info.h"
-#include "cl_utils.h"
-#include "options.hpp"
 
 #ifdef _WIN32
 #include <windows.h>

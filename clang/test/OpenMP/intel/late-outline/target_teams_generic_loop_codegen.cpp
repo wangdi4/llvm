@@ -1,43 +1,24 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-pch -o %t -std=c++14 -fopenmp  -fopenmp-version=50 \
-// RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s
+// RUN: %clang_cc1 -emit-pch -o %t -std=c++14 -fopenmp  -fopenmp-version=50 \
+// RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
 // RUN:  -include-pch %t -verify -fopenmp-version=50 \
-// RUN:  -triple x86_64-unknown-linux-gnu %s \
-// RUN:  | FileCheck --check-prefixes CHECK,CHECK-NEW %s
+// RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -fopenmp-version=50 \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses \
+//RUN:  -fopenmp-late-outline \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+//RUN: %clang_cc1 -triple spir64 \
 //RUN:  -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-version=50 \
+//RUN:  -fopenmp-late-outline -fopenmp-version=50 \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -Wsource-uses-openmp -o - %s \
-//RUN:  | FileCheck %s -check-prefixes TARG
-
-// RUN: %clang_cc1 -opaque-pointers -emit-pch -o %t -std=c++14 -fopenmp  -fopenmp-version=50 \
-// RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu \
-// RUN:  -fno-openmp-new-depend-ir %s
-
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
-// RUN:  -include-pch %t -verify -fopenmp-version=50 \
-// RUN:  -triple x86_64-unknown-linux-gnu -fno-openmp-new-depend-ir %s \
-// RUN:  | FileCheck --check-prefixes CHECK,CHECK-OLD %s
-
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
-//RUN:  -aux-triple x86_64-unknown-linux-gnu \
-//RUN:  -emit-llvm -disable-llvm-passes \
-//RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-version=50 \
-//RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
-//RUN:  -Wsource-uses-openmp -o - -fopenmp-new-depend-ir %s \
 //RUN:  | FileCheck %s -check-prefixes TARG
 
 // expected-no-diagnostics
@@ -125,12 +106,11 @@ void task_target() {
   short y = 3;
   //CHECK-DAG: [[I:%i[0-9]*]] = alloca i32
   //CHECK-DAG: [[Y:%.+]] = alloca i16,
-  //CHECK-NEW-DAG: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
+  //CHECK-DAG: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
   //CHECK: DIR.OMP.TASK
   //CHECK-DAG: "QUAL.OMP.IF"(i32 0)
   //CHECK-DAG: "QUAL.OMP.TARGET.TASK"
-  //CHECK-OLD-DAG: "QUAL.OMP.DEPEND.OUT"(ptr [[Y]])
-  //CHECK-NEW-DAG: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DARR]])
+  //CHECK-DAG: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DARR]])
   //CHECK: DIR.OMP.TARGET
   //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[Y]],
   //CHECK: DIR.OMP.TEAMS

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -35,10 +35,10 @@
 
 namespace llvm {
 class Pass;
-class Function; // INTEL
+#if INTEL_CUSTOMIZATION
+class Function;
 
 namespace vpo {
-#if INTEL_CUSTOMIZATION
 // Enum indicating vectorization error kind.
 enum class VecErrorKind {
   // Means that a loop in the function was not vectorized by any reason, the

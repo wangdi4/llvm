@@ -1,10 +1,12 @@
-; RUN: opt -passes=sycl-kernel-barrier -enable-native-debug=true %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier %s -S | FileCheck %s
 
 ; This test checks that new alloca and llvm.dbg.declare are created for kernel
 ; byval argument %group_pid.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
+
+@__LocalIds = internal thread_local global [3 x i64] undef, align 16
 
 %"class.cl::sycl::group" = type { %"class.cl::sycl::range", %"class.cl::sycl::range", %"class.cl::sycl::range", %"class.cl::sycl::range" }
 %"class.cl::sycl::range" = type { %"class.cl::sycl::detail::array" }
@@ -24,7 +26,7 @@ Split.Barrier.BB1:                                ; preds = %entry
   ret void
 }
 
-define linkonce_odr void @_ZZZN29hierarchical_private_memory__9check_dimILi1EEEvRN8sycl_cts4util6loggerEENKUlRN2cl4sycl7handlerEE_clES8_ENKUlNS6_5groupILi1EEEE_clESB_(ptr byval(%"class.cl::sycl::group") align 8 %group_pid) {
+define linkonce_odr void @_ZZZN29hierarchical_private_memory__9check_dimILi1EEEvRN8sycl_cts4util6loggerEENKUlRN2cl4sycl7handlerEE_clES8_ENKUlNS6_5groupILi1EEEE_clESB_(ptr byval(%"class.cl::sycl::group") align 8 %group_pid) !dbg !14 {
 entry:
 ; CHECK-LABEL: @_ZZZN29hierarchical_private_memory__9check_dimILi1EEEvRN8sycl_cts4util6loggerEENKUlRN2cl4sycl7handlerEE_clES8_ENKUlNS6_5groupILi1EEEE_clESB_
 ; CHECK: %group_pid.addr = alloca ptr, align 8

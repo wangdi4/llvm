@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2018-2023 Intel Corporation
+// Modifications, Copyright (C) 2018 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -281,7 +281,7 @@ void DbgAssignIntrinsic::setValue(Value *V) {
 
 int llvm::Intrinsic::lookupLLVMIntrinsicByName(ArrayRef<const char *> NameTable,
                                                StringRef Name) {
-  assert(Name.startswith("llvm."));
+  assert(Name.starts_with("llvm.") && "Unexpected intrinsic prefix");
 
   // Do successive binary searches of the dotted name components. For
   // "llvm.gc.experimental.statepoint.p1i8.p1i32", we will find the range of
@@ -311,18 +311,18 @@ int llvm::Intrinsic::lookupLLVMIntrinsicByName(ArrayRef<const char *> NameTable,
     return -1;
   StringRef NameFound = *LastLow;
   if (Name == NameFound ||
-      (Name.startswith(NameFound) && Name[NameFound.size()] == '.'))
+      (Name.starts_with(NameFound) && Name[NameFound.size()] == '.'))
     return LastLow - NameTable.begin();
   return -1;
 }
 
-ConstantInt *InstrProfInstBase::getNumCounters() const {
+ConstantInt *InstrProfCntrInstBase::getNumCounters() const {
   if (InstrProfValueProfileInst::classof(this))
     llvm_unreachable("InstrProfValueProfileInst does not have counters!");
   return cast<ConstantInt>(const_cast<Value *>(getArgOperand(2)));
 }
 
-ConstantInt *InstrProfInstBase::getIndex() const {
+ConstantInt *InstrProfCntrInstBase::getIndex() const {
   if (InstrProfValueProfileInst::classof(this))
     llvm_unreachable("Please use InstrProfValueProfileInst::getIndex()");
   return cast<ConstantInt>(const_cast<Value *>(getArgOperand(3)));
@@ -663,7 +663,7 @@ std::optional<unsigned> VPIntrinsic::getMemoryDataParamPos(Intrinsic::ID VPID) {
   return std::nullopt;
 }
 
-bool VPIntrinsic::isVPIntrinsic(Intrinsic::ID ID) {
+constexpr bool isVPIntrinsic(Intrinsic::ID ID) {
   switch (ID) {
   default:
     break;
@@ -675,9 +675,13 @@ bool VPIntrinsic::isVPIntrinsic(Intrinsic::ID ID) {
   return false;
 }
 
+bool VPIntrinsic::isVPIntrinsic(Intrinsic::ID ID) {
+  return ::isVPIntrinsic(ID);
+}
+
 // Equivalent non-predicated opcode
-std::optional<unsigned>
-VPIntrinsic::getFunctionalOpcodeForVP(Intrinsic::ID ID) {
+constexpr static std::optional<unsigned>
+getFunctionalOpcodeForVP(Intrinsic::ID ID) {
   switch (ID) {
   default:
     break;
@@ -689,8 +693,52 @@ VPIntrinsic::getFunctionalOpcodeForVP(Intrinsic::ID ID) {
   return std::nullopt;
 }
 
-// Equivalent non-predicated constrained intrinsic
 std::optional<unsigned>
+VPIntrinsic::getFunctionalOpcodeForVP(Intrinsic::ID ID) {
+  return ::getFunctionalOpcodeForVP(ID);
+}
+
+// Equivalent non-predicated intrinsic ID
+constexpr static std::optional<Intrinsic::ID>
+getFunctionalIntrinsicIDForVP(Intrinsic::ID ID) {
+  switch (ID) {
+  default:
+    break;
+#define BEGIN_REGISTER_VP_INTRINSIC(VPID, ...) case Intrinsic::VPID:
+#define VP_PROPERTY_FUNCTIONAL_INTRINSIC(INTRIN) return Intrinsic::INTRIN;
+#define END_REGISTER_VP_INTRINSIC(VPID) break;
+#include "llvm/IR/VPIntrinsics.def"
+  }
+  return std::nullopt;
+}
+
+std::optional<Intrinsic::ID>
+VPIntrinsic::getFunctionalIntrinsicIDForVP(Intrinsic::ID ID) {
+  return ::getFunctionalIntrinsicIDForVP(ID);
+}
+
+constexpr static bool doesVPHaveNoFunctionalEquivalent(Intrinsic::ID ID) {
+  switch (ID) {
+  default:
+    break;
+#define BEGIN_REGISTER_VP_INTRINSIC(VPID, ...) case Intrinsic::VPID:
+#define VP_PROPERTY_NO_FUNCTIONAL return true;
+#define END_REGISTER_VP_INTRINSIC(VPID) break;
+#include "llvm/IR/VPIntrinsics.def"
+  }
+  return false;
+}
+
+// All VP intrinsics should have an equivalent non-VP opcode or intrinsic
+// defined, or be marked that they don't have one.
+#define BEGIN_REGISTER_VP_INTRINSIC(VPID, ...)                                 \
+  static_assert(doesVPHaveNoFunctionalEquivalent(Intrinsic::VPID) ||           \
+                getFunctionalOpcodeForVP(Intrinsic::VPID) ||                   \
+                getFunctionalIntrinsicIDForVP(Intrinsic::VPID));
+#include "llvm/IR/VPIntrinsics.def"
+
+// Equivalent non-predicated constrained intrinsic
+std::optional<Intrinsic::ID>
 VPIntrinsic::getConstrainedIntrinsicIDForVP(Intrinsic::ID ID) {
   switch (ID) {
   default:
@@ -781,6 +829,9 @@ Function *VPIntrinsic::getDeclarationForParams(Module *M, Intrinsic::ID VPID,
     VPFunc =
         Intrinsic::getDeclaration(M, VPID, {ReturnType, Params[0]->getType()});
     break;
+  case Intrinsic::vp_is_fpclass:
+    VPFunc = Intrinsic::getDeclaration(M, VPID, {Params[0]->getType()});
+    break;
   case Intrinsic::vp_merge:
   case Intrinsic::vp_select:
     VPFunc = Intrinsic::getDeclaration(M, VPID, {Params[1]->getType()});
@@ -845,6 +896,18 @@ bool VPCmpIntrinsic::isVPCmp(Intrinsic::ID ID) {
     break;
 #define BEGIN_REGISTER_VP_INTRINSIC(VPID, ...) case Intrinsic::VPID:
 #define VP_PROPERTY_CMP(CCPOS, ...) return true;
+#define END_REGISTER_VP_INTRINSIC(VPID) break;
+#include "llvm/IR/VPIntrinsics.def"
+  }
+  return false;
+}
+
+bool VPBinOpIntrinsic::isVPBinOp(Intrinsic::ID ID) {
+  switch (ID) {
+  default:
+    break;
+#define BEGIN_REGISTER_VP_INTRINSIC(VPID, ...) case Intrinsic::VPID:
+#define VP_PROPERTY_BINARYOP return true;
 #define END_REGISTER_VP_INTRINSIC(VPID) break;
 #include "llvm/IR/VPIntrinsics.def"
   }

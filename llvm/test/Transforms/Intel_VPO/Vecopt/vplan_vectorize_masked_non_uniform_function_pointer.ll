@@ -4,7 +4,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-declare i32 @__intel_indirect_call_i32(i32(i32)*, ...) #2
+declare i32 @__intel_indirect_call_i32(ptr, ...) #2
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #3
@@ -12,8 +12,8 @@ declare token @llvm.directive.region.entry() #3
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #3
 ; Function Attrs: nounwind uwtable
-define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly %c, i32 (i32)** nocapture readonly %func, i64 %n) local_unnamed_addr #1 {
-; CHECK:  define dso_local void @_ZGVbN4_direct(i32* nocapture [[A0:%.*]], i32* nocapture readonly [[C0:%.*]], i32 (i32)** nocapture readonly [[FUNC0:%.*]], i64 [[N0:%.*]]) local_unnamed_addr #2 {
+define dso_local void @_ZGVbN4_direct(ptr nocapture %a, ptr nocapture readonly %c, ptr nocapture readonly %func, i64 %n) local_unnamed_addr #1 {
+; CHECK:  define dso_local void @_ZGVbN4_direct(ptr nocapture [[A0:%.*]], ptr nocapture readonly [[C0:%.*]], ptr nocapture readonly [[FUNC0:%.*]], i64 [[N0:%.*]]) local_unnamed_addr #2 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[PREHEADER0:%.*]]
 ; CHECK-EMPTY:
@@ -42,41 +42,38 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32 (i32)*, i32 (i32)** [[FUNC0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32 (i32)** [[SCALAR_GEP0]] to <4 x i32 (i32)*>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <4 x i32 (i32)*> @llvm.masked.load.v4p0f_i32i32f.p0v4p0f_i32i32f(<4 x i32 (i32)*>* [[TMP5]], i32 8, <4 x i1> [[TMP4]], <4 x i32 (i32)*> poison)
-; CHECK-NEXT:    [[SCALAR_GEP50:%.*]] = getelementptr inbounds i32, i32* [[C0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP50]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD60:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP6]], i32 4, <4 x i1> [[TMP4]], <4 x i32> poison)
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds ptr, ptr [[FUNC0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <4 x ptr> @llvm.masked.load.v4p0.p0(ptr [[SCALAR_GEP0]], i32 8, <4 x i1> [[TMP4]], <4 x ptr> poison)
+; CHECK-NEXT:    [[SCALAR_GEP50:%.*]] = getelementptr inbounds i32, ptr [[C0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD60:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr [[SCALAR_GEP50]], i32 4, <4 x i1> [[TMP4]], <4 x i32> poison)
 ; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <4 x i1> [[TMP4]] to <4 x i32>
-; CHECK-NEXT:    [[ORIGINAL_VECTOR_OF_FUNC_PTR0:%.*]] = select <4 x i1> [[TMP4]], <4 x i32 (i32)*> [[WIDE_MASKED_LOAD0]], <4 x i32 (i32)*> zeroinitializer
+; CHECK-NEXT:    [[ORIGINAL_VECTOR_OF_FUNC_PTR0:%.*]] = select <4 x i1> [[TMP4]], <4 x ptr> [[WIDE_MASKED_LOAD0]], <4 x ptr> zeroinitializer
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_ENTRY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  indirect.call.loop.entry:
-; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS0:%.*]] = phi <4 x i32 (i32)*> [ [[ORIGINAL_VECTOR_OF_FUNC_PTR0]], [[VPLANNEDBB40]] ], [ [[CURRENT_VECTOR_OF_FUNC_PTRS0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0:%.*]] ]
+; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS0:%.*]] = phi <4 x ptr> [ [[ORIGINAL_VECTOR_OF_FUNC_PTR0]], [[VPLANNEDBB40]] ], [ [[CURRENT_VECTOR_OF_FUNC_PTRS0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[CUR_INDIRECT_CALL_RETURN0:%.*]] = phi <4 x i32> [ zeroinitializer, [[VPLANNEDBB40]] ], [ [[FINAL_INDIRECT_CALL_RETURN0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    [[INDX0:%.*]] = phi i64 [ 0, [[VPLANNEDBB40]] ], [ [[INDX_UPDATED0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
-; CHECK-NEXT:    [[CURRENT_FPTR0:%.*]] = extractelement <4 x i32 (i32)*> [[VECTOR_OF_FUNC_PTRS0]], i64 [[INDX0]]
-; CHECK-NEXT:    [[IS_VISITED0:%.*]] = icmp eq i32 (i32)* [[CURRENT_FPTR0]], null
+; CHECK-NEXT:    [[CURRENT_FPTR0:%.*]] = extractelement <4 x ptr> [[VECTOR_OF_FUNC_PTRS0]], i64 [[INDX0]]
+; CHECK-NEXT:    [[IS_VISITED0:%.*]] = icmp eq ptr [[CURRENT_FPTR0]], null
 ; CHECK-NEXT:    br i1 [[IS_VISITED0]], label [[INDIRECT_CALL_LOOP_LATCH0]], label [[VECTOR_INDIRECT_CALL0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.indirect.call:
-; CHECK-NEXT:    [[CURRENT_FPTR_SPLATINSERT0:%.*]] = insertelement <4 x i32 (i32)*> poison, i32 (i32)* [[CURRENT_FPTR0]], i64 0
-; CHECK-NEXT:    [[CURRENT_FPTR_SPLAT0:%.*]] = shufflevector <4 x i32 (i32)*> [[CURRENT_FPTR_SPLATINSERT0]], <4 x i32 (i32)*> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[FUNC_PTR_MASK0:%.*]] = icmp eq <4 x i32 (i32)*> [[CURRENT_FPTR_SPLAT0]], [[VECTOR_OF_FUNC_PTRS0]]
+; CHECK-NEXT:    [[CURRENT_FPTR_SPLATINSERT0:%.*]] = insertelement <4 x ptr> poison, ptr [[CURRENT_FPTR0]], i64 0
+; CHECK-NEXT:    [[CURRENT_FPTR_SPLAT0:%.*]] = shufflevector <4 x ptr> [[CURRENT_FPTR_SPLATINSERT0]], <4 x ptr> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[FUNC_PTR_MASK0:%.*]] = icmp eq <4 x ptr> [[CURRENT_FPTR_SPLAT0]], [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    [[FINAL_MASK0:%.*]] = and <4 x i1> [[FUNC_PTR_MASK0]], [[TMP4]]
 ; CHECK-NEXT:    [[MASKEXT70:%.*]] = sext <4 x i1> [[FINAL_MASK0]] to <4 x i32>
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32 (i32)* [[CURRENT_FPTR0]] to <4 x i32> (<4 x i32>, <4 x i32>)**
-; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP7]], i32 0
-; CHECK-NEXT:    [[TMP9:%.*]] = load <4 x i32> (<4 x i32>, <4 x i32>)*, <4 x i32> (<4 x i32>, <4 x i32>)** [[TMP8]], align 8
+; CHECK-NEXT:    [[CURRENT_FPTR0_GEP:%.*]] = getelementptr ptr, ptr [[CURRENT_FPTR0]], i32 0
+; CHECK-NEXT:    [[TMP9:%.*]] = load ptr, ptr [[CURRENT_FPTR0_GEP]], align 8
 ; CHECK-NEXT:    [[TMP10:%.*]] = call <4 x i32> [[TMP9]](<4 x i32> [[WIDE_MASKED_LOAD60]], <4 x i32> [[MASKEXT70]])
 ; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_UPDATED0:%.*]] = select <4 x i1> [[FINAL_MASK0]], <4 x i32> [[TMP10]], <4 x i32> [[CUR_INDIRECT_CALL_RETURN0]]
-; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS_UPDATED0:%.*]] = select <4 x i1> [[FINAL_MASK0]], <4 x i32 (i32)*> zeroinitializer, <4 x i32 (i32)*> [[VECTOR_OF_FUNC_PTRS0]]
+; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS_UPDATED0:%.*]] = select <4 x i1> [[FINAL_MASK0]], <4 x ptr> zeroinitializer, <4 x ptr> [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  indirect.call.loop.latch:
 ; CHECK-NEXT:    [[FINAL_INDIRECT_CALL_RETURN0]] = phi <4 x i32> [ [[INDIRECT_CALL_RETURN_UPDATED0]], [[VECTOR_INDIRECT_CALL0]] ], [ [[CUR_INDIRECT_CALL_RETURN0]], [[INDIRECT_CALL_LOOP_ENTRY0]] ]
-; CHECK-NEXT:    [[CURRENT_VECTOR_OF_FUNC_PTRS0]] = phi <4 x i32 (i32)*> [ [[VECTOR_OF_FUNC_PTRS_UPDATED0]], [[VECTOR_INDIRECT_CALL0]] ], [ [[VECTOR_OF_FUNC_PTRS0]], [[INDIRECT_CALL_LOOP_ENTRY0]] ]
+; CHECK-NEXT:    [[CURRENT_VECTOR_OF_FUNC_PTRS0]] = phi <4 x ptr> [ [[VECTOR_OF_FUNC_PTRS_UPDATED0]], [[VECTOR_INDIRECT_CALL0]] ], [ [[VECTOR_OF_FUNC_PTRS0]], [[INDIRECT_CALL_LOOP_ENTRY0]] ]
 ; CHECK-NEXT:    [[INDX_UPDATED0]] = add i64 [[INDX0]], 1
 ; CHECK-NEXT:    [[EXITCOND80:%.*]] = icmp eq i64 [[INDX_UPDATED0]], 4
 ; CHECK-NEXT:    br i1 [[EXITCOND80]], label [[INDIRECT_CALL_LOOP_EXIT0:%.*]], label [[INDIRECT_CALL_LOOP_ENTRY0]]
@@ -88,11 +85,11 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    br i1 [[TMP12]], label [[PRED_LOAD_IF0:%.*]], label [[TMP14:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.load.if:
-; CHECK-NEXT:    [[TMP13:%.*]] = load i32, i32* [[A0]], align 4
+; CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[A0]], align 4
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT90:%.*]] = insertelement <4 x i32> poison, i32 [[TMP13]], i64 0
 ; CHECK-NEXT:    br label [[TMP14]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  14:
+; CHECK-NEXT:  11:
 ; CHECK-NEXT:    [[TMP15:%.*]] = phi <4 x i32> [ poison, [[INDIRECT_CALL_LOOP_EXIT0]] ], [ [[BROADCAST_SPLATINSERT90]], [[PRED_LOAD_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
@@ -140,12 +137,12 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    br i1 [[COND0]], label [[IF_THEN0:%.*]], label [[IF_END0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  if.then:
-; CHECK-NEXT:    [[ARRAYIDX10:%.*]] = getelementptr inbounds i32 (i32)*, i32 (i32)** [[FUNC0]], i64 [[IV_PHI0]]
-; CHECK-NEXT:    [[LD_FUNC0:%.*]] = load i32 (i32)*, i32 (i32)** [[ARRAYIDX10]], align 8
-; CHECK-NEXT:    [[ARRAYIDX20:%.*]] = getelementptr inbounds i32, i32* [[C0]], i64 [[IV_PHI0]]
-; CHECK-NEXT:    [[LD_C0:%.*]] = load i32, i32* [[ARRAYIDX20]], align 4
-; CHECK-NEXT:    [[CALL0:%.*]] = call i32 (i32 (i32)*, ...) @__intel_indirect_call_i32(i32 (i32)* [[LD_FUNC0]], i32 [[LD_C0]]) #0
-; CHECK-NEXT:    [[LD_A0:%.*]] = load i32, i32* [[A0]], align 4
+; CHECK-NEXT:    [[ARRAYIDX10:%.*]] = getelementptr inbounds ptr, ptr [[FUNC0]], i64 [[IV_PHI0]]
+; CHECK-NEXT:    [[LD_FUNC0:%.*]] = load ptr, ptr [[ARRAYIDX10]], align 8
+; CHECK-NEXT:    [[ARRAYIDX20:%.*]] = getelementptr inbounds i32, ptr [[C0]], i64 [[IV_PHI0]]
+; CHECK-NEXT:    [[LD_C0:%.*]] = load i32, ptr [[ARRAYIDX20]], align 4
+; CHECK-NEXT:    [[CALL0:%.*]] = call i32 (ptr, ...) @__intel_indirect_call_i32(ptr [[LD_FUNC0]], i32 [[LD_C0]]) #0
+; CHECK-NEXT:    [[LD_A0:%.*]] = load i32, ptr [[A0]], align 4
 ; CHECK-NEXT:    [[ADD0:%.*]] = add nsw i32 [[LD_A0]], [[CALL0]]
 ; CHECK-NEXT:    br label [[IF_END0]]
 ; CHECK-EMPTY:
@@ -175,12 +172,12 @@ for.body:
   br i1 %cond, label %if.then, label %if.end
 
 if.then:
-  %arrayidx1 = getelementptr inbounds i32 (i32)*, i32 (i32)** %func, i64 %iv.phi
-  %ld.func = load i32 (i32)*, i32 (i32)** %arrayidx1, align 8
-  %arrayidx2 = getelementptr inbounds i32, i32* %c, i64 %iv.phi
-  %ld.c = load i32, i32* %arrayidx2, align 4
-  %call = call i32 (i32(i32)*, ...) @__intel_indirect_call_i32(i32 (i32)* %ld.func, i32 %ld.c) #2
-  %ld.a = load i32, i32* %a, align 4
+  %arrayidx1 = getelementptr inbounds ptr, ptr %func, i64 %iv.phi
+  %ld.func = load ptr, ptr %arrayidx1, align 8
+  %arrayidx2 = getelementptr inbounds i32, ptr %c, i64 %iv.phi
+  %ld.c = load i32, ptr %arrayidx2, align 4
+  %call = call i32 (ptr, ...) @__intel_indirect_call_i32(ptr %ld.func, i32 %ld.c) #2
+  %ld.a = load i32, ptr %a, align 4
   %add = add nsw i32 %ld.a, %call
   br label %if.end
 

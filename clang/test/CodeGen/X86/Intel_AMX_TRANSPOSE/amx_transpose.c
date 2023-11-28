@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_amx_transpose
-// RUN: %clang_cc1 -no-opaque-pointers %s -ffreestanding -triple=x86_64-unknown-unknown \
+// RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
 // RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-transpose -target-feature +amx-avx512 \
 // RUN: -target-feature +avx512f -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu-statement-expression| FileCheck %s
 
@@ -8,37 +8,37 @@
 // Transpose
 void test_tile_2rpntlvw(const void *A, size_t B, size_t C) {
   // CHECK-LABEL: @test_tile_2rpntlvw
-  // CHECK: call void @llvm.x86.t2rpntlvw(i8 1, i8* %{{.*}}, i64 %{{.*}}, i64 %{{.*}})
+  // CHECK: call void @llvm.x86.t2rpntlvw(i8 1, ptr %{{.*}}, i64 %{{.*}}, i64 %{{.*}})
   _tile_2rpntlvw(1, A, B, C);
 }
 
 void test_tile_2rpntlvwt1(const void *A, size_t B, size_t C) {
   // CHECK-LABEL: @test_tile_2rpntlvwt1
-  // CHECK: call void @llvm.x86.t2rpntlvwt1(i8 1, i8* %{{.*}}, i64 %{{.*}}, i64 %{{.*}})
+  // CHECK: call void @llvm.x86.t2rpntlvwt1(i8 1, ptr %{{.*}}, i64 %{{.*}}, i64 %{{.*}})
   _tile_2rpntlvwt1(1, A, B, C);
 }
 
 void test_tile_2rpntlvwz0(const void *A, size_t B) {
   // CHECK-LABEL: @test_tile_2rpntlvwz0
-  // CHECK: call void @llvm.x86.t2rpntlvwz0(i8 1, i8* %{{.*}}, i64 %{{.*}})
+  // CHECK: call void @llvm.x86.t2rpntlvwz0(i8 1, ptr %{{.*}}, i64 %{{.*}})
   _tile_2rpntlvwz0(1, A, B);
 }
 
 void test_tile_2rpntlvwz0t1(const void *A, size_t B) {
   // CHECK-LABEL: @test_tile_2rpntlvwz0t1
-  // CHECK: call void @llvm.x86.t2rpntlvwz0t1(i8 1, i8* %{{.*}}, i64 %{{.*}})
+  // CHECK: call void @llvm.x86.t2rpntlvwz0t1(i8 1, ptr %{{.*}}, i64 %{{.*}})
   _tile_2rpntlvwz0t1(1, A, B);
 }
 
 void test_tile_2rpntlvwz1(const void *A, size_t B) {
   // CHECK-LABEL: @test_tile_2rpntlvwz1
-  // CHECK: call void @llvm.x86.t2rpntlvwz1(i8 1, i8* %{{.*}}, i64 %{{.*}})
+  // CHECK: call void @llvm.x86.t2rpntlvwz1(i8 1, ptr %{{.*}}, i64 %{{.*}})
   _tile_2rpntlvwz1(1, A, B);
 }
 
 void test_tile_2rpntlvwz1t1(const void *A, size_t B) {
   // CHECK-LABEL: @test_tile_2rpntlvwz1t1
-  // CHECK: call void @llvm.x86.t2rpntlvwz1t1(i8 1, i8* %{{.*}}, i64 %{{.*}})
+  // CHECK: call void @llvm.x86.t2rpntlvwz1t1(i8 1, ptr %{{.*}}, i64 %{{.*}})
   _tile_2rpntlvwz1t1(1, A, B);
 }
 

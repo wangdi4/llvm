@@ -1,6 +1,6 @@
 //===------ Passes.h - Constructors for HIR transformations -----*- C++ -*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -27,19 +27,6 @@ FunctionPass *createHIRSSADeconstructionLegacyPass();
 /// Creates a pass which cleans up unnecessary temps in HIR.
 FunctionPass *createHIRTempCleanupPass();
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-/// createHIRPrinterPass - This creates a pass that prints HIR.
-FunctionPass *createHIRPrinterPass(raw_ostream &OS, const std::string &Banner);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-/// createHIRCodeGenPass - This creates a pass that generates LLVM IR from HIR.
-FunctionPass *createHIRCodeGenWrapperPass();
-
-/// createOptPredicatePass - This creates a pass that performs OptPredicate
-/// transformation on HIR.
-FunctionPass *createHIROptPredicatePass(bool EnablePartialUnswitch = true,
-                                        bool KeepLoopnestPerfect = false);
-
 /// createHIRPreVecCompleteUnrollPass - This creates a pass that performs
 /// complete unrolling before vectorizer.
 FunctionPass *createHIRPreVecCompleteUnrollPass(unsigned OptLevel = 0,
@@ -51,137 +38,13 @@ FunctionPass *createHIRPreVecCompleteUnrollPass(unsigned OptLevel = 0,
 FunctionPass *createHIRPostVecCompleteUnrollPass(unsigned OptLevel = 0,
                                                  bool PragmaOnlyUnroll = false);
 
-/// createHIRLoopDistributionForMemRecPass - This creates a pass that
-/// performs Loop Distribution for breaking memory recurrences.
-FunctionPass *createHIRLoopDistributionForMemRecPass();
-
-/// createHIRLoopDistributionForLoopNestPass - This creates a pass that
-/// performs Loop Distribution for enabling perfect Loop Nests.
-FunctionPass *createHIRLoopDistributionForLoopNestPass();
-
-/// createHIRLoopInterchangePass - This creates a pass that performs Loop
-/// Interchange.
-FunctionPass *createHIRLoopInterchangePass();
-
-/// createHIRGenerateMKLCAllPass - This creates a pass that performs MKL call
-/// generation.
-FunctionPass *createHIRGenerateMKLCallPass();
-
-/// createHIRLoopBlockingPass - This creates a pass that performs Loop
-/// Blocking.
-FunctionPass *createHIRLoopBlockingPass(bool SinkForMultiCopy = true);
-
-/// createHIRPragmaLoopBlockingPass - This creates a pass that performs Loop
-/// Blocking for pragma directives.
-FunctionPass *createHIRPragmaLoopBlockingPass();
-
-/// createHIRLoopRematerializePass - This creates a pass that performs Loop
-/// Rematerialize.
-FunctionPass *createHIRLoopRematerializePass();
-
-/// createHIRLoopRerollPass - This creates a pass that performs Loop
-/// Reroll.
-FunctionPass *createHIRLoopRerollPass();
-
-/// createHIRRuntimeDDPass - This creates a HIR Loop pass that is used
-/// for Runtime DD transformation.
-FunctionPass *createHIRRuntimeDDPass();
-
-/// createHIRDummyTransformationPass - This creates a dummy pass that is used
-/// for debugging purposes.
-FunctionPass *createHIRDummyTransformationPass();
-
-/// createHIRGeneralUnrollPass - This creates a pass that performs general
-/// unrolling for larger trip count HIR loops.
-FunctionPass *createHIRGeneralUnrollPass(bool PragmaOnlyUnroll = false);
-
 /// createHIRUnrollAndJamPass - This creates a pass that performs unroll & jam
 /// on loops.
 FunctionPass *createHIRUnrollAndJamPass(bool PragmaOnlyUnroll = false);
 
-/// createHIRLoopReversalPass - This creates a HIR Loop pass that performs Loop
-/// Reversal.
-FunctionPass *createHIRLoopReversalPass();
-
-/// Create pass that performs if reversal for inner loops.
-FunctionPass *createHIRIfReversalPass();
-
-/// createHIRLMMPass - This creates a HIR Loop pass that performs Loop
-/// Memory Motion.
-/// \p LoopNestLevelOnly indicates whether the hoisting is only allowed outside
-/// the outermost loop.
-FunctionPass *createHIRLMMPass(bool LoopNestLevelOnly = false);
-
-/// createHIRLoopCollapsePass - This creates a HIR Loop pass that performs Loop
-/// Collapse
-FunctionPass *createHIRLoopCollapsePass();
-
-/// createHIRSymbolicTripCountCompleteUnrollLegacyPass - This creates a HIR Loop
-/// pass that performs Loop based pattern matching.
-FunctionPass *createHIRPMSymbolicTripCountCompleteUnrollLegacyPass();
-
-/// createHIRParDirInsertPass - This creates a pass that injects
-/// directives for auto parallelization loops.
-FunctionPass *createHIRParDirInsertPass();
-
 /// createHIRVecDirInsertPass - This creates a pass that injects
 /// directives for auto vectorization candidate loops.
 FunctionPass *createHIRVecDirInsertPass(bool OuterVec = true);
-
-/// createHIRScalarReplArrayPass - This creates a HIR Loop pass that performs
-/// Scalar Replacement over Array access
-FunctionPass *createHIRScalarReplArrayPass();
-
-/// Creates pass that splits loops based on variant predicates.
-FunctionPass *createHIROptVarPredicatePass();
-
-/// Creates pass that replaces loads and stores with memsets and memcpys.
-FunctionPass *createHIRIdiomRecognitionPass();
-
-/// Creates pass that multiversions loop for the probable trip count value.
-FunctionPass *createHIRMVForConstUBPass();
-
-/// Creates pass that multiversions loop for variable strides.
-FunctionPass *createHIRMVForVariableStridePass();
-
-/// Creates pass that performs loop concatenation.
-FunctionPass *createHIRLoopConcatenationPass();
-
-/// Creates pass that performs array transpose.
-FunctionPass *createHIRArrayTransposePass();
-
-/// Creates pass that performs Aos To Soa.
-FunctionPass *createHIRAosToSoaPass();
-
-/// Creates pass that fuses loops.
-FunctionPass *createHIRLoopFusionPass();
-
-/// This creates a pass that emits HIR opt report.
-FunctionPass *createHIROptReportEmitterWrapperPass();
-
-/// Create pass that eliminates dead store.
-FunctionPass *createHIRDeadStoreEliminationPass();
-
-/// Create pass that computes last value of a temp.
-FunctionPass *createHIRLastValueComputationPass();
-
-/// Create pass that propagate casted IV for memory references.
-FunctionPass *createHIRPropagateCastedIVPass();
-
-/// Create pass that rerolls multi-exit loops.
-FunctionPass *createHIRMultiExitLoopRerollPass();
-
-/// Creates a pass that recognizes parallel loops.
-FunctionPass *createHIRRecognizeParLoopPass();
-
-/// Create pass that performs min/max idiom recognition for inner loops.
-FunctionPass *createHIRMinMaxRecognitionPass();
-
-/// Create pass that recognize identity matrix.
-FunctionPass *createHIRIdentityMatrixIdiomRecognitionPass();
-
-/// Create pass that prefetches memrefs.
-FunctionPass *createHIRPrefetchingPass();
 
 /// Create pass that enables sinking for perfect Loop nest.
 FunctionPass *createHIRSinkingForPerfectLoopnestPass();
@@ -189,42 +52,14 @@ FunctionPass *createHIRSinkingForPerfectLoopnestPass();
 /// Create pass that enables undosinking for perfect Loop nest.
 FunctionPass *createHIRUndoSinkingForPerfectLoopnestPass();
 
-/// Create pass that enables sinking for conditional temps.
-FunctionPass *createHIRConditionalTempSinkingPass();
-/// Create pass that sinks loop invariant memory reductions.
-FunctionPass *createHIRMemoryReductionSinkingPass();
-
 /// Create pass that performs row-wise multiversioning.
 FunctionPass *createHIRRowWiseMVPass();
-
-/// Create pass that performs conditional load/store motion.
-FunctionPass *createHIRConditionalLoadStoreMotionPass();
 
 /// Create pass that stores result into a temp array.
 FunctionPass *createHIRStoreResultIntoTempArrayPass();
 
 /// Create pass that performs sum window reuse.
 FunctionPass *createHIRSumWindowReusePass();
-
-/// Create pass that implements non-zero sinking for perfect loopnest.
-FunctionPass *createHIRNonZeroSinkingForPerfectLoopnestPass();
-
-/// Create pass that substitutes identity matrix.
-FunctionPass *createHIRIdentityMatrixSubstitutionPass();
-
-/// Create pass that marks stores as nontemporal where appropriate.
-FunctionPass *createHIRNontemporalMarkingPass();
-
-/// Create pass that performs HIR array-scalarization test launch.
-FunctionPass *createHIRArrayScalarizationTestLauncherPass();
-
-#if INTEL_FEATURE_SW_ADVANCED
-/// Creates pass that performs inter-loopnest-tiling.
-FunctionPass *createHIRInterLoopBlockingPass();
-
-/// Create pass that does array contraction for multiple loops.
-FunctionPass *createHIRCrossLoopArrayContractionLegacyPass(bool IsMultiJob);
-#endif // INTEL_FEATURE_SW_ADVANCED
 
 } // namespace llvm
 

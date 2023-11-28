@@ -1,0 +1,12 @@
+// Test command line options for XML output format to
+// check for graceful error handling when mixing option
+// combinations that are not valid.
+
+// RUN: llvm-cov report --format=xml --use-color %S/Inputs/intel-xml-report.covmapping --instr-profile %S/Inputs/intel-xml-report.profdata 2>&1 | FileCheck %s --check-prefix=USE-COLOR
+// USE-COLOR: Color output cannot be enabled when generating xml
+
+// RUN: not llvm-cov export --format=xml %S/Inputs/intel-xml-report.covmapping --instr-profile %S/Inputs/intel-xml-report.profdat 2>&1 | FileCheck %s --check-prefix=EXPORT
+// EXPORT: coverage data can only be exported as textual JSON or an lcov tracefile
+
+// RUN: not llvm-cov show --format=xml %S/Inputs/intel-xml-report.covmapping --instr-profile %S/Inputs/intel-xml-report.profdata 2>&1 | FileCheck %s --check-prefix=SHOW
+// SHOW: XML format should be used with 'llvm-cov report'

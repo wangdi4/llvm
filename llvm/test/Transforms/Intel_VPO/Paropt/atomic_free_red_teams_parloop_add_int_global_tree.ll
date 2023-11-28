@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-use-fp-team-counter=false -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-use-fp-team-counter=false -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-use-fp-team-counter=false -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-use-fp-team-counter=false -S %s | FileCheck %s
 
 ; Test src:
 ;
@@ -37,8 +37,9 @@
 ; CHECK: %[[NUM_GROUPS0:[^,]+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
 ; CHECK: %[[OUTER_COND:[^,]+]] = icmp uge i64 %[[TEAMS_IDX_PHI]], %[[NUM_GROUPS0]]
 ; CHECK: %[[LOCAL_ID0:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
-; CHECK: %[[GEP_OFF:[^,]+]] = add i64 %[[LOCAL_ID0]], %[[TEAMS_IDX_PHI]]
+; CHECK: %[[GEP_OFF:[^,]+]] = add i64 %[[TEAMS_IDX_PHI]], %[[LOCAL_ID0]]
 ; CHECK: %[[GLOBAL_GEP:[^,]+]] = getelementptr i32, ptr addrspace(1) %[[RED_GLOBAL_BUF]], i64 %[[GEP_OFF]]
+; CHECK: %[[TREE_RESULT_GEP:[^,]+]] = getelementptr i32, ptr addrspace(1) %[[RED_GLOBAL_BUF]], i64 %[[TEAMS_IDX_PHI]]
 ; CHECK: br i1 %[[OUTER_COND]], label %atomic.free.red.global.update.store, label %atomic.free.red.global.update.header 
 
 ; CHECK-LABEL: atomic.free.red.global.update.header:
@@ -77,7 +78,7 @@
 
 ; CHECK: atomic.free.red.global.update.pretree.latch:      ; preds = %atomic.free.red.global.update.header
 ; CHECK: %[[TEAMS_IDX_INC]] = add i64 %[[TEAMS_IDX_PHI]], %[[LOCAL_SIZE]]
-; CHECK: %[[TMP_RES:[^,]+]] = load i32, ptr addrspace(1) %[[GLOBAL_GEP]], align 4
+; CHECK: %[[TMP_RES:[^,]+]] = load i32, ptr addrspace(1) %[[TREE_RESULT_GEP]], align 4
 ; CHECK: %[[RES_INC]] = add i32 %[[RES_PHI]], %[[TMP_RES]]
 ; CHECK: br label %atomic.free.red.global.pretree.header
 

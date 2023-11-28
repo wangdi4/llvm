@@ -19,21 +19,21 @@
 ;   out[bar()] = sum;
 ; }
 
-; RUN: opt -passes=sycl-kernel-barrier -sycl-kernel-enable-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-barrier -sycl-kernel-enable-tls-globals %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-barrier %s -S | FileCheck %s
 
 source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-@LocalIds = linkonce_odr thread_local global [3 x i64] undef, align 16
+@__LocalIds = internal thread_local global [3 x i64] undef, align 16
 
 ; Function Attrs: convergent noinline nounwind
 ; CHECK: define internal i64 @foo(i32 %dim)
 define internal i64 @foo(i32 %dim) #0 {
 entry:
 ; CHECK: get.wi.properties:
-; CHECK: %pLocalId_var = getelementptr inbounds [3 x i64], ptr @LocalIds, i64 0, i32 %dim
+; CHECK: %pLocalId_var = getelementptr inbounds [3 x i64], ptr @__LocalIds, i64 0, i32 %dim
 ; CHECK: %LocalId_var = load i64, ptr %pLocalId_var
   %call = call i64 @_Z12get_local_idj(i32 %dim) #4
   ret i64 %call
@@ -47,7 +47,7 @@ declare i64 @_Z12get_local_idj(i32) #1
 define internal i64 @bar() #0 {
 entry:
 ; CHECK: %BaseGlobalId_0 = call i64 @get_base_global_id.(i32 0)
-; CHECK: %LocalId_0 = load i64, ptr @LocalIds
+; CHECK: %LocalId_0 = load i64, ptr @__LocalIds
 ; CHECK: %GlobalID_0 = add i64 %LocalId_0, %BaseGlobalId_0
 
   %call = call i64 @_Z13get_global_idj(i32 0) #4
@@ -66,9 +66,9 @@ entry:
   br label %for.cond
 
 ; CHECK: FirstBB:
-; CHECK: store i64 0, ptr @LocalIds
-; CHECK: store i64 0, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 1)
-; CHECK: store i64 0, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 2)
+; CHECK: store i64 0, ptr @__LocalIds
+; CHECK: store i64 0, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 1)
+; CHECK: store i64 0, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 2)
 
 ; CHECK: SyncBB1:
 ; CHECK: store ptr addrspace(4) addrspacecast (ptr @bar to ptr addrspace(4))
@@ -97,25 +97,25 @@ for.end:                                          ; preds = %for.cond
   ret void
 
 ; CHECK: "Barrier BB":
-; CHECK: %LocalId_0 = load i64, ptr @LocalIds
+; CHECK: %LocalId_0 = load i64, ptr @__LocalIds
 ; CHECK: %{{.*}} = add nuw i64 %LocalId_0, 1
-; CHECK: store i64 %{{.*}}, ptr @LocalIds
+; CHECK: store i64 %{{.*}}, ptr @__LocalIds
 
 
 ; CHECK: LoopEnd_0:
-; CHECK:   store i64 0, ptr @LocalIds
-; CHECK:   %LocalId_1 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 1)
+; CHECK:   store i64 0, ptr @__LocalIds
+; CHECK:   %LocalId_1 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 1)
 ; CHECK:   %{{.*}} = add nuw i64 %LocalId_1, 1
-; CHECK:   store i64 %{{.*}}, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 1)
+; CHECK:   store i64 %{{.*}}, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 1)
 
 ; CHECK: LoopEnd_1:
-; CHECK:   store i64 0, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 1)
-; CHECK:   %LocalId_2 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 2)
+; CHECK:   store i64 0, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 1)
+; CHECK:   %LocalId_2 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 2)
 ; CHECK:   %{{.*}} = add nuw i64 %LocalId_2, 1
-; CHECK:   store i64 %{{.*}}, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 2)
+; CHECK:   store i64 %{{.*}}, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 2)
 
 ; CHECK: LoopEnd_2:
-; CHECK:   store i64 0, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 2)
+; CHECK:   store i64 0, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 2)
 
 }
 

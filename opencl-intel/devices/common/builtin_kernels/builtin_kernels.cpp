@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,8 +17,8 @@
 ///////////////////////////////////////////////////////////
 
 #include "builtin_kernels.h"
+#include "cl_sys_defines.h"
 #include <assert.h>
-#include <cl_sys_defines.h>
 #include <string>
 
 using namespace llvm;
@@ -163,11 +163,6 @@ cl_dev_err_code BuiltInKernelRegistry::CreateBuiltInProgram(
     const char *szKernelList,
     Intel::OpenCL::DeviceBackend::ICLDevBackendProgram_ **ppProgram) {
   BuiltInProgram *pNewProgram = new BuiltInProgram;
-
-  if (nullptr == pNewProgram) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
-
   cl_dev_err_code err = pNewProgram->ParseFunctionList(szKernelList);
   if (CL_DEV_FAILED(err)) {
     delete pNewProgram;
@@ -215,10 +210,8 @@ OMPExecutorThread::OMPExecutorThread(unsigned int /*uiNumOfThreads*/)
   // Pre-allocate the pool of OS events
   for (int i = 0; i < INIT_NUM_OF_EVENTS; ++i) {
     OclOsDependentEvent *pEvent = new OclOsDependentEvent();
-    if (nullptr != pEvent) {
-      pEvent->Init(true);
-      m_OSEventPool.PushBack(pEvent);
-    }
+    pEvent->Init(true);
+    m_OSEventPool.PushBack(pEvent);
   }
 }
 
@@ -265,9 +258,7 @@ cl_dev_err_code OMPExecutorThread::Execute(
   bool exists = m_OSEventPool.TryPop(pEvent);
   if (!exists) {
     pEvent = new OclOsDependentEvent();
-    if (nullptr != pEvent) {
-      pEvent->Init(true);
-    }
+    pEvent->Init(true);
   }
   if (nullptr == pEvent) {
     return CL_DEV_OUT_OF_MEMORY;

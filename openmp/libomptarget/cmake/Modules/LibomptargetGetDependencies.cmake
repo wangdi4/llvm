@@ -211,7 +211,7 @@ if(LIBOMPTARGET_AMDGPU_ARCH)
 endif()
 
 set(OPENMP_PTHREAD_LIB ${LLVM_PTHREAD_LIB})
-# INTEL_COLLAB
+# INTEL_CUSTOMIZATION
 
 ################################################################################
 # Looking for OpenCL...
@@ -221,13 +221,11 @@ set(OPENMP_PTHREAD_LIB ${LLVM_PTHREAD_LIB})
 # installed as root. This workaround is a fallback to let us find the library as
 # well as includes for now.
 message(STATUS "Looking for OpenCL includes.")
-if (INTEL_CUSTOMIZATION)
-  # If this command does not find the header files, then next
-  # find_path (see below) will look again.
-  add_llvm_external_project(opencl)
-  set(LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIR})
-  set(LIBOMPTARGET_DEP_OPENCL_LIBRARIES OpenCL-ICD)
-endif(INTEL_CUSTOMIZATION)
+# If this command does not find the header files, then next
+# find_path (see below) will look again.
+add_llvm_external_project(opencl)
+set(LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIR})
+set(LIBOMPTARGET_DEP_OPENCL_LIBRARIES OpenCL-ICD)
 
 find_path(LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS
   NAMES
@@ -265,12 +263,10 @@ else()
 
 endif()
 
-if (INTEL_CUSTOMIZATION)
-  # FIXME: for some reason CMake is able to find locally installed
-  # OpenCL package (see find_package below), but OPENCL_LIBRARIES
-  # is left NOTFOUND. Figure out how to deal with that.
-  set(CMAKE_DISABLE_FIND_PACKAGE_OpenCL TRUE)
-endif(INTEL_CUSTOMIZATION)
+# FIXME: for some reason CMake is able to find locally installed
+# OpenCL package (see find_package below), but OPENCL_LIBRARIES
+# is left NOTFOUND. Figure out how to deal with that.
+set(CMAKE_DISABLE_FIND_PACKAGE_OpenCL TRUE)
 
 if (NOT LIBOMPTARGET_DEP_OPENCL_FOUND)
   message(STATUS "Looking for OpenCL again.")
@@ -285,7 +281,6 @@ mark_as_advanced(
         LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS
         LIBOMPTARGET_DEP_OPENCL_LIBRARIES)
 
-# INTEL_CUSTOMIZATION
 ################################################################################
 # Looking for Level0
 ################################################################################
@@ -365,6 +360,5 @@ mark_as_advanced(
     LIBOMPTARGET_DEP_LEVEL0_FOUND
     LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS
     LIBOMPTARGET_DEP_LEVEL0_LIBRARIES)
-# end INTEL_CUSTOMIZATION
 
-# end INTEL_COLLAB
+# end INTEL_CUSTOMIZATION

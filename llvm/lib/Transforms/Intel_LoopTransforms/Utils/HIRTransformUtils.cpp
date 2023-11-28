@@ -1,6 +1,6 @@
 //===--- HIRTransformUtils.cpp  -------------------------------------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1382,17 +1382,22 @@ private:
   // Return true if CurrLoopOrRegion needs to be invalidated.
   bool checkInvalidated() { return InvalidatedNodes.count(CurrLoopOrRegion); }
 
-  // If needed, invalidates CurrLoopOrRegion and marks it
-  void doInvalidate() {
-    if (InvalidatedNodes.count(CurrLoopOrRegion)) {
+  // If needed, invalidates NodeToInvalidate and tracks it.
+  void doInvalidate(HLNode *NodeToInvalidate = nullptr) {
+    if (!NodeToInvalidate) {
+      NodeToInvalidate = CurrLoopOrRegion;
+    }
+
+    if (InvalidatedNodes.count(NodeToInvalidate)) {
       return;
     }
 
-    InvalidatedNodes.insert(CurrLoopOrRegion);
+    InvalidatedNodes.insert(NodeToInvalidate);
 
-    if (auto *Loop = dyn_cast<HLLoop>(CurrLoopOrRegion)) {
+    // Note that invalidation is not happening for inner loopnests
+    if (auto *Loop = dyn_cast<HLLoop>(NodeToInvalidate)) {
       HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Loop);
-    } else if (auto *Region = dyn_cast<HLRegion>(CurrLoopOrRegion)) {
+    } else if (auto *Region = dyn_cast<HLRegion>(NodeToInvalidate)) {
       HIRInvalidationUtils::invalidateNonLoopRegion<HIRLoopStatistics>(Region);
     } else {
       llvm_unreachable("Non Loop/Region encountered!");
@@ -1407,8 +1412,8 @@ private:
     }
   }
 
-  // Try to delete copies that have not been invalidated,
-  // meaning they have all been legally propagated. Do this only for the
+  // Try to delete copies that have not been invalidated, meaning
+  // they have all been legally propagated. Do this only for the
   // Node that was called by the visitor.
   void cleanupDefs(HLNode *Node) {
     if (Node != OriginNode) {
@@ -1418,8 +1423,10 @@ private:
     for (auto &Pair : CopyCandidates) {
       auto *RvalRef = Pair.second.RvalRef;
 
-      doInvalidate();
+      doInvalidate(RvalRef->getParentLoop());
       NumInstsRemoved++;
+      LLVM_DEBUG(dbgs() << "Removing Unused Temp Copy: ";
+                 RvalRef->getHLDDNode()->dump(););
       HLNodeUtils::remove(RvalRef->getHLDDNode());
     }
   }
@@ -1647,6 +1654,8 @@ void ConstantAndCopyPropagater::removeConstOrCopyPropIndex(HLInst *CurInst) {
     if (HLNodeUtils::strictlyPostDominates(CurInst, RefParentNode)) {
       doInvalidate();
       NumInstsRemoved++;
+      LLVM_DEBUG(dbgs() << "Removing Dominated Lval Temp: ";
+                 RefParentNode->dump(););
       HLNodeUtils::remove(RefParentNode);
     }
 

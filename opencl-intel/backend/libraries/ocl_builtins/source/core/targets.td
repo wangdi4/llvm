@@ -23,6 +23,7 @@ class OclImplTarget<string name> {
     #else
       #include "svml_ia32.h"
     #endif
+    #include "generic-builtin-defines.h"
   }];
 }
 

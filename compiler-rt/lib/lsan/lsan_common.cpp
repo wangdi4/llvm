@@ -177,7 +177,7 @@ void LeakSuppressionContext::LazyInit() {
     context.Parse(kStdSuppressions);
 #if INTEL_CUSTOMIZATION
     if (IsInSyclContext()) {
-      VReport(1, "Applying suppressions for SYCL Host Sanitizers.");
+      VReport(1, "Applying suppressions for SYCL Host Sanitizers.\n");
       context.Parse(kSyclHostSuppression);
     }
 #endif  // INTEL_CUSTOMIZATION
@@ -995,8 +995,8 @@ void LeakReport::PrintSummary() {
     allocations += leaks_[i].hit_count;
   }
   InternalScopedString summary;
-  summary.append("%zu byte(s) leaked in %zu allocation(s).", bytes,
-                 allocations);
+  summary.AppendF("%zu byte(s) leaked in %zu allocation(s).", bytes,
+                  allocations);
   ReportErrorSummary(summary.data());
 }
 

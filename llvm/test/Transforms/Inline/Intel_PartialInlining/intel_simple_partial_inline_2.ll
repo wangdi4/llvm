@@ -11,7 +11,7 @@
 ; checks the debug information. It was created from the test case
 ; intel_simple_partial_inline_2.ll, but for opaque pointers.
 ;
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -debug-only=intel_partialinline -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -debug-only=intel-partialinline -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: Candidates for partial inlining: 1
 ; CHECK:     _Z3fooP4Node

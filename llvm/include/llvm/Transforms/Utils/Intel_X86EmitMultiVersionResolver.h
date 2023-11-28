@@ -1,6 +1,6 @@
 //===--------  Intel_X86EmitMultiVersionResolver.h ------------------------===//
 //
-// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -52,7 +52,8 @@ namespace X86 {
 
 void emitCPUInit(IRBuilderBase &Builder, bool UseIFunc);
 Value *emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr);
-Value *emitCpuSupports(IRBuilderBase &Builder, uint64_t FeaturesMask);
+Value *emitCpuSupports(IRBuilderBase &Builder,
+                       std::array<uint32_t, 4> FeaturesMask);
 Value *emitCpuSupports(IRBuilderBase &Builder, ArrayRef<StringRef> FeatureStrs);
 void emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc,
                          bool PerformCPUBrandCheck);

@@ -13,46 +13,36 @@
 // License.
 
 #include "CL21.h"
+#include "TestsHelpClasses.h"
 
-// This test checks that even when kernel doesn't contain
-// opencl.compiler.options metadata "-g" and "-cl-opt-disable" options provided
-// to clCompileProgram are propagated to the device compiler.
+// This test checks that only option of the last clLinkProgram is returned.
 TEST_F(CL21, BuildOptionsPropagate) {
-  cl_int iRet = CL_SUCCESS;
+  cl_int err = CL_SUCCESS;
   cl_program program = nullptr;
 
   std::vector<char> spirv;
   ASSERT_NO_FATAL_FAILURE(GetSimpleSPIRV(spirv));
 
-  program = clCreateProgramWithIL(m_context, spirv.data(), spirv.size(), &iRet);
-  ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateProgramWithIL failed. ";
+  program = clCreateProgramWithIL(m_context, spirv.data(), spirv.size(), &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithIL");
 
-  iRet = clCompileProgram(program, 1, &m_device, "-cl-opt-disable -g", 0,
-                          nullptr, nullptr, nullptr, nullptr);
-  ASSERT_EQ(CL_SUCCESS, iRet) << " clCompileProgram failed.";
+  err = clCompileProgram(program, 1, &m_device, "-cl-opt-disable -g", 0,
+                         nullptr, nullptr, nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clCompileProgram");
 
   cl_program programLinked = clLinkProgram(m_context, 1, &m_device, nullptr, 1,
-                                           &program, nullptr, nullptr, &iRet);
-  ASSERT_EQ(CL_SUCCESS, iRet) << " clLinkProgram failed.";
+                                           &program, nullptr, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clLinkProgram");
 
-  size_t LogSize = 0;
-  iRet = clGetProgramBuildInfo(programLinked, m_device, CL_PROGRAM_BUILD_LOG, 0,
-                               NULL, &LogSize);
-  ASSERT_EQ(CL_SUCCESS, iRet) << " Device failed to return log size.";
+  size_t buildOptionSize = 0;
+  err = clGetProgramBuildInfo(programLinked, m_device, CL_PROGRAM_BUILD_OPTIONS,
+                              0, NULL, &buildOptionSize);
+  ASSERT_OCL_SUCCESS(err, "clGetProgramBuildInfo CL_PROGRAM_BUILD_OPTIONS");
 
-  char *Log = (char *)malloc(LogSize);
-  iRet = clGetProgramBuildInfo(programLinked, m_device, CL_PROGRAM_BUILD_LOG,
-                               LogSize, Log, NULL);
-  ASSERT_EQ(CL_SUCCESS, iRet)
-      << " clGetProgramBuildInfo CL_PROGRAM_BUILD_LOG failed";
+  ASSERT_EQ(buildOptionSize, 1u);
 
-  ASSERT_TRUE(std::string(Log).find(
-                  "Options used by backend compiler:  -cl-opt-disable -g") !=
-              std::string::npos)
-      << "Haven't find the message that -g and -cl-opt-disable were passed to "
-         "backend";
-
-  free(Log);
-  clReleaseProgram(program);
-  clReleaseProgram(programLinked);
+  err = clReleaseProgram(program);
+  ASSERT_OCL_SUCCESS(err, "clReleaseProgram program");
+  err = clReleaseProgram(programLinked);
+  ASSERT_OCL_SUCCESS(err, "clReleaseProgram programLinked");
 }

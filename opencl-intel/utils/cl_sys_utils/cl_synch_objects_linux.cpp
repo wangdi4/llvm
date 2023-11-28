@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,14 +14,14 @@
 
 #include "cl_synch_objects.h"
 #include "hw_utils.h"
-
+#include "tbb/concurrent_queue.h"
 #include <algorithm>
 #include <assert.h>
 #include <malloc.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <stdio.h> // Todo: replace printf with log mechanisem
-#include <tbb/concurrent_queue.h>
+
 /************************************************************************
  * This file is the Linux implementation of the cl_synch_objects interface
  ************************************************************************/

@@ -5,7 +5,7 @@
 ; CHECK: Function: foo
 
 ; CHECK: DO i1 =
-; CHECK: [[ADDR:%[0-9a-z]+]] = @llvm.stacksave();
+; CHECK: [[ADDR:%[0-9a-z]+]] = @llvm.stacksave.p0();
 ; CHECK: [[ADDBLOB:%.*]] =
 ; CHECK: [[ALLOC_0:%[0-9a-z]+]] = alloca %array_size;
 ; CHECK-NEXT: [[ALLOC_1:%[0-9a-z]+]] = alloca %array_size;
@@ -27,7 +27,7 @@
 ; CHECK: END LOOP
 ; CHECK: END LOOP
 
-; CHECK: @llvm.stackrestore(&(([[ADDR]])[0]));
+; CHECK: @llvm.stackrestore.p0(&(([[ADDR]])[0]));
 ; CHECK: END LOOP
 
 ; Before transformation

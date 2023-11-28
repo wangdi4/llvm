@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===- Intel_FunctionRecognizer.cpp - Function Recognizer -------------===//
 //
-// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -655,8 +655,8 @@ static bool isQsortSwapFunc(Function &F) {
     Value *V2P = BP;
     if (auto TI = dyn_cast<TruncInst>(BP))
       BP = dyn_cast<Instruction>(TI->getOperand(0));
-    auto DVO = dyn_cast<UDivOperator>(BP);
-    if (!DVO)
+    auto DVO = dyn_cast<PossiblyExactOperator>(BP);
+    if (!DVO || DVO->getOpcode() != Instruction::UDiv)
       return false;
     auto CI = dyn_cast<ConstantInt>(DVO->getOperand(1));
     if (!CI || CI->getZExtValue() != UDivDen)
@@ -2994,8 +2994,9 @@ static bool isQsortSpecQsort(Function &F, Function **FSwapFunc,
     if (!BI || BI->isConditional() || BI->getSuccessor(0) != BBO)
       return false;
     Instruction *BP = BI->getPrevNonDebugInstruction();
-    auto BD = dyn_cast_or_null<UDivOperator>(BP);
-    if (!BD || BD->getOperand(0) != VI || BD->getOperand(1) != F.getArg(2))
+    auto BD = dyn_cast_or_null<PossiblyExactOperator>(BP);
+    if (!BD || BD->getOpcode() != Instruction::UDiv ||
+        BD->getOperand(0) != VI || BD->getOperand(1) != F.getArg(2))
       return false;
     GetElementPtrInst *GEP = GetBFGEP(BP->getPrevNonDebugInstruction(), VANES);
     if (!GEP || !match(GEP->getOperand(1), m_Sub(m_Zero(), m_Specific(VI))))

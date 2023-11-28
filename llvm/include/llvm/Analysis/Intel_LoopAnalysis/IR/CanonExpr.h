@@ -1,6 +1,6 @@
 //===- CanonExpr.h - Closed form in high level IR ---------------*- C++ -*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -79,6 +79,7 @@ private:
     /// Valid index range is [1, UINT_MAX].
     unsigned Index;
     int64_t Coeff;
+    BlobIndexToCoeff();
     BlobIndexToCoeff(unsigned Indx, int64_t Coef);
     ~BlobIndexToCoeff();
   };
@@ -102,7 +103,7 @@ private:
 public:
   /// Each element represents blob index and coefficient associated with an IV
   /// at a particular loop level.
-  typedef SmallVector<BlobIndexToCoeff, 4> IVCoeffsTy;
+  typedef std::array<BlobIndexToCoeff, MaxLoopNestLevel> IVCoeffsTy;
   /// Kept sorted by blob index
   typedef SmallVector<BlobIndexToCoeff, 2> BlobCoeffsTy;
 
@@ -155,10 +156,6 @@ private:
   /// Implements hasIV()/numIV() and hasBlobIVCoeffs()/numBlobIVCoeffs()
   /// functionality.
   unsigned numIVImpl(bool CheckIVPresence, bool CheckBlobCoeffs) const;
-
-  /// Resizes IVCoeffs to max loopnest level if the passed in level goes beyond
-  /// the current size. This will avoid future reallocs.
-  void resizeIVCoeffsToMax(unsigned Lvl);
 
   /// Sets blob/const coefficient of an IV at a particular loop level.
   /// Overwrite flags indicate what is to be overwritten.
@@ -439,9 +436,33 @@ public:
   bool isStandAloneIV(bool AllowConversion = true,
                       unsigned *Level = nullptr) const;
 
-  /// Returns the level of the first IV with coeff different from 0.
-  /// It returns 0 if no IV is found with coeff different from 0.
-  unsigned getFirstIVLevel() const;
+  /// Returns the level of the outermost IV contained in CE.
+  /// It returns 0 if no IV is found.
+  unsigned getOutermostIVLevel() const;
+
+  /// Returns the level of the innermost IV contained in CE.
+  /// It returns 0 if no IV is found.
+  unsigned getInnermostIVLevel() const;
+
+  /// Returns the outermost level w.r.t which this CE is invariant. Returns
+  /// NonLinearLevel for non-linear CEs as we don't have any useful info.
+  /// For example-
+  /// 1) i2 - invariance level is 3
+  /// 2) %t def@2 - invariance level is 3
+  /// 3) i1 + %t def@2 - invariance level is 3
+  /// 4) i2 + %t def@1 - invariance level is 3
+  ///
+  /// Note that it may return a non-existent loop level as we don't know the
+  /// surrounding context. For example, it will return 2 for a CE: (i1) even if
+  /// i1 is the innermost loop.
+  unsigned getOutermostInvariantLevel() const {
+    unsigned DefLevel = getDefinedAtLevel();
+
+    if (DefLevel == NonLinearLevel)
+      return NonLinearLevel;
+
+    return std::max(getInnermostIVLevel(), DefLevel) + 1;
+  }
 
   /// Returns true if this canon expr looks something like (4 * %t).
   /// If \p AllowConversion is true, src type to dst type conversion is allowed.

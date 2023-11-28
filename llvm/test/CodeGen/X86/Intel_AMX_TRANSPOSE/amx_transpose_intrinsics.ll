@@ -5,9 +5,8 @@
 define void @test_amx(i32 %rv32, i64 %stride, i64 %rvalue, i8* %addr1, <4 x float> %xmm) #0 {
 ; CHECK-LABEL: test_amx:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    tilemovrow $9, %tmm7, %zmm1
-; CHECK-NEXT:    tilemovrow %edi, %tmm7, %zmm1
-; CHECK-NEXT:    tilemovrow %xmm0, %tmm7, %zmm0
+; CHECK-NEXT:    tilemovrow $9, %tmm7, %zmm0
+; CHECK-NEXT:    tilemovrow %edi, %tmm7, %zmm0
 ; CHECK-NEXT:    t2rpntlvw %rdx, (%rcx,%rsi), %tmm0
 ; CHECK-NEXT:    t2rpntlvwt1 %rdx, (%rcx,%rsi), %tmm2
 ; CHECK-NEXT:    t2rpntlvwz0 (%rcx,%rsi), %tmm0
@@ -21,7 +20,6 @@ define void @test_amx(i32 %rv32, i64 %stride, i64 %rvalue, i8* %addr1, <4 x floa
 ; CHECK-NEXT:    retq
 call <16 x float> @llvm.x86.tilemovei(i8 7, i8 9)
 call <16 x float> @llvm.x86.tilemovee(i8 7, i32 %rv32)
-call <16 x float> @llvm.x86.tilemovex(i8 7, <4 x float> %xmm)
 ; amx-transpose
 call void @llvm.x86.t2rpntlvw  (i8 1, i8* %addr1, i64 %stride, i64 %rvalue)
 call void @llvm.x86.t2rpntlvwt1   (i8 2, i8* %addr1, i64 %stride, i64 %rvalue)
@@ -39,7 +37,6 @@ ret void
 ; amx-avx512
 declare <16 x float> @llvm.x86.tilemovei(i8 %tile0, i8 %tile1)
 declare <16 x float> @llvm.x86.tilemovee(i8 %tile0, i32 %rv32)
-declare <16 x float> @llvm.x86.tilemovex(i8 %tile0, <4 x float> %xmm)
 ; amx-transpose
 declare void @llvm.x86.t2rpntlvw     (i8 %tile1, i8* %addr1, i64 %stride, i64 %rvalue)
 declare void @llvm.x86.t2rpntlvwt1   (i8 %tile1, i8* %addr1, i64 %stride, i64 %rvalue)

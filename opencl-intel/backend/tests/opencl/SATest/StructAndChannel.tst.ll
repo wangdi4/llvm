@@ -1,5 +1,5 @@
 ;; Compiled with:
-;; -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL1.2
+;; clang -cc1 -triple spir64 -x cl -cl-std=cl2.0 -finclude-default-header -disable-llvm-passes -emit-llvm -o -
 ;;
 ;; from:
 ;;
@@ -26,76 +26,66 @@
 ;; The test checks if pipe built-in can be successfully imported with a struct
 ;; of 3 ints being declared.
 
-target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
-target triple = "spir64-unknown-unknown-intelfpga"
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
+target triple = "spir64"
 
-%opencl.channel_t = type opaque
 %struct.STRUCT = type { i32, i32, i32 }
 
-@CHANNEL = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@CHANNEL = addrspace(1) global target("spirv.Channel") zeroinitializer, align 8, !packet_size !0, !packet_align !0
 
-; Function Attrs: convergent nounwind
-define spir_kernel void @dummy_kernel(%struct.STRUCT addrspace(1)* %ARG) #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 {
+; Function Attrs: convergent norecurse nounwind
+define dso_local spir_kernel void @dummy_kernel(ptr addrspace(1) noundef align 4 %ARG) #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !6 !kernel_arg_buffer_location !6 {
 entry:
-  %ARG.addr = alloca %struct.STRUCT addrspace(1)*, align 8
+  %ARG.addr = alloca ptr addrspace(1), align 8
   %value = alloca %struct.STRUCT, align 4
-  store %struct.STRUCT addrspace(1)* %ARG, %struct.STRUCT addrspace(1)** %ARG.addr, align 8, !tbaa !11
-  %0 = bitcast %struct.STRUCT* %value to i8*
-  call void @llvm.lifetime.start.p0i8(i64 12, i8* %0) #3
-  %1 = bitcast %struct.STRUCT* %value to i8*
-  call void @llvm.memset.p0i8.i64(i8* align 4 %1, i8 0, i64 12, i1 false)
-  %2 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @CHANNEL, align 4, !tbaa !15
-  %VAL_1 = getelementptr inbounds %struct.STRUCT, %struct.STRUCT* %value, i32 0, i32 0
-  %3 = load i32, i32* %VAL_1, align 4, !tbaa !16
-  call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %2, i32 %3) #4
-  %4 = bitcast %struct.STRUCT* %value to i8*
-  call void @llvm.lifetime.end.p0i8(i64 12, i8* %4) #3
+  store ptr addrspace(1) %ARG, ptr %ARG.addr, align 8, !tbaa !9
+  call void @llvm.lifetime.start.p0(i64 12, ptr %value) #4
+  call void @llvm.memset.p0.i64(ptr align 4 %value, i8 0, i64 12, i1 false)
+  %0 = load target("spirv.Channel"), ptr addrspace(1) @CHANNEL, align 8, !tbaa !13
+  %VAL_1 = getelementptr inbounds %struct.STRUCT, ptr %value, i32 0, i32 0
+  %1 = load i32, ptr %VAL_1, align 4, !tbaa !14
+  call void @_Z19write_channel_intel11ocl_channelii(target("spirv.Channel") %0, i32 noundef %1) #5
+  call void @llvm.lifetime.end.p0(i64 12, ptr %value) #4
   ret void
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1) #1
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #2
 
-; Function Attrs: convergent
-declare void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)*, i32) #2
+; Function Attrs: convergent nounwind
+declare void @_Z19write_channel_intel11ocl_channelii(target("spirv.Channel"), i32 noundef) #3
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
-attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind }
-attributes #2 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #3 = { nounwind }
-attributes #4 = { convergent }
+attributes #0 = { convergent norecurse nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "uniform-work-group-size"="false" }
+attributes #1 = { nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }
+attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: write) }
+attributes #3 = { convergent nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" }
+attributes #4 = { nounwind }
+attributes #5 = { convergent nounwind }
 
-!llvm.module.flags = !{!1}
-!opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!2}
-!opencl.spir.version = !{!2}
-!opencl.used.extensions = !{!3}
-!opencl.used.optional.core.features = !{!3}
-!opencl.compiler.options = !{!3}
-!llvm.ident = !{!4}
+!opencl.ocl.version = !{!1}
+!opencl.spir.version = !{!1}
+!llvm.ident = !{!2}
 
 !0 = !{i32 4}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{i32 1, i32 2}
-!3 = !{}
-!4 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 4197242e87d4f39394d9fe8a5f4398b115ba1b42) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm bc30aa5d0043536d74de287f2ab67360b4e90752)"}
-!5 = !{i32 1}
-!6 = !{!"none"}
-!7 = !{!"struct STRUCT*"}
-!8 = !{!""}
-!9 = !{i1 false}
-!10 = !{i32 0}
-!11 = !{!12, !12, i64 0}
-!12 = !{!"any pointer", !13, i64 0}
-!13 = !{!"omnipotent char", !14, i64 0}
-!14 = !{!"Simple C/C++ TBAA"}
-!15 = !{!13, !13, i64 0}
-!16 = !{!17, !18, i64 0}
-!17 = !{!"STRUCT", !18, i64 0, !18, i64 4, !18, i64 8}
-!18 = !{!"int", !13, i64 0}
+!1 = !{i32 2, i32 0}
+!2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2024.0.0 (2024.x.0.YYYYMMDD)"}
+!3 = !{i32 1}
+!4 = !{!"none"}
+!5 = !{!"struct STRUCT*"}
+!6 = !{!""}
+!7 = !{i1 false}
+!8 = !{i32 0}
+!9 = !{!10, !10, i64 0}
+!10 = !{!"any pointer", !11, i64 0}
+!11 = !{!"omnipotent char", !12, i64 0}
+!12 = !{!"Simple C/C++ TBAA"}
+!13 = !{!11, !11, i64 0}
+!14 = !{!15, !16, i64 0}
+!15 = !{!"STRUCT", !16, i64 0, !16, i64 4, !16, i64 8}
+!16 = !{!"int", !11, i64 0}

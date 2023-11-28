@@ -40,8 +40,8 @@
 ;<37>               |   |         |            {
 ;<41>               |   |         |               %call21 = @_Z4copyj(undef);
 ;<42>               |   |         |               %xor = %call21  ^  9;
-;<43>               |   |         |               %8 = (@c)[2][0];
-;<45>               |   |         |               (@c)[2][0] = (%xor * %8);
+;<43>               |   |         |               %8 = (@c)[0][0];
+;<45>               |   |         |               (@c)[0][0] = (%xor * %8);
 ;<37>               |   |         |            }
 ;<37>               |   |         |            else
 ;<37>               |   |         |            {
@@ -152,9 +152,9 @@ if.end19:                                         ; preds = %if.then18, %if.then
 if.else:                                          ; preds = %if.then11
   %call21 = call i32 @_Z4copyj(i32 undef)
   %xor = xor i32 %call21, 9
-  %8 = load i32, ptr getelementptr inbounds ([1 x i32], ptr @c, i64 2, i64 0), align 4, !tbaa !6
+  %8 = load i32, ptr getelementptr inbounds ([1 x i32], ptr @c, i64 0, i64 0), align 4, !tbaa !6
   %mul22 = mul nsw i32 %8, %xor
-  store i32 %mul22, ptr getelementptr inbounds ([1 x i32], ptr @c, i64 2, i64 0), align 4, !tbaa !6
+  store i32 %mul22, ptr getelementptr inbounds ([1 x i32], ptr @c, i64 0, i64 0), align 4, !tbaa !6
   br label %if.end24
 
 if.end24:                                         ; preds = %if.end19, %if.else, %sw.bb

@@ -198,6 +198,8 @@ if(LLVM_BUILD_LLVM_C_DYLIB AND MSVC)
   # INTEL_CUSTOMIZATION
   # CMPLRLLVM-46987
   set_target_properties(LLVM-C PROPERTIES LINK_FLAGS "-ignore:4199 -NODEFAULTLIB:libcmt\.lib")
+  # The xmain build defaults the static runtime, so we choose the dynamically-linked version to build a DLL.
+  set_target_properties(LLVM-C PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   # end INTEL_CUSTOMIZATION
 
   if (LLVM_INTEGRATED_CRT_ALLOC AND MSVC)

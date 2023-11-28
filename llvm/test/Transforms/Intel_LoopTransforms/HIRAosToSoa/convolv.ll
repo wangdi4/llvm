@@ -8,7 +8,7 @@
 ; CHECK: Function: foo
 
 ; CHECK: DO i64 i1 =
-; CHECK: [[ADDR:%[0-9a-z]+]] = @llvm.stacksave();
+; CHECK: [[ADDR:%[0-9a-z]+]] = @llvm.stacksave.p0();
 ; CHECK: [[ADDBLOB:%.*]] =
 ; CHECK: [[ALLOC_0:%[0-9a-z]+]] = alloca %array_size;
 ; CHECK: [[ALLOC_1:%[0-9a-z]+]] = alloca %array_size;
@@ -40,7 +40,7 @@
 ; CHECK: END LOOP
 ; CHECK: END LOOP
 
-; CHECK: @llvm.stackrestore(&(([[ADDR]])[0]));
+; CHECK: @llvm.stackrestore.p0(&(([[ADDR]])[0]));
 ; CHECK: END LOOP
 
 ; Verify that pass is dumped with print-changed when it triggers.
@@ -105,7 +105,7 @@
 ;              |   if (%0 != 0)                          // i2-loop's preheader is extracted
 ;              |   {
 ;              |      %3 = (%kernel)[0].1;
-;              |      %call = @llvm.stacksave();         // stack save
+;              |      %call = @llvm.stacksave.p0();      // stack save
 ;              |      %add13 = %1  +  %0;                // 3 allocas for three trailing offsets
 ;              |      %array_size = %add13  *  %3;
 ;              |      %alloca = alloca %array_size;
@@ -167,7 +167,7 @@
 ;              |      |   (%q)[i2].2 = %result.sroa.9.0.lcssa;
 ;              |      + END LOOP
 ;              |
-;              |      @llvm.stackrestore(&((%call)[0]));
+;              |      @llvm.stackrestore.p0(&((%call)[0]));
 ;              |   }
 ;              + END LOOP
 ;        END REGION

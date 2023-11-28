@@ -139,7 +139,7 @@ attributes #3 = { nounwind }
 !1 = !{i32 4}
 !2 = !{i32 2, i32 0}
 !3 = !{!"int*", !"int", !"int*", !"int*", !"int", !"int", !"char*", !"char*", !"long", !"long"}
-!4 = !{i32 addrspace(1)* null, i32 0, i32 addrspace(1)* null, i32 addrspace(1)* null, target("spirv.Pipe", 1) zeroinitializer, target("spirv.Pipe", 0) zeroinitializer, i8 addrspace(3)* null, i8 addrspace(1)* null, i64 0, i64 0}
+!4 = !{ptr addrspace(1) null, i32 0, ptr addrspace(1) null, ptr addrspace(1) null, target("spirv.Pipe", 1) zeroinitializer, target("spirv.Pipe", 0) zeroinitializer, ptr addrspace(3) null, ptr addrspace(1) null, i64 0, i64 0}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} call

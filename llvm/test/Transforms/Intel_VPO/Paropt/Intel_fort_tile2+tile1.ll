@@ -1,5 +1,5 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-loop-transform)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
+; RUN: opt -passes='function(vpo-paropt-loop-transform)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
 
 ; Verify that #pragma omp tile generate loop-tiled code.
 ; Notice that outer loop's tile pragma is expecting two level normalized loops to be tiled.

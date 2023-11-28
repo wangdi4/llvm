@@ -71,62 +71,6 @@ struct RTLInfoTy {
                                     const KernelArgsTy *, __tgt_async_info *);
   typedef int64_t(init_requires_ty)(int64_t);
   typedef int32_t(synchronize_ty)(int32_t, __tgt_async_info *);
-#if INTEL_COLLAB
-  typedef int32_t(manifest_data_for_region_ty)(int32_t, void *,
-                                               void **, size_t);
-  typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *, int32_t);
-  typedef char *(get_device_name_ty)(int32_t, char *, size_t);
-  typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
-                                         int32_t, int32_t, int32_t, void *,
-                                         __tgt_async_info *);
-  typedef void *(get_context_handle_ty)(int32_t);
-  typedef void *(data_realloc_ty)(int32_t, void *, size_t, int32_t);
-  typedef void *(data_aligned_alloc_ty)(int32_t, size_t, size_t, int32_t);
-  typedef bool (register_host_pointer_ty)(int32_t, void *, size_t);
-  typedef bool (unregister_host_pointer_ty)(int32_t, void *);
-  typedef int32_t(requires_mapping_ty)(int32_t, void *, int64_t);
-  typedef void (init_ompt_ty)(void *);
-  typedef int32_t(get_data_alloc_info_ty)(int32_t, int32_t, void *, void *);
-  typedef int32_t(push_subdevice_ty)(int64_t);
-  typedef int32_t(pop_subdevice_ty)(void);
-  typedef void (add_build_options_ty)(const char *, const char *);
-  typedef int32_t(is_supported_device_ty)(int32_t, void *);
-#if INTEL_CUSTOMIZATION
-  typedef __tgt_interop *(create_interop_ty)(int32_t, int32_t, int32_t,
-                                             int32_t *);
-  typedef int32_t(release_interop_ty)(int32_t, __tgt_interop *);
-  typedef int32_t(use_interop_ty)(int32_t, __tgt_interop *);
-  typedef int32_t(get_num_interop_properties_ty)(int32_t);
-  typedef int32_t(get_interop_property_value_ty)(int32_t, __tgt_interop *,
-                                                 int32_t, int32_t, size_t,
-                                                 void *);
-  typedef const char *(get_interop_property_info_ty)(int32_t, int32_t, int32_t);
-  typedef const char *(get_interop_rc_desc_ty)(int32_t, int32_t);
-  typedef int32_t(flush_queue_ty)(__tgt_interop *);
-  typedef int32_t(sync_barrier_ty)(__tgt_interop *);
-  typedef int32_t(async_barrier_ty)(__tgt_interop *);
-  typedef int32_t(memcpy_rect_3d_ty)(int32_t, void *, const void *, size_t,
-                                     int32_t, const size_t *, const size_t *,
-                                     const size_t *, const size_t *,
-                                     const size_t *);
-#endif // INTEL_CUSTOMIZATION
-  typedef int32_t(get_num_sub_devices_ty)(int32_t, int32_t);
-  typedef int32_t(is_accessible_addr_range_ty)(int32_t, const void *, size_t);
-  typedef int32_t(notify_indirect_access_ty)(int32_t, const void *, size_t);
-  typedef int32_t(is_private_arg_on_host_ty)(int32_t, const void *, uint32_t);
-  typedef int32_t(command_batch_begin_ty)(int32_t, int32_t);
-  typedef int32_t(command_batch_end_ty)(int32_t, int32_t);
-  typedef void(kernel_batch_begin_ty)(int32_t, uint32_t);
-  typedef void(kernel_batch_end_ty)(int32_t);
-  typedef int32_t(set_function_ptr_map_ty)(int32_t, uint64_t,
-                                           const __omp_offloading_fptr_map_t *);
-  typedef int32_t(get_device_info_ty)(int32_t, int32_t, size_t, void *,
-                                      size_t *);
-  typedef void *(data_aligned_alloc_shared_ty)(int32_t, size_t, size_t,
-                                               int32_t);
-  typedef int(prefetch_shared_mem_ty)(int32_t, size_t, void **, size_t *);
-  typedef int(get_device_from_ptr_ty)(const void *);
-#endif // INTEL_COLLAB
   typedef int32_t(query_async_ty)(int32_t, __tgt_async_info *);
   typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
   typedef int32_t(supports_empty_images_ty)();
@@ -145,6 +89,68 @@ struct RTLInfoTy {
   typedef int32_t(data_unlock_ty)(int32_t, void *);
   typedef int32_t(data_notify_mapped_ty)(int32_t, void *, int64_t);
   typedef int32_t(data_notify_unmapped_ty)(int32_t, void *);
+  typedef int32_t(set_device_offset_ty)(int32_t);
+  typedef int32_t(activate_record_replay_ty)(int32_t, uint64_t, void *, bool,
+                                             bool);
+#if INTEL_CUSTOMIZATION
+  typedef int32_t(manifest_data_for_region_ty)(int32_t, void *,
+                                               void **, size_t);
+  typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *, int32_t);
+  typedef char *(get_device_name_ty)(int32_t, char *, size_t);
+  typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
+                                         int32_t, int32_t, int32_t, void *,
+                                         __tgt_async_info *);
+  typedef void *(get_context_handle_ty)(int32_t);
+  typedef void *(data_realloc_ty)(int32_t, void *, size_t, int32_t);
+  typedef void *(data_aligned_alloc_ty)(int32_t, size_t, size_t, int32_t);
+  typedef bool (register_host_pointer_ty)(int32_t, void *, size_t);
+  typedef bool (unregister_host_pointer_ty)(int32_t, void *);
+  typedef int32_t(requires_mapping_ty)(int32_t, void *, int64_t);
+  typedef int32_t(get_data_alloc_info_ty)(int32_t, int32_t, void *, void *);
+  typedef int32_t(push_subdevice_ty)(int64_t);
+  typedef int32_t(pop_subdevice_ty)(void);
+  typedef int32_t(is_supported_device_ty)(int32_t, void *);
+  typedef __tgt_interop *(create_interop_ty)(int32_t, int32_t, int32_t,
+                                             int32_t *);
+  typedef int32_t(release_interop_ty)(int32_t, __tgt_interop *);
+  typedef int32_t(use_interop_ty)(int32_t, __tgt_interop *);
+  typedef int32_t(get_num_interop_properties_ty)(int32_t);
+  typedef int32_t(get_interop_property_value_ty)(int32_t, __tgt_interop *,
+                                                 int32_t, int32_t, size_t,
+                                                 void *);
+  typedef const char *(get_interop_property_info_ty)(int32_t, int32_t, int32_t);
+  typedef const char *(get_interop_rc_desc_ty)(int32_t, int32_t);
+  typedef int32_t(flush_queue_ty)(__tgt_interop *);
+  typedef int32_t(sync_barrier_ty)(__tgt_interop *);
+  typedef int32_t(async_barrier_ty)(__tgt_interop *);
+  typedef int32_t(memcpy_rect_3d_ty)(int32_t, void *, const void *, size_t,
+                                     int32_t, const size_t *, const size_t *,
+                                     const size_t *, const size_t *,
+                                     const size_t *);
+  typedef int32_t(get_num_sub_devices_ty)(int32_t, int32_t);
+  typedef int32_t(is_accessible_addr_range_ty)(int32_t, const void *, size_t);
+  typedef int32_t(notify_indirect_access_ty)(int32_t, const void *, size_t);
+  typedef int32_t(is_private_arg_on_host_ty)(int32_t, const void *, uint32_t);
+  typedef int32_t(command_batch_begin_ty)(int32_t, int32_t);
+  typedef int32_t(command_batch_end_ty)(int32_t, int32_t);
+  typedef void(kernel_batch_begin_ty)(int32_t, uint32_t);
+  typedef void(kernel_batch_end_ty)(int32_t);
+  typedef int32_t(set_function_ptr_map_ty)(int32_t, uint64_t,
+                                           const __omp_offloading_fptr_map_t *);
+  typedef int32_t(get_device_info_ty)(int32_t, int32_t, size_t, void *,
+                                      size_t *);
+  typedef void *(data_aligned_alloc_shared_ty)(int32_t, size_t, size_t,
+                                               int32_t);
+  typedef int(prefetch_shared_mem_ty)(int32_t, size_t, void **, size_t *);
+  typedef int(get_device_from_ptr_ty)(const void *);
+  typedef int32_t(get_groups_shape_ty)(int32_t, int32_t, int32_t, void *,
+                                       void *, void *, void *);
+  typedef int32_t(get_mem_resources_ty)(int32_t, const int32_t *, int32_t,
+                                        omp_memspace_handle_t, int32_t *);
+  typedef void *(omp_alloc_ty)(size_t, omp_allocator_handle_t);
+  typedef void(omp_free_ty)(void *, omp_allocator_handle_t);
+  typedef void(notify_legacy_offload_ty)(void);
+#endif // INTEL_CUSTOMIZATION
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
                                 // of other RTLs that were registered before,
@@ -157,10 +163,10 @@ struct RTLInfoTy {
 #ifdef OMPTARGET_DEBUG
   std::string RTLName;
 #endif
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   // FIXME: can we combine this with RTLName, when open-sourcing?
   const char *RTLConstName = "";
-#endif  // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
   // Functions implemented in the RTL.
   init_plugin_ty *init_plugin = nullptr;
@@ -183,50 +189,6 @@ struct RTLInfoTy {
   launch_kernel_ty *launch_kernel = nullptr;
   init_requires_ty *init_requires = nullptr;
   synchronize_ty *synchronize = nullptr;
-#if INTEL_COLLAB
-  manifest_data_for_region_ty *manifest_data_for_region = nullptr;
-  data_alloc_base_ty *data_alloc_base = nullptr;
-  get_device_name_ty *get_device_name = nullptr;
-  run_team_nd_region_ty *run_team_nd_region = nullptr;
-  get_context_handle_ty *get_context_handle = nullptr;
-  data_realloc_ty *data_realloc = nullptr;
-  data_aligned_alloc_ty *data_aligned_alloc = nullptr;
-  register_host_pointer_ty *register_host_pointer = nullptr;
-  unregister_host_pointer_ty *unregister_host_pointer = nullptr;
-  requires_mapping_ty *requires_mapping = nullptr;
-  init_ompt_ty *init_ompt = nullptr;
-  get_data_alloc_info_ty *get_data_alloc_info = nullptr;
-  push_subdevice_ty *push_subdevice = nullptr;
-  pop_subdevice_ty *pop_subdevice = nullptr;
-  add_build_options_ty *add_build_options = nullptr;
-  is_supported_device_ty *is_supported_device = nullptr;
-#if INTEL_CUSTOMIZATION
-  create_interop_ty *create_interop = nullptr;
-  release_interop_ty *release_interop = nullptr;
-  use_interop_ty *use_interop = nullptr;
-  get_num_interop_properties_ty *get_num_interop_properties = nullptr;
-  get_interop_property_value_ty *get_interop_property_value = nullptr;
-  get_interop_property_info_ty *get_interop_property_info = nullptr;
-  get_interop_rc_desc_ty *get_interop_rc_desc = nullptr;
-  flush_queue_ty *flush_queue = nullptr;
-  sync_barrier_ty *sync_barrier = nullptr;
-  async_barrier_ty *async_barrier = nullptr;
-  memcpy_rect_3d_ty *memcpy_rect_3d = nullptr;
-#endif // INTEL_CUSTOMIZATION
-  get_num_sub_devices_ty *get_num_sub_devices = nullptr;
-  is_accessible_addr_range_ty *is_accessible_addr_range = nullptr;
-  notify_indirect_access_ty *notify_indirect_access = nullptr;
-  is_private_arg_on_host_ty *is_private_arg_on_host = nullptr;
-  command_batch_begin_ty *command_batch_begin = nullptr;
-  command_batch_end_ty *command_batch_end = nullptr;
-  kernel_batch_begin_ty *kernel_batch_begin = nullptr;
-  kernel_batch_end_ty *kernel_batch_end = nullptr;
-  set_function_ptr_map_ty *set_function_ptr_map = nullptr;
-  get_device_info_ty *get_device_info = nullptr;
-  data_aligned_alloc_shared_ty *data_aligned_alloc_shared = nullptr;
-  prefetch_shared_mem_ty *prefetch_shared_mem = nullptr;
-  get_device_from_ptr_ty *get_device_from_ptr = nullptr;
-#endif // INTEL_COLLAB
   query_async_ty *query_async = nullptr;
   register_lib_ty register_lib = nullptr;
   register_lib_ty unregister_lib = nullptr;
@@ -245,7 +207,54 @@ struct RTLInfoTy {
   data_unlock_ty *data_unlock = nullptr;
   data_notify_mapped_ty *data_notify_mapped = nullptr;
   data_notify_unmapped_ty *data_notify_unmapped = nullptr;
+  set_device_offset_ty *set_device_offset = nullptr;
+  activate_record_replay_ty *activate_record_replay = nullptr;
 
+#if INTEL_CUSTOMIZATION
+  manifest_data_for_region_ty *manifest_data_for_region = nullptr;
+  data_alloc_base_ty *data_alloc_base = nullptr;
+  get_device_name_ty *get_device_name = nullptr;
+  run_team_nd_region_ty *run_team_nd_region = nullptr;
+  get_context_handle_ty *get_context_handle = nullptr;
+  data_realloc_ty *data_realloc = nullptr;
+  data_aligned_alloc_ty *data_aligned_alloc = nullptr;
+  register_host_pointer_ty *register_host_pointer = nullptr;
+  unregister_host_pointer_ty *unregister_host_pointer = nullptr;
+  requires_mapping_ty *requires_mapping = nullptr;
+  get_data_alloc_info_ty *get_data_alloc_info = nullptr;
+  push_subdevice_ty *push_subdevice = nullptr;
+  pop_subdevice_ty *pop_subdevice = nullptr;
+  is_supported_device_ty *is_supported_device = nullptr;
+  create_interop_ty *create_interop = nullptr;
+  release_interop_ty *release_interop = nullptr;
+  use_interop_ty *use_interop = nullptr;
+  get_num_interop_properties_ty *get_num_interop_properties = nullptr;
+  get_interop_property_value_ty *get_interop_property_value = nullptr;
+  get_interop_property_info_ty *get_interop_property_info = nullptr;
+  get_interop_rc_desc_ty *get_interop_rc_desc = nullptr;
+  flush_queue_ty *flush_queue = nullptr;
+  sync_barrier_ty *sync_barrier = nullptr;
+  async_barrier_ty *async_barrier = nullptr;
+  memcpy_rect_3d_ty *memcpy_rect_3d = nullptr;
+  get_num_sub_devices_ty *get_num_sub_devices = nullptr;
+  is_accessible_addr_range_ty *is_accessible_addr_range = nullptr;
+  notify_indirect_access_ty *notify_indirect_access = nullptr;
+  is_private_arg_on_host_ty *is_private_arg_on_host = nullptr;
+  command_batch_begin_ty *command_batch_begin = nullptr;
+  command_batch_end_ty *command_batch_end = nullptr;
+  kernel_batch_begin_ty *kernel_batch_begin = nullptr;
+  kernel_batch_end_ty *kernel_batch_end = nullptr;
+  set_function_ptr_map_ty *set_function_ptr_map = nullptr;
+  get_device_info_ty *get_device_info = nullptr;
+  data_aligned_alloc_shared_ty *data_aligned_alloc_shared = nullptr;
+  prefetch_shared_mem_ty *prefetch_shared_mem = nullptr;
+  get_device_from_ptr_ty *get_device_from_ptr = nullptr;
+  get_groups_shape_ty *get_groups_shape = nullptr;
+  get_mem_resources_ty *get_mem_resources = nullptr;
+  omp_alloc_ty *omp_alloc = nullptr;
+  omp_free_ty *omp_free = nullptr;
+  notify_legacy_offload_ty *notify_legacy_offload = nullptr;
+#endif // INTEL_CUSTOMIZATION
   // Are there images associated with this RTL.
   bool IsUsed = false;
 
@@ -266,11 +275,7 @@ struct RTLsTy {
   // binaries.
   llvm::SmallVector<RTLInfoTy *> UsedRTLs;
 
-#if INTEL_COLLAB
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
-#else  // INTEL_COLLAB
-  int64_t RequiresFlags;
-#endif // INTEL_COLLAB
 
   explicit RTLsTy() = default;
 

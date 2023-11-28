@@ -1,6 +1,6 @@
 //==--- MapIntrinToIml.h - Class definition for MapIntrinToIml -*- C++ -*---==//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -107,7 +107,7 @@ class MapIntrinToImlImpl {
   /// legally typed svml function declaration.
   FunctionType *legalizeFunctionTypes(FunctionType *FT, ArrayRef<Value *> Args,
                                       unsigned LogicalVL, unsigned TargetVL,
-                                      StringRef FuncName);
+                                      StringRef FuncName, bool Masked);
 
   /// \brief Splits \p NumRet number of call instructions to the math function
   /// and inserts them into \p SplitCalls. \p Args are the arguments used for

@@ -204,6 +204,18 @@ if (NOT DEFINED LLVM_LINKER_DETECTED AND NOT WIN32)
     separate_arguments(flags UNIX_COMMAND "${CMAKE_EXE_LINKER_FLAGS}")
     set(command ${CMAKE_C_COMPILER} ${flags} ${version_flag} -o ${DEVNULL})
   endif()
+
+  # INTEL_CUSTOMIZATION
+  # The --sysroot and --gcc-toolchain options may affect the driver's choice of
+  # linker, so we must include these options when probing the linker version.
+  if (CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN)
+    list(APPEND command "${CMAKE_C_COMPILE_OPTIONS_EXTERNAL_TOOLCHAIN}${CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN}")
+  endif()
+  if (CMAKE_SYSROOT)
+    list(APPEND command "${CMAKE_C_COMPILE_OPTIONS_SYSROOT}${CMAKE_SYSROOT}")
+  endif()
+  # end INTEL_CUSTOMIZATION
+
   execute_process(
     COMMAND ${command}
     OUTPUT_VARIABLE stdout
@@ -282,9 +294,9 @@ function(add_link_opts target_name)
         # ld64's implementation of -dead_strip breaks tools that use plugins.
         set_property(TARGET ${target_name} APPEND_STRING PROPERTY
                      LINK_FLAGS " -Wl,-dead_strip")
-      elseif(${CMAKE_SYSTEM_NAME} MATCHES "SunOS")
+      elseif(${CMAKE_SYSTEM_NAME} MATCHES "SunOS" AND LLVM_LINKER_IS_SOLARISLD)
         # Support for ld -z discard-unused=sections was only added in
-        # Solaris 11.4.
+        # Solaris 11.4.  GNU ld ignores it, but warns every time.
         include(LLVMCheckLinkerFlag)
         llvm_check_linker_flag(CXX "-Wl,-z,discard-unused=sections" LINKER_SUPPORTS_Z_DISCARD_UNUSED)
         if (LINKER_SUPPORTS_Z_DISCARD_UNUSED)
@@ -433,7 +445,7 @@ function(set_windows_version_resource_properties name resource_file)
                PROPERTY COMPILE_DEFINITIONS
 # INTEL_CUSTOMIZATION
                "RC_COMPANY_NAME=\"Intel Corporation\""
-               "RC_COPYRIGHT=\"Copyright (C) 2019-2020 Intel Corporation\""
+               "RC_COPYRIGHT=\"Copyright (C) 2019 Intel Corporation\""
 # end INTEL_CUSTOMIZATION
                "RC_VERSION_FIELD_1=${ARG_VERSION_MAJOR}"
                "RC_VERSION_FIELD_2=${ARG_VERSION_MINOR}"
@@ -444,21 +456,6 @@ function(set_windows_version_resource_properties name resource_file)
                "RC_PRODUCT_NAME=\"${ARG_PRODUCT_NAME}\""
                "RC_PRODUCT_VERSION=\"${ARG_VERSION_STRING}\"")
 endfunction(set_windows_version_resource_properties)
-
-# INTEL_CUSTOMIZATION
-# LLVM sets /MT or /MD options globally, and there's no way to change it
-# for a single target. As a workaround, remove /MT flag for every target
-# and set it manually.
-macro(set_msvc_crt_flags name)
-  if (WIN32)
-    if (CMAKE_BUILD_TYPE MATCHES "Debug")
-      target_compile_options(${name} PRIVATE "/MTd")
-    else()
-      target_compile_options(${name} PRIVATE "/MT")
-    endif()
-  endif()
-endmacro()
-# end INTEL_CUSTOMIZATION
 
 # llvm_add_library(name sources...
 #   SHARED;STATIC
@@ -543,9 +540,6 @@ function(llvm_add_library name)
       ${ALL_FILES}
       )
     llvm_update_compile_flags(${obj_name})
-    # INTEL_CUSTOMIZATION
-    set_msvc_crt_flags(${obj_name})
-    # end INTEL_CUSTOMIZATION
     if(CMAKE_GENERATOR STREQUAL "Xcode")
       set(DUMMY_FILE ${CMAKE_CURRENT_BINARY_DIR}/Dummy.c)
       file(WRITE ${DUMMY_FILE} "// This file intentionally empty\n")
@@ -747,21 +741,7 @@ function(llvm_add_library name)
   #if it forced - override with provided value
   if (ARG_STDLIB)
     if (WIN32)
-      check_cxx_compiler_flag("${ARG_STDLIB}" CXX_COMPILER_SUPPORTS_STL_FLAG)
-      if (CXX_COMPILER_SUPPORTS_STL_FLAG)
-        foreach(flag_var
-            CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-            CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
-            CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
-            CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
-          string(REGEX REPLACE "/MTd" "" ${flag_var} "${${flag_var}}")
-          string(REGEX REPLACE "/MT" "" ${flag_var} "${${flag_var}}")
-          set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
-        endforeach()
-        target_compile_options(${name} PUBLIC "${ARG_STDLIB}")
-        set_property(TARGET ${name} APPEND_STRING PROPERTY
-                    COMPILE_FLAGS " ${ARG_STDLIB}")
-      endif()
+      message(FATAL_ERROR "STDLIB is unsupported on WIN32. Use MSVC_RUNTIME_LIBRARY.")
     else()
       check_cxx_compiler_flag("-stdlib=lib${ARG_STDLIB}"
                               CXX_COMPILER_SUPPORTS_STDLIB)
@@ -772,8 +752,6 @@ function(llvm_add_library name)
                     LINK_FLAGS " -l${ARG_STDLIB}")
       endif()
     endif()
-  else()
-    set_msvc_crt_flags(${name})
   endif()
   # end INTEL_CUSTOMIZATION
 
@@ -785,6 +763,8 @@ function(llvm_add_library name)
       add_dependencies(${objlib} ${LLVM_COMMON_DEPENDS})
     endforeach()
   endif()
+
+  add_custom_linker_flags(${name})
 
   if(ARG_SHARED OR ARG_MODULE)
     llvm_externalize_debuginfo(${name})
@@ -976,9 +956,6 @@ macro(generate_llvm_objects name)
     endif()
 
     set_target_properties(${obj_name} PROPERTIES FOLDER "Object Libraries")
-    # INTEL_CUSTOMIZATION
-    set_msvc_crt_flags(${obj_name})
-    # end INTEL_CUSTOMIZATION
   endif()
 
   if (ARG_GENERATE_DRIVER)
@@ -1087,6 +1064,8 @@ macro(add_llvm_executable name)
     endforeach()
   endif( LLVM_COMMON_DEPENDS )
 
+  add_custom_linker_flags(${name})
+
   if(NOT ARG_IGNORE_EXTERNALIZE_DEBUGINFO)
     llvm_externalize_debuginfo(${name})
   endif()
@@ -1102,9 +1081,6 @@ macro(add_llvm_executable name)
   endif()
 
   llvm_codesign(${name} ENTITLEMENTS ${ARG_ENTITLEMENTS} BUNDLE_PATH ${ARG_BUNDLE_PATH})
-  # INTEL_CUSTOMIZATION
-  set_msvc_crt_flags(${name})
-  # end INTEL_CUSTOMIZATION
 endmacro(add_llvm_executable name)
 
 # add_llvm_pass_plugin(name [NO_MODULE] ...)
@@ -1352,7 +1328,10 @@ function(export_executable_symbols target)
     # the size of the exported symbol table, but on other platforms we can do
     # it without any trouble.
     set_target_properties(${target} PROPERTIES ENABLE_EXPORTS 1)
-    if (APPLE)
+    # CMake doesn't set CMAKE_EXE_EXPORTS_${lang}_FLAG on Solaris, so
+    # ENABLE_EXPORTS has no effect.  While Solaris ld defaults to -rdynamic
+    # behaviour, GNU ld needs it.
+    if (APPLE OR ${CMAKE_SYSTEM_NAME} STREQUAL "SunOS")
       set_property(TARGET ${target} APPEND_STRING PROPERTY
         LINK_FLAGS " -rdynamic")
     endif()
@@ -1623,6 +1602,13 @@ macro(add_llvm_tool_subdirectory name)
   add_llvm_external_project(${name})
 endmacro(add_llvm_tool_subdirectory)
 
+macro(add_custom_linker_flags name)
+  if (LLVM_${name}_LINKER_FLAGS)
+    message(DEBUG "Applying ${LLVM_${name}_LINKER_FLAGS} to ${name}")
+    target_link_options(${name} PRIVATE ${LLVM_${name}_LINKER_FLAGS})
+  endif()
+endmacro()
+
 function(get_project_name_from_src_var var output)
   string(REGEX MATCH "LLVM_EXTERNAL_(.*)_SOURCE_DIR"
          MACHED_TOOL "${var}")
@@ -1735,14 +1721,9 @@ function(add_unittest test_suite test_name)
                  COMPILE_FLAGS " -stdlib=libstdc++")
   elseif (WIN32 AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
     target_link_libraries(${test_name} PRIVATE llvm_gtest_main_dyn llvm_gtest_dyn ${LLVM_PTHREAD_LIB})
-    foreach(flag_var
-        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-      string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
-      set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
-    endforeach()
+    set_property(TARGET ${test_name}
+                 PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   else()
-    set_msvc_crt_flags(${test_name})
     target_link_libraries(${test_name} PRIVATE llvm_gtest_main llvm_gtest ${LLVM_PTHREAD_LIB})
   endif()
   # end INTEL_CUSTOMIZATION
@@ -1839,10 +1820,15 @@ endfunction()
 # use it and can't be in a lit module. Use with make_paths_relative().
 string(CONCAT LLVM_LIT_PATH_FUNCTION
   "# Allow generated file to be relocatable.\n"
-  "from pathlib import Path\n"
+  "import os\n"
+  "import platform\n"
   "def path(p):\n"
   "    if not p: return ''\n"
-  "    return str((Path(__file__).parent / p).resolve())\n"
+  "    # Follows lit.util.abs_path_preserve_drive, which cannot be imported here.\n"
+  "    if platform.system() == 'Windows':\n"
+  "        return os.path.abspath(os.path.join(os.path.dirname(__file__), p))\n"
+  "    else:\n"
+  "        return os.path.realpath(os.path.join(os.path.dirname(__file__), p))\n"
   )
 
 # This function provides an automatic way to 'configure'-like generate a file
@@ -2490,7 +2476,7 @@ function(llvm_setup_rpath name)
       set_property(TARGET ${name} APPEND_STRING PROPERTY
                    LINK_FLAGS " -Wl,-z,origin ")
     endif()
-    if(LLVM_LINKER_IS_GNULD)
+    if(LLVM_LINKER_IS_GNULD AND NOT ${LLVM_LIBRARY_OUTPUT_INTDIR} STREQUAL "")
       # $ORIGIN is not interpreted at link time by ld.bfd
       set_property(TARGET ${name} APPEND_STRING PROPERTY
                    LINK_FLAGS " -Wl,-rpath-link,${LLVM_LIBRARY_OUTPUT_INTDIR} ")

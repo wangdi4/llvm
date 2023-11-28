@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -55,20 +55,14 @@ public:
         pArgDescriptor(nullptr), pArgInfoDescriptor(nullptr) {
     size_t paramCount = GetParamCount();
     pArgDescriptor = new KernelArgument[paramCount];
-    if (nullptr != pArgDescriptor) {
-      for (size_t i = 0; i < paramCount; ++i) {
-        MEMCPY_S(&pArgDescriptor[i], sizeof(KernelArgument),
-                 &(m_lstParams.at(i)->GetArgumentDescriptor()),
-                 sizeof(KernelArgument));
-      }
-    }
     pArgInfoDescriptor = new cl_kernel_argument_info[paramCount];
-    if (nullptr != pArgInfoDescriptor) {
-      for (size_t i = 0; i < paramCount; ++i) {
-        MEMCPY_S(&pArgInfoDescriptor[i], sizeof(cl_kernel_argument_info),
-                 &(m_lstParams.at(i)->GetArgumentInfoDescriptor()),
-                 sizeof(cl_kernel_argument_info));
-      }
+    for (size_t i = 0; i < paramCount; ++i) {
+      MEMCPY_S(&pArgDescriptor[i], sizeof(KernelArgument),
+               &(m_lstParams.at(i)->GetArgumentDescriptor()),
+               sizeof(KernelArgument));
+      MEMCPY_S(&pArgInfoDescriptor[i], sizeof(cl_kernel_argument_info),
+               &(m_lstParams.at(i)->GetArgumentInfoDescriptor()),
+               sizeof(cl_kernel_argument_info));
     }
   }
 

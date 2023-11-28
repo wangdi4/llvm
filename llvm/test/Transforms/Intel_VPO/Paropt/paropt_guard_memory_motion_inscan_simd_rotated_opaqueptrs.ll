@@ -1,9 +1,9 @@
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-guard-memory-motion-for-scan -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
-; RUN: opt -opaque-pointers=1 -passes="function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" %t1.ll -S -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=PAROPT
-; RUN: opt -opaque-pointers=1 -passes="function(vpo-cfg-restructuring,vpo-rename-operands)" %t2.ll -S -o %t3.ll && FileCheck --input-file=%t3.ll %s --check-prefix=RENAME
-; RUN: opt -opaque-pointers=1 -passes="function(vpo-restore-operands)" %t3.ll -S -o %t4.ll && FileCheck --input-file=%t4.ll %s --check-prefix=RESTORE
+; RUN: opt -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-guard-memory-motion-for-scan -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
+; RUN: opt -passes="function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" %t1.ll -S -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=PAROPT
+; RUN: opt -passes="function(vpo-cfg-restructuring,vpo-rename-operands)" %t2.ll -S -o %t3.ll && FileCheck --input-file=%t3.ll %s --check-prefix=RENAME
+; RUN: opt -passes="function(vpo-restore-operands)" %t3.ll -S -o %t4.ll && FileCheck --input-file=%t4.ll %s --check-prefix=RESTORE
 
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-guard-memory-motion-for-scan -vpo-paropt-disable-guard-memory-motion-for-scan -S < %s 2>&1 | FileCheck %s --check-prefix=DISABLE_SCAN
+; RUN: opt -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-guard-memory-motion-for-scan -vpo-paropt-disable-guard-memory-motion-for-scan -S < %s 2>&1 | FileCheck %s --check-prefix=DISABLE_SCAN
 
 ; Test to verify the functionality of VPOParoptGuardMemoryMotion and VPORenameOperands passes.
 
@@ -55,6 +55,7 @@ define float @_Z3udsPfS_S_i(ptr %m_scan_vec, ptr %m_out_vec, ptr %m_in, i32 %c_s
 ; CHECK: "DIR.VPO.END.GUARD.MEM.MOTION"
 ; CHECK: "DIR.OMP.END.SIMD"
 
+; PAROPT: %ref.tmp.priv = alloca %struct.Dummy
 ; PAROPT: [[RED:%.*]] = alloca %struct.Dummy
 ; PAROPT: "DIR.OMP.SIMD"{{.*}}"QUAL.OMP.REDUCTION.UDR:INSCAN.TYPED"(ptr [[RED]], %struct.Dummy {{.*}} ]
 ; PAROPT: "DIR.VPO.GUARD.MEM.MOTION"(){{.*}}"QUAL.OMP.LIVEIN"(ptr [[RED]]) ]
@@ -65,6 +66,7 @@ define float @_Z3udsPfS_S_i(ptr %m_scan_vec, ptr %m_out_vec, ptr %m_in, i32 %c_s
 ; PAROPT: "DIR.VPO.END.GUARD.MEM.MOTION"
 ; PAROPT: "DIR.OMP.END.SIMD"
 
+; RENAME: %ref.tmp.priv = alloca %struct.Dummy
 ; RENAME: [[RED:%.*]] = alloca %struct.Dummy
 ; RENAME: "DIR.OMP.SIMD"{{.*}}"QUAL.OMP.REDUCTION.UDR:INSCAN.TYPED"(ptr [[RED]], %struct.Dummy {{.*}})
 ; RENAME: store ptr [[RED]], ptr [[RED_ADDR1:%.*]],
@@ -78,6 +80,7 @@ define float @_Z3udsPfS_S_i(ptr %m_scan_vec, ptr %m_out_vec, ptr %m_in, i32 %c_s
 ; RENAME: "DIR.VPO.END.GUARD.MEM.MOTION"
 ; RENAME: "DIR.OMP.END.SIMD"
 
+; RESTORE: %ref.tmp.priv = alloca %struct.Dummy
 ; RESTORE: [[RED:%.*]] = alloca %struct.Dummy
 ; RESTORE: "DIR.OMP.SIMD"{{.*}}"QUAL.OMP.REDUCTION.UDR:INSCAN.TYPED"(ptr [[RED]], %struct.Dummy {{.*}})
 ; RESTORE: "DIR.VPO.GUARD.MEM.MOTION"(){{.*}}"QUAL.OMP.LIVEIN"(ptr [[RED]]) ]

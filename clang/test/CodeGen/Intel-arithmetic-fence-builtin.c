@@ -1,8 +1,8 @@
 // Test with fast math
-// RUN: %clang_cc1 -triple x86_64-linux-gnu -emit-llvm -mreassociate -opaque-pointers \
+// RUN: %clang_cc1 -triple x86_64-linux-gnu -emit-llvm -mreassociate \
 // RUN: -o - %s | FileCheck --check-prefixes CHECK,CHECK64 %s
 
-// RUN: %clang_cc1 -triple i386-pc-linux-gnu -emit-llvm -mreassociate -opaque-pointers \
+// RUN: %clang_cc1 -triple i386-pc-linux-gnu -emit-llvm -mreassociate \
 // RUN: -o - %s | FileCheck --check-prefixes CHECK,CHECK32 %s
 
 int v;

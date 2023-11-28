@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2023 Intel Corporation.
+// Copyright 2008 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -11,10 +11,6 @@
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
 // License.
-
-#include <sstream>
-// Debug
-#include <assert.h>
 
 #include "Context.h"
 #include "Device.h"
@@ -27,6 +23,10 @@
 #include "ocl_command_queue.h"
 #include "ocl_event.h"
 #include "out_of_order_command_queue.h"
+
+// Debug
+#include <assert.h>
+#include <sstream>
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
@@ -217,46 +217,9 @@ cl_err_code OclCommandQueue::Initialize() {
 
 cl_int OclCommandQueue::GetContextId() const { return m_pContext->GetId(); }
 
-cl_err_code OclCommandQueue::GPA_InitializeQueue() {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-  if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) &&
-      (m_pGPAData->bEnableContextTracing)) {
-    m_pOclGpaQueue = new ocl_gpa_queue();
-    if (NULL == m_pOclGpaQueue) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
+cl_err_code OclCommandQueue::GPA_InitializeQueue() { return CL_SUCCESS; }
 
-    std::stringstream ssQueueTrackName;
-    ssQueueTrackName << (m_bOutOfOrderEnabled ? "Out Of Order Queue (CPU)"
-                                              : "In Order Queue (CPU)")
-                     << std::endl;
-    ssQueueTrackName << "Queue id: " << m_iId << std::endl;
-    ssQueueTrackName << "Queue handle: " << (int)&m_handle;
-
-    m_pOclGpaQueue->m_pStrHndl =
-        __itt_string_handle_createA(ssQueueTrackName.str().c_str());
-
-    m_pOclGpaQueue->m_pTrack =
-        __itt_track_create(m_pGPAData->pContextTrackGroup,
-                           m_pOclGpaQueue->m_pStrHndl, __itt_track_type_queue);
-  }
-#endif
-#endif // end INTEL_CUSTOMIZATION
-  return CL_SUCCESS;
-}
-
-cl_err_code OclCommandQueue::GPA_ReleaseQueue() {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-  if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) &&
-      (m_pGPAData->bEnableContextTracing)) {
-    delete m_pOclGpaQueue;
-  }
-#endif
-#endif // end INTEL_CUSTOMIZATION
-  return CL_SUCCESS;
-}
+cl_err_code OclCommandQueue::GPA_ReleaseQueue() { return CL_SUCCESS; }
 
 ocl_gpa_data *OclCommandQueue::GetGPAData() const {
   return m_pContext->GetGPAData();

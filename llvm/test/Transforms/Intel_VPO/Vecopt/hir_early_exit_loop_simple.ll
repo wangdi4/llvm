@@ -28,7 +28,7 @@
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
 ; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP3]], UF = 1
-; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -49,7 +49,7 @@
 ; CHECK-NEXT:       br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH0]]: # preds: [[BB3]], [[INTERMEDIATE_BB0]]
-; CHECK-NEXT:     i64 [[VP__SSA_PHI]] = phi  [ i64 [[VP6]], [[BB3]] ],  [ i64 undef, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:     i64 [[VP__SSA_PHI]] = phi  [ i64 [[VP6]], [[BB3]] ],  [ i64 [[VP4]], [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB3]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP7]], [[BB3]] ],  [ i1 false, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     br i1 [[VP_TAKE_BACKEDGE_COND]], [[BB2]], [[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]]

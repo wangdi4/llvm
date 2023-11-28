@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -42,10 +42,12 @@
 
 namespace llvm {
 
-static constexpr unsigned InstCombineDefaultMaxIterations = 1000;
+static constexpr unsigned InstCombineDefaultMaxIterations = 1;
 
 struct InstCombineOptions {
   bool UseLoopInfo = false;
+  // Verify that a fix point has been reached after MaxIterations.
+  bool VerifyFixpoint = false;
   unsigned MaxIterations = InstCombineDefaultMaxIterations;
 #if INTEL_CUSTOMIZATION
   bool PreserveForDTrans;
@@ -71,6 +73,11 @@ struct InstCombineOptions {
 
   InstCombineOptions &setUseLoopInfo(bool Value) {
     UseLoopInfo = Value;
+    return *this;
+  }
+
+  InstCombineOptions &setVerifyFixpoint(bool Value) {
+    VerifyFixpoint = Value;
     return *this;
   }
 

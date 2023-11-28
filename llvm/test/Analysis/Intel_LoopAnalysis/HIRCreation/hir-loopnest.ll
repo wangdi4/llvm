@@ -1,5 +1,4 @@
 ; RUN: opt %s -passes="print<hir-framework>" -hir-framework-debug=creation -disable-output 2>&1 | FileCheck %s
-; RUN: opt %s -passes="print<hir-framework>" -opaque-pointers -hir-framework-debug=creation -disable-output 2>&1 | FileCheck %s
 
 ; Check sequence of gotos/labels in output of hir-creation
 ; CHECK: for.cond1.preheader:

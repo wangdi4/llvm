@@ -31,31 +31,37 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "SymPropReader.h"
 #include "clang/Basic/Version.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/TargetParser/Triple.h"
 #ifndef NDEBUG
 #include "llvm/IR/Verifier.h"
 #endif // NDEBUG
 #include "llvm/Object/ELFObjectFile.h"
 #include "llvm/Object/ObjectFile.h"
+#include "llvm/SYCLLowerIR/SYCLUtils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/EndianStream.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorOr.h"
-#include "llvm/Support/LineIterator.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
@@ -144,6 +150,13 @@ static cl::opt<std::string> Output("o", cl::Required,
                                    cl::desc("Output filename"),
                                    cl::value_desc("filename"),
                                    cl::cat(ClangOffloadWrapperCategory));
+
+static cl::opt<std::string>
+    SymPropBCFiles("sym-prop-bc-files", cl::Optional,
+                   cl::desc("File with list of wrapped BC input files that "
+                            "will be used to supply symbols and properties."),
+                   cl::value_desc("filename"),
+                   cl::cat(ClangOffloadWrapperCategory));
 
 static cl::opt<bool> Verbose("v", cl::desc("verbose output"),
                              cl::cat(ClangOffloadWrapperCategory));
@@ -402,8 +415,10 @@ public:
   std::string Yaml2ObjPath;
 #endif // INTEL_CUSTOMIZATION
 private:
+  std::unique_ptr<SymPropReader> MySymPropReader;
+
   IntegerType *getSizeTTy() {
-    switch (M.getDataLayout().getPointerTypeSize(Type::getInt8PtrTy(C))) {
+    switch (M.getDataLayout().getPointerTypeSize(PointerType::getUnqual(C))) {
     case 4u:
       return Type::getInt32Ty(C);
     case 8u:
@@ -452,8 +467,8 @@ private:
   // };
   StructType *getEntryTy() {
     if (!EntryTy)
-      EntryTy = StructType::create("__tgt_offload_entry", Type::getInt8PtrTy(C),
-                                   Type::getInt8PtrTy(C), getSizeTTy(),
+      EntryTy = StructType::create("__tgt_offload_entry", PointerType::getUnqual(C),
+                                   PointerType::getUnqual(C), getSizeTTy(),
                                    Type::getInt32Ty(C), Type::getInt32Ty(C));
     return EntryTy;
   }
@@ -468,8 +483,8 @@ private:
   // };
   StructType *getDeviceImageTy() {
     if (!ImageTy)
-      ImageTy = StructType::create("__tgt_device_image", Type::getInt8PtrTy(C),
-                                   Type::getInt8PtrTy(C), getEntryPtrTy(),
+      ImageTy = StructType::create("__tgt_device_image", PointerType::getUnqual(C),
+                                   PointerType::getUnqual(C), getEntryPtrTy(),
                                    getEntryPtrTy());
     return ImageTy;
   }
@@ -516,8 +531,8 @@ private:
     if (!SyclPropTy) {
       SyclPropTy = StructType::create(
           {
-              Type::getInt8PtrTy(C), // Name
-              Type::getInt8PtrTy(C), // ValAddr
+              PointerType::getUnqual(C), // Name
+              PointerType::getUnqual(C), // ValAddr
               Type::getInt32Ty(C),   // Type
               Type::getInt64Ty(C)    // ValSize
           },
@@ -540,7 +555,7 @@ private:
     if (!SyclPropSetTy) {
       SyclPropSetTy = StructType::create(
           {
-              Type::getInt8PtrTy(C), // Name
+              PointerType::getUnqual(C), // Name
               getSyclPropPtrTy(),    // PropertiesBegin
               getSyclPropPtrTy()     // PropertiesEnd
           },
@@ -595,13 +610,13 @@ private:
               Type::getInt16Ty(C),   // Version
               Type::getInt8Ty(C),    // OffloadKind
               Type::getInt8Ty(C),    // Format
-              Type::getInt8PtrTy(C), // DeviceTargetSpec
-              Type::getInt8PtrTy(C), // CompileOptions
-              Type::getInt8PtrTy(C), // LinkOptions
-              Type::getInt8PtrTy(C), // ManifestStart
-              Type::getInt8PtrTy(C), // ManifestEnd
-              Type::getInt8PtrTy(C), // ImageStart
-              Type::getInt8PtrTy(C), // ImageEnd
+              PointerType::getUnqual(C), // DeviceTargetSpec
+              PointerType::getUnqual(C), // CompileOptions
+              PointerType::getUnqual(C), // LinkOptions
+              PointerType::getUnqual(C), // ManifestStart
+              PointerType::getUnqual(C), // ManifestEnd
+              PointerType::getUnqual(C), // ImageStart
+              PointerType::getUnqual(C), // ImageEnd
               getEntryPtrTy(),       // EntriesBegin
               getEntryPtrTy(),       // EntriesEnd
               getSyclPropSetPtrTy(), // PropertySetBegin
@@ -657,6 +672,69 @@ private:
 
     AutoGcBufs.emplace_back(std::move(InputOrErr.get()));
     return AutoGcBufs.back().get();
+  }
+
+  Function *addDeclarationForNativeCPU(StringRef Name) {
+    static FunctionType *NativeCPUFuncTy = FunctionType::get(
+        Type::getVoidTy(C),
+        {PointerType::getUnqual(C), PointerType::getUnqual(C)}, false);
+    static FunctionType *NativeCPUBuiltinTy = FunctionType::get(
+        PointerType::getUnqual(C), {PointerType::getUnqual(C)}, false);
+    FunctionType *FTy;
+    if (Name.starts_with("__dpcpp_nativecpu"))
+      FTy = NativeCPUBuiltinTy;
+    else
+      FTy = NativeCPUFuncTy;
+    auto FCalle = M.getOrInsertFunction(
+        sycl::utils::addSYCLNativeCPUSuffix(Name).str(), FTy);
+    Function *F = dyn_cast<Function>(FCalle.getCallee());
+    if (F == nullptr)
+      report_fatal_error("Unexpected callee");
+    return F;
+  }
+
+  Expected<std::pair<Constant *, Constant *>>
+  addDeclarationsForNativeCPU(StringRef EntriesFile) {
+    Expected<MemoryBuffer *> MBOrErr = loadFile(EntriesFile);
+    if (!MBOrErr)
+      return MBOrErr.takeError();
+    MemoryBuffer *MB = *MBOrErr;
+    // the Native CPU PI Plug-in expects the BinaryStart field to point to an
+    // array of struct nativecpu_entry {
+    //   char *kernelname;
+    //   unsigned char *kernel_ptr;
+    // };
+    StructType *NCPUEntryT = StructType::create(
+        {PointerType::getUnqual(C), PointerType::getUnqual(C)},
+        "__nativecpu_entry");
+    SmallVector<Constant *, 5> NativeCPUEntries;
+    for (line_iterator LI(*MB); !LI.is_at_eof(); ++LI) {
+      auto *NewDecl = addDeclarationForNativeCPU(*LI);
+      NativeCPUEntries.push_back(ConstantStruct::get(
+          NCPUEntryT,
+          {addStringToModule(*LI, "__ncpu_function_name"), NewDecl}));
+    }
+
+    // Add an empty entry that we use as end iterator
+    static auto *NativeCPUEndStr =
+        addStringToModule("__nativecpu_end", "__ncpu_end_str");
+    auto *NullPtr = llvm::ConstantPointerNull::get(PointerType::getUnqual(C));
+    NativeCPUEntries.push_back(
+        ConstantStruct::get(NCPUEntryT, {NativeCPUEndStr, NullPtr}));
+
+    // Create the constant array containing the {kernel name, function pointers}
+    // pairs
+    ArrayType *ATy = ArrayType::get(NCPUEntryT, NativeCPUEntries.size());
+    Constant *CA = ConstantArray::get(ATy, NativeCPUEntries);
+    auto *GVar = new GlobalVariable(M, CA->getType(), true,
+                                    GlobalVariable::InternalLinkage, CA,
+                                    "__sycl_native_cpu_decls");
+    auto *Begin = ConstantExpr::getGetElementPtr(GVar->getValueType(), GVar,
+                                                 getSizetConstPair(0u, 0u));
+    auto *End = ConstantExpr::getGetElementPtr(
+        GVar->getValueType(), GVar,
+        getSizetConstPair(0u, NativeCPUEntries.size()));
+    return std::make_pair(Begin, End);
   }
 
   // Adds a global readonly variable that is initialized by given data to the
@@ -737,28 +815,37 @@ private:
   // specified.
   Expected<std::pair<Constant *, Constant *>>
   addSYCLOffloadEntriesToModule(StringRef EntriesFile) {
-    if (EntriesFile.empty()) {
+    if (EntriesFile.empty() && !MySymPropReader) {
       auto *NullPtr = Constant::getNullValue(getEntryPtrTy());
       return std::pair<Constant *, Constant *>(NullPtr, NullPtr);
     }
 
     auto *Zero = ConstantInt::get(getSizeTTy(), 0u);
     auto *i32Zero = ConstantInt::get(Type::getInt32Ty(C), 0u);
-    auto *NullPtr = Constant::getNullValue(Type::getInt8PtrTy(C));
-
-    Expected<MemoryBuffer *> MBOrErr = loadFile(EntriesFile);
-    if (!MBOrErr)
-      return MBOrErr.takeError();
-    MemoryBuffer *MB = *MBOrErr;
+    auto *NullPtr = Constant::getNullValue(PointerType::getUnqual(C));
 
     std::vector<Constant *> EntriesInits;
     // Only the name field is used for SYCL now, others are for future OpenMP
     // compatibility and new SYCL features
-    for (line_iterator LI(*MB); !LI.is_at_eof(); ++LI)
-      EntriesInits.push_back(ConstantStruct::get(
-          getEntryTy(), NullPtr,
-          addStringToModule(*LI, "__sycl_offload_entry_name"), Zero, i32Zero,
-          i32Zero));
+    if (MySymPropReader) {
+      for (uint64_t i = 0; i < MySymPropReader->getNumEntries(); i++)
+        EntriesInits.push_back(ConstantStruct::get(
+            getEntryTy(), NullPtr,
+            addStringToModule(MySymPropReader->getEntryName(i),
+                              "__sycl_offload_entry_name"),
+            Zero, i32Zero, i32Zero));
+    } else {
+      Expected<MemoryBuffer *> MBOrErr = loadFile(EntriesFile);
+      if (!MBOrErr)
+        return MBOrErr.takeError();
+      MemoryBuffer *MB = *MBOrErr;
+
+      for (line_iterator LI(*MB); !LI.is_at_eof(); ++LI)
+        EntriesInits.push_back(ConstantStruct::get(
+            getEntryTy(), NullPtr,
+            addStringToModule(*LI, "__sycl_offload_entry_name"), Zero, i32Zero,
+            i32Zero));
+    }
 
     auto *Arr = ConstantArray::get(
         ArrayType::get(getEntryTy(), EntriesInits.size()), EntriesInits);
@@ -790,7 +877,7 @@ private:
       switch (Prop.second.getType()) {
       case llvm::util::PropertyValue::UINT32: {
         // for known scalar types ValAddr is null, ValSize keeps the value
-        PropValAddr = Constant::getNullValue(Type::getInt8PtrTy(C));
+        PropValAddr = Constant::getNullValue(PointerType::getUnqual(C));
         PropValSize =
             ConstantInt::get(Type::getInt64Ty(C), Prop.second.asUint32());
         break;
@@ -849,21 +936,31 @@ private:
   // array, or a pair of nullptrs in case the properties file wasn't specified.
   Expected<std::pair<Constant *, Constant *>>
   tformSYCLPropertySetRegistryFileToIR(StringRef PropRegistryFile) {
-    if (PropRegistryFile.empty()) {
-      auto *NullPtr =
-          Constant::getNullValue(getSyclPropSetTy()->getPointerTo());
-      return std::pair<Constant *, Constant *>(NullPtr, NullPtr);
+
+    std::unique_ptr<llvm::util::PropertySetRegistry> PropRegistry;
+
+    if (MySymPropReader) {
+      PropRegistry = MySymPropReader->getPropRegistry();
+    } else {
+      if (PropRegistryFile.empty()) {
+        auto *NullPtr =
+            Constant::getNullValue(getSyclPropSetTy()->getPointerTo());
+        return std::pair<Constant *, Constant *>(NullPtr, NullPtr);
+      }
+      // load the property registry file
+      Expected<MemoryBuffer *> MBOrErr = loadFile(PropRegistryFile);
+      if (!MBOrErr)
+        return MBOrErr.takeError();
+      MemoryBuffer *MB = *MBOrErr;
+      Expected<std::unique_ptr<llvm::util::PropertySetRegistry>> PropRegistryE =
+          llvm::util::PropertySetRegistry::read(MB);
+      if (!PropRegistryE)
+        return PropRegistryE.takeError();
+      std::unique_ptr<llvm::util::PropertySetRegistry> &PropRegistryFromFile =
+          PropRegistryE.get();
+      PropRegistry = std::move(PropRegistryFromFile);
     }
-    // load the property registry file
-    Expected<MemoryBuffer *> MBOrErr = loadFile(PropRegistryFile);
-    if (!MBOrErr)
-      return MBOrErr.takeError();
-    MemoryBuffer *MB = *MBOrErr;
-    Expected<std::unique_ptr<llvm::util::PropertySetRegistry>> PropRegistryE =
-        llvm::util::PropertySetRegistry::read(MB);
-    if (!PropRegistryE)
-      return PropRegistryE.takeError();
-    auto &PropRegistry = PropRegistryE.get();
+
     std::vector<Constant *> PropSetsInits;
 
     // transform all property sets to IR and get the middle column image into
@@ -1031,7 +1128,7 @@ private:
     }
 
     auto *Zero = ConstantInt::get(getSizeTTy(), 0u);
-    auto *NullPtr = Constant::getNullValue(Type::getInt8PtrTy(C));
+    auto *NullPtr = Constant::getNullValue(PointerType::getUnqual(C));
     Constant *ZeroZero[] = {Zero, Zero};
 
     // Create initializer for the images array.
@@ -1055,6 +1152,9 @@ private:
                                                            Twine("opts.link.") +
                                                            Twine(ImgId));
       std::pair<Constant *, Constant *> FMnf;
+
+      if (MySymPropReader)
+        MySymPropReader->getNextDeviceImageInitializer();
 
       if (Img.Manif.empty()) {
         // no manifest - zero out the fields
@@ -1086,9 +1186,18 @@ private:
         // Adding ELF notes for STDIN is not supported yet.
         Bin = addELFNotes(Bin, Img.File);
       }
-      std::pair<Constant *, Constant *> Fbin = addDeviceImageToModule(
-          ArrayRef<char>(Bin->getBufferStart(), Bin->getBufferSize()),
-          Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"), Kind, Img.Tgt);
+      std::pair<Constant *, Constant *> Fbin;
+      if (Img.Tgt == "native_cpu") {
+        auto FBinOrErr = addDeclarationsForNativeCPU(Img.EntriesFile);
+        if (!FBinOrErr)
+          return FBinOrErr.takeError();
+        Fbin = *FBinOrErr;
+      } else {
+        Fbin = addDeviceImageToModule(
+            ArrayRef<char>(Bin->getBufferStart(), Bin->getBufferSize()),
+            Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"), Kind,
+            Img.Tgt);
+      }
 
       if (Kind == OffloadKind::SYCL) {
         // For SYCL image offload entries are defined here, by wrapper, so
@@ -1270,8 +1379,14 @@ public:
 
   }
 #endif // INTEL_CUSTOMIZATION
-  BinaryWrapper(StringRef Target, StringRef ToolName)
+  BinaryWrapper(StringRef Target, StringRef ToolName,
+                StringRef SymPropBCFiles = "")
       : M("offload.wrapper.object", C), ToolName(ToolName) {
+
+    if (!SymPropBCFiles.empty())
+      MySymPropReader =
+          std::make_unique<SymPropReader>(SymPropBCFiles, ToolName);
+
     M.setTargetTriple(Target);
 #if INTEL_CUSTOMIZATION
     setToolPath(Yaml2ObjPath, "yaml2obj", "ELF container cannot be created");
@@ -1573,32 +1688,23 @@ public:
     //   ...
     unsigned AppIdx = 0;
     unsigned SubImageIdx = 0;
+    std::vector<StringRef> Args;
+    std::vector<std::string> Options;
+    Options.resize(ImageIdx);
+    Args.push_back(ObjcopyPath);
+
+    // Number of sections added using one execution of llvm-objcopy
+    const unsigned NumArgs = 1000;
     for (unsigned I = 0; I < ImageIdx; ++I) {
-      auto Name = ImageFiles[I];
-      auto SubImages = SubSections[I];
-      std::vector<StringRef> Args;
-      Args.push_back(ObjcopyPath);
       // If there are any subsections in the image, the section name will be
       // in the format of __openmp_offload_spirv_#_#
-      std::string Option(("--add-section=__openmp_offload_spirv_" +
-                          Twine(AppIdx) +
-                          (SubImages > 0 ? "_" + Twine(SubImageIdx) : "") +
-                          "=" + Name).str());
-      Args.push_back(Option);
-      Args.push_back(*ImageFileName);
-      Args.push_back(*ImageFileName);
-      bool ExecutionFailed = false;
-      std::string ErrMsg;
-      (void)sys::ExecuteAndWait(ObjcopyPath, Args,
-                                /*Env=*/std::nullopt, /*Redirects=*/{},
-                                /*SecondsToWait=*/0,
-                                /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
-
-      if (ExecutionFailed) {
-        warningOS() << ErrMsg << "\n";
-        return;
-      }
-
+      auto Name = ImageFiles[I];
+      auto SubImages = SubSections[I];
+      Options[I].assign(
+          ("--add-section=__openmp_offload_spirv_" + Twine(AppIdx) +
+           (SubImages > 0 ? "_" + Twine(SubImageIdx) : "") + "=" + Name)
+              .str());
+      Args.push_back(Options[I]);
       // Every image contains a number of subsection in its parent application,
       // so we should skip this number of images and increment AppIdx just after
       // all the subsections has been processed.
@@ -1606,8 +1712,23 @@ public:
         SubImageIdx = 0;
         ++AppIdx;
       }
+      if (((I != 0) && ((I % NumArgs) == 0)) || (I == (ImageIdx - 1))) {
+        Args.push_back(*ImageFileName);
+        Args.push_back(*ImageFileName);
+        bool ExecutionFailed = false;
+        std::string ErrMsg;
+        (void)sys::ExecuteAndWait(ObjcopyPath, Args,
+                                  /*Env=*/std::nullopt, /*Redirects=*/{},
+                                  /*SecondsToWait=*/0,
+                                  /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
+        Args.clear();
+        Args.push_back(ObjcopyPath);
+        if (ExecutionFailed) {
+          warningOS() << ErrMsg << "\n";
+          return;
+        }
+      }
     }
-
     // Delete the original Images from the list and replace then
     // with a single combined container ELF.
     for (auto *I = OpenMPPack->begin(); I != OpenMPPack->end();) {
@@ -1668,13 +1789,13 @@ public:
     // If we fail to add the note section, we just pass through the original
     // ELF image for wrapping. At some point we should enforce the note section
     // and start emitting errors vs warnings.
-    support::endianness Endianness;
+    endianness Endianness;
     if (isa<ELF64LEObjectFile>(BinOrErr->get()) ||
         isa<ELF32LEObjectFile>(BinOrErr->get())) {
-      Endianness = support::little;
+      Endianness = endianness::little;
     } else if (isa<ELF64BEObjectFile>(BinOrErr->get()) ||
                isa<ELF32BEObjectFile>(BinOrErr->get())) {
-      Endianness = support::big;
+      Endianness = endianness::big;
     } else {
       warningOS() << OriginalFileName
                   << " is an ELF image of unrecognized format.\n";
@@ -2078,11 +2199,23 @@ int main(int argc, const char **argv) {
         errc::invalid_argument, "'" + Target + "': unsupported target triple"));
     return 1;
   }
+  if (!SymPropBCFiles.empty() && Entries.size()) {
+    reportError(createStringError(errc::invalid_argument,
+                                  "Entry points cannot be provided by both "
+                                  "-sym-prop-bc-files and -entries"));
+    return 1;
+  }
+  if (!SymPropBCFiles.empty() && Properties.size()) {
+    reportError(createStringError(errc::invalid_argument,
+                                  "Properties cannot be provided by both "
+                                  "-sym-prop-bc-files and -properties"));
+    return 1;
+  }
 
   // Construct BinaryWrapper::Image instances based on command line args and
   // add them to the wrapper
 
-  BinaryWrapper Wr(Target, argv[0]);
+  BinaryWrapper Wr(Target, argv[0], SymPropBCFiles);
   OffloadKind Knd = OffloadKind::Unknown;
   llvm::StringRef Tgt = "";
   BinaryImageFormat Fmt = BinaryImageFormat::none;

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 
 ; Check parsing output for the loop
@@ -10,21 +10,21 @@
 ; CHECK: + END LOOP
 
 ; Verify that %A, %B and %n are marked as livein to region and loop.
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s --check-prefix=LIVEIN
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s --check-prefix=LIVEIN
 
 ; LIVEIN: LiveIns: %n(%n), %A(%A), %B(%B)
 
 ; LIVEIN: LiveIn symbases: [[NSYM:.*]], [[BSYM:.*]], [[ASYM:.*]]
 
 ; LIVEIN: <BLOB> LINEAR i32 %n {sb:[[NSYM]]}
-; LIVEIN: <BLOB> LINEAR float* %B {sb:[[BSYM]]}
-; LIVEIN: <BLOB> LINEAR float* %A {sb:[[ASYM]]}
+; LIVEIN: <BLOB> LINEAR ptr %B {sb:[[BSYM]]}
+; LIVEIN: <BLOB> LINEAR ptr %A {sb:[[ASYM]]}
 
 ; ModuleID = 'float.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(float* nocapture %A, float* nocapture readonly %B, i32 %n) {
+define void @foo(ptr nocapture %A, ptr nocapture readonly %B, i32 %n) {
 entry:
   %cmp.7 = icmp sgt i32 %n, 0
   br i1 %cmp.7, label %for.body.preheader, label %for.end
@@ -34,12 +34,12 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds float, float* %B, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds float, ptr %B, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx2, align 4
   %add = fadd float %0, %1
-  store float %add, float* %arrayidx2, align 4
+  store float %add, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n

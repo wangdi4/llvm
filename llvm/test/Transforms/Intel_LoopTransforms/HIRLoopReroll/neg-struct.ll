@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Invalid to reroll due to different trailing offsets.
 
@@ -52,32 +52,20 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.lr.ph, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
   %arrayidx = getelementptr inbounds double, ptr %a, i64 %indvars.iv
-  %1 = load double, ptr %arrayidx, align 8, !tbaa !2
+  %1 = load double, ptr %arrayidx, align 8
   %mul1 = fmul double %mul, %1
   %X = getelementptr inbounds %struct.S, ptr %b, i64 %indvars.iv, i32 0
-  store double %mul1, ptr %X, align 8, !tbaa !6
+  store double %mul1, ptr %X, align 8
   %2 = or i64 %indvars.iv, 1
   %arrayidx6 = getelementptr inbounds double, ptr %a, i64 %2
-  %3 = load double, ptr %arrayidx6, align 8, !tbaa !2
+  %3 = load double, ptr %arrayidx6, align 8
   %mul7 = fmul double %mul, %3
   %Y = getelementptr inbounds %struct.S, ptr %b, i64 %2, i32 1
-  store double %mul7, ptr %Y, align 8, !tbaa !8
+  store double %mul7, ptr %Y, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %cmp = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp, label %for.body, label %for.cond.cleanup.loopexit
 }
 
-attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
 
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"icx (ICX) dev.8.x.0"}
-!2 = !{!3, !3, i64 0}
-!3 = !{!"double", !4, i64 0}
-!4 = !{!"omnipotent char", !5, i64 0}
-!5 = !{!"Simple C/C++ TBAA"}
-!6 = !{!7, !3, i64 0}
-!7 = !{!"struct@S", !3, i64 0, !3, i64 8}
-!8 = !{!7, !3, i64 8}

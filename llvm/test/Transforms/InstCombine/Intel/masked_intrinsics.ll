@@ -1,5 +1,5 @@
 ; RUN: opt -passes="instcombine" -S < %s | FileCheck %s
-; RUN: opt -passes="instcombine" -opaque-pointers -S < %s | FileCheck %s
+; RUN: opt -passes="instcombine" -S < %s | FileCheck %s
 
 ; Define variables for typed or opaque pointers
 ; CHECK-LABEL: %pointers = type

@@ -1,4 +1,4 @@
-; RUN: opt %s -S -opaque-pointers -passes=vplan-vec -vplan-print-after-plain-cfg -vplan-entities-dump 2>&1 | FileCheck %s
+; RUN: opt %s -S -passes=vplan-vec -vplan-print-after-plain-cfg -vplan-entities-dump 2>&1 | FileCheck %s
 
 ;; Test to check that last private with TYPED clause is imported to VPlan given opaque input.
 

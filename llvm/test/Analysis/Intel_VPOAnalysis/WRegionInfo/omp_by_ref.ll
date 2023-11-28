@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-wrncollection -analyze %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(print<vpo-wrncollection>)' -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-wrncollection -analyze %s | FileCheck %s
+; RUN: opt -passes='function(print<vpo-wrncollection>)' -disable-output %s 2>&1 | FileCheck %s
 
 ; CMPLRLLVM_901: BY-REF support
 ; In the test below, bbb is passed by reference, so its representation

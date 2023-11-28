@@ -1,6 +1,6 @@
 //===- IntelVPlanAlignmentAnalysis.cpp --------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -72,7 +72,9 @@ static int computeMultiplierForPeeling(int Step, Align RequiredAlignment,
 
 VPlanPeelingVariant::~VPlanPeelingVariant() {}
 
-VPlanStaticPeeling VPlanStaticPeeling::NoPeelLoop{0};
+template <> VPlanNoPeeling VPlanNoPeeling::LoopObject{};
+template <> VPlanNoPeelingAligned VPlanNoPeelingAligned::LoopObject{};
+template <> VPlanNoPeelingUnaligned VPlanNoPeelingUnaligned::LoopObject{};
 
 VPlanDynamicPeeling::VPlanDynamicPeeling(VPLoadStoreInst *Memref,
                                          VPConstStepInduction AccessAddress,
@@ -152,19 +154,23 @@ std::unique_ptr<VPlanPeelingVariant>
 VPlanPeelingAnalysis::selectBestPeelingVariant(int VF,
                                                VPlanPeelingCostModel &CM,
                                                bool EnableDynamic) {
-  auto Static = selectBestStaticPeelingVariant(VF, CM);
+  auto Static = selectBestStaticPeelCount(VF, CM);
   if (EnableDynamic) {
     auto DynamicOrNone = selectBestDynamicPeelingVariant(VF, CM);
     if (DynamicOrNone &&
         (ForceDynAlignment || DynamicOrNone->second > Static.second))
       return std::make_unique<VPlanDynamicPeeling>(DynamicOrNone->first);
   }
-  return std::make_unique<VPlanStaticPeeling>(Static.first);
+  if (Static.first)
+    return std::make_unique<VPlanStaticPeeling>(
+        VPlanStaticPeeling(Static.first));
+  else
+    return std::make_unique<VPlanNoPeeling>(VPlanNoPeeling::LoopObject);
 }
 
-std::pair<VPlanStaticPeeling, VPInstructionCost>
-VPlanPeelingAnalysis::selectBestStaticPeelingVariant(
-    int VF, VPlanPeelingCostModel &CM) {
+std::pair<int, VPInstructionCost>
+VPlanPeelingAnalysis::selectBestStaticPeelCount(int VF,
+                                                VPlanPeelingCostModel &CM) {
   // We are going to compute profit for every possible static peel count and
   // select the most profitable one. The peel count can be any number in
   // [0...VF) interval. PeelCountProfit is a zero-initialized array of profits
@@ -273,7 +279,7 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(
   auto Iter = std::max_element(PeelCountProfit.begin(), PeelCountProfit.end());
   int BestPeelCount = std::distance(PeelCountProfit.begin(), Iter);
   auto MaxProfit = *Iter;
-  return { VPlanStaticPeeling(BestPeelCount), MaxProfit };
+  return {BestPeelCount, MaxProfit};
 }
 
 std::optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>>
@@ -446,6 +452,22 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
     const VPLoadStoreInst &Memref, const VPlanPeelingVariant *Peeling) const {
   if (!Peeling || VF == 1)
     return Memref.getAlignment();
+  if (auto *NP = dyn_cast<VPlanNoPeeling>(Peeling))
+    return getAlignmentUnitStrideImpl(Memref, *NP);
+  if (auto *NP = dyn_cast<VPlanNoPeelingAligned>(Peeling)) {
+    if (Memref.getValueType()->isAggregateType())
+      return Memref.getAlignment();
+    Type *VecTy = getWidenedType(Memref.getValueType(), VF);
+    const unsigned NumParts = TTI->getNumberOfParts(VecTy);
+    if (NumParts == 0)
+      return Memref.getAlignment();
+    auto *DL = Memref.getParent()->getParent()->getDataLayout();
+    // need to align on one register size
+    unsigned DataWidth = DL->getTypeAllocSize(VecTy) / NumParts;
+    return Align(DataWidth);
+  }
+  if (auto *NP = dyn_cast<VPlanNoPeelingUnaligned>(Peeling))
+    return Align(Memref.getAlignment());
   if (auto *SP = dyn_cast<VPlanStaticPeeling>(Peeling))
     return getAlignmentUnitStrideImpl(Memref, *SP);
   if (auto *DP = dyn_cast<VPlanDynamicPeeling>(Peeling))
@@ -484,7 +506,7 @@ VPlanAlignmentAnalysis::tryGetKnownAlignment(const VPValue *Val,
 }
 
 void VPlanAlignmentAnalysis::propagateAlignment(
-    VPlanVector *Plan, unsigned VF,
+    VPlanVector *Plan, const TargetTransformInfo *TTI, unsigned VF,
     const VPlanPeelingVariant *GuaranteedPeeling) {
   LLVM_DEBUG(dbgs() << "Propagating alignment for " << Plan->getName() << "\n");
 
@@ -494,14 +516,14 @@ void VPlanAlignmentAnalysis::propagateAlignment(
   }
 
   bool NegOneStride;
-  VPlanAlignmentAnalysis VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF);
+  VPlanAlignmentAnalysis VPAA(*Plan->getVPSE(), *Plan->getVPVT(), *TTI, VF);
   for (auto &Inst : vpinstructions(Plan)) {
     if (auto *LS = dyn_cast<VPLoadStoreInst>(&Inst)) {
       if (!isVectorizableLoadStore(LS) ||
           !Plan->getVPlanDA()->isUnitStrideLoadStore(LS, NegOneStride))
         continue;
-
-      const auto TargetAlign = VPAA.getAlignmentUnitStride(*LS, GuaranteedPeeling);
+      const auto TargetAlign =
+          VPAA.getAlignmentUnitStride(*LS, GuaranteedPeeling);
       if (TargetAlign > LS->getAlignment()) {
         LLVM_DEBUG(dbgs() << "Upgrading alignment of " << *LS << "from "
                           << LS->getAlignment().value() << " to "
@@ -515,7 +537,7 @@ void VPlanAlignmentAnalysis::propagateAlignment(
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
-    const VPLoadStoreInst &Memref, const VPlanStaticPeeling &SP) const {
+    const VPLoadStoreInst &Memref, const VPlanPeelingVariant &P) const {
   Align AlignFromIR = Memref.getAlignment();
 
   auto Ind = VPSE->asConstStepInduction(Memref.getAddressSCEV());
@@ -531,7 +553,9 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
   auto NumKnownLowBits = (BaseKB.One | BaseKB.Zero).countTrailingOnes();
   uint64_t Mask = ~0ULL << NumKnownLowBits;
 
-  auto Offset = SP.peelCount() * Ind->Step;
+  auto Offset = dyn_cast<VPlanStaticPeeling>(&P)
+                    ? dyn_cast<VPlanStaticPeeling>(&P)->peelCount() * Ind->Step
+                    : 0;
   auto AdjustedBase = (BaseKB.One + Offset) | Mask;
   Align AlignFromVPVT{1ULL << AdjustedBase.countTrailingZeros()};
 

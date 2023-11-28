@@ -43,24 +43,6 @@ static cl::list<unsigned>
                                cl::desc("Symbases for Array Scalarization"));
 
 namespace {
-class HIRArrayScalarizationTestLauncherLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRArrayScalarizationTestLauncherLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRArrayScalarizationTestLauncherLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-
 class HIRArrayScalarizationTestLauncher {
 
 public:
@@ -68,17 +50,6 @@ public:
 };
 
 } // namespace
-
-char HIRArrayScalarizationTestLauncherLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRArrayScalarizationTestLauncherLegacyPass, OPT_SWITCH,
-                      OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRArrayScalarizationTestLauncherLegacyPass, OPT_SWITCH,
-                    OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIRArrayScalarizationTestLauncherPass() {
-  return new HIRArrayScalarizationTestLauncherLegacyPass();
-}
 
 bool HIRArrayScalarizationTestLauncher::run(HLRegion &Reg) {
   // Check: a non-empty list of unsigned integers as vector of symbase:
@@ -126,16 +97,6 @@ static bool runHIRArrayScalarizationTestLauncher(HIRFramework &HIRF) {
   }
 
   return Result;
-}
-
-bool HIRArrayScalarizationTestLauncherLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    LLVM_DEBUG(dbgs() << OPT_DESC " Disabled \n");
-    return false;
-  }
-
-  return runHIRArrayScalarizationTestLauncher(
-      getAnalysis<HIRFrameworkWrapperPass>().getHIR());
 }
 
 PreservedAnalyses HIRArrayScalarizationTestLauncherPass::runImpl(

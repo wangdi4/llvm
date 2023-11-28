@@ -1,4 +1,4 @@
-// Copyright 2010-2023 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -23,7 +23,6 @@
 #include "StaticObjectLoader.h"
 #include "cache_binary_handler.h"
 #include "cl_sys_defines.h"
-#include "debuggingservicetype.h"
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
@@ -179,18 +178,6 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program *pProgram) {
   Compiler *pCompiler = GetCompiler();
   std::unique_ptr<Module> M = pCompiler->ParseModuleIR(Buffer.get());
 
-  bool useLLDJIT =
-      m_compiler.isObjectFromLLDJIT(StringRef(objectBuffer, objectSize));
-  if (useLLDJIT) {
-    intel::DebuggingServiceType userType =
-        intel::getUserDefinedDebuggingServiceType();
-
-    if (userType != intel::None && userType != intel::Native) {
-      // user has overriden cached object type
-      pProgram->SetModule(std::move(M));
-      return false;
-    }
-  }
   pCompiler->materializeSpirTriple(M.get());
 
   // create cache manager
@@ -201,6 +188,8 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program *pProgram) {
 
   CPUProgram *cpuProgram = static_cast<CPUProgram *>(pProgram);
 
+  bool useLLDJIT =
+      m_compiler.isObjectFromLLDJIT(StringRef(objectBuffer, objectSize));
   if (useLLDJIT) {
     m_compiler.CreateExecutionEngine(pProgram->GetModule());
     m_compiler.SetObjectCache(pCache);
@@ -290,13 +279,9 @@ CPUProgramBuilder::CreateKernels(Program *pProgram, const char *pBuildOpts,
     std::unique_ptr<KernelJITProperties> spKernelJITProps(
         CreateKernelJITProperties(vecSize));
 
-    intel::DebuggingServiceType debugType =
-        intel::getDebuggingServiceType(buildOptions.GetDebugInfoFlag(), pModule,
-                                       buildOptions.GetUseNativeDebuggerFlag());
-    bool useTLSGlobals = (debugType == intel::Native);
     std::unique_ptr<Kernel> spKernel(
         CreateKernel(pFunc, pWrapperFunc->getName().str(), spKernelProps.get(),
-                     useTLSGlobals));
+                     CompilationUtils::hasTLSGlobals(*pModule)));
 
     // We want the JIT of the wrapper function to be called
     AddKernelJIT(static_cast<CPUProgram *>(pProgram), spKernel.get(),
@@ -428,12 +413,6 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program *pProgram) const {
                 CompilationUtils::ADDRESS_SPACE_GENERIC) {
           DeviceImageScope = true;
         }
-
-        // FIXME: SYCL runtime hopes us to temporarily ignore host-access hint
-        // if device global containing a pointer util they have a final decision
-        // on how to handle such case.
-        if (DeviceGlobalTy->isPointerTy())
-          HostAccessMode = HOST_ACCESS_READ_WRITE;
       }
 
       GlobalVariables.push_back({STRDUP(GV.getName().str().c_str()),
@@ -465,7 +444,7 @@ static void dumpAssembly(Module *M, TargetMachine *TM,
   legacy::PassManager PM;
   PM.add(new TargetLibraryInfoWrapperPass(TLII));
   if (TM->addPassesToEmitFile(PM, Out->os(),
-                              /*DwoOut*/ nullptr, CGFT_AssemblyFile,
+                              /*DwoOut*/ nullptr, CodeGenFileType::AssemblyFile,
                               /*DisableVerify*/ true))
     throw Exceptions::CompilerException(
         "failed to add passes to dump assembly file");

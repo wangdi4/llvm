@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -257,7 +257,7 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_exception_dtor)
 TLI_DEFINE_STRING_INTERNAL("??1exception@std@@UEAA@XZ")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 /// void *operator new(unsigned int);
 TLI_DEFINE_ENUM_INTERNAL(msvc_new_int)
@@ -2344,6 +2344,18 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 TLI_DEFINE_ENUM_INTERNAL(isnanf)
 TLI_DEFINE_STRING_INTERNAL("__isnanf")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// int __isoc23_sscanf(const char *s, const char *format, ... );
+TLI_DEFINE_ENUM_INTERNAL(dunder_isoc23_sscanf)
+TLI_DEFINE_STRING_INTERNAL("__isoc23_sscanf")
+TLI_DEFINE_SIG_INTERNAL(Int, Ptr, Ptr, Ellip)
+/// long int __isoc23_strtol(const char *nptr, char **endptr, int base);
+TLI_DEFINE_ENUM_INTERNAL(dunder_isoc23_strtol)
+TLI_DEFINE_STRING_INTERNAL("__isoc23_strtol")
+TLI_DEFINE_SIG_INTERNAL(Long, Ptr, Ptr, Int)
+/// unsigned long int __isoc23_strtoul(const char *nptr, char **endptr, int base);
+TLI_DEFINE_ENUM_INTERNAL(dunder_isoc23_strtoul)
+TLI_DEFINE_STRING_INTERNAL("__isoc23_strtoul")
+TLI_DEFINE_SIG_INTERNAL(Long, Ptr, Ptr, Int)
 /// int __isoc99_fscanf(FILE *stream, const char *format, ... );
 TLI_DEFINE_ENUM_INTERNAL(dunder_isoc99_fscanf)
 TLI_DEFINE_STRING_INTERNAL("__isoc99_fscanf")
@@ -4602,7 +4614,7 @@ TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// long int labs(long int j);
 TLI_DEFINE_ENUM_INTERNAL(labs)
 TLI_DEFINE_STRING_INTERNAL("labs")
-TLI_DEFINE_SIG_INTERNAL(Long, Long)
+TLI_DEFINE_SIG_INTERNAL(Long, Same)
 
 /// int lchown(const char *path, uid_t owner, gid_t group);
 TLI_DEFINE_ENUM_INTERNAL(lchown)

@@ -118,4 +118,4 @@ attributes #5 = { convergent }
 !48 = !DILocation(line: 0, scope: !45)
 !49 = !DILocation(line: 12, column: 3, scope: !45)
 !50 = !DILocation(line: 13, column: 1, scope: !45)
-!51 = !{i32 addrspace(1)* null}
+!51 = !{ptr addrspace(1) null}

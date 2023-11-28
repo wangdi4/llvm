@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2009-2023 Intel Corporation.
+// Copyright 2009 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,16 +16,15 @@
 #include "Compile.h"
 #include "GetKernelArgInfo.h"
 #include "Link.h"
+#include "Logger.h"
 #include "ParseSPIRV.h"
 #include "SPIRMaterializer.h"
+#include "cl_device_api.h"
 #include "cl_dynamic_lib.h"
 #include "cl_logger.h"
+#include "cl_sys_defines.h"
 #include "cl_sys_info.h"
 #include "opencl_clang.h"
-
-#include <Logger.h>
-#include <cl_device_api.h>
-#include <cl_sys_defines.h>
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"

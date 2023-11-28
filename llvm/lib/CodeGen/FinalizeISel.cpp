@@ -19,7 +19,6 @@
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/InitializePasses.h"
-
 using namespace llvm;
 
 #define DEBUG_TYPE "finalize-isel"

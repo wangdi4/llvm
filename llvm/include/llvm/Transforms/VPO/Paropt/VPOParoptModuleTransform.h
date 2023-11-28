@@ -49,7 +49,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Pass.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 #include <functional>
 
@@ -74,18 +74,19 @@ class VPOParoptModuleTransform {
 
 public:
   /// ParoptModuleTransform object constructor
-  VPOParoptModuleTransform(Module &M, int Mode, bool DisableOffload = false,
+  VPOParoptModuleTransform(
+      Module &M, int Mode, bool DisableOffload = false,
 #if INTEL_CUSTOMIZATION
-                           unsigned OptLevel = 2,
-                           LoopOptLimiter Limiter = LoopOptLimiter::None)
+      unsigned OptLevel = 2, LoopOptLimiter Limiter = LoopOptLimiter::None,
+      OptReportVerbosity::Level ORVerbosity = OptReportVerbosity::Low)
 #else
-                           unsigned OptLevel = 2)
-#endif  // INTEL_CUSTOMIZATION
-      : M(M), C(M.getContext()), Mode(Mode),
-        DisableOffload(DisableOffload), OptLevel(OptLevel),
+      unsigned OptLevel = 2)
+#endif // INTEL_CUSTOMIZATION
+      : M(M), C(M.getContext()), Mode(Mode), DisableOffload(DisableOffload),
+        OptLevel(OptLevel),
 #if INTEL_CUSTOMIZATION
-        Limiter(Limiter), ORVerbosity(OptReportVerbosity::Low),
-#endif  // INTEL_CUSTOMIZATION
+        Limiter(Limiter), ORVerbosity(ORVerbosity),
+#endif // INTEL_CUSTOMIZATION
         TgtOffloadEntryTy(nullptr), TgDeviceImageTy(nullptr),
         TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr), PrintfDecl(nullptr),
         OCLPrintfDecl(nullptr) {}
@@ -135,7 +136,7 @@ private:
   /// Verbosity level for generating remarks using Loop Opt Report
   /// framework (under -qopt-report).
   OptReportVerbosity::Level ORVerbosity;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   /// A list of device triples for offload compilation.
   SmallVector<Triple, 16> TgtDeviceTriples;

@@ -59,6 +59,6 @@ attributes #3 = { convergent nounwind "kernel-call-once" "kernel-convergent-call
 !15 = !{!"int", !16, i64 0}
 !16 = !{!"omnipotent char", !17, i64 0}
 !17 = !{!"Simple C/C++ TBAA"}
-!18 = !{i32 addrspace(1)* null, i32 addrspace(1)* null, i32 addrspace(1)* null}
+!18 = !{ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING

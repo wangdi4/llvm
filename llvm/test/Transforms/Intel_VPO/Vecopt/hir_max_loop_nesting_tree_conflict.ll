@@ -1,5 +1,5 @@
 ;
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -enable-vconflict-idiom -vplan-force-vf=4 -disable-output -debug-only=vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -enable-vconflict-idiom -vplan-force-vf=4 -disable-output -debug-only=VPlanDriver < %s 2>&1 | FileCheck %s
 ;
 ; LIT test to check that we do not exceed HIR maximum loop nesting level when vectorizing
 ; a loop with tree conflict lowering which introduces a new loop there by potentially

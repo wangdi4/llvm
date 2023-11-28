@@ -1,13 +1,16 @@
+; REQUIRES: asserts
 ; Check if
 ; 1. Inner two levels of matmul are blocked using a K&R algorithm (prefix KANDR)
 ; 2. Outer two levels of matmul are blocked using Outer algorithm (prefix OUTER)
 ; 3. All three levels are blocked using default algorithm (prefix DEFAULT)
 ;
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-loop-blocking-algo=kandr 2>&1 < %s | FileCheck %s --check-prefix=KANDR
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa"  2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>,print<hir-dd-analysis>" -aa-pipeline="basic-aa"  -hir-loop-blocking-algo=outer -hir-dd-analysis-verify=Region 2>&1 < %s | FileCheck %s --check-prefix=OUTER
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-loop-blocking-algo=kandr -stats 2>&1 < %s -disable-output | FileCheck %s --check-prefix=KANDR
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa"  2>&1 < %s -disable-output | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>,print<hir-dd-analysis>" -aa-pipeline="basic-aa"  -hir-loop-blocking-algo=outer -hir-dd-analysis-verify=Region 2>&1 < %s -disable-output | FileCheck %s --check-prefix=OUTER
 
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,hir-loop-blocking" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,hir-loop-blocking" -disable-hir-loop-blocking -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-DISABLED
 
 ;
 ; for(i=0; i<N; i++)
@@ -54,6 +57,8 @@
 ; KANDR:    + END LOOP
 ; KANDR:   END REGION
 
+; KANDR:      2 hir-loop-blocking
+; KANDR-SAME: Number of HIR loops blocked not by pragma
 
 ; OUTER:       BEGIN REGION { modified }
 ; OUTER:             + DO i1 = 0, %N + -1, 1
@@ -148,6 +153,8 @@
 
 ; CHECK-CHANGED: Dump Before HIRTempCleanup
 ; CHECK-CHANGED: Dump After HIRLoopBlocking
+
+; CHECK-DISABLED-NOT: Dump After HIRLoopBlocking
 
 ; ModuleID = 'matmul-algos.ll'
 source_filename = "matmul-algos.ll"

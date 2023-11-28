@@ -25,23 +25,23 @@ entry:
 ; LLVMCHECK: vector.body:
 for.body:                                         ; preds = %entry, %for.body
   %l1.014 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %b = getelementptr inbounds [100 x %struct.f2], [100 x %struct.f2]* @farr, i64 0, i64 %l1.014, i32 1, !intel-tbaa !2
+  %b = getelementptr inbounds [100 x %struct.f2], ptr @farr, i64 0, i64 %l1.014, i32 1, !intel-tbaa !2
 ;
 ; HIRCHECK:    [[GEP_BASE:%.*]] = &((i32*)(@farr)[0][i1].1);
-; HIRCHECK:    <RVAL-REG> {al:8}(<8 x i32>*)(NON-LINEAR i32* [[GEP_BASE]])[i64 -1]
-; LLVMCHECK:   %{{.*}} = load <8 x i32>, <8 x i32>* %{{.*}}, align 8
+; HIRCHECK:    <RVAL-REG> {al:8}(<8 x i32>*)(NON-LINEAR ptr [[GEP_BASE]])[i64 -1]
+; LLVMCHECK:   %{{.*}} = load <8 x i32>, ptr %{{.*}}, align 8
 ;
-  %0 = load i32, i32* %b, align 4, !tbaa !2
-  %a = getelementptr inbounds [100 x %struct.f2], [100 x %struct.f2]* @farr, i64 0, i64 %l1.014, i32 0, !intel-tbaa !8
-  %1 = load i32, i32* %a, align 8, !tbaa !8
+  %0 = load i32, ptr %b, align 4, !tbaa !2
+  %a = getelementptr inbounds [100 x %struct.f2], ptr @farr, i64 0, i64 %l1.014, i32 0, !intel-tbaa !8
+  %1 = load i32, ptr %a, align 8, !tbaa !8
   %add = add nsw i32 %1, %0
 ;
 ; HIRCHECK:    (<8 x i32>*)(@farr)[0][i1].0 = %{{.*}};
-; HIRCHECK:    <LVAL-REG> {al:8}(<8 x i32>*)(LINEAR [100 x %struct.f2]* @farr)[i64 0][LINEAR i64 i1].0
-; LLVMCHECK:   store <8 x i32> %{{.*}}, <8 x i32>* %{{.*}}, align 8
+; HIRCHECK:    <LVAL-REG> {al:8}(<8 x i32>*)(LINEAR ptr @farr)[i64 0][LINEAR i64 i1].0
+; LLVMCHECK:   store <8 x i32> %{{.*}}, ptr %{{.*}}, align 8
 ;
-  store i32 %add, i32* %b, align 4, !tbaa !2
-  store i32 %add, i32* %a, align 8, !tbaa !8
+  store i32 %add, ptr %b, align 4, !tbaa !2
+  store i32 %add, ptr %a, align 8, !tbaa !8
   %inc = add nuw nsw i64 %l1.014, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body, !llvm.loop !9

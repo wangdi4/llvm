@@ -2,20 +2,20 @@
 ; This test checks that if ASC has the same element type as NewV, ASC is
 ; replaced with NewV instead of new bitcast from i16 pointer.
 
-; RUN: opt -opaque-pointers=0 -passes="infer-address-spaces" -S -override-flat-addr-space=4 -o - %s | FileCheck %s
-; CHECK: bitcast i32* %gep0 to i16*
+; RUN: opt -passes="infer-address-spaces" -S -override-flat-addr-space=4 -o - %s | FileCheck %s
+; CHECK: asi_to_bitcast
 ; CHECK-NOT: bitcast
 
-define void @asi_to_bitcast(i32 addrspace(4)* %ptr) {
-  %asc0 = addrspacecast i32 addrspace(4)* %ptr to i32*
-  %gep0 = getelementptr i32, i32* %asc0, i64 9
-  %asc1 = addrspacecast i32* %gep0 to i32 addrspace(4)*
-  %asc3 = addrspacecast i32 addrspace(4)* %asc1 to i32*
-  %asc2 = addrspacecast i32 addrspace(4)* %asc1 to i16*
-  %asc4 = addrspacecast i32 addrspace(4)* %asc1 to i32*
-  store i16 8, i16* %asc2, align 8
-  store i32 8, i32 addrspace(4)* %asc1, align 8
-  store i32 8, i32 * %asc3, align 8
-  store i32 8, i32 * %asc4, align 8
+define void @asi_to_bitcast(ptr addrspace(4) %ptr) {
+  %asc0 = addrspacecast ptr addrspace(4) %ptr to ptr
+  %gep0 = getelementptr i32, ptr %asc0, i64 9
+  %asc1 = addrspacecast ptr %gep0 to ptr addrspace(4)
+  %asc3 = addrspacecast ptr addrspace(4) %asc1 to ptr
+  %asc2 = addrspacecast ptr addrspace(4) %asc1 to ptr
+  %asc4 = addrspacecast ptr addrspace(4) %asc1 to ptr
+  store i16 8, ptr %asc2, align 8
+  store i32 8, ptr addrspace(4) %asc1, align 8
+  store i32 8, ptr %asc3, align 8
+  store i32 8, ptr %asc4, align 8
   ret void
 }

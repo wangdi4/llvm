@@ -1,6 +1,6 @@
 //===-- HLNode.cpp - Implements the HLNode class ---------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -373,6 +373,22 @@ HLNode *HLNode::getPrevNextNodeImpl(bool Prev) {
 HLNode *HLNode::getPrevNode() { return getPrevNextNodeImpl(true); }
 
 HLNode *HLNode::getNextNode() { return getPrevNextNodeImpl(false); }
+
+HLNode *HLNode::getPrevNodeWithoutUsingTopSortNum() {
+
+  if (HLNodeUtils::isLexicalFirstChildOfParent(this))
+    return nullptr;
+
+  return &*std::prev(getIterator());
+}
+
+HLNode *HLNode::getNextNodeWithoutUsingTopSortNum() {
+
+  if (HLNodeUtils::isLexicalLastChildOfParent(this))
+    return nullptr;
+
+  return &*std::next(getIterator());
+}
 
 // Implementation is almost the same as Instruction::extractProfMetadata
 bool HLNode::extractProfileData(uint64_t &TrueVal, uint64_t &FalseVal) const {

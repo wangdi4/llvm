@@ -1,6 +1,6 @@
 //===-- CompilationUtils.cpp - Compilation utilities -------------*- C++ *-===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -44,8 +44,6 @@ const StringRef KernelAttribute::HasSubGroups = "has-sub-groups";
 const StringRef KernelAttribute::HasVPlanMask = "has-vplan-mask";
 const StringRef KernelAttribute::OCLVecUniformReturn =
     "opencl-vec-uniform-return";
-const StringRef KernelAttribute::RecursionWithBarrier =
-    "barrier_with_recursion";
 const StringRef KernelAttribute::UniformCall = "kernel-uniform-call";
 const StringRef KernelAttribute::VectorVariantFailure = "vector-variant-failure";
 
@@ -77,7 +75,8 @@ const StringRef NAME_GET_ENQUEUED_LOCAL_SIZE = "get_enqueued_local_size";
 const StringRef NAME_BARRIER = "barrier";
 const StringRef NAME_WG_BARRIER = "work_group_barrier";
 const StringRef NAME_SG_BARRIER = "sub_group_barrier";
-const StringRef NAME_TLS_LOCAL_IDS = "LocalIds";
+const StringRef NAME_RG_BARRIER = "intel_device_barrier";
+const StringRef NAME_TLS_LOCAL_IDS = "__LocalIds";
 const StringRef NAME_PREFETCH = "prefetch";
 const StringRef NAME_WAIT_GROUP_EVENTS = "wait_group_events";
 const StringRef SAMPLER = "sampler_t";
@@ -417,8 +416,11 @@ bool isWorkGroupAll(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ALL); }
 
 bool isWorkGroupAny(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ANY); }
 
-bool isWorkGroupBroadCast(StringRef S) {
-  return isMangleOf(S, NAME_WORK_GROUP_BROADCAST);
+std::pair<bool, bool> isWorkGroupBroadCast(StringRef S) {
+  bool IsMaskedBroadcast =
+      isMangleOf(S, (Twine("__") + NAME_WORK_GROUP_BROADCAST).str());
+  return {IsMaskedBroadcast || isMangleOf(S, NAME_WORK_GROUP_BROADCAST),
+          IsMaskedBroadcast};
 }
 
 bool isWorkGroupIdentity(StringRef S) {
@@ -786,19 +788,6 @@ void getArrayTypeDimensions(const ArrayType *ArrTy,
   } while ((InnerArrTy = dyn_cast<ArrayType>(InnerArrTy->getElementType())));
 }
 
-ArrayType *createMultiDimArray(Type *Ty, const ArrayRef<size_t> &Dimensions) {
-  assert(Dimensions.size() > 0 && "Invalid dimension of MultiDimArray");
-  ArrayType *MDArrayTy = nullptr;
-  for (int i = Dimensions.size() - 1; i >= 0; --i) {
-    if (!MDArrayTy)
-      MDArrayTy = ArrayType::get(Ty, Dimensions[i]);
-    else
-      MDArrayTy = ArrayType::get(MDArrayTy, Dimensions[i]);
-  }
-
-  return MDArrayTy;
-}
-
 StructType *getStructByName(StringRef Name, const Module *M) {
   std::vector<StructType *> StructTys = M->getIdentifiedStructTypes();
 
@@ -844,12 +833,13 @@ bool isWorkGroupScan(StringRef S) {
 }
 
 bool isWorkGroupBuiltinUniform(StringRef S) {
-  return isWorkGroupAll(S) || isWorkGroupAny(S) || isWorkGroupBroadCast(S) ||
-         isWorkGroupReduceAdd(S) || isWorkGroupReduceMin(S) ||
-         isWorkGroupReduceMax(S) || isWorkGroupReduceMul(S) ||
-         isWorkGroupReduceBitwiseAnd(S) || isWorkGroupReduceBitwiseOr(S) ||
-         isWorkGroupReduceBitwiseXor(S) || isWorkGroupReduceLogicalAnd(S) ||
-         isWorkGroupReduceLogicalOr(S) || isWorkGroupReduceLogicalXor(S);
+  return isWorkGroupAll(S) || isWorkGroupAny(S) ||
+         isWorkGroupBroadCast(S).first || isWorkGroupReduceAdd(S) ||
+         isWorkGroupReduceMin(S) || isWorkGroupReduceMax(S) ||
+         isWorkGroupReduceMul(S) || isWorkGroupReduceBitwiseAnd(S) ||
+         isWorkGroupReduceBitwiseOr(S) || isWorkGroupReduceBitwiseXor(S) ||
+         isWorkGroupReduceLogicalAnd(S) || isWorkGroupReduceLogicalOr(S) ||
+         isWorkGroupReduceLogicalXor(S);
 }
 
 bool isWorkGroupMin(StringRef S) {
@@ -921,6 +911,10 @@ bool isWorkGroupBuiltin(StringRef S) {
 bool isWorkGroupBarrier(StringRef S) {
   return S == mangledBarrier() || S == mangledWGBarrier(BarrierType::NoScope) ||
          S == mangledWGBarrier(BarrierType::WithScope);
+}
+
+bool isDeviceBarrier(StringRef S) {
+  return S == mangledDeviceBarrier() || S == mangledDeviceBarrierWithScope();
 }
 
 /// Subgroup builtin functions
@@ -1179,11 +1173,10 @@ std::string getWorkGroupSortCopyName(StringRef SortFuncName, bool ToScratch) {
     // Only mask param in vector workgroup sort builtin is vector of uint
     if (TypeIter->getTypeId() == reflection::TYPE_ID_VECTOR) {
       reflection::VectorType *Vec =
-          reflection::dyn_cast<reflection::VectorType>(TypeIter.get());
+          dyn_cast<reflection::VectorType>(TypeIter.get());
       if (Vec->getScalarType()->getTypeId() == reflection::TYPE_ID_PRIMITIVE) {
         reflection::PrimitiveType *PrimitiveParam =
-            reflection::dyn_cast<reflection::PrimitiveType>(
-                Vec->getScalarType().get());
+            dyn_cast<reflection::PrimitiveType>(Vec->getScalarType().get());
         if (PrimitiveParam->getPrimitive() == reflection::PRIMITIVE_UINT)
           continue;
       }
@@ -1242,6 +1235,16 @@ std::string mangledGetEnqueuedLocalSize() {
 
 std::string mangledBarrier() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_BARRIER);
+}
+
+std::string mangledDeviceBarrier() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_RG_BARRIER);
+}
+
+std::string mangledDeviceBarrierWithScope() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT,
+                                 reflection::PRIMITIVE_MEMORY_SCOPE>(
+      NAME_RG_BARRIER);
 }
 
 std::string mangledWGBarrier(BarrierType BT) {
@@ -1338,94 +1341,10 @@ std::pair<bool, unsigned> isTIDGenerator(const CallInst *CI) {
   return {true, Dim};
 }
 
-StructType *getStructFromTypePtr(Type *Ty) {
-  auto *PtrTy = dyn_cast<PointerType>(Ty);
-  if (!PtrTy || PtrTy->isOpaque())
-    return nullptr;
-  // Handle also pointer to pointer to ...
-  while (auto *PtrTyNext =
-             dyn_cast<PointerType>(PtrTy->getNonOpaquePointerElementType()))
-    PtrTy = PtrTyNext;
-  return dyn_cast<StructType>(PtrTy->getNonOpaquePointerElementType());
-}
-
-bool isSameStructType(StructType *STy1, StructType *STy2) {
-  if (!STy1 || !STy2)
-    return false;
-  if (!STy1->hasName() || !STy2->hasName())
-    return false;
-  return 0 == stripStructNameTrailingDigits(STy1->getName())
-                  .compare(stripStructNameTrailingDigits(STy2->getName()));
-}
-
-bool isSameStructPtrType(PointerType *PTy1, PointerType *PTy2) {
-  if (!PTy1 || !PTy2)
-    return false;
-  if (PTy1->isOpaque() || PTy2->isOpaque())
-    return false;
-  return isSameStructType(
-      dyn_cast<StructType>(PTy1->getNonOpaquePointerElementType()),
-      dyn_cast<StructType>(PTy2->getNonOpaquePointerElementType()));
-}
-
-PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy) {
-  // The function changes the base type of SrcPTy to DstTy
-  // SrcPTy = %struct.__pipe_t addrspace(1)**
-  // DstTy  = %struct.__pipe_t.1
-  // =>
-  // %struct.__pipe_t.1 addrspace(1)**
-
-  assert(SrcPTy && DstTy && "Invalid types!");
-
-  if (SrcPTy->isOpaque())
-    return PointerType::get(DstTy, SrcPTy->getAddressSpace());
-
-  SmallVector<PointerType *, 2> Types{SrcPTy};
-  while ((SrcPTy =
-              dyn_cast<PointerType>(SrcPTy->getNonOpaquePointerElementType())))
-    Types.push_back(SrcPTy);
-
-  for (auto It = Types.rbegin(), E = Types.rend(); It != E; ++It)
-    DstTy = PointerType::get(DstTy, (*It)->getAddressSpace());
-
-  return cast<PointerType>(DstTy);
-}
-
 Function *importFunctionDecl(Module *Dst, const Function *Orig,
                              bool DuplicateIfExists) {
   assert(Orig && "Invalid types!");
   FunctionType *NewFnType = Orig->getFunctionType();
-
-  if (Dst->getContext().supportsTypedPointers()) {
-    std::vector<StructType *> DstSTys = Dst->getIdentifiedStructTypes();
-
-    SmallVector<Type *, 8> NewArgTypes;
-    bool Changed = false;
-    for (const auto &Arg : Orig->args()) {
-      auto *ArgTy = Arg.getType();
-      NewArgTypes.push_back(ArgTy);
-      StructType *STy = nullptr;
-      if (isa<PointerType>(ArgTy))
-        STy = dyn_cast_or_null<StructType>(Arg.getParamByValType());
-      if (!STy)
-        STy = getStructFromTypePtr(ArgTy);
-      if (!STy)
-        continue;
-
-      for (auto *DstSTy : DstSTys) {
-        if (isSameStructType(DstSTy, STy)) {
-          NewArgTypes.back() =
-              mutatePtrElementType(cast<PointerType>(ArgTy), DstSTy);
-          Changed = true;
-          break;
-        }
-      }
-    }
-
-    if (Changed)
-      NewFnType = FunctionType::get(Orig->getReturnType(), NewArgTypes,
-                                    Orig->isVarArg());
-  }
 
   if (!DuplicateIfExists)
     return cast<Function>(Dst->getOrInsertFunction(Orig->getName(), NewFnType,
@@ -1496,12 +1415,30 @@ void moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB) {
     I->moveBefore(*ToBB, InsertionPt);
 }
 
+void collectDependentInstsToMove(Instruction *I, BasicBlock *ToBB,
+                                 SmallVectorImpl<Instruction *> &ToMove) {
+  if (I->getNumOperands()) {
+    // Collect dependent instructions to move.
+    Use *TheUse = &*I->op_begin();
+    for (Use *U : make_range(po_begin(TheUse), po_end(TheUse))) {
+      Value *V = U->get();
+      if (auto *Inst = dyn_cast<Instruction>(V)) {
+        assert(!isa<PHINode>(V) && "PHINode is not handled");
+        if (Inst->getParent() != ToBB &&
+            llvm::find(ToMove, Inst) == ToMove.end())
+          ToMove.push_back(Inst);
+      }
+    }
+  }
+  ToMove.push_back(I);
+}
+
 void moveInstructionIf(BasicBlock *FromBB, BasicBlock *ToBB,
                        function_ref<bool(Instruction &)> Predicate) {
-  SmallVector<Instruction *, 8> ToMove;
+  SmallVector<Instruction *, 16> ToMove;
   for (auto &I : *FromBB)
     if (Predicate(I))
-      ToMove.push_back(&I);
+      collectDependentInstsToMove(&I, ToBB, ToMove);
 
   auto MovePos = ToBB->getFirstInsertionPt();
   for (auto *I : ToMove)
@@ -1526,7 +1463,7 @@ FuncSet getAllSyncBuiltinsDecls(Module &M, bool IsWG) {
       continue;
     StringRef FName = F.getName();
     if (IsWG) {
-      if (isWorkGroupBarrier(FName) ||
+      if (isWorkGroupBarrier(FName) || isDeviceBarrier(FName) ||
           /* work group built-ins */
           isWorkGroupBuiltin(FName) ||
           /* built-ins synced as if were called by a single work item */
@@ -1564,7 +1501,7 @@ FuncSet getAllSyncBuiltinsDeclsForKernelUniformCallAttr(Module &M) {
       continue;
     llvm::StringRef FName = F.getName();
     if (isWorkGroupBarrier(FName) || isSubGroupBarrier(FName) ||
-        isKMPAcquireReleaseLock(FName) ||
+        isDeviceBarrier(FName) || isKMPAcquireReleaseLock(FName) ||
         isWorkGroupAsyncOrPipeBuiltin(FName, M)) {
       FSet.insert(&F);
     }
@@ -1846,9 +1783,16 @@ Type *getWorkGroupInfoElementType(LLVMContext &C,
 
 Type *getWorkGroupIDElementType(Module *M) { return LoopUtils::getIndTy(M); }
 
+bool hasTLSGlobals(Module &M) {
+  for (int Idx = 0; Idx < ImplicitArgsUtils::IA_NUMBER; ++Idx)
+    if (getTLSGlobal(&M, Idx))
+      return true;
+  return false;
+}
+
 GlobalVariable *getTLSGlobal(Module *M, unsigned Idx) {
   assert(M && "Module cannot be null");
-  return M->getGlobalVariable(ImplicitArgsUtils::getArgName(Idx));
+  return M->getNamedGlobal(ImplicitArgsUtils::getArgNameWithPrefix(Idx));
 }
 
 StringRef getTLSLocalIdsName() { return NAME_TLS_LOCAL_IDS; }
@@ -1863,11 +1807,72 @@ Value *createGetPtrToLocalId(Value *LocalIdValues, Type *LIdsTy, Value *Dim,
       CompilationUtils::AppendWithDimension("pLocalId_", Dim));
 }
 
-void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
+Function *createFunctionDeclaration(StringRef Name, Type *Result,
+                                    ArrayRef<Type *> FuncArgTys, Module *M) {
+  FunctionType *FuncTy = FunctionType::get(
+      /*Result=*/Result,
+      /*Params=*/FuncArgTys,
+      /*isVarArg=*/false);
+
+  assert(FuncTy && "Failed to create new function type");
+
+  Function *NewFunc = Function::Create(
+      /*Type=*/FuncTy,
+      /*Linkage=*/GlobalValue::ExternalLinkage,
+      /*Name=*/Name, M); //(external, no body)
+  assert(NewFunc && "Failed to create new function declaration");
+  NewFunc->setCallingConv(CallingConv::C);
+  return NewFunc;
+}
+
+void SetFunctionAttributeReadNone(Function *Func) {
+  AttrBuilder attBuilder(Func->getContext());
+  attBuilder.addAttribute(
+      Attribute::NoUnwind); /* .addAttribute(Attribute::UWTable) */
+  attBuilder.addMemoryAttr(llvm::MemoryEffects::none());
+  auto FuncFactorialPAL = AttributeList::get(
+      Func->getContext(), AttributeList::FunctionIndex, attBuilder);
+  Func->setAttributes(FuncFactorialPAL);
+}
+
+Instruction *createGetNumsGroup(unsigned Dim, IRBuilderBase &B, Module *M) {
+  const std::string StrNG = CompilationUtils::mangledGetNumGroups();
+  Function *GetNGFunc = M->getFunction(StrNG);
+  if (!GetNGFunc) {
+    // Create a new one
+    Type *Result = IntegerType::get(M->getContext(),
+                                    M->getDataLayout().getPointerSizeInBits(0));
+    Type *FuncArgTys[] = {IntegerType::get(M->getContext(), 32)};
+    GetNGFunc = createFunctionDeclaration(StrNG, Result, FuncArgTys, M);
+    SetFunctionAttributeReadNone(GetNGFunc);
+  }
+  Type *UintType = IntegerType::get(M->getContext(), 32);
+  Value *ConstDim = ConstantInt::get(UintType, Dim, false);
+  return B.CreateCall(
+      GetNGFunc, ConstDim,
+      CompilationUtils::AppendWithDimension("NumsGroups_", Dim));
+}
+
+Value *createGetNumsGroupLinearResult(IRBuilderBase &B, Module *M) {
+  // result = get_nums_group(2) * get_nums_group(1) * get_nums_group(0)
+  Value *NumsGroup2 = createGetNumsGroup(2, B, M);
+  Value *NumsGroup1 = createGetNumsGroup(1, B, M);
+  Value *NumsGroup0 = createGetNumsGroup(0, B, M);
+
+  // get_nums_group(2) * get_nums_group(1)
+  Value *Op0 =
+      B.CreateMul(NumsGroup2, NumsGroup1, "NumsGroup.p0", /*HasNUW=*/true,
+                  /*HasNSW=*/true);
+  // * get_nums_group(0)
+  return B.CreateMul(Op0, NumsGroup0, "NumsGroup.p1", /*HasNUW=*/true,
+                     /*HasNSW=*/true);
+}
+
+void parseKernelArguments(Module *M, Function *F, bool HasTLSGlobals,
                           std::vector<KernelArgument> &Arguments,
                           std::vector<unsigned int> &MemArguments) {
   size_t ArgsCount = F->arg_size();
-  if (!UseTLSGlobals)
+  if (!HasTLSGlobals)
     ArgsCount -= ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
 
   SYCLKernelMetadataAPI::KernelMetadataAPI KMD(F);
@@ -1915,10 +1920,6 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
       // should be before handling ptrs by addr space
       PointerType *PTy = cast<PointerType>(arg_it->getType());
       if ((i == 0) && KIMD.BlockLiteralSize.hasValue()) {
-        if (!PTy->isOpaque())
-          assert(PTy->getNonOpaquePointerElementType()->isIntegerTy(8) &&
-                 "invalid block_literal pointer type");
-
         CurArg.Ty = KRNL_ARG_PTR_BLOCK_LITERAL;
         CurArg.SizeInBytes = KIMD.BlockLiteralSize.get();
         break;
@@ -1940,17 +1941,10 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
       // Detect pointer qualifier
       // Test for opaque types: images, queue_t, pipe_t
       std::string ArgTyStr;
-      if (PTy->isOpaque()) {
-        if (generatedFromSPIRV(*M)) {
-          assert(KMD.ArgBaseTypeList.hasValue() &&
-                 "expect kernel_arg_base_type metadata");
-          ArgTyStr = KMD.ArgBaseTypeList.getItem(i);
-        }
-      } else {
-        StructType *ST =
-            dyn_cast<StructType>(PTy->getNonOpaquePointerElementType());
-        if (ST && ST->hasName())
-          ArgTyStr = ST->getName().str();
+      if (generatedFromSPIRV(*M)) {
+        assert(KMD.ArgBaseTypeList.hasValue() &&
+               "expect kernel_arg_base_type metadata");
+        ArgTyStr = KMD.ArgBaseTypeList.getItem(i);
       }
       if (!ArgTyStr.empty()) {
         // TODO: Why default type is INTEGER????
@@ -2313,8 +2307,7 @@ static reflection::TypeVector
 widenParameters(const reflection::TypeVector ScalarParams, unsigned int VF) {
   reflection::TypeVector VectorParams;
   for (auto &Param : ScalarParams) {
-    if (auto *VecParam =
-            reflection::dyn_cast<reflection::VectorType>(Param.get())) {
+    if (auto *VecParam = dyn_cast<reflection::VectorType>(Param.get())) {
       int widen_len = VecParam->getLength() * VF;
       VectorParams.emplace_back(
           VECTOR_TYPE(VecParam->getScalarType(), widen_len));
@@ -2501,48 +2494,41 @@ pushWGSortBuiltinVectInfo(const reflection::TypeVector &KeyValueParams,
   }
 }
 
-// Container storing all the sort builtin's name, whose vector info has been
-// added to ExtendedVectInfos
-static std::set<std::string> AddedSortVectInfos;
-
 static void pushWGSortBuiltinVectorInfo(const Module &M) {
   SmallVector<StringRef, 6> AllWorkGroupSortBuiltinBasicNames;
   for (auto &F : M) {
     if (!F.isDeclaration())
       continue;
     StringRef FnName = F.getName();
+    if (!isWorkGroupSort(FnName))
+      continue;
+
     reflection::FunctionDescriptor SortFD = demangle(FnName);
     reflection::TypeVector DataScalarParams, OtherScalarParams;
     SmallVector<llvm::VFParamKind, 4> ParamKinds;
-    if (isWorkGroupSort(FnName)) {
-      if (AddedSortVectInfos.find(FnName.data()) != AddedSortVectInfos.end())
-        continue;
-      AddedSortVectInfos.insert(FnName.data());
 
-      // e.g.
-      // key-only sort : void
-      // __devicelib_default_work_group_joint_sort_ascending_p1i32_u32_p3i8(int*
-      // key, uint n, byte* scratch);
-      // The first arg needs to be widen.
-      // key-value sort : void
-      // __devicelib_default_work_group_joint_sort_ascending_p3u32_p3u32_u32_p1i8(uint*
-      // key, uint* value, uint n, byte* scratch);
-      // The first and second args need to be widen.
-      unsigned int DataArgNum = isWorkGroupKeyOnlySort(FnName) ? 1 : 2;
-      assert(DataArgNum == SortFD.Parameters.size() - 2 &&
-             "Unknown work group sort builtin");
-      for (unsigned int Idx = 0; Idx < DataArgNum; ++Idx) {
-        DataScalarParams.push_back(SortFD.Parameters[Idx]);
-        ParamKinds.push_back(llvm::VFParamKind::Vector);
-      }
-      for (unsigned int Idx = DataArgNum; Idx < SortFD.Parameters.size();
-           ++Idx) {
-        ParamKinds.push_back(llvm::VFParamKind::OMP_Uniform);
-        OtherScalarParams.push_back(SortFD.Parameters[Idx]);
-      }
-      pushWGSortBuiltinVectInfo(DataScalarParams, OtherScalarParams, ParamKinds,
-                                SortFD.Name, FnName);
+    // e.g.
+    // key-only sort : void
+    // __devicelib_default_work_group_joint_sort_ascending_p1i32_u32_p3i8(int*
+    // key, uint n, byte* scratch);
+    // The first arg needs to be widen.
+    // key-value sort : void
+    // __devicelib_default_work_group_joint_sort_ascending_p3u32_p3u32_u32_p1i8(uint*
+    // key, uint* value, uint n, byte* scratch);
+    // The first and second args need to be widen.
+    unsigned int DataArgNum = isWorkGroupKeyOnlySort(FnName) ? 1 : 2;
+    assert(DataArgNum == SortFD.Parameters.size() - 2 &&
+           "Unknown work group sort builtin");
+    for (unsigned int Idx = 0; Idx < DataArgNum; ++Idx) {
+      DataScalarParams.push_back(SortFD.Parameters[Idx]);
+      ParamKinds.push_back(llvm::VFParamKind::Vector);
     }
+    for (unsigned int Idx = DataArgNum; Idx < SortFD.Parameters.size(); ++Idx) {
+      ParamKinds.push_back(llvm::VFParamKind::OMP_Uniform);
+      OtherScalarParams.push_back(SortFD.Parameters[Idx]);
+    }
+    pushWGSortBuiltinVectInfo(DataScalarParams, OtherScalarParams, ParamKinds,
+                              SortFD.Name, FnName);
   }
 }
 
@@ -2618,7 +2604,9 @@ void initializeVectInfo(ArrayRef<VectItem> VectInfos, const Module &M) {
   // Add extra vector info for work group sort builtin that is used in the
   // module. It can't be initialized just once, because there could be multiple
   // modules in the application.
-  pushWGSortBuiltinVectorInfo(M);
+  static SmallPtrSet<const Module *, 8> VisitedModules;
+  if (VisitedModules.insert(&M).second)
+    pushWGSortBuiltinVectorInfo(M);
 }
 
 static std::string getFormatStr(Value *V) {
@@ -2764,11 +2752,6 @@ static std::string getMangledTypeStr(Type *Ty, bool &HasUnnamedType) {
   std::string Result;
   if (PointerType *PTyp = dyn_cast<PointerType>(Ty)) {
     Result += "p" + utostr(PTyp->getAddressSpace());
-    // Opaque pointer doesn't have pointee type information, so we just mangle
-    // address space for opaque pointer.
-    if (!PTyp->isOpaque())
-      Result += getMangledTypeStr(PTyp->getNonOpaquePointerElementType(),
-                                  HasUnnamedType);
   } else if (ArrayType *ATyp = dyn_cast<ArrayType>(Ty)) {
     Result += "a" + utostr(ATyp->getNumElements()) +
               getMangledTypeStr(ATyp->getElementType(), HasUnnamedType);
@@ -3170,23 +3153,6 @@ void patchNotInlinedTIDUserFunc(
     OldF->eraseFromParent();
 }
 
-bool getDebugFlagFromMetadata(Module *M) {
-  if (llvm::NamedMDNode *CompileOptsNamed =
-          M->getNamedMetadata("opencl.compiler.options")) {
-
-    llvm::MDTupleTypedArrayWrapper<llvm::MDString> CompileOpts(
-        cast<llvm::MDTuple>(CompileOptsNamed->getOperand(0)));
-
-    for (llvm::MDString *Opt : CompileOpts) {
-      if (Opt->getString() == "-g") {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 bool hasFDivWithFastFlag(Module *M) {
   for (Function &F : *M)
     for (BasicBlock &B : F)
@@ -3244,23 +3210,6 @@ bool isImagesUsed(const Module &M) {
   return false;
 }
 
-bool getOptDisableFlagFromMetadata(Module *M) {
-  if (NamedMDNode *CompileOptsNamed =
-          M->getNamedMetadata("opencl.compiler.options")) {
-
-    MDTupleTypedArrayWrapper<MDString> CompileOpts(
-        cast<MDTuple>(CompileOptsNamed->getOperand(0)));
-
-    for (MDString *Opt : CompileOpts) {
-      if (Opt->getString() == "-cl-opt-disable") {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 bool isBlockInvocationKernel(Function *F) {
   // TODO: Is there a better way to detect block invoke kernel?
   // And can this be replaced with the same function in BlockUtils.cpp?
@@ -3290,7 +3239,7 @@ TinyPtrVector<DbgDeclareInst *> findDbgUses(Value *V) {
 Type *getLLVMTypeFromReflectionType(LLVMContext &C,
                                     const reflection::RefParamType &PT) {
   auto *ParamTy = PT.get();
-  auto *VPT = reflection::dyn_cast<reflection::VectorType>(ParamTy);
+  auto *VPT = dyn_cast<reflection::VectorType>(ParamTy);
   if (VPT)
     ParamTy = VPT->getScalarType().get();
   Type *Ty = StringSwitch<Type *>(ParamTy->toString())

@@ -21,10 +21,10 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x i32]* @b i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x i32], ptr @a i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP0:%.*]] = load ptr [[VP_ARRAYIDX]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x i32], ptr @b i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP1:%.*]] = load ptr [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:     i1 [[VP_CMP3:%.*]] = icmp sgt i32 [[VP0]] i32 [[VP1]]
 ; CHECK-NEXT:     br i1 [[VP_CMP3]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
@@ -45,10 +45,10 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP_MD_1:%.*]] = phi  [ i32 [[VP3]], [[BB4]] ],  [ i32 1, [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP_MUL27:%.*]] = mul i32 [[VP_MC_1]] i32 [[VP_MB_0]]
 ; CHECK-NEXT:     i32 [[VP_ADD30:%.*]] = add i32 [[VP_MUL27]] i32 [[VP1]]
-; CHECK-NEXT:     store i32 [[VP_ADD30]] i32* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:     store i32 [[VP_ADD30]] ptr [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:     i32 [[VP_MUL31:%.*]] = mul i32 [[VP_MD_1]] i32 [[VP_MA_0]]
 ; CHECK-NEXT:     i32 [[VP_ADD34:%.*]] = add i32 [[VP_MUL31]] i32 [[VP0]]
-; CHECK-NEXT:     store i32 [[VP_ADD34]] i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     store i32 [[VP_ADD34]] ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp slt i64 [[VP_INDVARS_IV_NEXT]] i64 [[TMP2:%.*]]
 ; CHECK-NEXT:     br i1 [[VP_CMP]], [[BB2]], [[BB5:BB[0-9]+]]
@@ -64,21 +64,21 @@ entry:
   br label %L1
 
 L1:
-  %0 = load i32, i32* @N, align 4
+  %0 = load i32, ptr @N, align 4
   %cmp54 = icmp sgt i32 %0, 0
   br i1 %cmp54, label %for.body.lr.ph, label %DIR.OMP.END.SIMD.1
 
 for.body.lr.ph:                                   ; preds = %L1
-  %1 = load i32, i32* @N, align 4
+  %1 = load i32, ptr @N, align 4
   %2 = sext i32 %1 to i64
   br label %for.body
 
 for.body:                                         ; preds = %for.body.lr.ph, %if.end26
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %if.end26 ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 %indvars.iv
-  %4 = load i32, i32* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 %indvars.iv
+  %4 = load i32, ptr %arrayidx2, align 4
   %cmp3 = icmp sgt i32 %3, %4
   br i1 %cmp3, label %if.then, label %if.end26
 
@@ -99,10 +99,10 @@ if.end26:                                         ; preds = %if.then, %for.body
   %md.1 = phi i32 [ %6, %if.then ], [ 1, %for.body ]
   %mul27 = mul nsw i32 %mc.1, %mb.0
   %add30 = add nsw i32 %mul27, %4
-  store i32 %add30, i32* %arrayidx2, align 4
+  store i32 %add30, ptr %arrayidx2, align 4
   %mul31 = mul nsw i32 %md.1, %ma.0
   %add34 = add nsw i32 %mul31, %3
-  store i32 %add34, i32* %arrayidx, align 4
+  store i32 %add34, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp slt i64 %indvars.iv.next, %2
   br i1 %cmp, label %for.body, label %loop.exit

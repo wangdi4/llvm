@@ -8,14 +8,17 @@
 
 #pragma once
 
-#include <sycl/detail/common.hpp>
-#include <sycl/detail/defines_elementary.hpp>
-#include <sycl/detail/impl_utils.hpp>
-#include <sycl/property_list.hpp>
+#include <sycl/context.hpp>                // for context
+#include <sycl/detail/export.hpp>          // for __SYCL_EXPORT
+#include <sycl/detail/property_helper.hpp> // for DataLessPropKind, PropWith...
+#include <sycl/device.hpp>                 // for device
+#include <sycl/properties/property_traits.hpp> // for is_property, is_property_of
+#include <sycl/property_list.hpp>              // for property_list
 
-#include <functional>
-#include <memory>
-#include <vector>
+#include <functional>  // for function
+#include <memory>      // for shared_ptr
+#include <type_traits> // for true_type
+#include <vector>      // for vector
 
 namespace sycl {
 inline namespace _V1 {
@@ -98,13 +101,22 @@ namespace graph {
 
 /// Property passed to command_graph constructor to disable checking for cycles.
 ///
-/// \todo Cycle check not yet implemented.
 class no_cycle_check : public ::sycl::detail::DataLessProperty<
                            ::sycl::detail::GraphNoCycleCheck> {
 public:
   no_cycle_check() = default;
 };
 
+/// Property passed to command_graph constructor to allow buffers to be used
+/// with graphs. Passing this property represents a promise from the user that
+/// the buffer will outlive any graph that it is used in.
+///
+class assume_buffer_outlives_graph
+    : public ::sycl::detail::DataLessProperty<
+          ::sycl::detail::GraphAssumeBufferOutlivesGraph> {
+public:
+  assume_buffer_outlives_graph() = default;
+};
 } // namespace graph
 
 namespace node {
@@ -208,6 +220,14 @@ public:
   /// @return True if any queue had its state changed from recording to
   /// executing.
   bool end_recording(const std::vector<queue> &RecordingQueues);
+
+  /// Synchronous operation that writes a DOT formatted description of the graph
+  /// to the provided path. By default, this includes the graph topology, node
+  /// types, node id and kernel names.
+  /// @param path The path to write the DOT file to.
+  /// @param verbose If true, print additional information about the nodes such
+  /// as kernel args or memory access where applicable.
+  void print_graph(const std::string path, bool verbose = false) const;
 
 protected:
   /// Constructor used internally by the runtime.

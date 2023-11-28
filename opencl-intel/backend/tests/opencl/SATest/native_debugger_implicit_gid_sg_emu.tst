@@ -11,7 +11,7 @@
 
 ; alloca for pointers to gids
 ; CHECK-LABEL: wrapper_entry:
-; CHECK-NEXT: [[GID0_VEC_PTR_ADDR:%w.__ocl_dbg_gid0.addr]] = alloca
+; CHECK: [[GID0_VEC_PTR_ADDR:%w.__ocl_dbg_gid0.addr]] = alloca
 
 ; check gid0 in subgroup emulation loop
 ; CHECK: [[GID0_VEC_PTR:%.*]] = load {{.*}} [[GID0_VEC_PTR_ADDR]], align 8

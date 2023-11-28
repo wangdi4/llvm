@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2023 Intel Corporation
+# Modifications, Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -47,12 +47,16 @@
 #   - Linux
 # - cfi(CMPLRLLVM-43351)
 #   - Linux & Windows
+# - builtins(CMPLRLLVM-48369, CMPLRLLVM-50952)
+#   - Windows
 #
 # end INTEL_CUSTOMIZATION
 
 cmake_minimum_required(VERSION 3.20.0)
 
-set(LLVM_COMMON_CMAKE_UTILS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
+if(NOT DEFINED LLVM_COMMON_CMAKE_UTILS)
+  set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
+endif()
 include(${LLVM_COMMON_CMAKE_UTILS}/Modules/CMakePolicy.cmake
   NO_POLICY_SCOPE)
 
@@ -169,20 +173,6 @@ if ("${COMPILER_RT_DEFAULT_TARGET_TRIPLE}" MATCHES ".*hf$")
   if (${COMPILER_RT_DEFAULT_TARGET_ARCH} MATCHES "^arm")
     set(COMPILER_RT_DEFAULT_TARGET_ARCH "armhf")
     CHECK_SYMBOL_EXISTS (__thumb__ "" COMPILER_RT_ARM_THUMB)
-  endif()
-endif()
-if (${COMPILER_RT_DEFAULT_TARGET_ARCH} MATCHES "^mips")
-  CHECK_SYMBOL_EXISTS (_MIPS_ARCH_MIPS32R6 "" COMPILER_RT_MIPS32R6)
-  CHECK_SYMBOL_EXISTS (_MIPS_ARCH_MIPS64R6 "" COMPILER_RT_MIPS64R6)
-  CHECK_SYMBOL_EXISTS (__mips64 "" COMPILER_RT_MIPS_64)
-  CHECK_SYMBOL_EXISTS (__MIPSEL__ "" COMPILER_RT_MIPS_EL)
-  if ("${COMPILER_RT_MIPS_64}")
-    set(COMPILER_RT_DEFAULT_TARGET_ARCH "mips64")
-  else()
-    set(COMPILER_RT_DEFAULT_TARGET_ARCH "mips")
-  endif()
-  if ("${COMPILER_RT_MIPS_EL}")
-    set(COMPILER_RT_DEFAULT_TARGET_ARCH "${COMPILER_RT_DEFAULT_TARGET_ARCH}el")
   endif()
 endif()
 if ("${COMPILER_RT_DEFAULT_TARGET_TRIPLE}" MATCHES ".*android.*")
@@ -312,10 +302,18 @@ endif()
 # Libirc is not ready when running lit tests, so we disable using it.
 # Set flag to variable here, test if flag available in config-ix.cmake, and 
 # apply the flag later in this file.
+# And for unittest, it may have link to libimf, but since we don't link libirc
+# to compiler-rt, there will be undefined symbols for linker. So we will just 
+# not to link any intel libs to TEST. If we do not link any intel libs to 
+# compiler-rt(instead of just the test), we end up static-linking libm instead
+# of libimf, which may have licenses issue. To limit the flag usage, we add them
+# in unittest cmake files.
 if(MSVC)
   set(INTEL_NO_USE_LIBIRC_FLAG " /Q_no-use-libirc")
+  set(INTEL_NO_INTEL_LIB_FLAG " /Qno-intel-lib")
 else()
   set(INTEL_NO_USE_LIBIRC_FLAG " -i_no-use-libirc")
+  set(INTEL_NO_INTEL_LIB_FLAG " -no-intel-lib")
 endif()
 # end INTEL_CUSTOMIZATION
 
@@ -371,6 +369,35 @@ option(COMPILER_RT_USE_BUILTINS_LIBRARY
   "Use compiler-rt builtins instead of libgcc" ${DEFAULT_COMPILER_RT_USE_BUILTINS_LIBRARY})
 
 include(config-ix)
+
+# INTEL_CUSTOMIZATION
+# Create an alias of the "*-unknown-linux-gnu" per-target runtime directory to
+# a "glibc" vendored version. The purpose of this is to support finding
+# runtimes during self-builds with, e.g., "--target x86_64-glibc-linux-gnu".
+# This must be run after config-ix, which enumerates the
+# COMPILER_RT_SUPPORTED_ARCH list. Note that end users have no use for this
+# link.
+if (LLVM_ENABLE_PER_TARGET_RUNTIME_DIR AND NOT APPLE)
+  # Iterate over the archs to deploy libraries for.
+  foreach(arch ${COMPILER_RT_SUPPORTED_ARCH})
+    # For each arch, determine the target triple.
+    get_compiler_rt_target(${arch} target)
+    # Add a symlink to alias any "unknown" vendored target runtime directory to
+    # a "glibc" one.
+    if ("${target}" MATCHES "^(x86_64|i386)-unknown-(linux-gnu)$")
+      message("COMPILER_RT_SUPPORTED_ARCH: ${arch} -> ${target}")
+      file(MAKE_DIRECTORY "${COMPILER_RT_OUTPUT_LIBRARY_DIR}")
+      file(CREATE_LINK "${CMAKE_MATCH_1}-unknown-${CMAKE_MATCH_2}"
+        "${COMPILER_RT_OUTPUT_LIBRARY_DIR}/${CMAKE_MATCH_1}-glibc-${CMAKE_MATCH_2}"
+        SYMBOLIC)
+      install(FILES
+        "${COMPILER_RT_OUTPUT_LIBRARY_DIR}/${CMAKE_MATCH_1}-glibc-${CMAKE_MATCH_2}"
+        DESTINATION "${COMPILER_RT_INSTALL_LIBRARY_DIR}"
+        COMPONENT clang_rt_glibc_alias)
+    endif()
+  endforeach()
+endif()
+# end INTEL_CUSTOMIZATION
 
 #================================
 # Setup Compiler Flags
@@ -472,8 +499,17 @@ endif()
 if(MSVC)
   # FIXME: In fact, sanitizers should support both /MT and /MD, see PR20214.
   set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
+
+# INTEL_CUSTOMIZATION
+# Asan doesn't support debug yet. String DEBUG
   # Remove any /M[DT][d] flags, and strip any definitions of _DEBUG.
-  # TODO: We probably could remove this altogether.
+  # Since we're using CMAKE_MSVC_RUNTIME_LIBRARY (CMP0091 set to NEW),
+  # these options shouldn't be included in these flags variables. However,
+  # package managers that don't know which mechanism is used for passing
+  # CRT choice flags might be passing them both ways - which leads to
+  # duplicate CRT choice options. Thus make sure to strip out these flags
+  # from these variables, when we're forcing a CRT choice other than what
+  # the user requested here.
   foreach(flag_var
     CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
     CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
@@ -483,6 +519,8 @@ if(MSVC)
     string(REGEX REPLACE "[/-]MD" "" ${flag_var} "${${flag_var}}")
     string(REGEX REPLACE "[/-]D_DEBUG" "" ${flag_var} "${${flag_var}}")
   endforeach()
+# end INTEL_CUSTOMIZATION
+
   append_list_if(COMPILER_RT_HAS_Oy_FLAG /Oy- SANITIZER_COMMON_CFLAGS)
   append_list_if(COMPILER_RT_HAS_GS_FLAG /GS- SANITIZER_COMMON_CFLAGS)
 
@@ -667,8 +705,8 @@ append_list_if(COMPILER_RT_HAS_NOSTDINCXX_FLAG -nostdinc++ SANITIZER_COMMON_CFLA
 append_list_if(COMPILER_RT_HAS_NOSTDLIBXX_FLAG -nostdlib++ SANITIZER_COMMON_LINK_FLAGS)
 
 # Remove -stdlib= which is unused when passing -nostdinc++...
-string(REGEX MATCHALL "-stdlib=[a-zA-Z+]*" stdlib_flag ${CMAKE_CXX_FLAGS})
-string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+string(REGEX MATCHALL "-stdlib=[a-zA-Z+]*" stdlib_flag "${CMAKE_CXX_FLAGS}")
+string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 # ...we need it to build some runtimes and tests so readd it where appropriate.
 list(APPEND COMPILER_RT_COMMON_CFLAGS ${stdlib_flag})
@@ -859,13 +897,15 @@ if(COMPILER_RT_USE_LIBCXX)
   endif()
 endif()
 
-set(COMPILER_RT_LLD_PATH ${LLVM_MAIN_SRC_DIR}/tools/lld)
-if(EXISTS ${COMPILER_RT_LLD_PATH}/ AND LLVM_TOOL_LLD_BUILD)
-  set(COMPILER_RT_HAS_LLD TRUE)
-else()
-  set(COMPILER_RT_LLD_PATH ${LLVM_MAIN_SRC_DIR}/../lld)
-  if(EXISTS ${COMPILER_RT_LLD_PATH}/ AND LLVM_TOOL_LLD_BUILD)
+if (LINKER_IS_LLD OR LLVM_TOOL_LLD_BUILD)
+  set(COMPILER_RT_LLD_PATH ${LLVM_MAIN_SRC_DIR}/tools/lld)
+  if(EXISTS ${COMPILER_RT_LLD_PATH}/)
     set(COMPILER_RT_HAS_LLD TRUE)
+  else()
+    set(COMPILER_RT_LLD_PATH ${LLVM_MAIN_SRC_DIR}/../lld)
+    if(EXISTS ${COMPILER_RT_LLD_PATH}/)
+      set(COMPILER_RT_HAS_LLD TRUE)
+    endif()
   endif()
 endif()
 
@@ -877,6 +917,9 @@ if(ANDROID)
 endif()
 pythonize_bool(COMPILER_RT_HAS_LLD)
 pythonize_bool(COMPILER_RT_TEST_USE_LLD)
+
+option(COMPILER_RT_ENABLE_INTERNAL_SYMBOLIZER "Build Compiler RT linked with in LLVM symbolizer" OFF)
+mark_as_advanced(COMPILER_RT_ENABLE_INTERNAL_SYMBOLIZER)
 
 add_subdirectory(lib)
 

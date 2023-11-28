@@ -10,7 +10,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(double* nocapture %varray) {
+define void @foo(ptr nocapture %varray) {
 entry:
   br label %for.body
 
@@ -19,8 +19,8 @@ for.body:
   %tmp = trunc i64 %iv to i32
   %conv = sitofp i32 %tmp to double
   %call = tail call double @sin(double %conv) #0
-  %arrayidx = getelementptr inbounds double, double* %varray, i64 %iv
-  store double %call, double* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds double, ptr %varray, i64 %iv
+  store double %call, ptr %arrayidx, align 4
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 1000
   br i1 %exitcond, label %for.end, label %for.body

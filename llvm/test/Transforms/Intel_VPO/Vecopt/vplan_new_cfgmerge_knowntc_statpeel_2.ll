@@ -5,7 +5,7 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable mustprogress
-define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
+define dso_local void @_Z7ntstorePd(ptr %A) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Updated scenario for VF: 2
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=2
@@ -67,8 +67,8 @@ define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
 ; CHECK-NEXT:       [DA: Div] i64 [[VP3]] = add i64 [[VP__OMP_IV_LOCAL_08]] i64 [[VP__OMP_IV_LOCAL_08_IND_INIT_STEP]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_ADD:%.*]] = add i64 [[VP__OMP_IV_LOCAL_08]] i64 1
 ; CHECK-NEXT:       [DA: Div] double [[VP_CONV:%.*]] = sitofp i64 [[VP_ADD]] to double
-; CHECK-NEXT:       [DA: Div] double* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds double* [[A0:%.*]] i64 [[VP_ADD]]
-; CHECK-NEXT:       [DA: Div] store double [[VP_CONV]] double* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds double, ptr [[A0:%.*]] i64 [[VP_ADD]]
+; CHECK-NEXT:       [DA: Div] store double [[VP_CONV]] ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB4]]
 ; CHECK-EMPTY:
@@ -113,19 +113,19 @@ DIR.OMP.SIMD.113:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.113
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),  "QUAL.OMP.LINEAR:IV.TYPED"(i64* %i.linear.iv, i64 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),  "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i64 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  call void @llvm.assume(i1 true) [ "align"(double* %A, i64 64) ]
+  call void @llvm.assume(i1 true) [ "align"(ptr %A, i64 64) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %.omp.iv.local.08 = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %add, %omp.inner.for.body ]
   %add = add nuw nsw i64 %.omp.iv.local.08, 1
   %conv = sitofp i64 %add to double
-  %arrayidx = getelementptr inbounds double, double* %A, i64 %add
-  store double %conv, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %A, i64 %add
+  store double %conv, ptr %arrayidx, align 8
   %exitcond.not = icmp eq i64 %add, 131072
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
 

@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-loop-distribute-max-mem=3 -hir-loop-distribute-scex-cost=3 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-loop-distribute-skip-vectorization-profitability-check=true -hir-loop-distribute-scex-cost=3 < %s 2>&1 | FileCheck %s
 
 ; Verify that distribution succeeds for scalar expansion and recomputation
 ; of def-uses under if nodes between different distributed loops. x.addr.020 is
@@ -25,49 +25,40 @@
 ;   END REGION
 
 ;Scalar Expansion analysis:
-;%x.addr.020 (sb:3) (In/Out 1/1) (6) -> (20) Recompute: 0
-; ( 6 -> 20 )
-;%0 (sb:14) (In/Out 0/0) (11) -> (20) Recompute: 0
-; ( 11 -> 20 )
-;%1 (sb:18) (In/Out 0/0) (14) -> (20) Recompute: 0
-; ( 14 -> 20 )
-;%2 (sb:22) (In/Out 0/0) (17) -> (20) Recompute: 0
-; ( 17 -> 20 )
+;%x.addr.020 (sb:3) (In/Out 1/1) (6) -> (11,17,20) Recompute: 0
+; ( 6 -> 17 ) ( 6 -> 20 ) ( 6 -> 11 )
+;%y.addr.019 (sb:4) (In/Out 1/0) (8) -> (14) Recompute: 0
+; ( 8 -> 14 )
 
 
 ; CHECK:  BEGIN REGION { modified }
-; CHECK:  + DO i1 = 0, (%it + -1)/u64, 1   <DO_LOOP>
-;         |   %min = (-64 * i1 + %it + -1 <= 63) ? -64 * i1 + %it + -1 : 63;
-;         |
-; CHECK:  |   + DO i2 = 0, %min, 1   <DO_LOOP>
-;         |   |   if (%z > %cmp)
-;         |   |   {
-;         |   |      %x.addr.020 = %x.addr.020  +  1;
-;         |   |      (%.TempArray)[0][i2] = %x.addr.020;
-;         |   |      %y.addr.019 = %y.addr.019  +  1;
-;         |   |      %0 = (@A)[0][%x.addr.020];
-;         |   |      (%.TempArray2)[0][i2] = %0;
-;         |   |      %1 = (@B)[0][%y.addr.019];
-;         |   |      (%.TempArray4)[0][i2] = %1;
-;         |   |      %2 = (@A1)[0][%x.addr.020];
-;         |   |      (%.TempArray6)[0][i2] = %2;
-;         |   |   }
-;         |   + END LOOP
-;         |
-;         |
-; CHECK:  |   + DO i2 = 0, %min, 1   <DO_LOOP>
-; CHECK:  |   |   if (%z > %cmp)
-;         |   |   {
-; CHECK:  |   |      %x.addr.020 = (%.TempArray)[0][i2];
-; CHECK:  |   |      %0 = (%.TempArray2)[0][i2];
-; CHECK:  |   |      %1 = (%.TempArray4)[0][i2];
-; CHECK:  |   |      %2 = (%.TempArray6)[0][i2];
-
-; CHECK:  |   |      (@B1)[0][%x.addr.020] = %2 + (%1 * %0);
-;         |   |   }
-;         |   + END LOOP
-;         + END LOOP
-;   END REGION
+; CHECK: + DO i1 = 0, (%it + -1)/u64, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK: |   %min = (-64 * i1 + %it + -1 <= 63) ? -64 * i1 + %it + -1 : 63;
+; CHECK: |
+; CHECK: |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+; CHECK: |   |   if (%z > %cmp)
+; CHECK: |   |   {
+; CHECK: |   |      %x.addr.020 = %x.addr.020  +  1;
+; CHECK: |   |      (%.TempArray)[0][i2] = %x.addr.020;
+; CHECK: |   |      %y.addr.019 = %y.addr.019  +  1;
+; CHECK: |   |      (%.TempArray2)[0][i2] = %y.addr.019;
+; CHECK: |   |   }
+; CHECK: |   + END LOOP
+; CHECK: |
+; CHECK: |
+; CHECK: |   + DO i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+; CHECK: |   |   if (%z > %cmp)
+; CHECK: |   |   {
+; CHECK: |   |      %x.addr.020 = (%.TempArray)[0][i2];
+; CHECK: |   |      %y.addr.019 = (%.TempArray2)[0][i2];
+; CHECK: |   |      %0 = (@A)[0][%x.addr.020];
+; CHECK: |   |      %1 = (@B)[0][%y.addr.019];
+; CHECK: |   |      %2 = (@A1)[0][%x.addr.020];
+; CHECK: |   |      (@B1)[0][%x.addr.020] = %2 + (%1 * %0);
+; CHECK: |   |   }
+; CHECK: |   + END LOOP
+; CHECK: + END LOOP
+; CHECK: END REGION
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

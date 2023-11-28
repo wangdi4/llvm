@@ -11,11 +11,9 @@
 #ifndef __SIMPLE_FIXTURE_H__
 #define __SIMPLE_FIXTURE_H__
 
+#include "CL/cl_ext.h"
 #include "base_fixture.h"
-
 #include "gtest_wrapper.h"
-#include <CL/cl.h>
-#include <CL/cl_ext.h>
 
 #include <map>
 #include <string>

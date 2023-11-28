@@ -1,6 +1,6 @@
 //===----- HIRUnrollAndJam.cpp - Implements UnrollAndJam class ------------===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -114,6 +114,10 @@ static cl::opt<unsigned> MaxUnrolledLoopNestCost(
 static cl::opt<unsigned> MaxOuterLoopCost(
     "hir-unroll-and-jam-max-outer-loop-cost", cl::init(36), cl::Hidden,
     cl::desc("Max allowed cost of an outer loop in the loopnest"));
+
+static cl::opt<unsigned> MaxLoopMemRefsThreshold(
+    "hir-unroll-and-jam-max-unrolled-loop-memrefs", cl::init(26), cl::Hidden,
+    cl::desc("Max allowed number of memrefs in the unrolled loopnest"));
 
 typedef SmallVector<std::pair<HLLoop *, HLLoop *>, 16> LoopMapTy;
 
@@ -866,12 +870,7 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
     return 1;
   }
 
-  unsigned AvgTripCount = 0;
-  if ((IsConstTC ||
-       (Lp->getPragmaBasedAverageTripCount(AvgTripCount) &&
-        (TC = AvgTripCount)) ||
-       (TC = Lp->getMaxTripCountEstimate())) &&
-      (TC < MinTripCountThreshold)) {
+  if (Lp->hasLikelySmallTripCount(MinTripCountThreshold - 1)) {
     if (HasEnablingPragma) {
       return 2;
     } else {
@@ -1142,7 +1141,30 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
   if (!HasEnablingPragma) {
     // TODO: refine unroll factor using extra cache lines accessed by
     // unrolling?
-    if (!HIRLoopLocality::hasTemporalLocality(Lp, UnrollFactor - 1, true, true)) {
+    unsigned NumMemRefs = 0;
+
+    HIRLoopLocality::LocalityRefGatherer::MapTy MemRefMap;
+
+    HIRLoopLocality::LocalityRefGatherer::gatherRange(
+        Lp->child_begin(), Lp->child_end(), MemRefMap);
+
+    for (auto &Entry : MemRefMap) {
+      NumMemRefs += Entry.second.size();
+    }
+
+    LLVM_DEBUG(dbgs() << "Number of memrefs in loop: " << NumMemRefs << "\n");
+
+    // Unrolling loop with too many memrefs can result in memory stalls by
+    // increasing presure on memory banks.
+    if (NumMemRefs > MaxLoopMemRefsThreshold) {
+      LLVM_DEBUG(dbgs() << "Skipping unroll & jam for loop and all its parents "
+                           "as the number of memrefs exceeds threshold!\n");
+      HUAJ.throttleRecursively(Lp);
+      return;
+    }
+
+    if (!HIRLoopLocality::hasTemporalLocality(Lp, UnrollFactor - 1, MemRefMap,
+                                              true, true)) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop does not have "
                            "temporal locality!\n");
       HUAJ.throttle(Lp);
@@ -1971,6 +1993,15 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
 
   if (RemainderLoop) {
     *RemainderLoop = NeedRemainderLoop ? Loop : nullptr;
+  }
+
+  // If we are unrolling only and the loop is multi-exit, then we need to
+  // check if the parent loop is multi-exit too. In that case, we need to
+  // update the number of exits for all parent loops.
+  if (!LoopMap && Loop->isMultiExit()) {
+    auto *ParLoop = MainLoop->getParentLoop();
+    if (ParLoop && ParLoop->isMultiExit())
+      HLNodeUtils::updateNumLoopExits(MainLoop->getOutermostParentLoop());
   }
 }
 

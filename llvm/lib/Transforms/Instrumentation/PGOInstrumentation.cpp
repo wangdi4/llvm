@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -121,7 +121,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GraphWriter.h"
-#include "llvm/Support/HashBuilder.h"
+#include "llvm/Support/HashBuilder.h" // INTEL
 #include "llvm/Support/Process.h" // INTEL
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
@@ -401,7 +401,6 @@ extern cl::opt<PGOViewCountsType> PGOViewCounts;
 // Defined in Analysis/BlockFrequencyInfo.cpp:  -view-bfi-func-name=
 extern cl::opt<std::string> ViewBlockFreqFuncName;
 
-extern cl::opt<bool> DebugInfoCorrelate;
 } // namespace llvm
 
 static cl::opt<bool>
@@ -599,6 +598,7 @@ public:
   std::vector<std::vector<VPCandidateInfo>> ValueSites;
   SelectInstVisitor SIVisitor;
   std::string FuncName;
+  std::string DeprecatedFuncName;
   GlobalVariable *FuncNameVar;
 
   // CFG hash value for this function.
@@ -667,7 +667,8 @@ public:
       NumOfCSPGOBB += MST.BBInfos.size();
     }
 
-    FuncName = getPGOFuncName(F);
+    FuncName = getIRPGOFuncName(F);
+    DeprecatedFuncName = getPGOFuncName(F);
     computeCFGHash();
     if (!ComdatMembers.empty())
       renameComdatFunction();
@@ -1178,7 +1179,7 @@ static void instrumentOneFunc(
   cleanupLoopTripCountInstrumentation(MarkedInstrs);
 #endif // INTEL_CUSTOMIZATION
 
-  Type *I8PtrTy = Type::getInt8PtrTy(M->getContext());
+  Type *I8PtrTy = PointerType::getUnqual(M->getContext());
   auto Name = ConstantExpr::getBitCast(FuncInfo.FuncNameVar, I8PtrTy);
   auto CFGHash = ConstantInt::get(Type::getInt64Ty(M->getContext()),
                                   FuncInfo.FunctionHash);
@@ -1647,7 +1648,8 @@ bool PGOUseFunc::readCounters(IndexedInstrProfReader *PGOReader, bool &AllZeros,
   auto &Ctx = M->getContext();
   uint64_t MismatchedFuncSum = 0;
   Expected<InstrProfRecord> Result = PGOReader->getInstrProfRecord(
-      FuncInfo.FuncName, FuncInfo.FunctionHash, &MismatchedFuncSum);
+      FuncInfo.FuncName, FuncInfo.FunctionHash, FuncInfo.DeprecatedFuncName,
+      &MismatchedFuncSum);
   if (Error E = Result.takeError()) {
     handleInstrProfError(std::move(E), MismatchedFuncSum);
     return false;
@@ -1692,7 +1694,8 @@ bool PGOUseFunc::readCounters(IndexedInstrProfReader *PGOReader, bool &AllZeros,
 void PGOUseFunc::populateCoverage(IndexedInstrProfReader *PGOReader) {
   uint64_t MismatchedFuncSum = 0;
   Expected<InstrProfRecord> Result = PGOReader->getInstrProfRecord(
-      FuncInfo.FuncName, FuncInfo.FunctionHash, &MismatchedFuncSum);
+      FuncInfo.FuncName, FuncInfo.FunctionHash, FuncInfo.DeprecatedFuncName,
+      &MismatchedFuncSum);
   if (auto Err = Result.takeError()) {
     handleInstrProfError(std::move(Err), MismatchedFuncSum);
     return;
@@ -2236,17 +2239,10 @@ static void collectComdatMembers(
       ComdatMembers.insert(std::make_pair(C, &GA));
 }
 
-// Don't perform PGO instrumeatnion / profile-use.
-static bool skipPGO(const Function &F) {
+// Return true if we should not find instrumentation data for this function
+static bool skipPGOUse(const Function &F) {
   if (F.isDeclaration())
     return true;
-  if (F.hasFnAttribute(llvm::Attribute::NoProfile))
-    return true;
-  if (F.hasFnAttribute(llvm::Attribute::SkipProfile))
-    return true;
-  if (F.getInstructionCount() < PGOFunctionSizeThreshold)
-    return true;
-
   // If there are too many critical edges, PGO might cause
   // compiler time problem. Skip PGO if the number of
   // critical edges execeed the threshold.
@@ -2264,7 +2260,19 @@ static bool skipPGO(const Function &F) {
                       << " exceed the threshold. Skip PGO.\n");
     return true;
   }
+  return false;
+}
 
+// Return true if we should not instrument this function
+static bool skipPGOGen(const Function &F) {
+  if (skipPGOUse(F))
+    return true;
+  if (F.hasFnAttribute(llvm::Attribute::NoProfile))
+    return true;
+  if (F.hasFnAttribute(llvm::Attribute::SkipProfile))
+    return true;
+  if (F.getInstructionCount() < PGOFunctionSizeThreshold)
+    return true;
   return false;
 }
 
@@ -2280,7 +2288,7 @@ static bool InstrumentAllFunctions(
   collectComdatMembers(M, ComdatMembers);
 
   for (auto &F : M) {
-    if (skipPGO(F))
+    if (skipPGOGen(F))
       continue;
     auto &TLI = LookupTLI(F);
     auto *BPI = LookupBPI(F);
@@ -2444,6 +2452,7 @@ static void verifyFuncBFI(PGOUseFunc &Func, LoopInfo &LI,
     });
 }
 
+#if INTEL_CUSTOMIZATION
 static void MLPGODumpFunctionFeatures(mlpgo::Parameters &Parameter, Function &F,
                                       CallGraph &CG,
                                       const BranchProbabilityInfo &OldBPI,
@@ -2484,14 +2493,17 @@ static void MLPGODumpFunctionFeatures(mlpgo::Parameters &Parameter, Function &F,
   mlpgo::DumpTrainingSet(F, Inst2Features, Parameter, BBCountValueMap,
                          EdgeCountValueMap);
 }
+#endif // INTEL_CUSTOMIZATION
 
-// MLPGO: add CG Parameter
+// MLPGO: add CG Parameter // INTEL
 static bool annotateAllFunctions(
     Module &M, StringRef ProfileFileName, StringRef ProfileRemappingFileName,
     vfs::FileSystem &FS,
     function_ref<TargetLibraryInfo &(Function &)> LookupTLI,
     function_ref<BranchProbabilityInfo *(Function &)> LookupBPI,
+#if INTEL_CUSTOMIZATION
     function_ref<BlockFrequencyInfo *(Function &)> LookupBFI, CallGraph &CG,
+#endif // INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, bool IsCS) {
   LLVM_DEBUG(dbgs() << "Read in profile counters: ");
   auto &Ctx = M.getContext();
@@ -2547,10 +2559,9 @@ static bool annotateAllFunctions(
   bool InstrumentFuncEntry = PGOReader->instrEntryBBEnabled();
   if (PGOInstrumentEntry.getNumOccurrences() > 0)
     InstrumentFuncEntry = PGOInstrumentEntry;
-
+#if INTEL_CUSTOMIZATION
   mlpgo::Parameters MlpgoParameters(M);
   std::optional<std::string> MLPGO_PARTIAL_USE;
-#if INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
   MLPGO_PARTIAL_USE = sys::Process::GetEnv("INTEL_MLPGO_PARTIAL_USE");
 #endif // !INTEL_PRODUCT_RELEASE
@@ -2558,7 +2569,7 @@ static bool annotateAllFunctions(
 
   bool HasSingleByteCoverage = PGOReader->hasSingleByteCoverage();
   for (auto &F : M) {
-    if (skipPGO(F))
+    if (skipPGOUse(F))
       continue;
     auto &TLI = LookupTLI(F);
     auto *BPI = LookupBPI(F);
@@ -2700,10 +2711,8 @@ static bool annotateAllFunctions(
     if (MlpgoParameters.DumpFeatures) {
       MLPGODumpFunctionFeatures(MlpgoParameters, F, CG, *BPI, Func);
     }
-#endif // INTEL_CUSTOMIZATION
   }
 
-#if INTEL_CUSTOMIZATION
   if (MLPGO_PARTIAL_USE) {
     HotFunctions.clear();
     ColdFunctions.clear();

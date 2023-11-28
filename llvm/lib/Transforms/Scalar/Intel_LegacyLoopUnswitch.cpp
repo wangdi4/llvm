@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022-2023 Intel Corporation
+// Modifications, Copyright (C) 2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1563,8 +1563,8 @@ void LoopUnswitch::unswitchNontrivialCondition(
     MDNode *DisableUnswitchMD = MDNode::get(
         Context, MDString::get(Context, "llvm.loop.unswitch.partial.disable"));
     MDNode *NewLoopID = makePostTransformationMetadata(
-        Context, L->getLoopID(),                            // INTEL
-        {"llvm.loop.unswitch.partial", OptReportTag::Root}, // INTEL
+        Context, L->getLoopID(),                              // INTEL
+        {"llvm.loop.unswitch.partial", OptReportTag::Report}, // INTEL
         {DisableUnswitchMD});
     NewLoop->setLoopID(NewLoopID);
   }
@@ -1576,7 +1576,7 @@ void LoopUnswitch::unswitchNontrivialCondition(
 /// Remove all instances of I from the worklist vector specified.
 static void removeFromWorklist(Instruction *I,
                                std::vector<Instruction *> &Worklist) {
-  llvm::erase_value(Worklist, I);
+  llvm::erase(Worklist, I);
 }
 
 /// When we find that I really equals V, remove I from the

@@ -11,15 +11,17 @@
 #include "llvm/Transforms/SYCLTransforms/WGLoopBoundaries.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/ConstantFolding.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/SYCLTransforms/Utils/SYCLStatistic.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataStatsAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/SYCLStatistic.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/WGBoundDecoder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
@@ -32,13 +34,14 @@ namespace {
 
 class WGLoopBoundariesImpl {
 public:
-  explicit WGLoopBoundariesImpl(Module &M, const RuntimeService &RTService)
-      : M(M), RTService(RTService),
+  explicit WGLoopBoundariesImpl(Module &M, const RuntimeService &RTService,
+                                FunctionAnalysisManager &FAM)
+      : M(M), RTService(RTService), FAM(FAM),
         SYCL_STAT_INIT(CreatedEarlyExit,
-                        "one if early exit (or late start) was done for the "
-                        "kernel. Value is never greater for one, even if "
-                        "early-exit done for several dimensions.",
-                        KernelStats) {}
+                       "one if early exit (or late start) was done for the "
+                       "kernel. Value is never greater for one, even if "
+                       "early-exit done for several dimensions.",
+                       KernelStats) {}
 
   bool run();
   bool runOnFunction(Function &F);
@@ -71,6 +74,7 @@ private:
 
   LLVMContext *Ctx = nullptr;
   const RuntimeService &RTService;
+  FunctionAnalysisManager &FAM;
 
   /// size_t type.
   Type *IndTy = nullptr;
@@ -538,7 +542,8 @@ bool WGLoopBoundariesImpl::runOnFunction(Function &F) {
   } while (MinMaxBoundaryRemoved || EarlyExitCollapsed);
 
   // Create early exit functions for later use of loop generator.
-  createWGLoopBoundariesFunction();
+  if (!UniDescs.empty() || !TIDDescs.empty())
+    createWGLoopBoundariesFunction();
 
   // Remove all instructions marked for removal.
   for (Instruction *I : ToRemove) {
@@ -1417,7 +1422,7 @@ bool WGLoopBoundariesImpl::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
   assert(Br->getParent() == &(F->getEntryBlock()) &&
          "expected entry block branch");
   Value *Cond = Br->getCondition();
-  if (isa<ConstantInt>(Cond))
+  if (isa<ConstantInt>(Cond) || isa<ConstantExpr>(Cond))
     return false;
   auto *CondInst = dyn_cast<Instruction>(Cond);
   // Generally we can handle this but this is unexpected.
@@ -1704,17 +1709,14 @@ void WGLoopBoundariesImpl::createWGLoopBoundariesFunction() {
 
   // Fill local size member vector, and set initial lower/upper bounds.
   fillInitialBoundaries(BB);
-  Value *UniformCond = ConstOne;
-  if (UniDescs.size() || TIDDescs.size()) {
-    // In case there are early exits, recover instructions leading to them
-    // into the block and update the value map.
-    VMap ValueMap;
-    recoverBoundInstructions(ValueMap, BB);
-    // Update upper/lower bounds according to boundary descriptions.
-    obtainEEBoundaries(BB, ValueMap);
-    // Update uniform condition according to uniform early exit descriptions.
-    UniformCond = obtainUniformCond(BB, ValueMap);
-  }
+  // In case there are early exits, recover instructions leading to them
+  // into the block and update the value map.
+  VMap ValueMap;
+  recoverBoundInstructions(ValueMap, BB);
+  // Update upper/lower bounds according to boundary descriptions.
+  obtainEEBoundaries(BB, ValueMap);
+  // Update uniform condition according to uniform early exit descriptions.
+  Value *UniformCond = obtainUniformCond(BB, ValueMap);
 
   // Insert boundaries into the array return value.
   Value *RetVal = UndefValue::get(BoundFunc->getReturnType());
@@ -1731,6 +1733,15 @@ void WGLoopBoundariesImpl::createWGLoopBoundariesFunction() {
   unsigned UniInd = WGBoundDecoder::getUniformIndex();
   RetVal = InsertValueInst::Create(RetVal, UniformCond, UniInd, "", BB);
   ReturnInst::Create(*Ctx, RetVal, BB);
+
+  OptimizationRemarkEmitter &ORE =
+      FAM.getResult<OptimizationRemarkEmitterAnalysis>(*F);
+  ORE.emit([&]() {
+    return OptimizationRemark(DEBUG_TYPE, "WGLoopBoundaries", F)
+           << "work-group loop boundaries of kernel " << F->getName() << " ("
+           << Twine(TIDDescs.size()).str() << " early exit boundaries, "
+           << Twine(UniDescs.size()).str() << " uniform early exit conditions)";
+  });
 }
 
 void WGLoopBoundariesImpl::print(raw_ostream &OS, StringRef FName) const {
@@ -1757,6 +1768,7 @@ void WGLoopBoundariesImpl::print(raw_ostream &OS, StringRef FName) const {
 PreservedAnalyses WGLoopBoundariesPass::run(Module &M,
                                             ModuleAnalysisManager &AM) {
   auto &RTService = AM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
-  WGLoopBoundariesImpl Impl(M, RTService);
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  WGLoopBoundariesImpl Impl(M, RTService, FAM);
   return Impl.run() ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

@@ -1,6 +1,6 @@
 //====-- Intel_X86GenerateLEA.cpp - Generate new LEA instructions ---------------====
 //
-//      Copyright (c) 2019-2019 Intel Corporation.
+//      Copyright (c) 2019 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION

@@ -46,10 +46,8 @@ def RawFrmImm16   : Format<8>;
 def AddCCFrm      : Format<9>;
 def PrefixByte    : Format<10>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 def MRMDestRegCC     : Format<11>;
 def MRMDestMemCC     : Format<12>;
-#endif // INTEL_FEATURE_ISA_APX_F
 def MRMDestMemImm8      : Format<15>;
 def MRMDestReg4VOp3     : Format<16>;
 def MRMDestMem4VOp3     : Format<17>;
@@ -147,7 +145,7 @@ def SSEPackedSingle : Domain<1>;
 def SSEPackedDouble : Domain<2>;
 def SSEPackedInt    : Domain<3>;
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Class specifying the available MUL/ADD/FMA operations,
 // used by MAPatternsEmitter table-gen/backend.
 class MAOperation<bits<2> val> {
@@ -156,7 +154,7 @@ class MAOperation<bits<2> val> {
 def MAOperationADD : MAOperation<0>; // ADD: A + B
 def MAOperationMUL : MAOperation<1>; // MUL: A * B
 def MAOperationFMA : MAOperation<2>; // FMA: A * B + C
-// END INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 // Class specifying the vector form of the decompressed
 // displacement of 8-bit.
@@ -198,12 +196,11 @@ def XuCCXS     : XuCCPrefix<2>;   // F3
 def XuCCXD     : XuCCPrefix<3>;   // F2
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
+
 // Class specifying the opcode map.
 class Map<bits<4> val> {
   bits<4> Value = val;
 }
-#endif // INTEL_CUSTOMIZATION
 def OB        : Map<0>;
 def TB        : Map<1>;
 def T8        : Map<2>;
@@ -218,6 +215,8 @@ def T_MAP6    : Map<9>;
 def T_MAP8    : Map<10>;
 def T_MAP4    : Map<11>;
 def T_MAP7    : Map<12>;
+#else
+def T_MAP7    : Map<10>;
 #endif // INTEL_CUSTOMIZATION
 
 // Class specifying the encoding
@@ -288,9 +287,9 @@ class T_MAP8PD : T_MAP8 { Prefix OpPrefix = PD; } // 0x66
 class T_MAP8XS : T_MAP8 { Prefix OpPrefix = XS; } // 0xF3
 class T_MAP8XD : T_MAP8 { Prefix OpPrefix = XD; } // 0xF2
 class OBXD   { Prefix OpPrefix = XD; }
+#endif // INTEL_CUSTOMIZATION
 class T_MAP7XS : T_MAP7 { Prefix OpPrefix = XS; } // 0xF3
 class T_MAP7XD : T_MAP7 { Prefix OpPrefix = XD; } // 0xF2
-#endif // INTEL_CUSTOMIZATION
 class OBXS   { Prefix OpPrefix = XS; }
 class PS   : TB { Prefix OpPrefix = PS; }
 class PD   : TB { Prefix OpPrefix = PD; }
@@ -318,10 +317,8 @@ class EVEX_KZ : EVEX_K { bit hasEVEX_Z = 1; }
 class EVEX_B { bit hasEVEX_B = 1; }
 class EVEX_RC { bit hasEVEX_RC = 1; }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 class EVEX_NF { bit hasEVEX_NF = 1; }
 class EVEX_B4V : EVEX_B { bit hasVEX_4V = 1; }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 class EVEX_V512 { bit hasEVEX_L2 = 1; bit hasVEX_L = 0; }
 class EVEX_V256 { bit hasEVEX_L2 = 0; bit hasVEX_L = 1; }
@@ -356,6 +353,10 @@ class NotEVEX2VEXConvertible { bit notEVEX2VEXConvertible = 1; }
 
 // Force the instruction to use VEX encoding.
 class ExplicitVEXPrefix { bit ExplicitVEXPrefix = 1; }
+#if INTEL_CUSTOMIZATION
+// Force the instruction to use REX2 encoding.
+class ExplicitREX2Prefix { bit explicitREX2Prefix = 1; }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 // Force the instruction to emit prefix.
@@ -450,12 +451,11 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   bits<2> XuCCOpPrefixBits = XuCCOpPrefix.Value;
 #endif // INTEL_FEATURE_XUCC
 #if INTEL_FEATURE_ISA_AVX256P
-  bit hasEVEX_P10 = 0;      // Does this inst set the EVEX_P10 field?
+  bit hasEVEX_X2 = 0;      // Does this inst set the EVEX_X2 field?
 #endif // INTEL_FEATURE_ISA_AVX256P
-#if INTEL_FEATURE_ISA_APX_F
   bit hasEVEX_NF = 0;      // Does this inst set the EVEX_NF field?
   bit hasTwoConditionalOps = 0;   // Does this inst have two conditional operands?
-#endif // INTEL_FEATURE_ISA_APX_F
+  bit explicitREX2Prefix = 0; // Force the instruction to use REX2 prefix.
 #endif // INTEL_CUSTOMIZATION
   // Force to check predicate before compress EVEX to VEX encoding.
   bit checkVEXPredicate = 0;
@@ -487,16 +487,16 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
 #if INTEL_CUSTOMIZATION
   // Force the instruction to use VEX encoding.
   let TSFlags{51}    = EmitVEXOrEVEXPrefix;
+  let TSFlags{52}    = hasEVEX_NF;
+  let TSFlags{53}    = hasTwoConditionalOps;
+  let TSFlags{54}    = explicitREX2Prefix;
 #if INTEL_FEATURE_XUCC
-  let TSFlags{53-52} = XuCCOpPrefixBits;
+  // XuCCPrefix - These prefix bytes are used for some XuCC instructions.
+  let TSFlags{56-55} = XuCCOpPrefixBits;
 #endif // INTEL_FEATURE_XUCC
-#if INTEL_FEATURE_ISA_AVX256P
-  let TSFlags{54}    = hasEVEX_P10;
-#endif // INTEL_FEATURE_ISA_AVX256P
-#if INTEL_FEATURE_ISA_APX_F
-  let TSFlags{55}    = hasEVEX_NF;
-  let TSFlags{56}    = hasTwoConditionalOps;
-#endif // INTEL_FEATURE_ISA_APX_F
+#if INTEL_FEATURE_XISA_COMMON
+  let TSFlags{57}    = hasEVEX_X2;
+#endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
 }
 

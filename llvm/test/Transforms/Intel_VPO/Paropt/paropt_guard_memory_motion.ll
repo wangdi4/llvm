@@ -31,11 +31,11 @@
 ;   }
 ; }
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-guard-memory-motion -vpo-cfg-restructuring -vpo-rename-operands -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-restore-operands -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-guard-memory-motion -vpo-cfg-restructuring -vpo-rename-operands -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-restore-operands -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE
 
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-rename-operands)' -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-restore-operands)' -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE
+; RUN: opt -passes='function(vpo-paropt-guard-memory-motion,vpo-cfg-restructuring,vpo-rename-operands)' -S %s -o %t1.ll && FileCheck --input-file=%t1.ll %s
+; RUN: opt -passes='function(vpo-restore-operands)' -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s --check-prefix=RESTORE
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

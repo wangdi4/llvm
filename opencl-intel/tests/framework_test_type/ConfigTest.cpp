@@ -1,4 +1,3 @@
-
 #include "cl_config.h"
 #include "common_utils.h"
 #include "gtest_wrapper.h"

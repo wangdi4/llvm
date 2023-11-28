@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fexceptions -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fexceptions -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 int foo();
 
@@ -41,7 +41,7 @@ void bar(int if_val, int num_threads_val) {
 
   // proc_bind
   // CHECK: "QUAL.OMP.PRIVATE:TYPED"(ptr [[PB1_ADDR]]
-  // CHECK-SAME: "QUAL.OMP.PROC_BIND.MASTER"
+  // CHECK-SAME: "QUAL.OMP.PROC_BIND.PRIMARY"
   #pragma omp parallel private(pb1) proc_bind(master)
   { foo(); }
 

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -205,9 +205,6 @@ ReadWriteMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
                            SharedPtr<ITaskBase> *pTask,
                            const SharedPtr<ITaskList> & /*pList*/) {
   ReadWriteMemObject *pCommand = new ReadWriteMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   // run CheckCommandParams only in Debug mode
   assert(CL_DEV_SUCCESS == pCommand->CheckCommandParams(pCmd) &&
@@ -299,24 +296,10 @@ bool ReadWriteMemObject::Execute() {
   // Execute copy routine
 #if defined(USE_ITT)
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
-
     __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
                      (CL_DEV_CMD_READ == m_pCmd->type
                           ? m_pGPAData->pReadHandle
                           : m_pGPAData->pWriteHandle));
-
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    TAL_SetNamedTaskColor((CL_DEV_CMD_READ == m_pCmd->type ? "Read" : "Write"),
-                          255, 0, 0);
-#endif
-#endif // INTEL_CUSTOMIZATION
     // Copy dimensions to 64 bit, for uniformity.
     cl_ulong copyParams64[MAX_WORK_DIM];
     copyParams64[0] = sCpyParam.vRegion[0];
@@ -333,11 +316,6 @@ bool ReadWriteMemObject::Execute() {
 
 #if defined(USE_ITT)
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
     __itt_task_end(m_pGPAData->pDeviceDomain);
   }
 #endif // ITT
@@ -358,9 +336,7 @@ cl_dev_err_code CopyMemObject::Create(TaskDispatcher *pTD,
                                       SharedPtr<ITaskBase> *pTask,
                                       const SharedPtr<ITaskList> & /*pList*/) {
   CopyMemObject *pCommand = new CopyMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -470,19 +446,8 @@ bool CopyMemObject::Execute() {
 #if defined(USE_ITT)
   // Execute copy routine
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
     __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
                      m_pGPAData->pCopyHandle);
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    TAL_SetNamedTaskColor("Copy", 255, 0, 0);
-#endif
-#endif // INTEL_CUSTOMIZATION
-
     // Copy dimensions to 64 bit, for uniformity.
     cl_ulong copyParams64[MAX_WORK_DIM];
     copyParams64[0] = sCpyParam.vRegion[0];
@@ -500,11 +465,6 @@ bool CopyMemObject::Execute() {
 
 #if defined(USE_ITT)
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
     __itt_task_end(m_pGPAData->pDeviceDomain);
   }
 #endif
@@ -524,9 +484,7 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher *pTD,
                                        SharedPtr<ITaskBase> *pTask,
                                        const SharedPtr<ITaskList> & /*pList*/) {
   NativeFunction *pCommand = new NativeFunction(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -540,14 +498,7 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher *pTD,
 
   // Create temporal buffer for execution
   char *pArgV = new char[cmdParams->args];
-  if (nullptr == pArgV) {
-#ifdef _DEBUG
-    CpuErrLog(pCommand->m_pLogDescriptor, pCommand->m_iLogHandle, TEXT("%s"),
-              TEXT("Can't allocate memory for parameters"));
-#endif
-    delete pCommand;
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
   pCommand->m_pArgV = pArgV;
   MEMCPY_S(pArgV, cmdParams->args, cmdParams->argv, cmdParams->args);
 
@@ -616,9 +567,7 @@ cl_dev_err_code MapMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
                                      SharedPtr<ITaskBase> *pTask,
                                      const SharedPtr<ITaskList> & /*pList*/) {
   MapMemObject *pCommand = new MapMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -658,26 +607,11 @@ bool MapMemObject::Execute() {
 #if defined(USE_ITT)
   // Write Map task to ITT trace
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
     __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
                      m_pGPAData->pMapHandle);
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    TAL_SetNamedTaskColor("Map", 255, 0, 0);
-#endif
-#endif // INTEL_CUSTOMIZATION
   }
 
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
     __itt_task_end(m_pGPAData->pDeviceDomain);
   }
 #endif
@@ -699,9 +633,7 @@ cl_dev_err_code UnmapMemObject::Create(TaskDispatcher *pTD,
                                        SharedPtr<ITaskBase> *pTask,
                                        const SharedPtr<ITaskList> & /*pList*/) {
   UnmapMemObject *pCommand = new UnmapMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -1211,9 +1143,7 @@ cl_dev_err_code FillMemObject::Create(TaskDispatcher *pTD,
                                       SharedPtr<ITaskBase> *pTask,
                                       const SharedPtr<ITaskList> & /*pList*/) {
   FillMemObject *pCommand = new FillMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -1365,9 +1295,7 @@ MigrateMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
                          SharedPtr<ITaskBase> *pTask,
                          const SharedPtr<ITaskList> & /*pList*/) {
   MigrateMemObject *pCommand = new MigrateMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -1429,9 +1357,7 @@ MigrateUSMMemObject::Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
                             SharedPtr<ITaskBase> *pTask,
                             const SharedPtr<ITaskList> & /*pList*/) {
   MigrateUSMMemObject *pCommand = new MigrateUSMMemObject(pTD, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
 #ifdef _DEBUG
   cl_dev_err_code rc;
   rc = pCommand->CheckCommandParams(pCmd);
@@ -1568,9 +1494,6 @@ cl_dev_err_code NativeKernelTask::Create(TaskDispatcher *pTD,
                                          cl_dev_cmd_desc *pCmd,
                                          SharedPtr<ITaskBase> *pTask) {
   NativeKernelTask *pCommand = new NativeKernelTask(pTD, pList, pCmd);
-  if (nullptr == pCommand) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   assert(pTask);
   *pTask = static_cast<ITaskBase *>(pCommand);
@@ -1608,12 +1531,6 @@ bool NativeKernelTask::Execute() {
 #if defined(USE_ITT)
   // Start execution task
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
-
     __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null,
                      pEntry->ittTaskNameHandle);
   }
@@ -1643,11 +1560,6 @@ bool NativeKernelTask::Execute() {
 
 #if defined(USE_ITT)
   if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA)) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-    __itt_set_track(nullptr);
-#endif
-#endif // INTEL_CUSTOMIZATION
     __itt_task_end(m_pGPAData->pDeviceDomain);
   }
 #endif // ITT

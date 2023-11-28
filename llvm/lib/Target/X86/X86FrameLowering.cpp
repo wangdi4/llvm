@@ -34,7 +34,6 @@
 #include "X86MachineFunctionInfo.h"
 #include "X86Subtarget.h"
 #include "X86TargetMachine.h"
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -59,6 +58,9 @@
 STATISTIC(NumFrameLoopProbe, "Number of loop stack probes used in prologue");
 STATISTIC(NumFrameExtraProbe,
           "Number of extra stack probes generated in prologue");
+#if INTEL_CUSTOMIZATION
+STATISTIC(NumFunctionUsingPush2Pop2, "Number of funtions using push2/pop2");
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -157,6 +159,22 @@ static unsigned getMOVriOpcode(bool Use64BitReg, int64_t Imm) {
   return X86::MOV32ri;
 }
 
+#if INTEL_CUSTOMIZATION
+static unsigned getPUSHOpcode(const X86Subtarget &ST) {
+  return ST.is64Bit() ? (ST.hasPPX() ? X86::PUSHP64r : X86::PUSH64r)
+                      : X86::PUSH32r;
+}
+static unsigned getPOPOpcode(const X86Subtarget &ST) {
+  return ST.is64Bit() ? (ST.hasPPX() ? X86::POPP64r : X86::POP64r)
+                      : X86::POP32r;
+}
+static unsigned getPUSH2Opcode(const X86Subtarget &ST) {
+  return ST.hasPPX() ? X86::PUSH2P : X86::PUSH2;
+}
+static unsigned getPOP2Opcode(const X86Subtarget &ST) {
+  return ST.hasPPX() ? X86::POP2P : X86::POP2;
+}
+#endif // INTEL_CUSTOMIZATION
 static bool isEAXLiveIn(MachineBasicBlock &MBB) {
   for (MachineBasicBlock::RegisterMaskPair RegMask : MBB.liveins()) {
     unsigned Reg = RegMask.PhysReg;
@@ -579,49 +597,13 @@ void X86FrameLowering::emitZeroCallUsedRegs(BitVector RegsToZero,
       RegsToZero.reset(Reg);
     }
 
+  // Zero out the GPRs first.
   for (MCRegister Reg : GPRsToZero.set_bits())
-    BuildMI(MBB, MBBI, DL, TII.get(X86::XOR32rr), Reg)
-        .addReg(Reg, RegState::Undef)
-        .addReg(Reg, RegState::Undef);
+    TII.buildClearRegister(Reg, MBB, MBBI, DL);
 
-  // Zero out registers.
-  for (MCRegister Reg : RegsToZero.set_bits()) {
-    if (ST.hasMMX() && X86::VR64RegClass.contains(Reg))
-      // FIXME: Ignore MMX registers?
-      continue;
-
-    unsigned XorOp;
-    if (X86::VR128RegClass.contains(Reg)) {
-      // XMM#
-      if (!ST.hasSSE1())
-        continue;
-      XorOp = X86::PXORrr;
-    } else if (X86::VR256RegClass.contains(Reg)) {
-      // YMM#
-      if (!ST.hasAVX())
-        continue;
-      XorOp = X86::VPXORrr;
-    } else if (X86::VR512RegClass.contains(Reg)) {
-      // ZMM#
-      if (!ST.hasAVX512())
-        continue;
-      XorOp = X86::VPXORYrr;
-    } else if (X86::VK1RegClass.contains(Reg) ||
-               X86::VK2RegClass.contains(Reg) ||
-               X86::VK4RegClass.contains(Reg) ||
-               X86::VK8RegClass.contains(Reg) ||
-               X86::VK16RegClass.contains(Reg)) {
-      if (!ST.hasVLX())
-        continue;
-      XorOp = ST.hasBWI() ? X86::KXORQrr : X86::KXORWrr;
-    } else {
-      continue;
-    }
-
-    BuildMI(MBB, MBBI, DL, TII.get(XorOp), Reg)
-      .addReg(Reg, RegState::Undef)
-      .addReg(Reg, RegState::Undef);
-  }
+  // Zero out the remaining registers.
+  for (MCRegister Reg : RegsToZero.set_bits())
+    TII.buildClearRegister(Reg, MBB, MBBI, DL);
 }
 
 void X86FrameLowering::emitStackProbe(
@@ -1739,7 +1721,10 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
       NumBytes = alignTo(NumBytes, MaxAlign);
 
     // Save EBP/RBP into the appropriate stack slot.
-    BuildMI(MBB, MBBI, DL, TII.get(Is64Bit ? X86::PUSH64r : X86::PUSH32r))
+#if INTEL_CUSTOMIZATION
+    BuildMI(MBB, MBBI, DL,
+            TII.get(getPUSHOpcode(MF.getSubtarget<X86Subtarget>())))
+#endif // INTEL_CUSTOMIZATION
       .addReg(MachineFramePtr, RegState::Kill)
       .setMIFlag(MachineInstr::FrameSetup);
 
@@ -1880,17 +1865,14 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
   int StackOffset = 2 * stackGrowth;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   MachineBasicBlock::iterator LastCSPush = MBBI;
-#endif // INTEL_FEATURE_ISA_APX_F
   auto IsCSPush = [&](const MachineBasicBlock::iterator &MBBI) {
     return MBBI != MBB.end() && MBBI->getFlag(MachineInstr::FrameSetup) &&
            (MBBI->getOpcode() == X86::PUSH32r ||
             MBBI->getOpcode() == X86::PUSH64r
-#if INTEL_FEATURE_ISA_APX_F
-            || MBBI->getOpcode() == X86::PUSH2
-#endif // INTEL_FEATURE_ISA_APX_F
-            );
+            || MBBI->getOpcode() == X86::PUSHP64r ||
+            MBBI->getOpcode() == X86::PUSH2 || MBBI->getOpcode() == X86::PUSH2P
+           );
   };
 #endif // INTEL_CUSTOMIZATION
 
@@ -1900,9 +1882,7 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
     PushedRegs = true;
     Register Reg = MBBI->getOperand(0).getReg();
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     LastCSPush = MBBI;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     ++MBBI;
     if (!HasFP && NeedsDwarfCFI) {
@@ -1910,11 +1890,10 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
       // Define the current CFA rule to use the provided offset.
       assert(StackSize);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       // Compared to push, push2 introduces more stack offset (one more register).
-      if (LastCSPush->getOpcode() == X86::PUSH2)
+      if (LastCSPush->getOpcode() == X86::PUSH2 ||
+          LastCSPush->getOpcode() == X86::PUSH2P)
         StackOffset += stackGrowth;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       BuildCFI(MBB, MBBI, DL,
                MCCFIInstruction::cfiDefCfaOffset(nullptr, -StackOffset),
@@ -1928,12 +1907,11 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
           .addImm(Reg)
           .setMIFlag(MachineInstr::FrameSetup);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-      if (LastCSPush->getOpcode() == X86::PUSH2)
+      if (LastCSPush->getOpcode() == X86::PUSH2 ||
+          LastCSPush->getOpcode() == X86::PUSH2P)
         BuildMI(MBB, MBBI, DL, TII.get(X86::SEH_PushReg))
             .addImm(LastCSPush->getOperand(1).getReg())
             .setMIFlag(MachineInstr::FrameSetup);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     }
   }
@@ -2412,7 +2390,10 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
       emitSPUpdate(MBB, MBBI, DL, Offset, /*InEpilogue*/true);
     }
     // Pop EBP.
-    BuildMI(MBB, MBBI, DL, TII.get(Is64Bit ? X86::POP64r : X86::POP32r),
+#if INTEL_CUSTOMIZATION
+    BuildMI(MBB, MBBI, DL,
+            TII.get(getPOPOpcode(MF.getSubtarget<X86Subtarget>())),
+#endif // INTEL_CUSTOMIZATION
             MachineFramePtr)
         .setMIFlag(MachineInstr::FrameDestroy);
 
@@ -2458,10 +2439,11 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
           (Opc != X86::BTR64ri8 || !PI->getFlag(MachineInstr::FrameDestroy)) &&
 #if INTEL_CUSTOMIZATION
           (Opc != X86::ADD64ri32 || !PI->getFlag(MachineInstr::FrameDestroy))
-#if INTEL_FEATURE_ISA_APX_F
-          &&  (Opc != X86::POP2 || !PI->getFlag(MachineInstr::FrameDestroy))
-#endif // INTEL_FEATURE_ISA_APX_F
-        )
+          && (Opc != X86::POP64r || !PI->getFlag(MachineInstr::FrameDestroy)) &&
+          (Opc != X86::POP2 || !PI->getFlag(MachineInstr::FrameDestroy)) &&
+          (Opc != X86::POP2P || !PI->getFlag(MachineInstr::FrameDestroy)) &&
+          (Opc != X86::LEA64r || !PI->getFlag(MachineInstr::FrameDestroy))
+      )
 #endif // INTEL_CUSTOMIZATION
         break;
       FirstCSPop = PI;
@@ -2556,18 +2538,12 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
       ++MBBI;
 #if INTEL_CUSTOMIZATION
       if (Opc == X86::POP32r || Opc == X86::POP64r
-#if INTEL_FEATURE_ISA_APX_F
-          || Opc == X86::POP2
-#endif // INTEL_FEATURE_ISA_APX_F
-          ) {
-#endif // INTEL_CUSTOMIZATION
+          || Opc == X86::POPP64r || Opc == X86::POP2 || Opc == X86::POP2P
+      ) {
         Offset += SlotSize;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
         // Compared to pop, pop2 introduces more stack offset (one more register).
-        if (Opc == X86::POP2)
+        if (Opc == X86::POP2 || Opc == X86::POP2P)
           Offset += SlotSize;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
         BuildCFI(MBB, MBBI, DL,
                  MCCFIInstruction::cfiDefCfaOffset(nullptr, -Offset),
@@ -2867,7 +2843,6 @@ bool X86FrameLowering::assignCalleeSavedSpillSlots(
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   // Strategy:
   // 1. Not use push2 when there are less than 2 pushs.
   // 2. When the number of CSR push is odd
@@ -2875,15 +2850,20 @@ bool X86FrameLowering::assignCalleeSavedSpillSlots(
   //    b. Start to use push2 from the 2nd push if stack is not 16B aligned.
   // 3. When the number of CSR push is even, start to use push2 from the 1st
   //    push and make the stack 16B aligned before the push
-  bool UsePush2Pop2 = STI.hasPush2Pop2() && CSI.size() > 1;
-  X86FI->setPadForPush2Pop2(UsePush2Pop2 && CSI.size() % 2 == 0 &&
-                            SpillSlotOffset % 16 != 0);
-  unsigned NumRegsForPush2 = UsePush2Pop2 ? alignDown(CSI.size(), 2) : 0;
-  if (X86FI->padForPush2Pop2()) {
-    SpillSlotOffset -= SlotSize;
-    MFI.CreateFixedSpillStackObject(SlotSize, SpillSlotOffset);
+  unsigned NumRegsForPush2 = 0;
+  if (STI.hasPush2Pop2()) {
+    unsigned NumCSGPR = llvm::count_if(CSI, [](const CalleeSavedInfo &I) {
+      return X86::GR64RegClass.contains(I.getReg());
+    });
+    bool UsePush2Pop2 = NumCSGPR > 1;
+    X86FI->setPadForPush2Pop2(UsePush2Pop2 && NumCSGPR % 2 == 0 &&
+                              SpillSlotOffset % 16 != 0);
+    NumRegsForPush2 = UsePush2Pop2 ? alignDown(NumCSGPR, 2) : 0;
+    if (X86FI->padForPush2Pop2()) {
+      SpillSlotOffset -= SlotSize;
+      MFI.CreateFixedSpillStackObject(SlotSize, SpillSlotOffset);
+    }
   }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   // Assign slots for GPRs. It increases frame size.
@@ -2894,14 +2874,12 @@ bool X86FrameLowering::assignCalleeSavedSpillSlots(
       continue;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     // A CSR is a candidate for push2/pop2 when it's slot offset is 16B aligned
     // or only an odd number of registers in the candidates.
     if (X86FI->getNumCandidatesForPush2Pop2() < NumRegsForPush2 &&
         (SpillSlotOffset % 16 == 0 ||
          X86FI->getNumCandidatesForPush2Pop2() % 2))
       X86FI->addCandidateForPush2Pop2(Reg);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     SpillSlotOffset -= SlotSize;
     CalleeSavedFrameSize += SlotSize;
@@ -2921,10 +2899,10 @@ bool X86FrameLowering::assignCalleeSavedSpillSlots(
     X86FI->setRestoreBasePointer(CalleeSavedFrameSize);
   }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   assert(X86FI->getNumCandidatesForPush2Pop2() % 2 == 0 &&
          "Expect even candidates for push2/pop2");
-#endif // INTEL_FEATURE_ISA_APX_F
+  if (X86FI->getNumCandidatesForPush2Pop2())
+    ++NumFunctionUsingPush2Pop2;
 #endif // INTEL_CUSTOMIZATION
   X86FI->setCalleeSavedFrameSize(CalleeSavedFrameSize);
   MFI.setCVBytesOfCalleeSavedRegisters(CalleeSavedFrameSize);
@@ -2975,16 +2953,16 @@ bool X86FrameLowering::spillCalleeSavedRegisters(
 
   // Push GPRs. It increases frame size.
   const MachineFunction &MF = *MBB.getParent();
-  unsigned Opc = STI.is64Bit() ? X86::PUSH64r : X86::PUSH32r;
+#if INTEL_CUSTOMIZATION
+  unsigned Opc = getPUSHOpcode(STI);
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   const X86MachineFunctionInfo *X86FI = MF.getInfo<X86MachineFunctionInfo>();
-#if INTEL_FEATURE_ISA_APX_F
   MachineInstrBuilder MIB;
   bool IncompletePush2 = false;
   if (X86FI->padForPush2Pop2())
     emitSPUpdate(MBB, MI, DL, -(int64_t)SlotSize, /*InEpilogue=*/false);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   for (const CalleeSavedInfo &I : llvm::reverse(CSI)) {
@@ -3011,19 +2989,17 @@ bool X86FrameLowering::spillCalleeSavedRegisters(
     }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (X86FI->isCandidateForPush2Pop2(Reg)) {
       if (MIB.getInstr() && IncompletePush2) {
         MIB.addReg(Reg, getKillRegState(CanKill));
         IncompletePush2 = false;
       } else {
-        MIB = BuildMI(MBB, MI, DL, TII.get(X86::PUSH2))
+        MIB = BuildMI(MBB, MI, DL, TII.get(getPUSH2Opcode(STI)))
                   .addReg(Reg, getKillRegState(CanKill))
                   .setMIFlag(MachineInstr::FrameSetup);
         IncompletePush2 = true;
       }
     } else {
-#endif // INTEL_FEATURE_ISA_APX_F
       // Do not set a kill flag on values that are also marked as live-in. This
       // happens with the @llvm-returnaddress intrinsic and with arguments
       // passed in callee saved registers.
@@ -3032,9 +3008,7 @@ bool X86FrameLowering::spillCalleeSavedRegisters(
       BuildMI(MBB, MI, DL, TII.get(Opc))
           .addReg(Reg, getKillRegState(CanKill))
           .setMIFlag(MachineInstr::FrameSetup);
-#if INTEL_FEATURE_ISA_APX_F
     }
-#endif // INTEL_FEATURE_ISA_APX_F
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3144,10 +3118,9 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   MachineInstrBuilder MIB;
   bool IncompletePop2 = false;
-#endif // INTEL_FEATURE_ISA_APX_F
+  int SpillOffset = 0;
 #endif // INTEL_CUSTOMIZATION
 
   // Clear the stack slot for spill base pointer register.
@@ -3161,7 +3134,9 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(
   }
 
   // POP GPRs.
-  unsigned Opc = STI.is64Bit() ? X86::POP64r : X86::POP32r;
+#if INTEL_CUSTOMIZATION
+  unsigned Opc = getPOPOpcode(STI);
+#endif // INTEL_CUSTOMIZATION
   for (const CalleeSavedInfo &I : CSI) {
     Register Reg = I.getReg();
     if (!X86::GR64RegClass.contains(Reg) &&
@@ -3173,35 +3148,36 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(
     // for tail call. Always pop to a dead register to make stack balanced.
     if (!I.isRestored()) {
       assert(STI.is64Bit() && "This is used for parameters spill only");
-      Reg = this->TRI->findDeadCallerSavedReg(MBB, MI);
+      SpillOffset += 8;
+      continue;
+    } else if (SpillOffset) {
+      emitSPUpdate(MBB, MI, DL, SpillOffset, /*InEpilogue=*/true);
+      SpillOffset = 0;
     }
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     if (X86FI->isCandidateForPush2Pop2(Reg)) {
       if (MIB.getInstr() && IncompletePop2) {
         MIB.addReg(Reg, RegState::Define);
         IncompletePop2 = false;
       } else {
-        MIB = BuildMI(MBB, MI, DL, TII.get(X86::POP2), Reg)
+        MIB = BuildMI(MBB, MI, DL, TII.get(getPOP2Opcode(STI)), Reg)
                   .setMIFlag(MachineInstr::FrameDestroy);
         IncompletePop2 = true;
       }
     } else {
-#endif // INTEL_FEATURE_ISA_APX_F
       BuildMI(MBB, MI, DL, TII.get(Opc), Reg)
           .setMIFlag(MachineInstr::FrameDestroy);
-#if INTEL_FEATURE_ISA_APX_F
     }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   if (X86FI->padForPush2Pop2())
-    emitSPUpdate(MBB, MI, DL, SlotSize, /*InEpilogue=*/true);
-#endif // INTEL_FEATURE_ISA_APX_F
+    emitSPUpdate(MBB, MI, DL, SlotSize + SpillOffset, /*InEpilogue=*/true);
+  else
+  if (SpillOffset)
+    emitSPUpdate(MBB, MI, DL, SpillOffset, /*InEpilogue=*/true);
 #endif // INTEL_CUSTOMIZATION
   return true;
 }
@@ -4382,20 +4358,20 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
         FirstMI = &*MRII; // Find setup frame instruction
     }
     assert(FirstMI);
-    int RegNum = MFI.VecSpillPhysRegMap[MBB] - X86::XMM0;
+    unsigned XMMReg = MFI.VecSpillPhysRegMap[MBB];
     int Offset = 0;
     if (STI.useAVX512Regs()) {
       int ZMMNum = TotalSz / 64;
       TotalSz -= ZMMNum * 64;
       if (ZMMNum) {
-        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr),
-            X86::XMM0+RegNum).
-          addReg(X86::XMM0+RegNum).
-          addReg(X86::XMM0+RegNum);
+        unsigned ZMMReg = X86II::getZMMFromXMM(XMMReg);
+        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr), XMMReg)
+            .addReg(XMMReg)
+            .addReg(XMMReg);
         for (int i = 0; i < ZMMNum; i++) {
           addFrameReference(BuildMI(*MBB, FirstMI, DebugLoc(),
               TII.get(X86::VMOVUPSZmr)),
-              LastFI, Offset).addReg(X86::ZMM0+RegNum);
+              LastFI, Offset).addReg(ZMMReg);
           Offset += 64;
         }
       }
@@ -4404,15 +4380,16 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
     int YMMNum = TotalSz / 32;
     TotalSz -= YMMNum * 32;
     if (YMMNum) {
+      unsigned YMMReg = X86II::getYMMFromXMM(XMMReg);
       if (!Offset)
-        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr),
-            X86::XMM0+RegNum).
-          addReg(X86::XMM0+RegNum).
-          addReg(X86::XMM0+RegNum);
+        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr), XMMReg)
+            .addReg(XMMReg)
+            .addReg(XMMReg);
       for (int i = 0; i < YMMNum; i++) {
-        addFrameReference(BuildMI(*MBB, FirstMI, DebugLoc(),
-            TII.get(X86::VMOVUPSZ256mr)),
-            LastFI, Offset).addReg(X86::YMM0+RegNum);
+        addFrameReference(
+            BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VMOVUPSZ256mr)),
+            LastFI, Offset)
+            .addReg(YMMReg);
         Offset += 32;
       }
     }
@@ -4421,14 +4398,14 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
     TotalSz -= XMMNum * 16;
     if (XMMNum) {
       if (!Offset)
-        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr),
-            X86::XMM0+RegNum).
-          addReg(X86::XMM0+RegNum).
-          addReg(X86::XMM0+RegNum);
+        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr), XMMReg)
+            .addReg(XMMReg)
+            .addReg(XMMReg);
       for (int i = 0; i < XMMNum; i++) {
-        addFrameReference(BuildMI(*MBB, FirstMI, DebugLoc(),
-            TII.get(X86::VMOVAPSZ128mr)),
-            LastFI, Offset).addReg(X86::XMM0+RegNum);
+        addFrameReference(
+            BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VMOVAPSZ128mr)),
+            LastFI, Offset)
+            .addReg(XMMReg);
         Offset += 16;
       }
     }

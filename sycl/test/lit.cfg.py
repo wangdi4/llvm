@@ -36,6 +36,9 @@ config.excludes = ['Inputs', 'feature-tests']
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
 
+# allow expanding substitutions that are based on other substitutions
+config.recursiveExpansionLimit = 10
+
 # test_exec_root: The root path where tests should be run.
 config.test_exec_root = os.path.join(config.sycl_obj_root, 'test')
 
@@ -79,6 +82,10 @@ if config.extra_environment:
         else:
            lit_config.note("\tUnset "+var)
            llvm_config.with_environment(var,"")
+
+# If major release preview library is enabled we can enable the feature.
+if config.sycl_preview_lib_enabled == "ON":
+    config.available_features.add('preview-breaking-changes-supported')
 
 # Configure LD_LIBRARY_PATH or corresponding os-specific alternatives
 # Add 'libcxx' feature to filter out all SYCL abi tests when SYCL runtime
@@ -146,8 +153,22 @@ config.substitutions.append( ('%sycl_triple',  triple ) )
 if triple == 'nvptx64-nvidia-cuda-sycldevice':
     config.available_features.add('cuda')
 
+#if INTEL_CUSTOMIZATION
+# INTEL_FEATURE_ESIMD_EMBARGO
+# Support for Intel ESIMD Embargo parameter
+if lit_config.params.get('intel_feature_esimd_embargo', False):
+    config.available_features.add('intel_feature_esimd_embargo');
+# end INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
+
 # INTEL_CUSTOMIZATION
 additional_flags = getAdditionalFlags() + config.sycl_clang_extra_flags.split(' ')
+if 'ICS_GCCBIN' in os.environ:
+    gcc_path = os.path.normpath(os.path.join(os.environ['ICS_GCCBIN'], "gcc"))
+    gcc_version = subprocess.check_output([gcc_path, "-dumpversion"]).decode()
+    major, minor, patch = tuple(int(v) for v in gcc_version.split(".", 3))
+    if (major, minor, patch) >= (10, 1, 0):
+        config.available_features.add("c++20")
 # end INTEL_CUSTOMIZATION
 
 if config.cuda_be == "ON":
@@ -155,9 +176,6 @@ if config.cuda_be == "ON":
 
 if config.hip_be == "ON":
     config.available_features.add('hip_be')
-
-if config.esimd_emulator_be == "ON":
-    config.available_features.add('esimd_emulator_be')
 
 if config.opencl_be == "ON":
     config.available_features.add('opencl_be')
@@ -168,11 +186,11 @@ if config.level_zero_be == "ON":
 if config.native_cpu_be == "ON":
     config.available_features.add('native_cpu_be')
 
-if triple == 'nvptx64-nvidia-cuda':
+if 'nvptx64-nvidia-cuda' in triple:
     llvm_config.with_system_environment('CUDA_PATH')
     config.available_features.add('cuda')
 
-if triple == 'amdgcn-amd-amdhsa':
+if 'amdgcn-amd-amdhsa' in triple:
     llvm_config.with_system_environment('ROCM_PATH')
     config.available_features.add('hip_amd')
     # For AMD the specific GPU has to be specified with --offload-arch

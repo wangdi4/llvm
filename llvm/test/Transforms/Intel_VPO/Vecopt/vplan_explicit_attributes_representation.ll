@@ -16,7 +16,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1, !dbg !29
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %i.lpriv, i32 0, i32 1) ], !dbg !29
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %i.lpriv, i32 0, i32 1) ], !dbg !29
   br label %omp.inner.for.body, !dbg !29
 
 omp.inner.for.body:                               ; predggs = %omp.inner.for.body, %DIR.OMP.SIMD.1
@@ -27,15 +27,15 @@ omp.inner.for.body:                               ; predggs = %omp.inner.for.bod
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; CHECK-NEXT:      end of details
 
-  %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @B, i64 0, i64 %indvars.iv, !dbg !30, !intel-tbaa !32
-; CHECK:          float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x float]* @B i64 0 i64 [[VP_INDVARS_IV]]
+  %arrayidx = getelementptr inbounds [1024 x float], ptr @B, i64 0, i64 %indvars.iv, !dbg !30, !intel-tbaa !32
+; CHECK:          ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x float], ptr @B i64 0 i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:      DbgLoc: lit_test.c:10:12
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; CHECK-NEXT:      end of details
 
-  %1 = load float, float* %arrayidx, align 4, !dbg !30, !tbaa !32
-; CHECK:          float [[VP0:%.*]] = load float* [[VP_ARRAYIDX]]
+  %1 = load float, ptr %arrayidx, align 4, !dbg !30, !tbaa !32
+; CHECK:          float [[VP0:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:      DbgLoc: lit_test.c:10:12
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
@@ -45,15 +45,15 @@ omp.inner.for.body:                               ; predggs = %omp.inner.for.bod
 ; CHECK-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
 ; CHECK-NEXT:      end of details
 
-  %arrayidx2 = getelementptr inbounds [1024 x float], [1024 x float]* @C, i64 0, i64 %indvars.iv, !dbg !37, !intel-tbaa !32
-; CHECK:          float* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x float]* @C i64 0 i64 [[VP_INDVARS_IV]]
+  %arrayidx2 = getelementptr inbounds [1024 x float], ptr @C, i64 0, i64 %indvars.iv, !dbg !37, !intel-tbaa !32
+; CHECK:          ptr [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x float], ptr @C i64 0 i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:      DbgLoc: lit_test.c:10:19
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; CHECK-NEXT:      end of details
 
-  %2 = load atomic float, float* %arrayidx2 unordered, align 4, !dbg !37, !tbaa !32
-; CHECK:          float [[VP1:%.*]] = load float* [[VP_ARRAYIDX2]]
+  %2 = load atomic float, ptr %arrayidx2 unordered, align 4, !dbg !37, !tbaa !32
+; CHECK:          float [[VP1:%.*]] = load ptr [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:      DbgLoc: lit_test.c:10:19
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
@@ -70,15 +70,15 @@ omp.inner.for.body:                               ; predggs = %omp.inner.for.bod
 ; CHECK-NEXT:        FMF: 1, NSW: 0, NUW: 0, Exact: 0
 ; CHECK-NEXT:      end of details
 
-  %arrayidx5 = getelementptr inbounds [1024 x float], [1024 x float]* @A, i64 0, i64 %indvars.iv, !dbg !39, !intel-tbaa !32
-; CHECK:          float* [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds [1024 x float]* @A i64 0 i64 [[VP_INDVARS_IV]]
+  %arrayidx5 = getelementptr inbounds [1024 x float], ptr @A, i64 0, i64 %indvars.iv, !dbg !39, !intel-tbaa !32
+; CHECK:          ptr [[VP_ARRAYIDX5:%.*]] = getelementptr inbounds [1024 x float], ptr @A i64 0 i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:      DbgLoc: lit_test.c:10:5
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; CHECK-NEXT:      end of details
 
-  store float %mul3, float* %arrayidx5, align 4, !dbg !40, !tbaa !32, !nontemporal !47
-; CHECK:          store float [[VP_MUL3]] float* [[VP_ARRAYIDX5]]
+  store float %mul3, ptr %arrayidx5, align 4, !dbg !40, !tbaa !32, !nontemporal !47
+; CHECK:          store float [[VP_MUL3]] ptr [[VP_ARRAYIDX5]]
 ; CHECK-NEXT:      DbgLoc: lit_test.c:10:10
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
@@ -90,7 +90,7 @@ omp.inner.for.body:                               ; predggs = %omp.inner.for.bod
 ; CHECK-NEXT:      end of details
 
   call void @bar(float %mul3) #1, !dbg !41
-; CHECK:          call float [[VP_MUL3]] void (float)* @bar
+; CHECK:          call float [[VP_MUL3]] ptr @bar
 ; CHECK-NEXT:      DbgLoc: lit_test.c:11:5
 ; CHECK-NEXT:      OperatorFlags -
 ; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0

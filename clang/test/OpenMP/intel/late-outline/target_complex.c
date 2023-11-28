@@ -1,15 +1,15 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o -  -triple x86_64-pc-windows-msvc19.16.27041 \
-// RUN: -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o -  -triple x86_64-pc-windows-msvc19.16.27041 \
+// RUN: -fopenmp -fintel-compatibility -fopenmp-late-outline \
 // RUN: -fopenmp-targets=spir64 -DWINDOW %s | FileCheck %s \
 // RUN: --check-prefix CHECK-WIN
 //
-// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp \
-// RUN:  -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN: -fopenmp-targets=spir64 -emit-llvm-bc %s -o %t-host.bc
 //
-// RUN: %clang_cc1 -opaque-pointers -verify -triple spir64 -fopenmp \
-// RUN:  -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -verify -triple spir64 -fopenmp \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-targets=spir64 -fopenmp-is-device \
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - \
 // RUN:  | FileCheck %s

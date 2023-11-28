@@ -157,5 +157,5 @@ attributes #7 = { convergent "kernel-call-once" "kernel-convergent-call" }
 !45 = !DILocation(line: 8, column: 3, scope: !25)
 !46 = !DILocation(line: 9, column: 1, scope: !25)
 !47 = !{!"int*", !"long"}
-!48 = !{i32 addrspace(1)* null, i64 0}
-!49 = !{i32 addrspace(1)* null}
+!48 = !{ptr addrspace(1) null, i64 0}
+!49 = !{ptr addrspace(1) null}

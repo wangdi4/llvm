@@ -52,6 +52,7 @@ PreservedAnalyses PatchCallbackArgsPass::run(Module &M,
 
 bool PatchCallbackArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
   bool Changed = false;
+  bool HasTLSGlobals = CompilationUtils::hasTLSGlobals(M);
   SmallVector<CallInst *, 16> ToErase;
   for (const ImplicitArgAccessorFunc &IAAF : ImplicitArgAccessorFuncList) {
     Function *CalledF = M.getFunction(IAAF.FuncName);
@@ -68,7 +69,7 @@ bool PatchCallbackArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
       if (!ImplicitArgs.first) {
         assert(!ImplicitArgs.second);
         // Need to create a cache entry for implicit arg values
-        if (UseTLSGlobals) {
+        if (HasTLSGlobals) {
           ValuePair &ImplicitArgs = FuncToImplicitArgs[CallingF];
           GlobalValue *WorkInfo = CompilationUtils::getTLSGlobal(
               &M, ImplicitArgsUtils::IA_WORK_GROUP_INFO);
@@ -104,7 +105,7 @@ bool PatchCallbackArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
                NDInfoId == NDInfo::RUNTIME_INTERFACE);
         IRBuilder<> Builder(&*CallingF->getEntryBlock().begin());
         // When using tls insert after load instead
-        if (UseTLSGlobals) {
+        if (HasTLSGlobals) {
           Builder.SetInsertPoint(
               cast<Instruction>(ImplicitArgs.first)->getNextNode());
         }

@@ -34,6 +34,12 @@ PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
 
 PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  // RemoveDIs: there's no textual representation of the DPValue debug-info,
+  // convert to dbg.values before writing out.
+  bool ShouldConvert = M.IsNewDbgInfoFormat;
+  if (ShouldConvert)
+    M.convertFromNewDbgValues();
+
   if (llvm::isFunctionInPrintList("*")) {
     if (!Banner.empty())
       OS << Banner << "\n";
@@ -50,17 +56,21 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &AM) {
       }
     }
   }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   ModuleSummaryIndex *Index =
       EmitSummaryIndex ? &(AM.getResult<ModuleSummaryIndexAnalysis>(M))
                        : nullptr;
   if (Index) {
     if (Index->modulePaths().empty())
-      Index->addModule("", 0);
+      Index->addModule("");
     Index->print(OS);
   }
 
+  if (ShouldConvert)
+    M.convertToNewDbgValues();
+#else  // INTEL
+  (void)EmitSummaryIndex; // INTEL
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return PreservedAnalyses::all();
 }
 
@@ -71,12 +81,22 @@ PrintFunctionPass::PrintFunctionPass(raw_ostream &OS, const std::string &Banner)
 PreservedAnalyses PrintFunctionPass::run(Function &F,
                                          FunctionAnalysisManager &) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  // RemoveDIs: there's no textual representation of the DPValue debug-info,
+  // convert to dbg.values before writing out.
+  bool ShouldConvert = F.IsNewDbgInfoFormat;
+  if (ShouldConvert)
+    F.convertFromNewDbgValues();
+
   if (isFunctionInPrintList(F.getName())) {
     if (forcePrintModuleIR())
       OS << Banner << " (function: " << F.getName() << ")\n" << *F.getParent();
     else
       OS << Banner << '\n' << static_cast<Value &>(F);
   }
+
+  if (ShouldConvert)
+    F.convertToNewDbgValues();
+
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return PreservedAnalyses::all();
 }

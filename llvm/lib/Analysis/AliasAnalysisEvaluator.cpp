@@ -31,8 +31,6 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
@@ -165,7 +163,7 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
     for (auto I2 = Pointers.begin(); I2 != I1; ++I2) {
       LocationSize Size2 =
           LocationSize::precise(DL.getTypeStoreSize(I2->second));
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       AliasResult AR = AAQueryWrapper(I1->first, Size1, I2->first, Size2);
 #else
       AliasResult AR = AA.alias(I1->first, Size1, I2->first, Size2);
@@ -361,45 +359,3 @@ AAEvaluator::~AAEvaluator() {
            << "%/" << ModRefCount * 100 / ModRefSum << "%\n";
   }
 }
-
-namespace llvm {
-class AAEvalLegacyPass : public FunctionPass {
-  std::unique_ptr<AAEvaluator> P;
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-  AAEvalLegacyPass() : FunctionPass(ID) {
-    initializeAAEvalLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AAResultsWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool doInitialization(Module &M) override {
-    P.reset(new AAEvaluator());
-    return false;
-  }
-
-  bool runOnFunction(Function &F) override {
-    P->runInternal(F, getAnalysis<AAResultsWrapperPass>().getAAResults());
-    return false;
-  }
-  bool doFinalization(Module &M) override {
-    P.reset();
-    return false;
-  }
-};
-}
-
-char AAEvalLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(AAEvalLegacyPass, "aa-eval",
-                      "Exhaustive Alias Analysis Precision Evaluator", false,
-                      true)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_END(AAEvalLegacyPass, "aa-eval",
-                    "Exhaustive Alias Analysis Precision Evaluator", false,
-                    true)
-
-FunctionPass *llvm::createAAEvalPass() { return new AAEvalLegacyPass(); }

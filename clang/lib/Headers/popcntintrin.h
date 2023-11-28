@@ -1,5 +1,20 @@
-/*===---- popcntintrin.h - POPCNT intrinsics -------------------------------===
+/*===---- popcntintrin.h - POPCNT intrinsics -------------------------------=== */
+/*  INTEL_CUSTOMIZATION */
+/*
+ * Modifications, Copyright (C) 2023 Intel Corporation
  *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
+/*
  * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
  * See https://llvm.org/LICENSE.txt for license information.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -35,7 +50,9 @@ _mm_popcnt_u32(unsigned int __A)
   return __builtin_popcount(__A);
 }
 
-/* #ifdef __x86_64__ */ /* INTEL */
+/* INTEL_CUSTOMIZATION */
+/* #ifdef __x86_64__ */
+/* end INTEL_CUSTOMIZATION */
 /// Counts the number of bits in the source operand having a value of 1.
 ///
 /// \headerfile <x86intrin.h>
@@ -51,7 +68,9 @@ _mm_popcnt_u64(unsigned long long __A)
 {
   return __builtin_popcountll(__A);
 }
-/* #endif */ /* __x86_64__ */ /* INTEL */
+/* INTEL_CUSTOMIZATION */
+/* #endif */ /* __x86_64__ */
+/* end INTEL_CUSTOMIZATION */
 
 #undef __DEFAULT_FN_ATTRS
 #undef __DEFAULT_FN_ATTRS_CONSTEXPR

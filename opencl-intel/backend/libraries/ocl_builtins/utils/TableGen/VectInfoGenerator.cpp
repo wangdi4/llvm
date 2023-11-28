@@ -1,4 +1,4 @@
-// Copyright (C) 2012-2022 Intel Corporation
+// Copyright (C) 2012 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -286,22 +286,13 @@ void VectInfoGenerator::generateFunctions(
 }
 
 #if INTEL_CUSTOMIZATION
-bool isVPlanMaskedFunctionVectorVariant(Function &F, const VFInfo &Variant,
-                                        Type *CharacteristicType) {
-  if (!Variant.isMasked())
-    return false;
-
-  assert(!CharacteristicType->isVoidTy() &&
-         "Characteristic type should not be void");
-
+static Type *getMaskEltType(Function &F) {
   FunctionType *FnType = F.getFunctionType();
   // Mask argument is always the last argument
   assert(1 <= F.arg_size() && "Unexpected mask argument for vector variant!");
   unsigned MaskArgIdx = F.arg_size() - 1;
   auto *MaskType = cast<VectorType>(FnType->getParamType(MaskArgIdx));
-  auto *MaskElementType = MaskType->getElementType();
-
-  return CharacteristicType == MaskElementType;
+  return MaskType->getElementType();
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -432,11 +423,19 @@ void VectInfoGenerator::run(raw_ostream &os) {
           auto variant = VFInfo::get(
               VectEntry::isaClass, VectEntry::isMasked, (unsigned)2 << m,
               VectEntry::vectorKindEncode, BaseName, fname);
-          auto *characteristicType = calcCharacteristicType(**origIt, variant);
-
-          if (isVPlanMaskedFunctionVectorVariant(**funcIt, variant,
-                                                 characteristicType)) {
-            VPlanMaskedFuncs.insert(fname);
+          if (variant.isMasked()) {
+            // TODO fix subgroup builtin mask type
+            if ((**origIt).getName().contains("sub_group_")) {
+              if (calcCharacteristicType(**origIt, variant) ==
+                  getMaskEltType(**funcIt)) {
+                VPlanMaskedFuncs.insert(fname);
+              }
+            } else {
+              assert(calcCharacteristicType(**origIt, variant) ==
+                         getMaskEltType(**funcIt) &&
+                     "invalid mask element type");
+              VPlanMaskedFuncs.insert(fname);
+            }
           }
         }
 #endif // INTEL_CUSTOMIZATION

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2023 Intel Corporation.
+// Copyright 2008 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,20 +12,26 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <algorithm>
-
+#include "execution_module.h"
+#include "CL/cl_ext.h"
 #include "Context.h"
+#include "Device.h"
 #include "GenericMemObj.h"
+#include "Logger.h"
 #include "MemoryAllocator/MemoryObject.h"
+#include "cl_objects_map.h"
+#include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
 #include "command_queue.h"
 #include "context_module.h"
 #include "conversion_rules.h"
+#include "device_queue.h"
 #include "enqueue_commands.h"
 #include "events_manager.h"
-#include "execution_module.h"
 #include "framework_proxy.h"
 #include "immediate_command_queue.h"
 #include "in_order_command_queue.h"
+#include "kernel.h"
 #include "out_of_order_command_queue.h"
 #include "platform_module.h"
 #include "svm_buffer.h"
@@ -34,16 +40,8 @@
 #include "usm_buffer.h"
 #include "usm_commands.h"
 
-#include "Device.h"
-#include "cl_sys_defines.h"
-#include "kernel.h"
-
-#include "cl_shared_ptr.hpp"
-#include "device_queue.h"
-#include <CL/cl_ext.h>
-#include <Logger.h>
+#include <algorithm>
 #include <cassert>
-#include <cl_objects_map.h>
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
@@ -56,9 +54,6 @@ using namespace Intel::OpenCL::Utils;
 #define CheckIfAnyDimIsZero(X) (((X)[0] == 0) || ((X)[1] == 0) || ((X)[2] == 0))
 
 namespace {
-
-/// Sync for the access of ExecutionModule::m_OclKernelEventMap
-std::mutex KernelEventMutex;
 
 /// Check mutex of map flags.
 /// \return CL_SUCCESS if OK.
@@ -75,22 +70,19 @@ cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags) {
   return CL_SUCCESS;
 }
 
-/// Callback for Evt status change. if it's changed to CL_COMPLETE, we need to
-/// remove it from kernel-event map.
-void callbackForKernelEventMap(cl_event Evt, ExecutionModule *EM) {
+} // anonymous namespace
+
+void ExecutionModule::callbackForKernelEventMap(cl_event Evt) {
   std::lock_guard<std::mutex> Mu(KernelEventMutex);
 
-  assert(EM && "expect valid ExecutionModule instance");
-  OclKernelEventMapTy &KernelEvents = EM->getKernelEventMap();
+  OclKernelEventMapTy &KernelEvents = getKernelEventMap();
   auto It = std::find_if(KernelEvents.begin(), KernelEvents.end(),
                          [Evt](auto &I) { return Evt == I.second; });
   if (It != KernelEvents.end())
     KernelEvents.erase(It);
 
-  (void)EM->ReleaseEvent(Evt);
+  (void)ReleaseEvent(Evt);
 }
-
-} // anonymous namespace
 
 /******************************************************************
  * Constructor. Only assign pointers, for objects initilaztion use
@@ -133,17 +125,10 @@ cl_err_code ExecutionModule::Initialize(ocl_entry_points *pOclEntryPoints,
 
   m_enableParallelCopy = pOclConfig->EnableParallelCopy();
 
-  if ((NULL == m_pOclCommandQueueMap) || (NULL == m_pEventsManager)) {
-    return CL_ERR_FAILURE;
-  }
   return CL_SUCCESS;
 }
 
-cl_err_code ExecutionModule::Release(bool bTerminate) {
-  if (bTerminate) {
-    return CL_SUCCESS;
-  }
-
+cl_err_code ExecutionModule::Release() {
   if (NULL != m_pEventsManager) {
     delete m_pEventsManager;
     m_pEventsManager = NULL;
@@ -570,9 +555,6 @@ cl_err_code ExecutionModule::EnqueueMarkerWithWaitList(
 
   MarkerCommand *const pMarkerCommand =
       new MarkerCommand(pCommandQueue, uiNumEvents > 0);
-  if (NULL == pMarkerCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   cl_err_code err = pMarkerCommand->Init();
   if (CL_FAILED(err)) {
@@ -610,9 +592,6 @@ cl_err_code ExecutionModule::EnqueueBarrierWithWaitList(
 
   BarrierCommand *const pBarrierCommand =
       new BarrierCommand(pCommandQueue, uiNumEvents > 0);
-  if (NULL == pBarrierCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   cl_err_code err = pBarrierCommand->Init();
   if (CL_FAILED(err)) {
@@ -665,9 +644,6 @@ cl_err_code ExecutionModule::EnqueueWaitForEvents(
 
   Command *pWaitForEventsCommand =
       new WaitForEventsCommand(pCommandQueue, uiNumEvents > 0);
-  if (NULL == pWaitForEventsCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pWaitForEventsCommand->Init();
   if (CL_FAILED(errVal)) {
@@ -871,9 +847,6 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(
       (ocl_entry_points *)((_cl_command_queue_int *)pCommandQueue->GetHandle())
           ->dispatch,
       clFlags, uiNumMemObjects, pMemObjects);
-  if (NULL == pMigrateCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   cl_err_code err = pMigrateCommand->Init();
   if (CL_FAILED(err)) {
@@ -954,9 +927,6 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(
   Command *pEnqueueReadBufferCmd =
       new ReadBufferCommand(pCommandQueue, m_pOclEntryPoints, pBuffer,
                             pszOrigin, pszRegion, pOutData);
-  if (NULL == pEnqueueReadBufferCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pEnqueueReadBufferCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -1043,9 +1013,6 @@ cl_err_code ExecutionModule::EnqueueReadBufferRect(
       pCommandQueue, m_pOclEntryPoints, pBuffer, szBufferOrigin, szHostOrigin,
       region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch,
       host_slice_pitch, pOutData);
-  if (NULL == pEnqueueReadBufferRectCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pEnqueueReadBufferRectCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -1132,9 +1099,6 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(
   Command *pWriteBufferCmd = new WriteBufferCommand(
       pCommandQueue, m_pOclEntryPoints, avoidBlock ? CL_FALSE : bBlocking,
       pBuffer, pszOrigin, pszRegion, cpSrcData);
-  if (NULL == pWriteBufferCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pWriteBufferCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -1222,10 +1186,6 @@ cl_err_code ExecutionModule::EnqueueWriteBufferRect(
       pCommandQueue, m_pOclEntryPoints, bBlocking, pBuffer, szBufferOrigin,
       szHostOrigin, region, buffer_row_pitch, buffer_slice_pitch,
       host_row_pitch, host_slice_pitch, pOutData);
-
-  if (NULL == pWriteBufferRectCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pWriteBufferRectCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -1335,9 +1295,6 @@ cl_err_code ExecutionModule::EnqueueFillBuffer(
   Command *pFillBufferCmd =
       new FillBufferCommand(pCommandQueue, m_pOclEntryPoints, pBuffer, pattern,
                             pattern_size, offset, size);
-  if (NULL == pFillBufferCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pFillBufferCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -1422,9 +1379,6 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
   Command *pCopyBufferCommand =
       new CopyBufferCommand(pCommandQueue, m_pOclEntryPoints, pSrcBuffer,
                             pDstBuffer, pszSrcOrigin, pszDstOrigin, pszRegion);
-  if (NULL == pCopyBufferCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pCopyBufferCommand->Init();
   if (CL_FAILED(errVal)) {
@@ -1534,9 +1488,6 @@ cl_err_code ExecutionModule::EnqueueCopyBufferRect(
       pCommandQueue, m_pOclEntryPoints, pSrcBuffer, pDstBuffer, szSrcOrigin,
       szDstOrigin, region, src_buffer_row_pitch, src_buffer_slice_pitch,
       dst_buffer_row_pitch, dst_buffer_slice_pitch);
-  if (NULL == pCopyBufferRectCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pCopyBufferRectCommand->Init();
   if (CL_FAILED(errVal)) {
@@ -1716,9 +1667,6 @@ cl_err_code ExecutionModule::EnqueueFillImage(
   Command *pFillBufferCmd =
       new FillImageCommand(pCommandQueue, m_pOclEntryPoints, img, pattern,
                            pattern_size, img_dim_count, origin, region);
-  if (NULL == pFillBufferCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pFillBufferCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -1798,12 +1746,8 @@ void *ExecutionModule::EnqueueMapBuffer(
 
   MapBufferCommand *pMapBufferCommand = new MapBufferCommand(
       pCommandQueue, m_pOclEntryPoints, pBuffer, clMapFlags, szOffset, szCb);
-  // Must set device Id before init for buffer resource allocation.
-  if (NULL == pMapBufferCommand) {
-    *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
-    return NULL;
-  }
 
+  // Must set device Id before init for buffer resource allocation.
   *pErrcodeRet = pMapBufferCommand->Init();
   if (CL_FAILED(*pErrcodeRet)) {
     delete pMapBufferCommand;
@@ -1852,11 +1796,8 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(
 
   Command *pUnmapMemObjectCommand = new UnmapMemObjectCommand(
       pCommandQueue, m_pOclEntryPoints, pMemObject, mappedPtr);
-  // Must set device Id before init for buffer resource allocation.
-  if (NULL == pUnmapMemObjectCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
+  // Must set device Id before init for buffer resource allocation.
   errVal = pUnmapMemObjectCommand->Init();
   if (CL_FAILED(errVal)) {
     delete pUnmapMemObjectCommand;
@@ -2084,6 +2025,36 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     }
   }
 
+  if (pKernel->getDispatchType() ==
+      CL_KERNEL_EXEC_INFO_DISPATCH_TYPE_CONCURRENT_INTEL) {
+    if (isFPGAEmulator)
+      return CL_INVALID_OPERATION;
+
+    if (cpszLocalWorkSize == NULL)
+      return CL_INVALID_WORK_GROUP_SIZE;
+    for (unsigned int Ui = 0; Ui < uiWorkDim; Ui++) {
+      if (cpszLocalWorkSize[Ui] != 0 &&
+          (0 != (cpszGlobalWorkSize[Ui] % cpszLocalWorkSize[Ui])))
+        return CL_INVALID_WORK_GROUP_SIZE;
+    }
+
+    // Calculate number of work groups and WG size
+    size_t WGCounts = 1;
+    for (unsigned int Ui = 0; Ui < uiWorkDim; Ui++) {
+      size_t GlbSize = cpszGlobalWorkSize[Ui];
+      size_t LclSize = cpszLocalWorkSize[Ui];
+      WGCounts *= GlbSize / LclSize;
+    }
+    size_t MaxWGCounts;
+    pKernel->GetKernelMaxConcurrentWorkGroupCount(
+        clCommandQueue, uiWorkDim, cpszGlobalWorkOffset, cpszLocalWorkSize,
+        &MaxWGCounts);
+    if (MaxWGCounts < WGCounts)
+      return CL_INVALID_VALUE;
+    if (!pDevice->supportConcurrentDispatch())
+      return CL_INVALID_VALUE;
+  }
+
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
   if ((NULL != m_pGPAData) && m_pGPAData->bUseGPA) {
     __itt_task_end(
@@ -2149,6 +2120,21 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
       return errVal;
   }
 
+  // Register tracker event for wait list of USM buffers to free.
+  // For USM buffers passed as kernel argument.
+  std::vector<const void *> usmPtrList;
+  for (const auto &IndexUSMBuffer : pKernel->GetUsmArgs()) {
+    USMBuffer *buf = IndexUSMBuffer.second;
+    if (nullptr != buf)
+      usmPtrList.push_back(buf->GetAddr());
+  }
+  // For USM buffers that kernel may access indirectly.
+  std::vector<SharedPtr<USMBuffer>> nonArgUsmBufs;
+  pKernel->GetNonArgUsmBuffers(nonArgUsmBufs);
+  for (const auto &buf : nonArgUsmBufs)
+    usmPtrList.push_back(buf->GetAddr());
+  pNDRangeKernelCmd->SetUsmPtrList(usmPtrList);
+
   // Kernel serialization.
   // If we have the same kernel being enqueued on FPGA emulator several
   // times - we don't want two or more instances of this kernel being
@@ -2169,9 +2155,6 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
   // patch must be reverted and actually I don't know if kernel
   // serialization is possible in this case.
   bool updatedEventList = false;
-
-  // Set a tracker event to track kernel execution.
-  cl_event trackerEvent = nullptr;
 
   // Do nothing in case of multi-device program
   // Process kernel serialization only for out-of-order queues, so the
@@ -2224,7 +2207,10 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         // KernelEventMutex and OclEvent::m_ObserversListGuard.
         // We have to set the callback before calling EnqueueSelf.
         pNDRangeKernelCmd->SetFPGASerializeCompleteCallBack(
-            [this](cl_event Evt) { callbackForKernelEventMap(Evt, this); });
+            [this](cl_event Evt) { callbackForKernelEventMap(Evt); });
+
+        // Set a tracker event to track kernel execution.
+        cl_event trackerEvent = nullptr;
 
         // EnqueueSelf must also be guarded by KernelEventMutex,
         // otherwise prevClEvent's status could change during
@@ -2238,6 +2224,9 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         // Update the map replacing old with a newer one.
         if (CL_SUCCEEDED(errVal))
           m_OclKernelEventMap[kernelName] = trackerEvent;
+
+        if (nullptr != pEvent)
+          *pEvent = trackerEvent;
       }
 
       updatedEventList = true;
@@ -2245,9 +2234,9 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
   }
 
   if (!updatedEventList) {
-    errVal = pNDRangeKernelCmd->EnqueueSelf(
-        false /*never blocking*/, uNumEventsInWaitList, cpEventWaitList,
-        &trackerEvent, apiLogger);
+    errVal = pNDRangeKernelCmd->EnqueueSelf(false /*never blocking*/,
+                                            uNumEventsInWaitList,
+                                            cpEventWaitList, pEvent, apiLogger);
   }
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
@@ -2263,26 +2252,6 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     pNDRangeKernelCmd->CommandDone();
     return errVal;
   }
-
-  // Return tracker event to user.
-  if (pEvent != nullptr)
-    *pEvent = trackerEvent;
-
-  // Register tracker event for wait list of USM buffers to free.
-  // For USM buffers passed as kernel argument.
-  std::vector<const void *> usmPtrList;
-  for (const auto &IndexUSMBuffer : pKernel->GetUsmArgs()) {
-    USMBuffer *buf = IndexUSMBuffer.second;
-    if (nullptr != buf)
-      usmPtrList.push_back(buf->GetAddr());
-  }
-  // For USM buffers that kernel may access indirectly.
-  std::vector<SharedPtr<USMBuffer>> nonArgUsmBufs;
-  pKernel->GetNonArgUsmBuffers(nonArgUsmBufs);
-  for (const auto &buf : nonArgUsmBufs)
-    usmPtrList.push_back(buf->GetAddr());
-  SetTrackerForUSM(pNDRangeKernelCmd.get(), usmPtrList, trackerEvent,
-                   pEvent != nullptr);
 
   (void)pNDRangeKernelCmd.release();
 
@@ -2340,11 +2309,8 @@ cl_err_code ExecutionModule::EnqueueTask(cl_command_queue clCommandQueue,
 
   Command *pTaskCommand =
       new TaskCommand(pCommandQueue, m_pOclEntryPoints, pKernel);
-  // Must set device Id before init for buffer resource allocation.
-  if (NULL == pTaskCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
+  // Must set device Id before init for buffer resource allocation.
   errVal = pTaskCommand->Init();
   if (CL_FAILED(errVal)) {
     delete pTaskCommand;
@@ -2392,10 +2358,6 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(
   if (uNumMemObjects > 0) {
     // Create MemoryObjects references
     pMemObjectsList = new SharedPtr<MemoryObject>[uNumMemObjects];
-
-    if (NULL == pMemObjectsList) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
     cl_uint i;
     for (i = 0; i < uNumMemObjects; i++) {
       // Check that buffer is available
@@ -2413,12 +2375,6 @@ cl_err_code ExecutionModule::EnqueueNativeKernel(
   Command *pNativeKernelCommand = new NativeKernelCommand(
       pCommandQueue, m_pOclEntryPoints, pUserFnc, pArgs, szCbArgs,
       uNumMemObjects, pMemObjectsList, ppArgsMemLoc);
-  if (NULL == pNativeKernelCommand) {
-    if (NULL != pMemObjectsList) {
-      delete[] pMemObjectsList;
-    }
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pNativeKernelCommand->Init();
   if (CL_FAILED(errVal)) {
@@ -2621,9 +2577,6 @@ cl_err_code ExecutionModule::EnqueueReadImage(
   Command *pReadImageCmd =
       new ReadImageCommand(pCommandQueue, m_pOclEntryPoints, pImage, szOrigin,
                            szRegion, szRowPitch, szSlicePitch, pOutData);
-  if (NULL == pReadImageCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pReadImageCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -2694,9 +2647,6 @@ cl_err_code ExecutionModule::EnqueueWriteImage(
   Command *pWriteImageCmd = new WriteImageCommand(
       pCommandQueue, m_pOclEntryPoints, bBlocking, pImage, szOrigin, szRegion,
       szRowPitch, szSlicePitch, cpSrcData);
-  if (NULL == pWriteImageCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pWriteImageCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -2866,9 +2816,6 @@ cl_err_code ExecutionModule::EnqueueCopyImage(
   Command *pCopyImageCmd =
       new CopyImageCommand(pCommandQueue, m_pOclEntryPoints, pSrcImage,
                            pDstImage, szSrcOrigin, szDstOrigin, szRegion);
-  if (NULL == pCopyImageCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pCopyImageCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -2948,9 +2895,6 @@ cl_err_code ExecutionModule::EnqueueCopyImageToBuffer(
   Command *pCopyImageToBufferCmd = new CopyImageToBufferCommand(
       pCommandQueue, m_pOclEntryPoints, pSrcImage, pDstBuffer, szSrcOrigin,
       szRegion, pszDstOffset /*szDstOffset*/);
-  if (NULL == pCopyImageToBufferCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pCopyImageToBufferCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -3031,9 +2975,6 @@ cl_err_code ExecutionModule::EnqueueCopyBufferToImage(
   Command *pCopyBufferToImageCmd = new CopyBufferToImageCommand(
       pCommandQueue, m_pOclEntryPoints, pSrcBuffer, pDstImage, pszSrcOffset,
       szDstOrigin, szRegion);
-  if (NULL == pCopyBufferToImageCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   errVal = pCopyBufferToImageCmd->Init();
   if (CL_FAILED(errVal)) {
@@ -3122,11 +3063,6 @@ void *ExecutionModule::EnqueueMapImage(
       pszImageRowPitch, pszImageSlicePitch);
 
   // Must set device Id before init for image resource allocation.
-  if (NULL == pMapImageCmd) {
-    *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
-    return NULL;
-  }
-
   *pErrcodeRet = pMapImageCmd->Init();
 
   if (CL_FAILED(*pErrcodeRet)) {
@@ -3211,9 +3147,6 @@ cl_int ExecutionModule::EnqueueSVMFree(
   SVMFreeCommand *const pSvmFreeCmd =
       new SVMFreeCommand(uiNumSvmPointers, pSvmPointers, pfnFreeFunc, pUserData,
                          pQueue, uiNumEventsInWaitList > 0);
-  if (NULL == pSvmFreeCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   err = pSvmFreeCmd->Init();
   if (CL_FAILED(err)) {
@@ -3251,10 +3184,6 @@ cl_err_code ExecutionModule::EnqueueSVMMigrateMem(
 
   MigrateSVMMemCommand *pMigrateSVMCommand = new MigrateSVMMemCommand(
       pQueue, flags, num_svm_pointers, svm_pointers, sizes);
-
-  if (NULL == pMigrateSVMCommand) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   cl_err_code err = pMigrateSVMCommand->Init();
   if (CL_FAILED(err)) {
@@ -3368,9 +3297,6 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(
                                       pszRegion);
     }
   }
-  if (NULL == pCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
   err = pCmd->Init();
   if (CL_FAILED(err)) {
     delete pCmd;
@@ -3441,9 +3367,6 @@ cl_int ExecutionModule::EnqueueSVMMemFill(
     pCmd = new RuntimeSVMMemFillCommand(pSvmPtr, pPattern, szPatternSize, size,
                                         pQueue, uiNumEventsInWaitList > 0);
   }
-  if (NULL == pCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
   err = pCmd->Init();
   if (CL_FAILED(err)) {
     delete pCmd;
@@ -3502,10 +3425,6 @@ cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue,
     // if it's a system pointer, it must work like a marker.
     pCmd = new SVMMAP_Command_NOOP(pQueue, uiNumEventsInWaitList);
   }
-
-  if (NULL == pCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
   err = pCmd->Init();
   if (CL_FAILED(err)) {
     delete pCmd;
@@ -3558,9 +3477,6 @@ cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue,
     pCmd = new SVMUNMAP_Command_NOOP(pQueue, uiNumEventsInWaitList);
   }
 
-  if (NULL == pCmd) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
   err = pCmd->Init();
   if (CL_FAILED(err)) {
     delete pCmd;
@@ -3596,25 +3512,6 @@ bool ExecutionModule::CanAccessUSM(SharedPtr<IOclCommandQueueBase> &queue,
       return false;
   }
   return true;
-}
-
-void ExecutionModule::SetTrackerForUSM(
-    Command *command, const std::vector<const void *> &usmPtrList,
-    cl_event tracker, bool isTrackerVisible) {
-  // Retain tracker event in case it is released by user before USMBlockingFree.
-  if (isTrackerVisible)
-    m_pEventsManager->RetainEvent(tracker);
-
-  // Releasing tracker event along with its related context will cause huge
-  // memory consumption in extreme case. So we save USM pointers for the command
-  // in order to unregister its tracker event once the command is completed.
-  command->SetUsmPtrList(usmPtrList);
-
-  std::shared_ptr<_cl_event> trackerEvtSPtr(
-      tracker, [=](cl_event e) { m_pEventsManager->ReleaseEvent(e); });
-
-  for (auto usmPtr : usmPtrList)
-    m_pContextModule->RegisterUSMFreeWaitEvent(usmPtr, trackerEvtSPtr);
 }
 
 cl_err_code ExecutionModule::EnqueueUSMMemset(
@@ -3676,20 +3573,16 @@ cl_err_code ExecutionModule::EnqueueUSMMemset(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
+  memsetCommand->SetUsmPtrList({dst_ptr});
+
   err = memsetCommand->EnqueueSelf(false, num_events_in_wait_list,
-                                   event_wait_list, &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
+                                   event_wait_list, event, api_logger);
 
   if (CL_FAILED(err)) {
     memsetCommand->CommandDone();
     delete memsetCommand;
     return err;
   }
-
-  SetTrackerForUSM(memsetCommand, {dst_ptr}, trackerEvent, event != nullptr);
 
   return CL_SUCCESS;
 }
@@ -3752,20 +3645,16 @@ cl_err_code ExecutionModule::EnqueueUSMMemFill(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
+  memFillCommand->SetUsmPtrList({dst_ptr});
+
   err = memFillCommand->EnqueueSelf(false, num_events_in_wait_list,
-                                    event_wait_list, &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
+                                    event_wait_list, event, api_logger);
 
   if (CL_FAILED(err)) {
     memFillCommand->CommandDone();
     delete memFillCommand;
     return err;
   }
-
-  SetTrackerForUSM(memFillCommand, {dst_ptr}, trackerEvent, event != nullptr);
 
   return CL_SUCCESS;
 }
@@ -3861,25 +3750,21 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
+  std::vector<const void *> usmPtrs;
+  if (!blocking) {
+    usmPtrs.push_back(src_ptr);
+    usmPtrs.push_back(dst_ptr);
+  }
+  memcpyCommand->SetUsmPtrList(usmPtrs);
+
   err = memcpyCommand->EnqueueSelf(blocking, num_events_in_wait_list,
-                                   event_wait_list, &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
+                                   event_wait_list, event, api_logger);
 
   if (CL_FAILED(err)) {
     memcpyCommand->CommandDone();
     delete memcpyCommand;
     return err;
   }
-
-  std::vector<const void *> usmPtrs;
-  if (!blocking) {
-    usmPtrs.push_back(src_ptr);
-    usmPtrs.push_back(dst_ptr);
-  }
-  SetTrackerForUSM(memcpyCommand, usmPtrs, trackerEvent, event != nullptr);
 
   return CL_SUCCESS;
 }
@@ -3920,12 +3805,10 @@ cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
+  migrateCommand->SetUsmPtrList({ptr});
+
   err = migrateCommand->EnqueueSelf(CL_FALSE, num_events_in_wait_list,
-                                    event_wait_list, &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
+                                    event_wait_list, event, api_logger);
 
   if (CL_FAILED(err)) {
     // Enqueue failed, free resources
@@ -3933,8 +3816,6 @@ cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
     delete migrateCommand;
     return err;
   }
-
-  SetTrackerForUSM(migrateCommand, {ptr}, trackerEvent, event != nullptr);
 
   return CL_SUCCESS;
 }
@@ -3978,12 +3859,10 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
+  adviseCommand->SetUsmPtrList({ptr});
+
   err = adviseCommand->EnqueueSelf(CL_FALSE, num_events_in_wait_list,
-                                   event_wait_list, &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
+                                   event_wait_list, event, api_logger);
 
   if (CL_FAILED(err)) {
     // Enqueue failed, free resources
@@ -3991,8 +3870,6 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
     delete adviseCommand;
     return err;
   }
-
-  SetTrackerForUSM(adviseCommand, {ptr}, trackerEvent, event != nullptr);
 
   return CL_SUCCESS;
 }
@@ -4031,13 +3908,12 @@ cl_err_code ExecutionModule::EnqueueReadHostPipeINTEL(
 
   Command *readHostPipeCmd = new ReadHostPipeIntelFPGACommand(
       queue, ptr, gvPipeBS, size, blocking_read);
-  if (nullptr == readHostPipeCmd)
-    return CL_OUT_OF_HOST_MEMORY;
 
   err = readHostPipeCmd->EnqueueSelf(blocking_read, num_events_in_wait_list,
                                      event_wait_list, event, apiLogger);
 
   if (CL_FAILED(err)) {
+    readHostPipeCmd->CommandDone();
     delete readHostPipeCmd;
     return err;
   }
@@ -4079,13 +3955,11 @@ cl_err_code ExecutionModule::EnqueueWriteHostPipeINTEL(
   Command *writeHostPipeCmd = new WriteHostPipeIntelFPGACommand(
       queue, gvPipeBS, ptr, size, blocking_write);
 
-  if (nullptr == writeHostPipeCmd)
-    return CL_OUT_OF_HOST_MEMORY;
-
   err = writeHostPipeCmd->EnqueueSelf(blocking_write, num_events_in_wait_list,
                                       event_wait_list, event, apiLogger);
 
   if (CL_FAILED(err)) {
+    writeHostPipeCmd->CommandDone();
     delete writeHostPipeCmd;
     return err;
   }
@@ -4152,13 +4026,12 @@ cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
 
   Command *readGVCmd = new ReadGVCommand(
       queue, ptr, (void *)((size_t)gv.pointer + offset), size);
-  if (nullptr == readGVCmd)
-    return CL_OUT_OF_HOST_MEMORY;
 
   err = readGVCmd->EnqueueSelf(blocking_read, num_events_in_wait_list,
                                event_wait_list, event, apiLogger);
 
   if (CL_FAILED(err)) {
+    readGVCmd->CommandDone();
     delete readGVCmd;
     return err;
   }
@@ -4226,13 +4099,12 @@ cl_err_code ExecutionModule::EnqueueWriteGlobalVariable(
 
   Command *writeGVCmd = new WriteGVCommand(
       queue, (void *)((size_t)gv.pointer + offset), ptr, size);
-  if (nullptr == writeGVCmd)
-    return CL_OUT_OF_HOST_MEMORY;
 
   err = writeGVCmd->EnqueueSelf(blocking_write, num_events_in_wait_list,
                                 event_wait_list, event, apiLogger);
 
   if (CL_FAILED(err)) {
+    writeGVCmd->CommandDone();
     delete writeGVCmd;
     return err;
   }
@@ -4293,20 +4165,6 @@ cl_err_code ExecutionModule::EnqueueLibraryCopy(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
-  err = cmd->EnqueueSelf(blocking, num_events_in_wait_list, event_wait_list,
-                         &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
-
-  if (CL_FAILED(err)) {
-    LOG_ERROR(TEXT("EnqueueLibraryCopy EnqueueSelf failed, err = %d"), err);
-    cmd->CommandDone();
-    delete cmd;
-    return err;
-  }
-
   std::vector<const void *> usmPtrs;
   if (!blocking) {
     if (is_src_usm)
@@ -4314,7 +4172,17 @@ cl_err_code ExecutionModule::EnqueueLibraryCopy(
     if (is_dst_usm)
       usmPtrs.push_back(dst);
   }
-  SetTrackerForUSM(cmd, usmPtrs, trackerEvent, event != nullptr);
+  cmd->SetUsmPtrList(usmPtrs);
+
+  err = cmd->EnqueueSelf(blocking, num_events_in_wait_list, event_wait_list,
+                         event, api_logger);
+
+  if (CL_FAILED(err)) {
+    LOG_ERROR(TEXT("EnqueueLibraryCopy EnqueueSelf failed, err = %d"), err);
+    cmd->CommandDone();
+    delete cmd;
+    return err;
+  }
 
   return CL_SUCCESS;
 }
@@ -4382,12 +4250,14 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
     return err;
   }
 
-  // Set a tracker event to track command execution.
-  cl_event trackerEvent = nullptr;
-  err = cmd->EnqueueSelf(false, num_events_in_wait_list, event_wait_list,
-                         &trackerEvent, api_logger);
-  if (event != nullptr)
-    *event = trackerEvent;
+  std::vector<const void *> usmPtrs;
+  if (is_dst_usm) {
+    usmPtrs.push_back(dst);
+  }
+  cmd->SetUsmPtrList(usmPtrs);
+
+  err = cmd->EnqueueSelf(false, num_events_in_wait_list, event_wait_list, event,
+                         api_logger);
 
   if (CL_FAILED(err)) {
     LOG_ERROR(TEXT("EnqueueLibrarySet EnqueueSelf failed, err = %d"), err);
@@ -4395,12 +4265,6 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
     delete cmd;
     return err;
   }
-
-  std::vector<const void *> usmPtrs;
-  if (is_dst_usm) {
-    usmPtrs.push_back(dst);
-  }
-  SetTrackerForUSM(cmd, usmPtrs, trackerEvent, event != nullptr);
 
   return CL_SUCCESS;
 }

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,7 +15,6 @@
 #ifndef __COMPARATOR_H__
 #define __COMPARATOR_H__
 
-#define DEBUG_TYPE "Comparator"
 #include "Buffer.h"
 #include "BufferContainerList.h"
 #include "DataType.h"
@@ -29,6 +28,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include <vector>
+
+#define DEBUG_TYPE "Comparator"
 
 namespace Validation {
 

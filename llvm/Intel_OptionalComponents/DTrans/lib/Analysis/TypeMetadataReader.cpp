@@ -1,6 +1,6 @@
 //===-----------TypeMetadataReader.cpp - Decode metadata annotations-------===//
 //
-// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1106,14 +1106,6 @@ public:
     LLVM_DEBUG(dbgs() << DEBUG_TYPE
                       << ": Checking module for DTrans metadata\n");
     bool ErrorsFound = false;
-
-    // Determine whether the IR is using opaque pointers or not. When opaque
-    // pointers are in use, all pointers of an address space should be
-    // equivalent. Until opaque pointers become enabled, it's possible to check
-    // whether the metadata information matches the pointer type in the IR.
-    LLVMContext &Ctx = M.getContext();
-    bool OpaquePointersEnabled = !Ctx.supportsTypedPointers();
-
     // Check whether all the global variables that are expected to have metadata
     // have it.
     for (auto &GV : M.globals()) {
@@ -1137,14 +1129,6 @@ public:
           if (ReportDecodedValues)
             dbgs() << "Decoded var type metadata: " << GV << " - " << *DType
                    << "\n";
-
-          if (!OpaquePointersEnabled && GVType != DType->getLLVMType()) {
-            ErrorsFound = true;
-            if (ReportErrors)
-              dbgs() << "ERROR: Metadata type does not match expected type: "
-                     << GV.getName() << "\n   IR: " << *GV.getValueType()
-                     << "\n   MD: " << *DType << "\n";
-          }
         }
       }
     }
@@ -1156,7 +1140,7 @@ public:
 
       // We need to invert the result of check function, because a result of
       // 'false' means there was an error found.
-      ErrorsFound |= !checkFunction(F, OpaquePointersEnabled);
+      ErrorsFound |= !checkFunction(F);
     }
 
     return !ErrorsFound;
@@ -1164,7 +1148,7 @@ public:
 
   // Check the function signature and instructions within the body for
   // DTrans metadata. Return 'true' if no errors are found.
-  bool checkFunction(Function &F, bool OpaquePointersEnabled) {
+  bool checkFunction(Function &F) {
     LLVM_DEBUG(dbgs() << DEBUG_TYPE
                       << ": Checking function for DTrans metadata: "
                       << F.getName() << "\n");
@@ -1177,13 +1161,6 @@ public:
         if (ReportDecodedValues)
           dbgs() << "Decoded fn type metadata: " << F.getName() << " : "
                  << *DType << "\n";
-        if (!OpaquePointersEnabled && DType->getLLVMType() != FnType) {
-          ErrorsFound = true;
-          if (ReportErrors)
-            dbgs() << "ERROR: Metadata type does not match expected type: "
-                   << F.getName() << "\n   IR: " << *FnType
-                   << "\n   MD: " << *DType << "\n";
-        }
       } else {
         ErrorsFound = true;
         if (ReportMissing)
@@ -1215,16 +1192,6 @@ public:
             if (ReportDecodedValues)
               dbgs() << "Decoded alloca metadata : " << F.getName() << " : "
                      << *AI << " - " << *DType << "\n";
-
-            if (!OpaquePointersEnabled && DType->getLLVMType() != AllocType) {
-              ErrorsFound = true;
-              if (ReportErrors)
-                dbgs() << F.getName()
-                       << "ERROR: Metadata type does not match expected type: "
-                       << F.getName() << " : " << *AI
-                       << "\n   IR: " << *AI->getAllocatedType()
-                       << "\n   MD: " << *DType << "\n";
-            }
           }
         }
       } else if (auto *Call = dyn_cast<CallBase>(&I)) {
@@ -1249,15 +1216,6 @@ public:
             if (ReportDecodedValues)
               dbgs() << "Decoded call metadata   : " << F.getName() << " : "
                      << *Call << " - " << *DType << "\n";
-
-            if (!OpaquePointersEnabled &&
-                DType->getLLVMType() != Call->getFunctionType()) {
-              if (ReportErrors)
-                dbgs() << "ERROR:  Metadata type does not match expected type: "
-                       << F.getName() << " : " << *Call
-                       << "\n   IR: " << *Call->getFunctionType()
-                       << "\n   MD: " << *DType << "\n";
-            }
           }
         }
       }

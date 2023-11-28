@@ -4,15 +4,15 @@
 
 ; Verify the divergence information for the single loop for.body.
 
-define void @test1(float* nocapture %A, i64 %n) {
+define void @test1(ptr nocapture %A, i64 %n) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_TRUNC:%.*]] = trunc i64 [[N0:%.*]] to i32
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] float [[VP_CAST:%.*]] = sitofp i32 [[VP_TRUNC]] to float
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store float [[VP_CAST]] float* [[VP_ARRAYIDX]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store float [[VP_CAST]] ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB2:BB[0-9]+]], [[BB0]]
@@ -34,10 +34,10 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
   %trunc = trunc i64 %n to i32
   %cast = sitofp i32 %trunc to float
-  store float %cast, float* %arrayidx, align 4
+  store float %cast, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %n
   br i1 %exitcond, label %for.end, label %for.body

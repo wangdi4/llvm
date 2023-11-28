@@ -1,4 +1,4 @@
-; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
+; RUN: opt -passes="instcombine<max-iterations=2>" < %s -S | FileCheck %s
 
 ; Tree of 'OR/AND'
 define i1 @OR_tree_convert(float %a, float %b, float %c, float %d, float %e)  {
@@ -158,10 +158,10 @@ entry:
 define zeroext i1 @no_fcmp_minmax_crash(float %x) {
 ; CHECK-LABEL: @no_fcmp_minmax_crash(
 ; CHECK-NEXT:    [[FCMP:%.*]] = fcmp {{oeq|une}} float [[X:%.*]], 1.000000e+01
-; CHECK-NEXT:    [[OR:%.*]] = or i1 [[FCMP]], or (i1 icmp ne (ptr addrspace(3) addrspacecast (ptr addrspace(4) null to ptr addrspace(3)), ptr addrspace(3) null), i1 icmp ne (ptr addrspacecast (ptr addrspace(4) null to ptr), ptr null))
+; CHECK-NEXT:    [[OR:%.*]] = or i1 [[FCMP]], icmp ne (ptr addrspace(3) addrspacecast (ptr addrspace(4) null to ptr addrspace(3)), ptr addrspace(3) null)
 ; CHECK-NEXT:    ret i1 [[OR]]
 ;
   %cmp = fcmp une float %x, 1.000000e+01
-  %or.cond1 = or i1 %cmp, or (i1 icmp ne (ptr addrspace(3) addrspacecast (ptr addrspace(4) null to ptr addrspace(3)), ptr addrspace(3) null), i1 icmp ne (ptr addrspacecast (ptr addrspace(4) null to ptr), ptr null))
-  ret i1 %or.cond1
+  %or.cond2 = or i1 %cmp, icmp ne (ptr addrspace(3) addrspacecast (ptr addrspace(4) null to ptr addrspace(3)), ptr addrspace(3) null)
+  ret i1 %or.cond2
 }

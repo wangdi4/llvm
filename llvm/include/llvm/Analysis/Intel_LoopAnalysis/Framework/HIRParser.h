@@ -1,6 +1,6 @@
 //===---------- HIRParser.h - Parses SCEVs into CanonExprs --*- C++ -*-----===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -157,6 +157,13 @@ class HIRParser {
   // populated in phase1 and processed/discarded at the end of phase1.
   SmallPtrSet<HLLoop *, 8> CountableToUnkownLoops;
 
+  /// GetElementPtrInsts created with zero indices when parsing a GEP chain
+  /// with a global/alloca base to incorporate information about number of
+  /// elements in the dimension.
+  /// This is 'mutable' because it is being populated by the GEPChain class
+  /// which otherwise uses a 'const HIRParser &' reference.
+  mutable SmallVector<Instruction *, 8> ZeroIndexGEPInsts;
+
   /// Represents information about dimensions of a single chain of GEP
   /// operators and Subscripts instructions.
   class GEPChain;
@@ -264,8 +271,8 @@ class HIRParser {
 
   /// Adds \p Inst in region livein set and loop livein/liveout sets as
   /// applicable and returns its def level.
-  unsigned processInstBlob(const Instruction *Inst, const Instruction *BaseInst,
-                           unsigned Symbase);
+  unsigned processInstDefOrUse(const Instruction *Inst,
+                               const Instruction *BaseInst, unsigned Symbase);
 
   /// Performs necessary processing for adding TempBlob to CE. This includes
   /// updating the defined at level of CE, adding an entry in the blob table and
@@ -281,9 +288,8 @@ class HIRParser {
   /// Recusively breaks commutative blobs such as (2 + 2 * n) into multiplier 2
   /// and new blob (1 + n). Returns false if no such multiplier is found. \p
   /// IsTop is true for the topmost call.
-  bool breakConstantMultiplierCommutativeBlob(BlobTy Blob, int64_t *Multiplier,
-                                              BlobTy *NewBlob,
-                                              bool IsTop = false);
+  bool breakConstantMultiplierAddOrMulBlob(BlobTy Blob, int64_t *Multiplier,
+                                           BlobTy *NewBlob, bool IsTop = false);
 
   /// Breaks multiplication blobs such as (2 * n) into multiplier 2 and new blob
   /// n, otherwise sets the multiplier to 1. Also returns new or the orignal
@@ -398,6 +404,15 @@ class HIRParser {
   /// resulting value.
   const Value *traceSingleOperandPhis(const Value *Val) const;
 
+  // In opaque-ptr mode we do not have GEPs with zero indices representing
+  // indexing into inner types. This function tries to recreate them for
+  // Global/Alloca pointer \p Ptr which can return a resulting type of
+  // \p ResultElemTy. This allows incorporating dimension info of the
+  // Global/Alloca which may result in better MAX_TC_ESTs of parent loops. It
+  // returns \p Ptr if zero index GEP was not created.
+  const Value *getZeroIndexGEPOrOrigPtr(const Value *Ptr,
+                                        Type *ResultElemTy) const;
+
   // Returns true if it is valid to parse this GEPOrSubsOperator.
   bool isValidGEPOp(const GEPOrSubsOperator *GEPOp,
                     bool SkipLiveRangeCheck = false) const;
@@ -449,12 +464,17 @@ class HIRParser {
                                   const GEPOrSubsOperator **InitGEPOp) const;
 
   /// Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
+  /// \p LoadOrStoreTy is set to the load type or store type if the GEP ref
+  /// represents load or store.
   RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                   const GEPOrSubsOperator *GEPOp,
-                                  unsigned Level);
+                                  unsigned Level, Type *LoadOrStoreTy);
 
   /// Creates a GEP RegDDRef representing a single element. For example- %t[0].
-  RegDDRef *createSingleElementGEPDDRef(const Value *GEPVal, unsigned Level);
+  /// \p LoadOrStoreTy is set to the load type or store type if the GEP ref
+  /// represents load or store.
+  RegDDRef *createSingleElementGEPDDRef(const Value *GEPVal, unsigned Level,
+                                        Type *LoadOrStoreTy);
 
   /// Creates a GEP RegDDRef for this GEPOrSubsOperator.
   RegDDRef *createRegularGEPDDRef(const GEPOrSubsOperator *GEPOp,
@@ -462,7 +482,10 @@ class HIRParser {
 
   /// Returns a RegDDRef containing GEPInfo. IsUse indicates whether this is a
   /// definition or a use of GEP.
-  RegDDRef *createGEPDDRef(const Value *Val, unsigned Level, bool IsUse);
+  /// \p LoadOrStoreTy is set to the load type or store type if the GEP ref
+  /// represents load or store.
+  RegDDRef *createGEPDDRef(const Value *Val, unsigned Level, bool IsUse,
+                           Type *LoadOrStoreTy = nullptr);
 
   /// Returns a RegDDRef representing this scalar value.
   /// \p LvalInst is non-null if this value represents an Lval.

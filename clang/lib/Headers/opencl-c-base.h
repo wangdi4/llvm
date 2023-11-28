@@ -1,4 +1,19 @@
 //===----- opencl-c-base.h - OpenCL C language base definitions -----------===//
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -45,6 +60,7 @@
 #define __opencl_c_ext_fp32_local_atomic_add 1
 #define __opencl_c_ext_fp32_global_atomic_min_max 1
 #define __opencl_c_ext_fp32_local_atomic_min_max 1
+#define __opencl_c_ext_image_raw10_raw12 1
 
 #endif // defined(__SPIR__) || defined(__SPIRV__)
 #endif // (defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ >= 200)
@@ -378,11 +394,13 @@ typedef uint cl_mem_fence_flags;
  */
 #define CLK_GLOBAL_MEM_FENCE   0x02
 
+/* INTEL_CUSTOMIZATION */
 /**
   * Queue a memory fence to ensure correct
   * ordering of memory operations to channel
   */
 #define CLK_CHANNEL_MEM_FENCE  0x04
+/* end INTEL_CUSTOMIZATION */
 
 #if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
@@ -483,6 +501,10 @@ typedef enum memory_order
 #if __OPENCL_C_VERSION__ >= CL_VERSION_3_0
 #define CLK_UNORM_INT_101010_2 0x10E0
 #endif // __OPENCL_C_VERSION__ >= CL_VERSION_3_0
+#ifdef __opencl_c_ext_image_raw10_raw12
+#define CLK_UNSIGNED_INT_RAW10_EXT 0x10E3
+#define CLK_UNSIGNED_INT_RAW12_EXT 0x10E4
+#endif // __opencl_c_ext_image_raw10_raw12
 
 // Channel order, numbering must be aligned with cl_channel_order in cl.h
 //

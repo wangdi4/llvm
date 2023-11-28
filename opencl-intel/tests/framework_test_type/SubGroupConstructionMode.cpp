@@ -10,9 +10,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "CL/cl.h"
 #include "TestsHelpClasses.h"
 #include "common_utils.h"
-#include <CL/cl.h>
 
 #define SG_SIZE 8
 

@@ -31,12 +31,10 @@ InternalizeGlobalVariablesPass::run(Module &M, ModuleAnalysisManager &AM) {
 
 bool InternalizeGlobalVariablesPass::runImpl(Module &M) {
   bool Changed = false;
-  SmallSet<Value *, 8> TLSGlobals;
-  for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
-    GlobalVariable *GV = CompilationUtils::getTLSGlobal(&M, I);
-    TLSGlobals.insert(GV);
-  }
+
   for (auto &GVar : M.globals()) {
+    if (GVar.hasInternalLinkage())
+      continue;
     // According to llvm/LangRef, unreferenced globals of common, weak and
     // weak_odr linkage may not be discarded.
     unsigned AS = GVar.getAddressSpace();
@@ -45,7 +43,7 @@ bool InternalizeGlobalVariablesPass::runImpl(Module &M) {
          CompilationUtils::ADDRESS_SPACE_CONSTANT == AS) &&
         (GVar.hasCommonLinkage() || GVar.hasExternalLinkage() ||
          GVar.hasWeakLinkage() || GVar.hasWeakODRLinkage());
-    if (TLSGlobals.count(&GVar) || MayNotDiscardLinkage ||
+    if (MayNotDiscardLinkage ||
         (GVar.hasName() && GVar.getName().startswith("llvm.")))
       continue;
     GVar.setLinkage(GlobalValue::InternalLinkage);

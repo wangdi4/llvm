@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2021-2023 Intel Corporation
+# Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -23,7 +23,6 @@ set(TARGET_EXTRA_INCLUDE_FILES
 
 set(TARGET_INCLUDE_FILES
     BackendUtils.h
-    debuggingservicetype.h
     OptimizerConfig.h
     SerializerCompatibility.h
     TypeConversion.h
@@ -41,7 +40,6 @@ set(TARGET_SOURCE_FILES
     SerializerCompatibility.cpp
     TypeConversion.cpp
     VectorizerUtils.cpp
-    debuggingservicetype.cpp
     ${TARGET_EXTRA_SOURCE_FILES})
 
 include_directories(
@@ -58,11 +56,17 @@ include_directories(
 
 include_directories(${BACKEND_ROOT_DIR}/arch_headers)
 
-add_opencl_library(${TARGET_NAME} STATIC ${TARGET_INCLUDE_FILES}
-                   ${TARGET_SOURCE_FILES} ${UTILS_ASM_ADD_TO_SOURCES_LIST})
-
-target_link_libraries(${TARGET_NAME} LLVMSYCLTransforms LLVMOrcJIT
-                      LLVMSupport)
+add_opencl_library(
+  ${TARGET_NAME}
+  STATIC
+  ${TARGET_INCLUDE_FILES}
+  ${TARGET_SOURCE_FILES}
+  ${UTILS_ASM_ADD_TO_SOURCES_LIST}
+  LINK_LIBS
+  LLVMOrcJIT
+  LLVMSYCLTransforms
+  LLVMSupport
+  cl_sys_utils)
 
 if(OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME} intrinsics_gen)

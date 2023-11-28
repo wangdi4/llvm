@@ -1,6 +1,6 @@
 //===------- Intel_InlineCost.cpp ----------------------- -*------===//
 //
-// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -969,7 +969,7 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
     auto AI0 = dyn_cast<AllocaInst>(AArg);
     if (!AI0)
       return false;
-    const DataLayout &DL = AI0->getFunction()->getParent()->getDataLayout();
+    const DataLayout &DL = AI0->getModule()->getDataLayout();
     if (!dvanalysis::isDopeVectorType(AI0->getAllocatedType(), DL))
       return false;
     Value *V = AArg;
@@ -2446,13 +2446,227 @@ static bool worthyDoubleCallSite3(CallBase &CB, InliningLoopInfoCache &ILIC) {
 }
 
 //
+// Return 'true' if the module 'M' has no more than 'Limit' Functions
+// with IR.
+//
+static bool IsSmallApp(Module *M, unsigned Limit) {
+  static bool Computed = false;
+  static bool ComputedIsSmallApp = false;
+  if (Computed)
+    return ComputedIsSmallApp;
+  unsigned FunctionCount = 0;
+  for (auto &F : M->functions()) {
+    if (F.isDeclaration())
+      continue;
+    if (++FunctionCount > Limit) {
+      Computed = true;
+      ComputedIsSmallApp = false;
+      return false;
+    }
+  }
+  Computed = true;
+  ComputedIsSmallApp = true;
+  return true;
+}
+
+//
+// Return 'true' if this is a double callsite worth inlining.
+//   (This is one of multiple double callsite heuristics.)
+//
+// The criteria for this heuristic are:
+//   (1) Must have exactly two calls to the function, which are
+//       in the same basic block.
+//   (2) The caller of the function must be Fortran.
+//   (3) Each formal argument should be an array, which may be
+//       dope vector based. It should have at least
+//       'MinFormalSubsCount' subscript chains in the function and
+//       the longest should be at least 'MinFormalSubsDepth' deep.
+//   (4) Each actual argument should also be indexed by at least
+//       'MinActualSubsCount' subscript chains and the longest should
+//       be at least 'MinActualSubsDepth' deep.
+//
+static bool worthyDoubleCallSite4(CallBase &CB, InliningLoopInfoCache &ILIC) {
+  //
+  // Return 'true' if 'CB' has a "twin" in the same basic block.
+  // Here a "twin" is a CallBase that calls the same function.
+  //
+  auto TwinInSameBasicBlock = [](CallBase *CB) -> bool {
+    Function *Callee = CB->getCalledFunction();
+    for (auto &I : *CB->getParent())
+      if (auto CBTwin = dyn_cast<CallBase>(&I))
+        if ((CBTwin != CB) && (CBTwin->getCalledFunction() == Callee))
+          return true;
+    return false;
+  };
+
+  //
+  // Scan the users of 'V' updating 'LD', the length of the longest
+  // subscript chain, and 'SubsCount', the number of subscript chains.
+  //
+  auto UpdateLD = [](Value *V, LoopInfo *LI, unsigned &LD,
+                     unsigned &SubsCount) {
+    std::queue<SubscriptInst *> Worklist;
+    for (User *U : V->users())
+      if (auto SBI = dyn_cast<SubscriptInst>(U))
+        Worklist.push(SBI);
+    while (!Worklist.empty()) {
+      SubscriptInst *SBI = Worklist.front();
+      Worklist.pop();
+      for (User *U : SBI->users())
+        if (auto SI0 = dyn_cast<SubscriptInst>(U))
+          Worklist.push(SI0);
+        else if (auto I = dyn_cast<Instruction>(U))
+          if (isa<LoadInst>(I) || isa<StoreInst>(I)) {
+            SubsCount++;
+            unsigned LocalLD = LI->getLoopDepth(I->getParent());
+            if (LocalLD > LD)
+              LD = LocalLD;
+          }
+    }
+  };
+
+  //
+  // For the formal argument 'Arg', update 'SubsCount' to the number of
+  // users of 'V' in subscript chains and 'LD' to the depth of the maximum
+  // subscript chain.
+  //
+  auto FormalArgTest = [&](Argument *Arg, LoopInfo *LI, unsigned &SubsCount,
+                           unsigned &LD) {
+    if (LI->empty())
+      return;
+    bool IsDopeVector = false;
+    const DataLayout &DL = Arg->getParent()->getParent()->getDataLayout();
+    for (User *U : Arg->users())
+      if (auto GEPI = dyn_cast<GetElementPtrInst>(U))
+        if (GEPI->getPointerOperand() == Arg) {
+          Type *Ty = GEPI->getSourceElementType();
+          IsDopeVector = dvanalysis::isDopeVectorType(Ty, DL);
+          break;
+        }
+    LD = 0;
+    SubsCount = 0;
+    if (IsDopeVector) {
+      for (User *U : Arg->users())
+        if (auto GEPI = dyn_cast<GetElementPtrInst>(U))
+          if (GEPI->hasAllZeroIndices())
+            if (GEPI->hasOneUse())
+              if (auto LDI = dyn_cast<LoadInst>(GEPI->user_back()))
+                UpdateLD(LDI, LI, LD, SubsCount);
+    } else {
+      for (User *U : Arg->users())
+        UpdateLD(U, LI, LD, SubsCount);
+    }
+  };
+
+  //
+  // Find the uplevel address associated with the actual argument 'V', if it
+  // is a global variable. For example, we are looking for @"sw_$H" in the
+  // following sequence:
+  //   %1040 = add i64 %1035, add (i64 ptrtoint (ptr @"sw_$H" to i64),
+  //       i64 -7680000)
+  //   %1041 = inttoptr i64 %1040 to ptr
+  //
+  auto FindUplevelAddress = [](Value *V) -> GlobalVariable * {
+    auto IPI = dyn_cast<IntToPtrInst>(V);
+    if (!IPI)
+      return nullptr;
+    std::queue<AddOperator *> Worklist;
+    auto BO = dyn_cast<AddOperator>(IPI->getOperand(0));
+    if (!BO)
+      return nullptr;
+    Worklist.push(BO);
+    while (!Worklist.empty()) {
+      Operator *BO = Worklist.front();
+      Worklist.pop();
+      for (unsigned I = 0, E = BO->getNumOperands(); I < E; ++I) {
+        Value *V0 = BO->getOperand(I);
+        if (auto BO0 = dyn_cast<AddOperator>(V0)) {
+          Worklist.push(BO0);
+        } else if (auto PII = dyn_cast<PtrToIntOperator>(V0)) {
+          if (auto GV = dyn_cast<GlobalVariable>(PII->getPointerOperand()))
+            return GV;
+        }
+      }
+    }
+    return nullptr;
+  };
+
+  //
+  // For the actual argument 'V', update 'SubsCount' to the number of
+  // users of 'V' in subscript chains and 'LD' to the depth of the maximum
+  // subscript chain.
+  //
+  auto ActualArgTest = [&](Value *V, LoopInfo *LI, unsigned &SubsCount,
+                           unsigned &LD) {
+    if (LI->empty())
+      return;
+    if (auto GV = dyn_cast<GlobalVariable>(V)) {
+      for (User *U : GV->users())
+        UpdateLD(U, LI, LD, SubsCount);
+    } else if (auto AI = dyn_cast<AllocaInst>(V)) {
+      const DataLayout &DL = AI->getModule()->getDataLayout();
+      if (!dvanalysis::isDopeVectorType(AI->getAllocatedType(), DL))
+        return;
+      for (User *U0 : AI->users())
+        if (auto GEPI = dyn_cast<GetElementPtrInst>(U0))
+          if (GEPI->hasAllZeroIndices())
+            for (User *U1 : GEPI->users())
+              if (auto SI = dyn_cast<StoreInst>(U1))
+                if (SI->getPointerOperand() == GEPI) {
+                  Value *V0 = SI->getValueOperand();
+                  if (GlobalVariable *GV = FindUplevelAddress(V0))
+                    for (User *U2 : GV->users())
+                      UpdateLD(U2, LI, LD, SubsCount); 
+                }
+    }
+  };
+
+  //
+  // Return 'true' if 'CB' passes the arg test for each of its
+  // formal and actual arguments. 'ILIC' is used to avoid
+  // recomputing LoopInfos.
+  //
+  auto PassesArgTest = [&](CallBase *CB, InliningLoopInfoCache &ILIC) -> bool {
+    const unsigned MinFormalSubsCount = 3;
+    const unsigned MinFormalSubsDepth = 2;
+    const unsigned MinActualSubsCount = 1;
+    const unsigned MinActualSubsDepth = 2;
+    Function *Caller = CB->getCaller();
+    Function *Callee = CB->getCalledFunction();
+    if (Callee->isVarArg())
+      return false;
+    for (unsigned I = 0, E = CB->arg_size(); I < E; ++I) {
+      unsigned FSC = 0;
+      unsigned FLD = 0;
+      FormalArgTest(Callee->getArg(I), ILIC.getLI(Callee), FSC, FLD);
+      if (FSC < MinFormalSubsCount || FLD < MinFormalSubsDepth)
+        return false;
+      unsigned ASC = 0;
+      unsigned ALD = 0;
+      ActualArgTest(CB->getArgOperand(I), ILIC.getLI(Caller), ASC, ALD);
+      if (ASC < MinActualSubsCount || ALD < MinActualSubsDepth)
+        return false;
+    }
+    return true;
+  };
+
+  if (!CB.getCaller()->isFortran())
+    return false;
+  if (!IsSmallApp(CB.getModule(), FusionSmallAppFunctionLimit))
+    return false;
+  if (!TwinInSameBasicBlock(&CB))
+    return false;
+  return PassesArgTest(&CB, ILIC);
+}
+
+//
 // Return 'true' if 'CB' worth inlining, given that it is a double callsite
 // with internal linkage.
 //
 static bool worthyDoubleInternalCallSite(CallBase &CB,
                                          InliningLoopInfoCache &ILIC) {
   return worthyDoubleCallSite1(CB, ILIC) || worthyDoubleCallSite2(CB, ILIC) ||
-         worthyDoubleCallSite3(CB, ILIC);
+         worthyDoubleCallSite3(CB, ILIC) || worthyDoubleCallSite4(CB, ILIC);
 }
 
 //
@@ -2934,30 +3148,6 @@ static bool worthInliningForFusion(CallBase &CB, TargetLibraryInfo *TLI,
                                    const TargetTransformInfo &CalleeTTI,
                                    InliningLoopInfoCache &ILIC,
                                    bool PrepareForLTO) {
-
-  //
-  // Return 'true' if the module 'M' has no more than 'Limit' Functions
-  // with IR.
-  //
-  auto IsSmallApp = [](Module *M, unsigned Limit) {
-    static bool Computed = false;
-    static bool ComputedIsSmallApp = false;
-    if (Computed)
-      return ComputedIsSmallApp;
-    unsigned FunctionCount = 0;
-    for (auto &F : M->functions()) {
-      if (F.isDeclaration())
-        continue;
-      if (++FunctionCount > Limit) {
-        Computed = true;
-        ComputedIsSmallApp = false;
-        return false;
-      }
-    }
-    Computed = true;
-    ComputedIsSmallApp = true;
-    return true;
-  };
 
   //
   // Early test for inlining to promote fusion. We are looking for a

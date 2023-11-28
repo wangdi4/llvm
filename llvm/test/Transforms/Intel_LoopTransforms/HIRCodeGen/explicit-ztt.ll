@@ -1,8 +1,16 @@
 ;; This test verifies correct cg for an HLIf, representing ztt of an i2 loop
 ;; Also verifies correct cg for a double subscript address calculation
 ;;
-; RUN: opt -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
-; basic cg
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
+
+; HIR-
+; + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 5>  <LEGAL_MAX_TC = 2147483647>
+; |      %2 = (@B)[0][i1];
+; |   + DO i2 = 0, sext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; |   |   (@A)[0][2 * i1][sext.i32.i64(%k) * i2] = %2;
+; |   + END LOOP
+; + END LOOP
+
 ; CHECK: region.0:
 
 ; loop 1
@@ -13,23 +21,19 @@
 ; CHECK: %hir.cmp.[[CMP_NUM:[0-9]+]] = icmp sgt i32 %m, 0
 ; CHECK-NEXT: br i1 %hir.cmp.[[CMP_NUM]], label %then.[[CMP_NUM]], label %ifmerge.[[CMP_NUM]]
 
-;From here on, the bb's can be in any order
-; assume hircgs ordering of appending doesnt change?
 ; CHECK: then.[[CMP_NUM]]:
-; lod of b[] should be before i2 loop
+; load of b[] should be before i2 loop
 ; CHECK: getelementptr{{.*}} @B
-;
+; CHECK: [[I1:%[0-9]+]] = load i64, ptr %i1.i64
+; CHECK: [[I1_MUL_2:%[0-9]+]] = mul i64 2, [[I1]]
+
 ; i2 loop
 ; CHECK: br label %[[L2Label:loop.[0-9]+]]
 ; CHECK: [[L2Label]]:
 
-; these arent fully reorderable, but verifier should eliminate illegal ones
-; CHECK-DAG: [[I1:%[0-9]+]] = load i64, ptr %i1.i64
-; CHECK-DAG: [[I1_MUL_2:%[0-9]+]] = mul i64 2, [[I1]]
+; CHECK: [[I2:%[0-9]+]] = load i64, ptr %i2.i64
+; CHECK: [[I2_MUL_K:%[0-9]+]] = mul i64 %conv7, [[I2]]
 
-; CHECK-DAG: [[I2:%[0-9]+]] = load i64, ptr %i2.i64
-; CHECK-DAG: [[SEXT_K:%[0-9]+]] = sext i32 %k to i64
-; CHECK-DAG: [[I2_MUL_K:%[0-9]+]] = mul i64 [[SEXT_K]], [[I2]]
 ; (@A)[2 * i1][sext.i32.i64(%k) * i2]
 ; CHECK:  getelementptr inbounds [10 x [10 x i32]], ptr @A, i64 0, i64 [[I1_MUL_2]], i64 [[I2_MUL_K]]
 

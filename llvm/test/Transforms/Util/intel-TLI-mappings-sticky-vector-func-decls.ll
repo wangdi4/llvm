@@ -3,18 +3,18 @@
 ; already available in the module.
 
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=0 -vector-library=SVML       -passes=inject-tli-mappings -S -debug-only=vectorutils < %s 2>&1 | FileCheck %s
+; RUN: opt -vector-library=SVML       -passes=inject-tli-mappings -S -debug-only=vectorutils < %s 2>&1 | FileCheck %s
 
 ; CHECK: VFABI: adding mapping '_ZGV_LLVM_N8v_llvm.log.f64(__svml_log8)'
 
 ; CHECK-LABEL: @llvm.compiler.used = appending global
-; CHECK-SAME:        [12 x i8*] [
-; CHECK-SAME:          i8* bitcast (<2 x double> (<2 x double>)* @__svml_log2 to i8*),
-; CHECK-SAME:          i8* bitcast (<4 x double> (<4 x double>)* @__svml_log4 to i8*),
-; CHECK-SAME:          i8* bitcast (<8 x double> (<8 x double>)* @__svml_log8 to i8*),
-; CHECK-SAME:          i8* bitcast (<16 x double> (<16 x double>)* @__svml_log16 to i8*),
-; CHECK-SAME:          i8* bitcast (<32 x double> (<32 x double>)* @__svml_log32 to i8*),
-; CHECK-SAME:          i8* bitcast (<64 x double> (<64 x double>)* @__svml_log64 to i8*)
+; CHECK-SAME:        [12 x ptr] [
+; CHECK-SAME:          ptr @__svml_log2,
+; CHECK-SAME:          ptr @__svml_log4,
+; CHECK-SAME:          ptr @__svml_log8,
+; CHECK-SAME:          ptr @__svml_log16,
+; CHECK-SAME:          ptr @__svml_log32,
+; CHECK-SAME:          ptr @__svml_log64
 ; CHECK-SAME:      ], section "llvm.metadata"
 
 

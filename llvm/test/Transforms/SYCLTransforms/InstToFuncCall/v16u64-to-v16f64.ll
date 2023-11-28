@@ -13,4 +13,4 @@ define void @sample_test(<16 x i64> %x, ptr %y) nounwind {
 ; DEBUGIFY-NOT: WARNING
 
 !0 = !{!"ulong16", !"double16*"}
-!1 = !{<16 x i64> zeroinitializer, <16 x double>* null}
+!1 = !{<16 x i64> zeroinitializer, ptr null}

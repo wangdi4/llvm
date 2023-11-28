@@ -4,15 +4,7 @@
 // only run for x86_64 host offloading:
 // REQUIRES: x86_64-pc-linux-gnu
 
-// INTEL_CUSTOMIZATION
-// Disable use of variants for the second RUN line until proper fix is done in
-// omp.h.
-#ifndef UNUSED
-// end INTEL_CUSTOMIZATION
 #include <omp.h>
-// INTEL_CUSTOMIZATION
-#endif
-// end INTEL_CUSTOMIZATION
 #include <stdio.h>
 
 int main() {

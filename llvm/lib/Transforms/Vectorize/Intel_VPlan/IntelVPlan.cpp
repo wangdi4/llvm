@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Copyright (C) 2021-2023 Intel Corporation
+// Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -34,18 +34,18 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlan.h"
+#include "HIR/IntelVPOCodeGenHIR.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPAssumptionCache.h"
-#include "IntelVPOCodeGen.h"
 #include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanClone.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
-#include "IntelVPlanScalarEvolution.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
-#include "VPlanHIR/IntelVPOCodeGenHIR.h"
+#include "ScalarEvolution.h"
+#include "LLVM/CodeGenLLVM.h"
 
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/BasicBlock.h"
@@ -99,12 +99,6 @@ static cl::opt<bool>
 static cl::opt<bool> DumpVPlanLiveInsLiveOuts(
     "vplan-dump-live-inout", cl::init(false), cl::Hidden,
     cl::desc("Print live-ins and live-outs of main loop"));
-
-static cl::opt<bool>
-    VPGEPPrintSrcElemType("vpgep-print-src-elem-type", cl::init(false),
-                          cl::Hidden,
-                          cl::desc("Print VPGEPInstruction's SourceElementType "
-                                   "even for non-opaque pointers."));
 
 static cl::opt<bool>
     VPlanDumpDAShapes("vplan-dump-da-shapes", cl::init(false), cl::Hidden,
@@ -414,6 +408,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "early-exit-exec-mask";
   case VPInstruction::EarlyExitLane:
     return "early-exit-lane";
+  case VPInstruction::EarlyExitID:
+    return "early-exit-id";
+  case VPInstruction::SelectValOrLane:
+    return "select-val-or-lane";
   default:
     return Instruction::getOpcodeName(Opcode);
   }
@@ -472,6 +470,8 @@ void VPInstruction::print(raw_ostream &O) const {
       SVA->printSVAKindForOperand(O, this, OpIdx);
       O << " ";
     }
+    if (!isa<VPCallInstruction>(this) && SVA->instWillBeSerialized(this))
+      O << ", Serial";
     O << ")";
   }
 
@@ -543,15 +543,10 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   case Instruction::GetElementPtr: {
     auto *GEP = cast<const VPGEPInstruction>(this);
     PrintOpcodeWithInBounds(GEP);
-    if (GEP->isOpaque() || VPGEPPrintSrcElemType) {
-      // We only print it for opaque so that we won't have to update all the
-      // tests twice - right now and when all the GEPs will have to be
-      // transitioned to be opaque.
-      O << " ";
-      GEP->getSourceElementType()->print(O, false /*IsForDebug*/,
-                                         true /*NoDetails*/);
-      O << ",";
-    }
+    O << " ";
+    GEP->getSourceElementType()->print(O, false /*IsForDebug*/,
+                                       true /*NoDetails*/);
+    O << ",";
     break;
   }
   case VPInstruction::Subscript:
@@ -827,6 +822,12 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
       O << " { Redux Opcode: ";
       O << getOpcodeName(TreeConf->getRednOpcode());
       O << " }";
+      break;
+    }
+    case VPInstruction::SelectValOrLane: {
+      auto *SelValOrLane = cast<VPSelectValOrLane>(this);
+      StringRef Lane = SelValOrLane->useFirstLane() ? "first" : "last";
+      O << ", " << Lane << " lane";
       break;
     }
     }
@@ -1663,6 +1664,15 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
   VPLoopInfo *ClonedVPLInfo = TargetPlan->getVPLoopInfo();
   ClonedVPLInfo->analyze(*TargetPlan->getDT());
   LLVM_DEBUG(ClonedVPLInfo->verify(*TargetPlan->getDT()));
+
+  // Copy VPLoop data
+  auto ToLoops = ClonedVPLInfo->getLoopsInPreorder();
+  auto FromLoops = getVPLoopInfo()->getLoopsInPreorder();
+  assert(ToLoops.size() == FromLoops.size() && "Loop info size mismatch!");
+  for (size_t I = 0; I < ToLoops.size(); I++) {
+    ToLoops[I]->setUnderlyingLoop(FromLoops[I]->getUnderlyingLoop());
+    ToLoops[I]->setDebugLoc(FromLoops[I]->getDebugLoc());
+  }
 
   // Update HasNormalizedInduction
   VPLoop *ThisLoop = *getVPLoopInfo()->begin();

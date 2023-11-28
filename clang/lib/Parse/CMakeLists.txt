@@ -52,4 +52,5 @@ add_clang_library(clangParse
 
   DEPENDS
   omp_gen
+  ClangDriverOptions
   )

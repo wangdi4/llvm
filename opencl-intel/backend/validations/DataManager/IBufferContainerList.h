@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,11 +15,10 @@
 #ifndef __IBUFFER_CONTAINER_LIST_H__
 #define __IBUFFER_CONTAINER_LIST_H__
 
-#include <cstddef> // for std::size_t
-#include <vector>
-
 #include "IBufferContainer.h"
 #include "IContainer.h"
+#include <cstddef> // for std::size_t
+#include <vector>
 
 namespace Validation {
 

@@ -20,17 +20,17 @@ entry:
   br label %preheader
 
 preheader:
-  %call = tail call noalias i8* @malloc(i64 80)
-  %add.ptr = getelementptr inbounds i8, i8* %call, i64 8
-  %intptr = ptrtoint i8* %add.ptr to i64
-  %base = inttoptr i64 %intptr to [10 x i64]*
+  %call = tail call noalias ptr @malloc(i64 80)
+  %add.ptr = getelementptr inbounds i8, ptr %call, i64 8
+  %intptr = ptrtoint ptr %add.ptr to i64
+  %base = inttoptr i64 %intptr to ptr
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %preheader
   %indvars.iv = phi i64 [ 0, %preheader ], [ %indvars.iv.next, %for.body ]
   %t1 = mul nuw nsw i64 %indvars.iv, 5
   %t2 = add nsw i64 %t1, -2
-  %arrayidx = getelementptr inbounds [10 x i64], [10 x i64]* %base, i64 0, i64 %t2
+  %arrayidx = getelementptr inbounds [10 x i64], ptr %base, i64 0, i64 %t2
   store i64 %indvars.iv, i64* %arrayidx, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
@@ -41,10 +41,10 @@ for.end:                                          ; preds = %for.body
 }
 
 ; Function Attrs: nounwind
-declare noalias i8* @malloc(i64) local_unnamed_addr
+declare noalias ptr @malloc(i64) local_unnamed_addr
 
 ; Function Attrs: nounwind
-declare void @free(i8* nocapture) local_unnamed_addr
+declare void @free(ptr nocapture) local_unnamed_addr
 
 
 !llvm.module.flags = !{!0}

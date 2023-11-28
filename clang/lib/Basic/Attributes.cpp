@@ -1,8 +1,22 @@
+//===--- Attributes.cpp ---------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements the AttributeCommonInfo interface.
+//
+//===----------------------------------------------------------------------===//
+
 #include "clang/Basic/Attributes.h"
 #include "clang/Basic/AttrSubjectMatchRules.h"
-#include "clang/Basic/AttributeCommonInfo.h"
 #include "clang/Basic/IdentifierTable.h"
+#include "clang/Basic/LangOptions.h"
 #include "clang/Basic/ParsedAttrInfo.h"
+#include "clang/Basic/TargetInfo.h"
+
 using namespace clang;
 
 static int hasAttributeImpl(AttributeCommonInfo::Syntax Syntax, StringRef Name,
@@ -37,12 +51,11 @@ int clang::hasAttribute(AttributeCommonInfo::Syntax Syntax, const IdentifierInfo
   // attributes. We support those, but not through the typical attribute
   // machinery that goes through TableGen. We support this in all OpenMP modes
   // so long as double square brackets are enabled.
-  if (LangOpts.OpenMP && LangOpts.DoubleSquareBracketAttributes &&
 #if INTEL_COLLAB
-      (ScopeName == "omp" || ScopeName == "ompx"))
+  if (LangOpts.OpenMP && (ScopeName == "omp" || ScopeName == "ompx"))
     return (Name == "directive" || (Name == "sequence" && ScopeName != "ompx"));
 #else // INTEL_COLLAB
-      ScopeName == "omp")
+  if (LangOpts.OpenMP && ScopeName == "omp")
     return (Name == "directive" || Name == "sequence") ? 1 : 0;
 #endif // INTEL_COLLAB
 
@@ -78,7 +91,7 @@ normalizeAttrScopeName(const IdentifierInfo *Scope,
   // to be "clang".
   StringRef ScopeName = Scope->getName();
   if (SyntaxUsed == AttributeCommonInfo::AS_CXX11 ||
-      SyntaxUsed == AttributeCommonInfo::AS_C2x) {
+      SyntaxUsed == AttributeCommonInfo::AS_C23) {
     if (ScopeName == "__gnu__")
       ScopeName = "gnu";
     else if (ScopeName == "_Clang")
@@ -95,7 +108,7 @@ static StringRef normalizeAttrName(const IdentifierInfo *Name,
   bool ShouldNormalize =
       SyntaxUsed == AttributeCommonInfo::AS_GNU ||
       ((SyntaxUsed == AttributeCommonInfo::AS_CXX11 ||
-        SyntaxUsed == AttributeCommonInfo::AS_C2x) &&
+        SyntaxUsed == AttributeCommonInfo::AS_C23) &&
        (NormalizedScopeName.empty() || NormalizedScopeName == "gnu" ||
         NormalizedScopeName == "clang"));
   StringRef AttrName = Name->getName();
@@ -125,7 +138,7 @@ static SmallString<64> normalizeName(const IdentifierInfo *Name,
   SmallString<64> FullName = ScopeName;
   if (!ScopeName.empty()) {
     assert(SyntaxUsed == AttributeCommonInfo::AS_CXX11 ||
-           SyntaxUsed == AttributeCommonInfo::AS_C2x);
+           SyntaxUsed == AttributeCommonInfo::AS_C23);
     FullName += "::";
   }
   FullName += AttrName;

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,15 +13,13 @@
 // License.
 
 #include "GenericMemObj.h"
-
-#include "cl_sys_defines.h"
-#include <Device.h>
-#include <algorithm>
-#include <assert.h>
-
+#include "Device.h"
 #include "MemoryObjectFactory.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
 #include "cl_utils.h"
+#include <algorithm>
+#include <assert.h>
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
@@ -250,10 +248,6 @@ cl_err_code GenericMemObject::Initialize(
       GetContext()->GetMemoryObjectsHeap(), creation_flags,
       pDeviceRawMemAllocator);
 
-  if (nullptr == m_BS) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
-
   // just start with both pointers equal
   m_BS->AddPendency();
   m_pBackingStore = m_BS;
@@ -312,10 +306,6 @@ cl_err_code GenericMemObject::InitializeSubObject(
 
   m_BS = new GenericMemObjectBackingStore(clMemFlags, parent.m_pBackingStore,
                                           origin, region, *(parent.m_BS));
-
-  if (nullptr == m_BS) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   // just start with both pointers equal
   m_BS->AddPendency();
@@ -912,9 +902,6 @@ cl_err_code GenericMemObject::CreateSubBuffer(
 
   GenericMemObjectSubBuffer *pSubBuffer =
       new GenericMemObjectSubBuffer(m_pContext, m_clMemObjectType, *this);
-  if (nullptr == pSubBuffer) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   cl_err_code err = pSubBuffer->InitializeSubObject(clFlags, *this, pSzOrigin,
                                                     pSzSize, RequireAlign);

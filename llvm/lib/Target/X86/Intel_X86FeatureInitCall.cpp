@@ -1,6 +1,6 @@
 //====-- Intel_FeatureInitCall.cpp ----------------====
 //
-//      Copyright (c) 2019-2022 Intel Corporation.
+//      Copyright (c) 2019 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -335,7 +335,7 @@ public:
       X87PrecisionInit = setX87Precision(F, X87Precision);
 
     // This pass only works for X87 precision control when OptLevel is -O0.
-    if (skipFunction(F) || TM->getOptLevel() == CodeGenOpt::None)
+    if (skipFunction(F) || TM->getOptLevel() == CodeGenOptLevel::None)
       return X87PrecisionInit;
 
     bool ProcInit = insertProcInitCall(F);

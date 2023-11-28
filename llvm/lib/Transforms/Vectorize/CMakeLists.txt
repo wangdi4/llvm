@@ -23,6 +23,7 @@ add_llvm_component_library(LLVMVectorize
   Vectorize.cpp
   VectorCombine.cpp
   VPlan.cpp
+  VPlanAnalysis.cpp
   VPlanHCFGBuilder.cpp
   VPlanRecipes.cpp
   VPlanSLP.cpp
@@ -31,13 +32,23 @@ add_llvm_component_library(LLVMVectorize
 # INTEL_CUSTOMIZATION
   Intel_LoadCoalescing.cpp
   IntelMFReplacement.cpp
-  Intel_VPlan/IntelLoopVectorizationLegality.cpp
+  Intel_VPlan/Driver.cpp
+  Intel_VPlan/HIR/DriverHIR.cpp
+  Intel_VPlan/HIR/IntelLoopVectorizationPlannerHIR.cpp
+  Intel_VPlan/HIR/IntelVPOCodeGenHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanDecomposerHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanHCFGBuilderHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanInstructionDataHIR.cpp
+  Intel_VPlan/HIR/ScalarEvolutionHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanValueTrackingHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanVLSAnalysisHIR.cpp
+  Intel_VPlan/HIR/IntelVPlanVerifierHIR.cpp
+  Intel_VPlan/HIR/LegalityHIR.cpp
   Intel_VPlan/IntelLoopVectorizationPlanner.cpp
   Intel_VPlan/IntelVPAlignAssumeCleanup.cpp
   Intel_VPlan/IntelVPAssumptionCache.cpp
   Intel_VPlan/IntelVPBasicBlock.cpp
   Intel_VPlan/IntelVPLoopAnalysis.cpp
-  Intel_VPlan/IntelVPOCodeGen.cpp
   Intel_VPlan/IntelVPlan.cpp
   Intel_VPlan/IntelVPlanAlignmentAnalysis.cpp
   Intel_VPlan/IntelVPlanAllZeroBypass.cpp
@@ -48,7 +59,6 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanCostModel.cpp
   Intel_VPlan/IntelVPlanCostModelHeuristics.cpp
   Intel_VPlan/IntelVPlanDivergenceAnalysis.cpp
-  Intel_VPlan/IntelVPlanDriver.cpp
   Intel_VPlan/IntelVPlanEvaluator.cpp
   Intel_VPlan/IntelVPlanExternals.cpp
   Intel_VPlan/IntelVPlanFunctionVectorizer.cpp
@@ -66,12 +76,10 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp
   Intel_VPlan/IntelVPlanPragmaOmpSimdIf.cpp
   Intel_VPlan/IntelVPlanPredicator.cpp
-  Intel_VPlan/IntelVPlanScalarEvolution.cpp
   Intel_VPlan/IntelVPlanScalVecAnalysis.cpp
   Intel_VPlan/IntelVPlanSLP.cpp
   Intel_VPlan/IntelVPlanSSADeconstruction.cpp
   Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp
-  Intel_VPlan/SyncDependenceAnalysis.cpp
   Intel_VPlan/IntelVPlanTransformEarlyExitLoop.cpp
   Intel_VPlan/IntelVPTransformLibraryCalls.cpp
   Intel_VPlan/IntelVPlanValueTracking.cpp
@@ -83,15 +91,13 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanVectorizeIndirectCalls.cpp
   Intel_VPlan/IntelVPlanVerifier.cpp
   Intel_VPlan/IntelVPSOAAnalysis.cpp
-  Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPOCodeGenHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanDecomposerHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanScalarEvolutionHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanValueTrackingHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanVLSAnalysisHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanVerifierHIR.cpp
+  Intel_VPlan/Legality.cpp
+  Intel_VPlan/LLVM/CodeGenLLVM.cpp
+  Intel_VPlan/LLVM/DriverLLVM.cpp
+  Intel_VPlan/LLVM/LegalityLLVM.cpp
+  Intel_VPlan/LLVM/ScalarEvolutionLLVM.cpp
+  Intel_VPlan/ScalarEvolution.cpp
+  Intel_VPlan/SyncDependenceAnalysis.cpp
 # end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS
@@ -108,6 +114,7 @@ add_llvm_component_library(LLVMVectorize
   Analysis
   Core
   Support
+  TargetParser
   TransformUtils
 # INTEL_CUSTOMIZATION
   Intel_LoopAnalysis

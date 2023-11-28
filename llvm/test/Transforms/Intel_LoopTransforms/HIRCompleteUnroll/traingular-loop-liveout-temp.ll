@@ -22,7 +22,7 @@
 ; CHECK: |   {
 ; CHECK: |      + DO i2 = 0, i1 + -4, 1   <DO_LOOP>  <MAX_TC_EST = 1>
 ; CHECK: |      |   %4 = (@l)[0][i1];
-; CHECK: |      |   (i32*)(@l)[0] = %4;
+; CHECK: |      |   (@l)[0][0] = %4;
 ; CHECK: |      + END LOOP
 ; CHECK: |
 ; CHECK: |      (@c)[0] = %1;

@@ -1,12 +1,12 @@
-#include "CL/cl_gvp_ext.h"
+#include "CL/cl_internal_ext.h"
 #include "TestsHelpClasses.h"
 #include "base_fixture.h"
 #include "common_utils.h"
-
 #include <vector>
 
 static const char *BinaryFile1 = "device_global_image1.bc";
 static const char *BinaryFile2 = "device_global_image2.bc";
+static const char *BinaryFileConstant = "device_global_constant_initializer.bc";
 
 class DeviceGlobalTest : public OCLFPGABaseFixture {
 public:
@@ -201,4 +201,18 @@ TEST_F(DeviceGlobalTest, resetGlobalInParentDeivceCreatedProgram) {
                                            nullptr, nullptr);
   ASSERT_OCL_SUCCESS(Err, "clEnqueueReadGlobalVariableINTEL");
   ASSERT_EQ(Val, 2);
+}
+
+TEST_F(DeviceGlobalTest, ConstantInitilizer) {
+  cl_int Err;
+  clProgramWrapper Program;
+  ASSERT_NO_FATAL_FAILURE(
+      BuildProgram(BinaryFileConstant, m_context, m_device, &Program));
+
+  int Val = 0;
+  Err = m_clEnqueueReadGlobalVariableINTEL(m_queue, Program, "gv_read", CL_TRUE,
+                                           sizeof(int), 0, &Val, 0, nullptr,
+                                           nullptr);
+  ASSERT_OCL_SUCCESS(Err, "clEnqueueReadGlobalVariableINTEL");
+  ASSERT_EQ(Val, 123);
 }

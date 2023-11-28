@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.cpp - Inline report ------- ---------------------===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -562,6 +562,12 @@ void InlineReport::beginSCC(LazyCallGraph::SCC &SCC, void *Inliner) {
     initFunction(&Node.getFunction());
 }
 
+void InlineReport::beginModule(void *Inliner) {
+  ActiveInliners.insert(Inliner);
+}
+
+void InlineReport::endModule(void) { makeAllNotCurrent(); }
+
 void InlineReport::endSCC(void) {
   if (!isClassicIREnabled())
     return;
@@ -1089,6 +1095,26 @@ void InlineReport::replaceAllUsesWith(Function *OldFunction,
       IRCS->setIRCallee(IRFNew);
     }
   }
+}
+
+void InlineReport::replaceUsesWithIf(
+    Function *OldFunction, Function *NewFunction,
+    llvm::function_ref<bool(Use &U)> ShouldReplace) {
+  //
+  // NOTE: This should be called before replaceUsesWithIf() in Value.cpp,
+  // because it uses the 'users' list to find the users of 'OldFunction'.
+  //
+  if (!isClassicIREnabled())
+    return;
+  auto MapIt = IRFunctionMap.find(NewFunction);
+  assert(MapIt != IRFunctionMap.end());
+  InlineReportFunction *IRFNew = MapIt->second;
+  for (auto &U : OldFunction->uses())
+    if (ShouldReplace(U))
+      if (auto CB = dyn_cast<CallBase>(U.getUser())) {
+        InlineReportCallSite *IRCS = getOrAddCallSite(CB);
+        IRCS->setIRCallee(IRFNew);
+      }
 }
 
 InlineReportFunction *InlineReport::initFunction(Function *F) {

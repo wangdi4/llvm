@@ -256,9 +256,10 @@ bool VPOUtils::renameOperandsUsingStoreThenLoad(WRegionNode *W,
 
   SmallPtrSet<Value *, 16> HandledVals;
   DenseMap<Value *, std::pair<Value *, LoadInst *>> RenamedAddrAndValForOrigMap;
-  using OpndAddrPairTy = SmallVector<Value *, 2>;
-  SmallVector<OpndAddrPairTy, 16> OpndAddrPairs;
-  auto rename = [&](Value *Orig, bool CheckAlreadyHandled,
+  using OpndAddrSubObjTupleTy =
+      std::pair<SmallVector<Value *, 2> /*OpndAddr*/, bool /*IsSubObj*/>;
+  SmallVector<OpndAddrSubObjTupleTy, 16> OpndAddrSubObjTuples;
+  auto rename = [&](Value *Orig, bool IsSubObj, bool CheckAlreadyHandled,
                     bool ReplaceUses = true) {
     if (CheckAlreadyHandled && HandledVals.find(Orig) != HandledVals.end())
       return false;
@@ -280,50 +281,57 @@ bool VPOUtils::renameOperandsUsingStoreThenLoad(WRegionNode *W,
       return false;
 
     RenamedAddrAndValForOrigMap.insert({Orig, RenamedAddrAndVal});
-    OpndAddrPairs.push_back({Orig, RenamedAddrAndVal.first});
+    OpndAddrSubObjTuples.push_back({{Orig, RenamedAddrAndVal.first}, IsSubObj});
     return true;
   };
 
   if (W->canHavePrivate()) {
     PrivateClause &PrivClause = W->getPriv();
     for (PrivateItem *PrivI : PrivClause.items())
-      Changed |= rename(PrivI->getOrig(), false);
+      Changed |= rename(PrivI->getOrig(), PrivI->getIsSubObject(),
+                        /*CheckAlreadyHandled=*/false);
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
     for (FirstprivateItem *FprivI : FprivClause.items())
-      Changed |= rename(FprivI->getOrig(), false);
+      Changed |= rename(FprivI->getOrig(), FprivI->getIsSubObject(),
+                        /*CheckAlreadyHandled=*/false);
   }
 
   if (W->canHaveShared()) {
     SharedClause &ShaClause = W->getShared();
     for (SharedItem *ShaI : ShaClause.items())
-      Changed |= rename(ShaI->getOrig(), false);
+      Changed |= rename(ShaI->getOrig(), ShaI->getIsSubObject(),
+                        /*CheckAlreadyHandled=*/false);
   }
 
   if (W->canHaveReduction()) {
     ReductionClause &RedClause = W->getRed();
     for (ReductionItem *RedI : RedClause.items())
-      Changed |= rename(RedI->getOrig(), false);
+      Changed |= rename(RedI->getOrig(), RedI->getIsSubObject(),
+                        /*CheckAlreadyHandled=*/false);
   }
 
   if (W->canHaveLivein()) {
     LiveinClause &LvClause = W->getLivein();
     for (LiveinItem *LvI : LvClause.items())
-      Changed |= rename(LvI->getOrig(), false);
+      Changed |= rename(LvI->getOrig(), LvI->getIsSubObject(),
+                        /*CheckAlreadyHandled=*/false);
   }
 
   if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     for (LastprivateItem *LprivI : LprivClause.items())
-      Changed |= rename(LprivI->getOrig(), true);
+      Changed |= rename(LprivI->getOrig(), LprivI->getIsSubObject(),
+                        /*CheckAlreadyHandled=*/true);
   }
 
   if (W->canHaveLinear()) {
     LinearClause &LrClause = W->getLinear();
     for (LinearItem *LrI : LrClause.items())
-      Changed |= rename(LrI->getOrig(), true);
+      Changed |= rename(LrI->getOrig(), LrI->getIsSubObject(),
+                        /*CheckAlreadyHandled=*/true);
   }
 
   if (W->canHaveMap()) {
@@ -346,24 +354,28 @@ bool VPOUtils::renameOperandsUsingStoreThenLoad(WRegionNode *W,
     MapClause const &MpClause = W->getMap();
     for (MapItem *MapI : MpClause.items()) {
       Value *MapIOrig = MapI->getOrig();
+      bool IsSubObj = MapI->getIsSubObject();
       if (MapI->getIsMapChain()) {
         MapChainTy const &MapChain = MapI->getMapChain();
         for (unsigned I = 0; I < MapChain.size(); ++I) {
           MapAggrTy *Aggr = MapChain[I];
           Value *SectionPtr = Aggr->getSectionPtr();
           Value *BasePtr = Aggr->getBasePtr();
-          Changed |= rename(SectionPtr, true, SectionPtr == MapIOrig);
-          Changed |= rename(BasePtr, true, BasePtr == MapIOrig);
+          Changed |= rename(SectionPtr, IsSubObj, /*CheckAlreadyHandled=*/true,
+                            /*ReplaceUses=*/SectionPtr == MapIOrig);
+          Changed |= rename(BasePtr, IsSubObj, /*CheckAlreadyHandled=*/true,
+                            /*ReplaceUses=*/BasePtr == MapIOrig);
         }
       }
-      Changed |= rename(MapIOrig, true);
+      Changed |= rename(MapIOrig, IsSubObj, /*CheckAlreadyHandled=*/true);
     }
   }
 
   if (W->canHaveUseDevicePtr()) {
     UseDevicePtrClause &UdpClause = W->getUseDevicePtr();
     for (UseDevicePtrItem *UdpI : UdpClause.items())
-      Changed |= rename(UdpI->getOrig(), true);
+      Changed |= rename(UdpI->getOrig(), UdpI->getIsSubObject(),
+                        /*CheckAlreadyHandled=*/true);
   }
 
   // is_device_ptr() clauses must have been transformed into
@@ -431,13 +443,20 @@ bool VPOUtils::renameOperandsUsingStoreThenLoad(WRegionNode *W,
   if (!Changed)
     return false;
 
-  assert(!OpndAddrPairs.empty() && "Something changed without any renaming.");
+  assert(!OpndAddrSubObjTuples.empty() &&
+         "Something changed without any renaming.");
   CallInst *CI = cast<CallInst>(W->getEntryDirective());
   SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> BundleOpndAddrs;
   StringRef OperandAddrClauseString =
       VPOAnalysisUtils::getClauseString(QUAL_OMP_OPERAND_ADDR);
-  for (auto &OpndAddrPair : OpndAddrPairs)
-    BundleOpndAddrs.emplace_back(OperandAddrClauseString,
+  // When renaming SubObj operands, we need to retain the SUBOBJ modifier in
+  // the OPERAND.ADDR clause, so that vpo-restore-operands can use it.
+  // See rename_and_restore_geps_and_base_subobj.ll for reference.
+  std::string OperandAddrSubObjClauseString =
+      (OperandAddrClauseString + ":SUBOBJ").str();
+  for (const auto &[OpndAddrPair, IsSubObj] : OpndAddrSubObjTuples)
+    BundleOpndAddrs.emplace_back(IsSubObj ? OperandAddrSubObjClauseString
+                                          : OperandAddrClauseString,
                                  ArrayRef(OpndAddrPair));
 
   CI = VPOUtils::addOperandBundlesInCall(CI, BundleOpndAddrs);

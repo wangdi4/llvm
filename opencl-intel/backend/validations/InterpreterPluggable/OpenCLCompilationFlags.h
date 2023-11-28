@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2013-2018 Intel Corporation.
+// Copyright 2013 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,7 +16,6 @@
 #define OPEN_CL_REF_COMPILATION_FLAGS_H
 
 #include "llvm/IR/Module.h"
-
 #include <string>
 
 namespace Validation {

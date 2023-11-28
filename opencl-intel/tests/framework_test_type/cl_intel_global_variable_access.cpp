@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2022-2023 Intel Corporation.
+// Copyright 2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,8 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "CL/cl.h"
-#include "CL/cl_gvp_ext.h"
+#include "CL/cl_internal_ext.h"
 #include "FrameworkTest.h"
 #include "TestsHelpClasses.h"
 #include "common_utils.h"

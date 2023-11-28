@@ -135,7 +135,7 @@ inline namespace _V1 {
           }
         } else {
           // large half maps to inf nan
-          biased_exp8 = half_inf_nan_exp;
+          biased_exp8 = hfloat8_inf_nan_exp;
           mantissa8 = hfloat8_inf_nan_mantissa;
         }
       }

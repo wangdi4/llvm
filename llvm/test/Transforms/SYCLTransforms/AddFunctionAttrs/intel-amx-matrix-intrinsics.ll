@@ -9,13 +9,13 @@
 
 define void @load_mad_store(ptr addrspace(4) %ptr, i64 %Stride, <616 x i8> %x, <560 x i8> %y) {
   %1 = call <110 x i32> @llvm.experimental.matrix.load.v110i32.p4(ptr addrspace(4) %ptr, i64 %Stride, i1 false, i32 11, i32 10, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-  %2 = call <110 x i32> @llvm.experimental.matrix.mad.v110i32.v616i8.v560i8(<616 x i8> %x, metadata !"matrix.rowmajor", <560 x i8> %y, metadata !"matrix.packed.b", <110 x i32> %1, metadata !"matrix.rowmajor", i32 11, i32 56, i32 10, metadata !"scope.subgroup")
+  %2 = call <110 x i32> @llvm.experimental.matrix.mad.v110i32.v616i8.v560i8(<616 x i8> %x, <560 x i8> %y, <110 x i32> %1, i32 11, i32 56, i32 10, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
   call void @llvm.experimental.matrix.store.v110i32.p4(<110 x i32> %2, ptr addrspace(4) %ptr, i64 %Stride, i1 false, i32 11, i32 10, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret void
 }
 
 declare <110 x i32> @llvm.experimental.matrix.load.v110i32.p4(ptr addrspace(4), i64, i1, i32, i32, metadata, metadata, metadata, metadata)
-declare <110 x i32> @llvm.experimental.matrix.mad.v110i32.v616i8.v560i8(<616 x i8>, metadata, <560 x i8>, metadata, <110 x i32>, metadata, i32, i32, i32, metadata)
+declare <110 x i32> @llvm.experimental.matrix.mad.v110i32.v616i8.v560i8(<616 x i8>, <560 x i8>, <110 x i32>, i32, i32, i32, metadata, metadata, metadata, metadata, metadata)
 declare void @llvm.experimental.matrix.store.v110i32.p4(<110 x i32>, ptr addrspace(4), i64, i1, i32, i32, metadata, metadata, metadata, metadata)
 
 ; CHECK: call {{.*}} @llvm.experimental.matrix.load.{{.*}} #[[#ATTR_ID:]]

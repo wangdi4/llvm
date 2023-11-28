@@ -1,6 +1,6 @@
 //===---IntelVPlanUtils.h - General Utilities for VPlan and LoadCoalescing-==//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -317,9 +317,20 @@ inline unsigned getNumGroupEltsPerValue(const DataLayout &DL, Type *GroupTy,
 /// Helper function to check if VPValue is a private memory pointer that was
 /// allocated by VPlan. The implementation also checks for any aliases obtained
 /// via casts, gep and PHI-instructions.
+/// If \p LookThruLoad is true continue search through load instruction's
+/// pointer operand. HIR assigns same symbase for all accesses thru struct
+/// fields including indirection through a pointer field.
+///   struct S1 {
+///     long a;
+///     long *p;
+///   } *s1p;
+///
+///   s1p[i1].a, s1p[i1].p, and lp[i1] where 'lp = s1p[i1].p' are assigned
+/// the same symbase.
 // TODO: Check if this utility is still relevant after data layout
 // representation is finalized in VPlan.
-inline const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
+inline const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V,
+                                                 bool LookThruLoad = false) {
 
   // Early quick-check to seen if this is a VPAllocatePrivte.
   if (isa<VPAllocatePrivate>(V))
@@ -343,10 +354,14 @@ inline const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
 
     // Check that it is a valid transform of private memory's address, by
     // recurring into operand.
-    if (auto *VPI = dyn_cast<VPInstruction>(CurrentI))
+    if (auto *VPI = dyn_cast<VPInstruction>(CurrentI)) {
       if (VPI->isCast() || isa<VPGEPInstruction>(VPI) ||
           isa<VPSubscriptInst>(VPI))
         WL.push_back(VPI->getOperand(0));
+      const VPLoadStoreInst *LdSt;
+      if (LookThruLoad && (LdSt = dyn_cast<VPLoadStoreInst>(VPI)))
+        WL.push_back(LdSt->getPointerOperand());
+    }
 
     // This can be a PHI instruction.
     if (auto *PHI = dyn_cast<VPPHINode>(CurrentI)) {
@@ -358,11 +373,9 @@ inline const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
   return nullptr;
 }
 
-inline Type *getInt8OrPointerElementTy(Type *ValTy) {
+inline Type *getInt8(Type *ValTy) {
   assert(ValTy->isPointerTy() && "Expected Pointer type");
-  if (ValTy->isOpaquePointerTy())
-    return Type::getInt8Ty(ValTy->getContext());
-  return ValTy->getNonOpaquePointerElementType();
+  return Type::getInt8Ty(ValTy->getContext());
 }
 
 // Obtain stride information using loopopt interfaces for the given memory

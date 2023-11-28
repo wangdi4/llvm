@@ -6,7 +6,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b) local_unnamed_addr {
+define dso_local void @uniformDivergent(ptr nocapture %a, ptr nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: uniformDivergent:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -22,8 +22,8 @@ define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b) lo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_A_LOAD:%.*]] = load i32* [[A0:%.*]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_B_LOAD:%.*]] = load i32* [[B0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_A_LOAD:%.*]] = load ptr [[A0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_B_LOAD:%.*]] = load ptr [[B0:%.*]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_UNIFORM_ADD:%.*]] = add i32 [[VP_A_LOAD]] i32 [[VP_B_LOAD]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_ADD_SEXT:%.*]] = sext i32 [[VP_UNIFORM_ADD]] to i64 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_DIVERGENT_MUL:%.*]] = mul i64 [[VP_ADD_SEXT]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->V 1->V )
@@ -58,8 +58,8 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
 
   ; Uniform instruction sequence later used in vector context.
-  %a.load = load i32, i32* %a, align 4
-  %b.load = load i32, i32* %b, align 4
+  %a.load = load i32, ptr %a, align 4
+  %b.load = load i32, ptr %b, align 4
   %uniform.add = add i32 %a.load, %b.load
   %add.sext = sext i32 %uniform.add to i64
   %divergent.mul = mul i64 %add.sext, %indvars.iv
@@ -73,7 +73,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
   ret void
 }
 
-define void @storesToUniformAddrs(i32* %src1, i32 %src2, i32* %dest1, i32* %dest2) {
+define void @storesToUniformAddrs(ptr %src1, i32 %src2, ptr %dest1, ptr %dest2) {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: storesToUniformAddrs:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -89,10 +89,10 @@ define void @storesToUniformAddrs(i32* %src1, i32 %src2, i32* %dest1, i32* %dest
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[SRC10:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load i32* [[VP_ARRAYIDX]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (  L)] store i32 [[VP_LOAD]] i32* [[DEST10:%.*]] (SVAOpBits 0->L 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] store i32 [[SRC20:%.*]] i32* [[DEST20:%.*]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[SRC10:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load ptr [[VP_ARRAYIDX]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (  L)] store i32 [[VP_LOAD]] ptr [[DEST10:%.*]] (SVAOpBits 0->L 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] store i32 [[SRC20:%.*]] ptr [[DEST20:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
@@ -119,12 +119,12 @@ entry:
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayIdx = getelementptr inbounds i32, i32* %src1, i64 %indvars.iv
-  %load = load i32, i32* %arrayIdx, align 8
+  %arrayIdx = getelementptr inbounds i32, ptr %src1, i64 %indvars.iv
+  %load = load i32, ptr %arrayIdx, align 8
   ; Store divergent value to uniform address
-  store i32 %load, i32* %dest1, align 8
+  store i32 %load, ptr %dest1, align 8
   ; Store uniform value to uniform address
-  store i32 %src2, i32* %dest2, align 8
+  store i32 %src2, ptr %dest2, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp ne i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %omp.inner.for.body, label %omp.loop.exit
@@ -137,7 +137,7 @@ DIR.QUAL.LIST.END.1:                              ; preds = %omp.loop.exit
   ret void
 }
 
-define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local_unnamed_addr {
+define dso_local void @gatherScatter(ptr nocapture %a, ptr nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: gatherScatter:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -154,11 +154,11 @@ define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_IV_X_2:%.*]] = mul i64 [[VP_INDVARS_IV]] i64 2 (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_A_GEP:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_IV_X_2]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_A_LOAD:%.*]] = load i32* [[VP_A_GEP]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_A_GEP:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_IV_X_2]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_A_LOAD:%.*]] = load ptr [[VP_A_GEP]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_ADD:%.*]] = add i32 [[VP_A_LOAD]] i32 42 (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_B_GEP:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_IV_X_2]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_ADD]] i32* [[VP_B_GEP]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_B_GEP:%.*]] = getelementptr inbounds i32, ptr [[B0:%.*]] i64 [[VP_IV_X_2]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_ADD]] ptr [[VP_B_GEP]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
@@ -189,11 +189,11 @@ DIR.OMP.SIMD.1:                                   ; preds = %entry
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %iv.x.2 = mul i64 %indvars.iv, 2
-  %a.gep = getelementptr inbounds i32, i32* %a, i64 %iv.x.2
-  %a.load = load i32, i32* %a.gep, align 4
+  %a.gep = getelementptr inbounds i32, ptr %a, i64 %iv.x.2
+  %a.load = load i32, ptr %a.gep, align 4
   %add = add i32 %a.load, 42
-  %b.gep = getelementptr inbounds i32, i32* %b, i64 %iv.x.2
-  store i32 %add, i32* %b.gep
+  %b.gep = getelementptr inbounds i32, ptr %b, i64 %iv.x.2
+  store i32 %add, ptr %b.gep
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
@@ -203,7 +203,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
   ret void
 }
 
-define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_addr {
+define dso_local i32 @simpleReduction(ptr nocapture %a, i32 %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: simpleReduction:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -221,7 +221,7 @@ define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_a
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_REDUCTION_PHI:%.*]] = phi  [ i32 [[VP_REDUCTION_PHIRED_INIT]], [[BB1]] ],  [ i32 [[VP_REDUCTION_ADD:%.*]], [[BB2]] ] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_UNIFORM_A:%.*]] = load i32* [[A0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_UNIFORM_A:%.*]] = load ptr [[A0:%.*]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_REDUCTION_ADD]] = add i32 [[VP_REDUCTION_PHI]] i32 [[VP_UNIFORM_A]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
@@ -257,7 +257,7 @@ DIR.OMP.SIMD.1:                                   ; preds = %entry
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %reduction.phi = phi i32 [ %b, %DIR.OMP.SIMD.1], [ %reduction.add, %omp.inner.for.body ]
-  %uniform.a = load i32, i32* %a, align 4
+  %uniform.a = load i32, ptr %a, align 4
   %reduction.add = add i32 %reduction.phi, %uniform.a
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
@@ -269,7 +269,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
   ret i32 %lcssa.red.phi
 }
 
-define dso_local void @phiUsedByPhi(i64* nocapture %a, i64* nocapture %b) local_unnamed_addr {
+define dso_local void @phiUsedByPhi(ptr nocapture %a, ptr nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: phiUsedByPhi:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -290,14 +290,14 @@ define dso_local void @phiUsedByPhi(i64* nocapture %a, i64* nocapture %b) local_
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP0:%.*]] = block-predicate i1 [[VP_CMP]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_A_GEP:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_A_LOAD:%.*]] = load i64* [[VP_A_GEP]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_A_GEP:%.*]] = getelementptr inbounds i64, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_A_LOAD:%.*]] = load ptr [[VP_A_GEP]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_USE_PHI_BLEND_BB3:%.*]] = blend [ i64 [[VP_INDVARS_IV]], i1 true ], [ i64 [[VP_A_LOAD]], i1 [[VP_CMP]] ] (SVAOpBits 0->V 1->V 2->V 3->V )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_B_GEP:%.*]] = getelementptr inbounds i64* [[B0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_USE_PHI_BLEND_BB3]] i64* [[VP_B_GEP]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_B_GEP:%.*]] = getelementptr inbounds i64, ptr [[B0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_USE_PHI_BLEND_BB3]] ptr [[VP_B_GEP]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
@@ -331,14 +331,14 @@ omp.inner.for.body:                               ; preds = %if.end, %DIR.OMP.SI
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %a.gep = getelementptr inbounds i64, i64* %a, i64 %indvars.iv
-  %a.load = load i64, i64* %a.gep, align 4
+  %a.gep = getelementptr inbounds i64, ptr %a, i64 %indvars.iv
+  %a.load = load i64, ptr %a.gep, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %omp.inner.for.body
   %use.phi = phi i64 [ %a.load, %if.then], [ %indvars.iv, %omp.inner.for.body ]
-  %b.gep = getelementptr inbounds i64, i64* %b, i64 %indvars.iv
-  store i64 %use.phi, i64* %b.gep
+  %b.gep = getelementptr inbounds i64, ptr %b, i64 %indvars.iv
+  store i64 %use.phi, ptr %b.gep
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
@@ -348,7 +348,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %if.end
   ret void
 }
 
-define dso_local void @svmlFnCall(float* nocapture %a, float* nocapture %b) local_unnamed_addr {
+define dso_local void @svmlFnCall(ptr nocapture %a, ptr nocapture %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: svmlFnCall:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -364,11 +364,11 @@ define dso_local void @svmlFnCall(float* nocapture %a, float* nocapture %b) loca
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] float* [[VP_A_GEP:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_A_LOAD:%.*]] = load float* [[VP_A_GEP]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_A_GEP:%.*]] = getelementptr inbounds float, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_A_LOAD:%.*]] = load ptr [[VP_A_GEP]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_CALL:%.*]] = call float [[VP_A_LOAD]] __svml_sinf4 [x 1] (SVAOpBits 0->V 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] float* [[VP_B_GEP:%.*]] = getelementptr inbounds float* [[B0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP_CALL]] float* [[VP_B_GEP]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_B_GEP:%.*]] = getelementptr inbounds float, ptr [[B0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store float [[VP_CALL]] ptr [[VP_B_GEP]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
@@ -398,11 +398,11 @@ DIR.OMP.SIMD.1:                                   ; preds = %entry
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %a.gep = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  %a.load = load float, float* %a.gep, align 4
+  %a.gep = getelementptr inbounds float, ptr %a, i64 %indvars.iv
+  %a.load = load float, ptr %a.gep, align 4
   %call = tail call fast float @sinf(float %a.load)
-  %b.gep = getelementptr inbounds float, float* %b, i64 %indvars.iv
-  store float %call, float* %b.gep, align 4
+  %b.gep = getelementptr inbounds float, ptr %b, i64 %indvars.iv
+  store float %call, ptr %b.gep, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
@@ -412,7 +412,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
   ret void
 }
 
-define dso_local void @serialCallRepeatArgs(float* nocapture %a) local_unnamed_addr {
+define dso_local void @serialCallRepeatArgs(ptr nocapture %a) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: serialCallRepeatArgs:omp.inner.for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -428,10 +428,10 @@ define dso_local void @serialCallRepeatArgs(float* nocapture %a) local_unnamed_a
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] float* [[VP_A_GEP:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_A_LOAD:%.*]] = load float* [[VP_A_GEP]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_A_GEP:%.*]] = getelementptr inbounds float, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_A_LOAD:%.*]] = load ptr [[VP_A_GEP]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_ARG:%.*]] = fadd float [[VP_A_LOAD]] float 4.200000e+01 (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_CALL:%.*]] = call float [[VP_ARG]] float [[VP_ARG]] i32 42 float (float, float, i32)* @bar [Serial] (SVAOpBits 0->V 1->V 2->V 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] float [[VP_CALL:%.*]] = call float [[VP_ARG]] float [[VP_ARG]] i32 42 ptr @bar [Serial] (SVAOpBits 0->V 1->V 2->V 3->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
@@ -461,8 +461,8 @@ DIR.OMP.SIMD.1:                                   ; preds = %entry
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %a.gep = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  %a.load = load float, float* %a.gep, align 4
+  %a.gep = getelementptr inbounds float, ptr %a, i64 %indvars.iv
+  %a.load = load float, ptr %a.gep, align 4
   %arg = fadd float %a.load, 42.0
   %call = call float @bar(float %arg, float %arg, i32 42)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

@@ -26,6 +26,9 @@
 namespace sycl {
 inline namespace _V1 {
 namespace detail {
+
+std::atomic<unsigned long long> queue_impl::MNextAvailableQueueID = 0;
+
 template <>
 uint32_t queue_impl::get_info<info::queue::reference_count>() const {
   sycl::detail::pi::PiResult result = PI_SUCCESS;
@@ -67,7 +70,7 @@ event queue_impl::memset(const std::shared_ptr<detail::queue_impl> &Self,
   // information
   XPTIScope PrepareNotify((void *)this,
                           (uint16_t)xpti::trace_point_type_t::node_create,
-                          SYCL_MEM_ALLOC_STREAM_NAME, "queue.memset()");
+                          SYCL_STREAM_NAME, "memory_transfer_node");
   PrepareNotify.addMetadata([&](auto TEvent) {
     xpti::addMetadata(TEvent, "sycl_device",
                       reinterpret_cast<size_t>(
@@ -75,6 +78,7 @@ event queue_impl::memset(const std::shared_ptr<detail::queue_impl> &Self,
     xpti::addMetadata(TEvent, "memory_ptr", reinterpret_cast<size_t>(Ptr));
     xpti::addMetadata(TEvent, "value_set", Value);
     xpti::addMetadata(TEvent, "memory_size", Count);
+    xpti::addMetadata(TEvent, "queue_id", MQueueID);
   });
   // Notify XPTI about the memset submission
   PrepareNotify.notify();
@@ -120,16 +124,30 @@ event queue_impl::memset(const std::shared_ptr<detail::queue_impl> &Self,
   return MDiscardEvents ? createDiscardedEvent() : ResEvent;
 }
 
+void report(const code_location &CodeLoc) {
+  std::cout << "Exception caught at ";
+  if (CodeLoc.fileName())
+    std::cout << "File: " << CodeLoc.fileName();
+  if (CodeLoc.functionName())
+    std::cout << " | Function: " << CodeLoc.functionName();
+  if (CodeLoc.lineNumber())
+    std::cout << " | Line: " << CodeLoc.lineNumber();
+  if (CodeLoc.columnNumber())
+    std::cout << " | Column: " << CodeLoc.columnNumber();
+  std::cout << '\n';
+}
+
 event queue_impl::memcpy(const std::shared_ptr<detail::queue_impl> &Self,
                          void *Dest, const void *Src, size_t Count,
-                         const std::vector<event> &DepEvents) {
+                         const std::vector<event> &DepEvents,
+                         const code_location &CodeLoc) {
 #if XPTI_ENABLE_INSTRUMENTATION
   // We need a code pointer value and we duse the object ptr; If code location
   // is available, we use the source file information along with the object
   // pointer.
   XPTIScope PrepareNotify((void *)this,
                           (uint16_t)xpti::trace_point_type_t::node_create,
-                          SYCL_MEM_ALLOC_STREAM_NAME, "queue.memcpy()");
+                          SYCL_STREAM_NAME, "memory_transfer_node");
   PrepareNotify.addMetadata([&](auto TEvent) {
     xpti::addMetadata(TEvent, "sycl_device",
                       reinterpret_cast<size_t>(
@@ -138,6 +156,7 @@ event queue_impl::memcpy(const std::shared_ptr<detail::queue_impl> &Self,
     xpti::addMetadata(TEvent, "dest_memory_ptr",
                       reinterpret_cast<size_t>(Dest));
     xpti::addMetadata(TEvent, "memory_size", Count);
+    xpti::addMetadata(TEvent, "queue_id", MQueueID);
   });
   // Notify XPTI about the memset submission
   PrepareNotify.notify();
@@ -146,13 +165,18 @@ event queue_impl::memcpy(const std::shared_ptr<detail::queue_impl> &Self,
 #endif
   // If we have a command graph set we need to capture the copy through normal
   // queue submission rather than execute the copy directly.
-  if (MGraph) {
+  if (MGraph.lock()) {
     return submit(
         [&](handler &CGH) {
           CGH.depends_on(DepEvents);
           CGH.memcpy(Dest, Src, Count);
         },
         Self, {});
+  }
+  if ((!Src || !Dest) && Count != 0) {
+    report(CodeLoc);
+    throw runtime_error("NULL pointer argument in memory copy operation.",
+                        PI_ERROR_INVALID_VALUE);
   }
   if (MHasDiscardEventsSupport) {
     MemoryManager::copy_usm(Src, Self, Count, Dest,
@@ -429,7 +453,7 @@ void *queue_impl::instrumentationProlog(const detail::code_location &CodeLoc,
       DevStr = "ACCELERATOR";
     else
       DevStr = "UNKNOWN";
-    xpti::addMetadata(WaitEvent, "sycl_device", DevStr);
+    xpti::addMetadata(WaitEvent, "sycl_device_type", DevStr);
     if (HasSourceInfo) {
       xpti::addMetadata(WaitEvent, "sym_function_name", CodeLoc.functionName());
       xpti::addMetadata(WaitEvent, "sym_source_file_name", CodeLoc.fileName());
@@ -476,7 +500,7 @@ void queue_impl::wait(const detail::code_location &CodeLoc) {
   TelemetryEvent = instrumentationProlog(CodeLoc, Name, StreamID, IId);
 #endif
 
-  if (MGraph) {
+  if (MGraph.lock()) {
     throw sycl::exception(make_error_code(errc::invalid),
                           "wait cannot be called for a queue which is "
                           "recording to a command graph.");
@@ -537,6 +561,12 @@ pi_native_handle queue_impl::getNative(int32_t &NativeHandleDesc) const {
   Plugin->call<PiApiKind::piextQueueGetNativeHandle>(MQueues[0], &Handle,
                                                      &NativeHandleDesc);
   return Handle;
+}
+
+void queue_impl::cleanup_fusion_cmd() {
+  // Clean up only if a scheduler instance exits.
+  if (detail::Scheduler::isInstanceAlive())
+    detail::Scheduler::getInstance().cleanUpCmdFusion(this);
 }
 
 bool queue_impl::ext_oneapi_empty() const {

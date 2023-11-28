@@ -1,8 +1,8 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S <%s | FileCheck %s --check-prefix=SECTOLOOP
-; RUN: opt -opaque-pointers=1 -passes="function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)" -S <%s | FileCheck %s --check-prefix=SECTOLOOP
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S <%s | FileCheck %s --check-prefix=SECTOLOOP
+; RUN: opt -passes="function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)" -S <%s | FileCheck %s --check-prefix=SECTOLOOP
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt -S <%s | FileCheck %s --check-prefix=TFORM
-; RUN: opt -opaque-pointers=1 -passes="function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring),vpo-paropt" -S <%s | FileCheck %s --check-prefix=TFORM
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt -S <%s | FileCheck %s --check-prefix=TFORM
+; RUN: opt -passes="function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring),vpo-paropt" -S <%s | FileCheck %s --check-prefix=TFORM
 
 ; a() {
 ; #pragma omp sections

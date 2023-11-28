@@ -1,14 +1,14 @@
 ; RUN: opt -passes="sycl-kernel-analysis,sycl-kernel-wg-loop-bound" %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes="sycl-kernel-analysis,sycl-kernel-wg-loop-bound" %s -S -debug -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes="sycl-kernel-analysis,sycl-kernel-wg-loop-bound" %s -S -debug-only=sycl-kernel-wg-loop-bound -pass-remarks=sycl-kernel-wg-loop-bound -disable-output 2>&1 | FileCheck %s
 
-; CHECK: WGLoopBoundaries
-; CHECK: found 2 early exit boundaries
+; CHECK-DAG: remark:{{.*}} work-group loop boundaries of kernel max_kernel (2 early exit boundaries, 0 uniform early exit conditions)
+
+; CHECK-DAG: WGLoopBoundaries
+; CHECK-DAG: found 2 early exit boundaries
 ;; boundary output pattern: dim, contains_val(T/F), is_global_id(T/F), IsSigned(T/F), IsUpperBound(T,F)
-; CHECK: Dim=0, Contains=T, IsGID=T, IsSigned=T, IsUpperBound=F
-; CHECK-SAME: i32 1
-; CHECK: Dim=1, Contains=T, IsGID=T, IsSigned=F, IsUpperBound=F
-; CHECK-SAME: i32 1
-; CHECK: found 0 uniform early exit conditions
+; CHECK-DAG: Dim=0, Contains=T, IsGID=T, IsSigned=T, IsUpperBound=F, Bound="i32 1"
+; CHECK-DAG: Dim=1, Contains=T, IsGID=T, IsSigned=F, IsUpperBound=F, Bound="i32 1"
+; CHECK-DAG: found 0 uniform early exit conditions
 
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 target triple = "i686-pc-win32"

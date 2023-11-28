@@ -299,6 +299,103 @@ struct FormatStyle {
   /// \version 3.8
   AlignConsecutiveStyle AlignConsecutiveDeclarations;
 
+  /// Alignment options.
+  ///
+  struct ShortCaseStatementsAlignmentStyle {
+    /// Whether aligning is enabled.
+    /// \code
+    ///   true:
+    ///   switch (level) {
+    ///   case log::info:    return "info:";
+    ///   case log::warning: return "warning:";
+    ///   default:           return "";
+    ///   }
+    ///
+    ///   false:
+    ///   switch (level) {
+    ///   case log::info: return "info:";
+    ///   case log::warning: return "warning:";
+    ///   default: return "";
+    ///   }
+    /// \endcode
+    bool Enabled;
+    /// Whether to align across empty lines.
+    /// \code
+    ///   true:
+    ///   switch (level) {
+    ///   case log::info:    return "info:";
+    ///   case log::warning: return "warning:";
+    ///
+    ///   default:           return "";
+    ///   }
+    ///
+    ///   false:
+    ///   switch (level) {
+    ///   case log::info:    return "info:";
+    ///   case log::warning: return "warning:";
+    ///
+    ///   default: return "";
+    ///   }
+    /// \endcode
+    bool AcrossEmptyLines;
+    /// Whether to align across comments.
+    /// \code
+    ///   true:
+    ///   switch (level) {
+    ///   case log::info:    return "info:";
+    ///   case log::warning: return "warning:";
+    ///   /* A comment. */
+    ///   default:           return "";
+    ///   }
+    ///
+    ///   false:
+    ///   switch (level) {
+    ///   case log::info:    return "info:";
+    ///   case log::warning: return "warning:";
+    ///   /* A comment. */
+    ///   default: return "";
+    ///   }
+    /// \endcode
+    bool AcrossComments;
+    /// Whether aligned case labels are aligned on the colon, or on the
+    /// , or on the tokens after the colon.
+    /// \code
+    ///   true:
+    ///   switch (level) {
+    ///   case log::info   : return "info:";
+    ///   case log::warning: return "warning:";
+    ///   default          : return "";
+    ///   }
+    ///
+    ///   false:
+    ///   switch (level) {
+    ///   case log::info:    return "info:";
+    ///   case log::warning: return "warning:";
+    ///   default:           return "";
+    ///   }
+    /// \endcode
+    bool AlignCaseColons;
+    bool operator==(const ShortCaseStatementsAlignmentStyle &R) const {
+      return Enabled == R.Enabled && AcrossEmptyLines == R.AcrossEmptyLines &&
+             AcrossComments == R.AcrossComments &&
+             AlignCaseColons == R.AlignCaseColons;
+    }
+  };
+
+  /// Style of aligning consecutive short case labels.
+  /// Only applies if ``AllowShortCaseLabelsOnASingleLine`` is ``true``.
+  ///
+  /// \code{.yaml}
+  ///   # Example of usage:
+  ///   AlignConsecutiveShortCaseStatements:
+  ///     Enabled: true
+  ///     AcrossEmptyLines: true
+  ///     AcrossComments: true
+  ///     AlignCaseColons: false
+  /// \endcode
+  /// \version 17
+  ShortCaseStatementsAlignmentStyle AlignConsecutiveShortCaseStatements;
+
   /// Different styles for aligning escaped newlines.
   enum EscapedNewlineAlignmentStyle : int8_t {
     /// Don't align escaped newlines.
@@ -442,6 +539,10 @@ struct FormatStyle {
 
   /// Control of trailing comments.
   ///
+  /// The alignment stops at closing braces after a line break, and only
+  /// followed by other closing braces, a (``do-``) ``while``, a lambda call, or
+  /// a semicolon.
+  ///
   /// \note
   ///  As of clang-format 16 this option is not a bool but can be set
   ///  to the options. Conventional bool options still can be parsed as before.
@@ -496,6 +597,47 @@ struct FormatStyle {
   /// \version 3.3
   bool AllowAllParametersOfDeclarationOnNextLine;
 
+  /// Different ways to break before a noexcept specifier.
+  enum BreakBeforeNoexceptSpecifierStyle : int8_t {
+    /// No line break allowed.
+    /// \code
+    ///   void foo(int arg1,
+    ///            double arg2) noexcept;
+    ///
+    ///   void bar(int arg1, double arg2) noexcept(
+    ///       noexcept(baz(arg1)) &&
+    ///       noexcept(baz(arg2)));
+    /// \endcode
+    BBNSS_Never,
+    /// For a simple ``noexcept`` there is no line break allowed, but when we
+    /// have a condition it is.
+    /// \code
+    ///   void foo(int arg1,
+    ///            double arg2) noexcept;
+    ///
+    ///   void bar(int arg1, double arg2)
+    ///       noexcept(noexcept(baz(arg1)) &&
+    ///                noexcept(baz(arg2)));
+    /// \endcode
+    BBNSS_OnlyWithParen,
+    /// Line breaks are allowed. But note that because of the associated
+    /// penalties ``clang-format`` often prefers not to break before the
+    /// ``noexcept``.
+    /// \code
+    ///   void foo(int arg1,
+    ///            double arg2) noexcept;
+    ///
+    ///   void bar(int arg1, double arg2)
+    ///       noexcept(noexcept(baz(arg1)) &&
+    ///                noexcept(baz(arg2)));
+    /// \endcode
+    BBNSS_Always,
+  };
+
+  /// Controls if there could be a line break before a ``noexcept`` specifier.
+  /// \version 18
+  BreakBeforeNoexceptSpecifierStyle AllowBreakBeforeNoexceptSpecifier;
+
   /// Different styles for merging short blocks containing at most one
   /// statement.
   enum ShortBlockStyle : int8_t {
@@ -542,6 +684,25 @@ struct FormatStyle {
   /// \endcode
   /// \version 3.6
   bool AllowShortCaseLabelsOnASingleLine;
+
+  /// Allow short compound requirement on a single line.
+  /// \code
+  ///   true:
+  ///   template <typename T>
+  ///   concept c = requires(T x) {
+  ///     { x + 1 } -> std::same_as<int>;
+  ///   };
+  ///
+  ///   false:
+  ///   template <typename T>
+  ///   concept c = requires(T x) {
+  ///     {
+  ///       x + 1
+  ///     } -> std::same_as<int>;
+  ///   };
+  /// \endcode
+  /// \version 18
+  bool AllowShortCompoundRequirementOnASingleLine;
 
   /// Allow short enums on a single line.
   /// \code
@@ -874,13 +1035,13 @@ struct FormatStyle {
   /// For example:
   /// \code
   ///   x = (char *__capability)&y;
-  ///   int function(void) __ununsed;
+  ///   int function(void) __unused;
   ///   void only_writes_to_buffer(char *__output buffer);
   /// \endcode
   ///
   /// In the .clang-format configuration file, this can be configured like:
   /// \code{.yaml}
-  ///   AttributeMacros: ['__capability', '__output', '__ununsed']
+  ///   AttributeMacros: ['__capability', '__output', '__unused']
   /// \endcode
   ///
   /// \version 12
@@ -1267,29 +1428,86 @@ struct FormatStyle {
   enum AttributeBreakingStyle : int8_t {
     /// Always break after attributes.
     /// \code
+    ///   [[maybe_unused]]
+    ///   const int i;
+    ///   [[gnu::const]] [[maybe_unused]]
+    ///   int j;
+    ///
     ///   [[nodiscard]]
     ///   inline int f();
     ///   [[gnu::const]] [[nodiscard]]
     ///   int g();
+    ///
+    ///   [[likely]]
+    ///   if (a)
+    ///     f();
+    ///   else
+    ///     g();
+    ///
+    ///   switch (b) {
+    ///   [[unlikely]]
+    ///   case 1:
+    ///     ++b;
+    ///     break;
+    ///   [[likely]]
+    ///   default:
+    ///     return;
+    ///   }
     /// \endcode
     ABS_Always,
     /// Leave the line breaking after attributes as is.
     /// \code
+    ///   [[maybe_unused]] const int i;
+    ///   [[gnu::const]] [[maybe_unused]]
+    ///   int j;
+    ///
     ///   [[nodiscard]] inline int f();
     ///   [[gnu::const]] [[nodiscard]]
     ///   int g();
+    ///
+    ///   [[likely]] if (a)
+    ///     f();
+    ///   else
+    ///     g();
+    ///
+    ///   switch (b) {
+    ///   [[unlikely]] case 1:
+    ///     ++b;
+    ///     break;
+    ///   [[likely]]
+    ///   default:
+    ///     return;
+    ///   }
     /// \endcode
     ABS_Leave,
     /// Never break after attributes.
     /// \code
+    ///   [[maybe_unused]] const int i;
+    ///   [[gnu::const]] [[maybe_unused]] int j;
+    ///
     ///   [[nodiscard]] inline int f();
     ///   [[gnu::const]] [[nodiscard]] int g();
+    ///
+    ///   [[likely]] if (a)
+    ///     f();
+    ///   else
+    ///     g();
+    ///
+    ///   switch (b) {
+    ///   [[unlikely]] case 1:
+    ///     ++b;
+    ///     break;
+    ///   [[likely]] default:
+    ///     return;
+    ///   }
     /// \endcode
     ABS_Never,
   };
 
-  /// Break after a group of C++11 attributes before a function
-  /// declaration/definition name.
+  /// Break after a group of C++11 attributes before variable or function
+  /// (including constructor/destructor) declaration/definition names or before
+  /// control statements, i.e. ``if``, ``switch`` (including ``case`` and
+  /// ``default`` labels), ``for``, and ``while`` statements.
   /// \version 16
   AttributeBreakingStyle BreakAfterAttributes;
 
@@ -1911,6 +2129,8 @@ struct FormatStyle {
   bool BreakAfterJavaFieldAnnotations;
 
   /// Allow breaking string literals when formatting.
+  ///
+  /// In C, C++, and Objective-C:
   /// \code
   ///    true:
   ///    const char* x = "veryVeryVeryVeryVeryVe"
@@ -1919,8 +2139,35 @@ struct FormatStyle {
   ///
   ///    false:
   ///    const char* x =
-  ///      "veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongString";
+  ///        "veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongString";
   /// \endcode
+  ///
+  /// In C# and Java:
+  /// \code
+  ///    true:
+  ///    string x = "veryVeryVeryVeryVeryVe" +
+  ///               "ryVeryVeryVeryVeryVery" +
+  ///               "VeryLongString";
+  ///
+  ///    false:
+  ///    string x =
+  ///        "veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongString";
+  /// \endcode
+  ///
+  /// C# interpolated strings are not broken.
+  ///
+  /// In Verilog:
+  /// \code
+  ///    true:
+  ///    string x = {"veryVeryVeryVeryVeryVe",
+  ///                "ryVeryVeryVeryVeryVery",
+  ///                "VeryLongString"};
+  ///
+  ///    false:
+  ///    string x =
+  ///        "veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongString";
+  /// \endcode
+  ///
   /// \version 3.9
   bool BreakStringLiterals;
 
@@ -2712,8 +2959,8 @@ struct FormatStyle {
     ///        });
     /// \endcode
     LBI_Signature,
-    /// Align lambda body relative to the indentation level of the outer scope
-    /// the lambda signature resides in.
+    /// For statements within block scope, align lambda body relative to the
+    /// indentation level of the outer scope the lambda signature resides in.
     /// \code
     ///    someMethod(
     ///        [](SomeReallyLongLambdaSignatureArgument foo) {
@@ -2866,7 +3113,7 @@ struct FormatStyle {
   ///    A(a, b); // will not be expanded.
   /// \endcode
   ///
-  /// \version 17.0
+  /// \version 17
   std::vector<std::string> Macros;
 
   /// The maximum number of consecutive empty lines to keep.
@@ -3918,7 +4165,7 @@ struct FormatStyle {
   ///     AfterFunctionDefinitionName: true
   /// \endcode
   struct SpaceBeforeParensCustom {
-    /// If ``true``, put space betwee control statement keywords
+    /// If ``true``, put space between control statement keywords
     /// (for/if/while...) and opening parentheses.
     /// \code
     ///    true:                                  false:
@@ -3961,6 +4208,28 @@ struct FormatStyle {
     ///    object.operator++ (10);                object.operator++(10);
     /// \endcode
     bool AfterOverloadedOperator;
+    /// Styles for adding spacing between ``new/delete`` operators and opening
+    /// parentheses.
+    enum AfterPlacementOperatorStyle : int8_t {
+      /// Remove space after ``new/delete`` operators and before ``(``.
+      /// \code
+      ///    new(buf) T;
+      ///    delete(buf) T;
+      /// \endcode
+      APO_Never,
+      /// Always add space after ``new/delete`` operators and before ``(``.
+      /// \code
+      ///    new (buf) T;
+      ///    delete (buf) T;
+      /// \endcode
+      APO_Always,
+      /// Leave placement ``new/delete`` expressions as they are.
+      APO_Leave,
+    };
+    /// Defines in which cases to put a space between ``new/delete`` operators
+    /// and opening parentheses.
+    /// \version 18
+    AfterPlacementOperatorStyle AfterPlacementOperator;
     /// If ``true``, put space between requires keyword in a requires clause and
     /// opening parentheses, if there is one.
     /// \code
@@ -3993,8 +4262,9 @@ struct FormatStyle {
         : AfterControlStatements(false), AfterForeachMacros(false),
           AfterFunctionDeclarationName(false),
           AfterFunctionDefinitionName(false), AfterIfMacros(false),
-          AfterOverloadedOperator(false), AfterRequiresInClause(false),
-          AfterRequiresInExpression(false), BeforeNonEmptyParentheses(false) {}
+          AfterOverloadedOperator(false), AfterPlacementOperator(APO_Leave),
+          AfterRequiresInClause(false), AfterRequiresInExpression(false),
+          BeforeNonEmptyParentheses(false) {}
 
     bool operator==(const SpaceBeforeParensCustom &Other) const {
       return AfterControlStatements == Other.AfterControlStatements &&
@@ -4004,6 +4274,7 @@ struct FormatStyle {
              AfterFunctionDefinitionName == Other.AfterFunctionDefinitionName &&
              AfterIfMacros == Other.AfterIfMacros &&
              AfterOverloadedOperator == Other.AfterOverloadedOperator &&
+             AfterPlacementOperator == Other.AfterPlacementOperator &&
              AfterRequiresInClause == Other.AfterRequiresInClause &&
              AfterRequiresInExpression == Other.AfterRequiresInExpression &&
              BeforeNonEmptyParentheses == Other.BeforeNonEmptyParentheses;
@@ -4054,17 +4325,10 @@ struct FormatStyle {
   bool SpaceInEmptyBlock;
 
   /// If ``true``, spaces may be inserted into ``()``.
-  /// \code
-  ///    true:                                false:
-  ///    void f( ) {                    vs.   void f() {
-  ///      int x[] = {foo( ), bar( )};          int x[] = {foo(), bar()};
-  ///      if (true) {                          if (true) {
-  ///        f( );                                f();
-  ///      }                                    }
-  ///    }                                    }
-  /// \endcode
+  /// This option is **deprecated**. See ``InEmptyParentheses`` of
+  /// ``SpacesInParensOptions``.
   /// \version 3.7
-  bool SpaceInEmptyParentheses;
+  // bool SpaceInEmptyParentheses;
 
   /// The number of spaces before trailing line comments
   /// (``//`` - comments).
@@ -4111,13 +4375,10 @@ struct FormatStyle {
 
   /// If ``true``, spaces will be inserted around if/for/switch/while
   /// conditions.
-  /// \code
-  ///    true:                                  false:
-  ///    if ( a )  { ... }              vs.     if (a) { ... }
-  ///    while ( i < 5 )  { ... }               while (i < 5) { ... }
-  /// \endcode
+  /// This option is **deprecated**. See ``InConditionalStatements`` of
+  /// ``SpacesInParensOptions``.
   /// \version 10
-  bool SpacesInConditionalStatement;
+  // bool SpacesInConditionalStatement;
 
   /// If ``true``, spaces are inserted inside container literals (e.g.  ObjC and
   /// Javascript array and dict literals). For JSON, use
@@ -4131,12 +4392,10 @@ struct FormatStyle {
   bool SpacesInContainerLiterals;
 
   /// If ``true``, spaces may be inserted into C style casts.
-  /// \code
-  ///    true:                                  false:
-  ///    x = ( int32 )y                 vs.     x = (int32)y
-  /// \endcode
+  /// This option is **deprecated**. See ``InCStyleCasts`` of
+  /// ``SpacesInParensOptions``.
   /// \version 3.7
-  bool SpacesInCStyleCastParentheses;
+  // bool SpacesInCStyleCastParentheses;
 
   /// Control of spaces within a single line comment.
   struct SpacesInLineComment {
@@ -4180,13 +4439,110 @@ struct FormatStyle {
   /// \version 13
   SpacesInLineComment SpacesInLineCommentPrefix;
 
+  /// Different ways to put a space before opening and closing parentheses.
+  enum SpacesInParensStyle : int8_t {
+    /// Never put a space in parentheses.
+    /// \code
+    ///    void f() {
+    ///      if(true) {
+    ///        f();
+    ///      }
+    ///    }
+    /// \endcode
+    SIPO_Never,
+    /// Configure each individual space in parentheses in
+    /// `SpacesInParensOptions`.
+    SIPO_Custom,
+  };
+
   /// If ``true``, spaces will be inserted after ``(`` and before ``)``.
-  /// \code
-  ///    true:                                  false:
-  ///    t f( Deleted & ) & = delete;   vs.     t f(Deleted &) & = delete;
-  /// \endcode
+  /// This option is **deprecated**. The previous behavior is preserved by using
+  /// ``SpacesInParens`` with ``Custom`` and by setting all
+  /// ``SpacesInParensOptions`` to ``true`` except for ``InCStyleCasts`` and
+  /// ``InEmptyParentheses``.
   /// \version 3.7
-  bool SpacesInParentheses;
+  // bool SpacesInParentheses;
+
+  /// Defines in which cases spaces will be inserted after ``(`` and before
+  /// ``)``.
+  /// \version 17
+  SpacesInParensStyle SpacesInParens;
+
+  /// Precise control over the spacing in parentheses.
+  /// \code
+  ///   # Should be declared this way:
+  ///   SpacesInParens: Custom
+  ///   SpacesInParensOptions:
+  ///     InConditionalStatements: true
+  ///     Other: true
+  /// \endcode
+  struct SpacesInParensCustom {
+    /// Put a space in parentheses only inside conditional statements
+    /// (``for/if/while/switch...``).
+    /// \code
+    ///    true:                                  false:
+    ///    if ( a )  { ... }              vs.     if (a) { ... }
+    ///    while ( i < 5 )  { ... }               while (i < 5) { ... }
+    /// \endcode
+    bool InConditionalStatements;
+    /// Put a space in C style casts.
+    /// \code
+    ///    true:                                  false:
+    ///    x = ( int32 )y                 vs.     x = (int32)y
+    /// \endcode
+    bool InCStyleCasts;
+    /// Put a space in parentheses only if the parentheses are empty i.e. '()'
+    /// \code
+    ///    true:                                false:
+    ///    void f( ) {                    vs.   void f() {
+    ///      int x[] = {foo( ), bar( )};          int x[] = {foo(), bar()};
+    ///      if (true) {                          if (true) {
+    ///        f( );                                f();
+    ///      }                                    }
+    ///    }                                    }
+    /// \endcode
+    bool InEmptyParentheses;
+    /// Put a space in parentheses not covered by preceding options.
+    /// \code
+    ///    true:                                  false:
+    ///    t f( Deleted & ) & = delete;   vs.     t f(Deleted &) & = delete;
+    /// \endcode
+    bool Other;
+
+    SpacesInParensCustom()
+        : InConditionalStatements(false), InCStyleCasts(false),
+          InEmptyParentheses(false), Other(false) {}
+
+    SpacesInParensCustom(bool InConditionalStatements, bool InCStyleCasts,
+                         bool InEmptyParentheses, bool Other)
+        : InConditionalStatements(InConditionalStatements),
+          InCStyleCasts(InCStyleCasts), InEmptyParentheses(InEmptyParentheses),
+          Other(Other) {}
+
+    bool operator==(const SpacesInParensCustom &R) const {
+      return InConditionalStatements == R.InConditionalStatements &&
+             InCStyleCasts == R.InCStyleCasts &&
+             InEmptyParentheses == R.InEmptyParentheses && Other == R.Other;
+    }
+    bool operator!=(const SpacesInParensCustom &R) const {
+      return !(*this == R);
+    }
+  };
+
+  /// Control of individual spaces in parentheses.
+  ///
+  /// If ``SpacesInParens`` is set to ``Custom``, use this to specify
+  /// how each individual space in parentheses case should be handled.
+  /// Otherwise, this is ignored.
+  /// \code{.yaml}
+  ///   # Example of usage:
+  ///   SpacesInParens: Custom
+  ///   SpacesInParensOptions:
+  ///     InConditionalStatements: true
+  ///     InEmptyParentheses: true
+  /// \endcode
+  /// \version 17
+  SpacesInParensCustom SpacesInParensOptions;
 
   /// If ``true``, spaces will be inserted after ``[`` and before ``]``.
   /// Lambdas without arguments or unspecified size array declarations will not
@@ -4357,15 +4713,21 @@ struct FormatStyle {
            AlignConsecutiveBitFields == R.AlignConsecutiveBitFields &&
            AlignConsecutiveDeclarations == R.AlignConsecutiveDeclarations &&
            AlignConsecutiveMacros == R.AlignConsecutiveMacros &&
+           AlignConsecutiveShortCaseStatements ==
+               R.AlignConsecutiveShortCaseStatements &&
            AlignEscapedNewlines == R.AlignEscapedNewlines &&
            AlignOperands == R.AlignOperands &&
            AlignTrailingComments == R.AlignTrailingComments &&
            AllowAllArgumentsOnNextLine == R.AllowAllArgumentsOnNextLine &&
            AllowAllParametersOfDeclarationOnNextLine ==
                R.AllowAllParametersOfDeclarationOnNextLine &&
+           AllowBreakBeforeNoexceptSpecifier ==
+               R.AllowBreakBeforeNoexceptSpecifier &&
            AllowShortBlocksOnASingleLine == R.AllowShortBlocksOnASingleLine &&
            AllowShortCaseLabelsOnASingleLine ==
                R.AllowShortCaseLabelsOnASingleLine &&
+           AllowShortCompoundRequirementOnASingleLine ==
+               R.AllowShortCompoundRequirementOnASingleLine &&
            AllowShortEnumsOnASingleLine == R.AllowShortEnumsOnASingleLine &&
            AllowShortFunctionsOnASingleLine ==
                R.AllowShortFunctionsOnASingleLine &&
@@ -4488,17 +4850,15 @@ struct FormatStyle {
                R.SpaceBeforeRangeBasedForLoopColon &&
            SpaceBeforeSquareBrackets == R.SpaceBeforeSquareBrackets &&
            SpaceInEmptyBlock == R.SpaceInEmptyBlock &&
-           SpaceInEmptyParentheses == R.SpaceInEmptyParentheses &&
            SpacesBeforeTrailingComments == R.SpacesBeforeTrailingComments &&
            SpacesInAngles == R.SpacesInAngles &&
-           SpacesInConditionalStatement == R.SpacesInConditionalStatement &&
            SpacesInContainerLiterals == R.SpacesInContainerLiterals &&
-           SpacesInCStyleCastParentheses == R.SpacesInCStyleCastParentheses &&
            SpacesInLineCommentPrefix.Minimum ==
                R.SpacesInLineCommentPrefix.Minimum &&
            SpacesInLineCommentPrefix.Maximum ==
                R.SpacesInLineCommentPrefix.Maximum &&
-           SpacesInParentheses == R.SpacesInParentheses &&
+           SpacesInParens == R.SpacesInParens &&
+           SpacesInParensOptions == R.SpacesInParensOptions &&
            SpacesInSquareBrackets == R.SpacesInSquareBrackets &&
            Standard == R.Standard &&
            StatementAttributeLikeMacros == R.StatementAttributeLikeMacros &&
@@ -4582,6 +4942,8 @@ FormatStyle getGNUStyle();
 /// Returns a format style complying with Microsoft style guide:
 /// https://docs.microsoft.com/en-us/visualstudio/ide/editorconfig-code-style-settings-reference?view=vs-2017
 FormatStyle getMicrosoftStyle(FormatStyle::LanguageKind Language);
+
+FormatStyle getClangFormatStyle();
 
 /// Returns style indicating formatting should be not applied at all.
 FormatStyle getNoStyle();

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -passes=vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes=vpo-paropt -S %s | FileCheck %s
 
 ; 2 adjacent OMP regions with catch handlers:
 ; #pragma omp parallel

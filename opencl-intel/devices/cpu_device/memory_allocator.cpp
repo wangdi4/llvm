@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -100,11 +100,6 @@ cl_dev_err_code MemoryAllocator::CreateObject(
   CPUDevMemoryObject *pMemObj = new CPUDevMemoryObject(
       m_iLogHandle, m_pLogDescriptor, node_id, flags, format, dim_count, dim,
       pRTMemObjService, m_pImageService);
-  if (nullptr == pMemObj) {
-    CpuErrLog(m_pLogDescriptor, m_iLogHandle,
-              TEXT("Memory Object allocation failed"));
-    return CL_DEV_OBJECT_ALLOC_FAIL;
-  }
 
   cl_dev_err_code rc = pMemObj->Init();
   if (CL_DEV_FAILED(rc)) {
@@ -279,9 +274,6 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateSubObject(
     IOCLDevMemoryObject **ppSubBuffer) {
   CPUDevMemorySubObject *pSubObject =
       new CPUDevMemorySubObject(m_iLogHandle, m_pLogDescriptor, this);
-  if (nullptr == pSubObject) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   cl_dev_err_code devErr =
       pSubObject->Init(mem_flags, origin, size, pBSService);

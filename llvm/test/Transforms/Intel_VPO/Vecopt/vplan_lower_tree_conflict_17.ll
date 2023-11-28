@@ -40,9 +40,8 @@ define dso_local void @foo(ptr noalias nocapture noundef %A, ptr noalias nocaptu
 ; CHECK-VF4-NEXT:        |
 ; CHECK-VF4-NEXT:        |      + UNKNOWN LOOP i2 <MAX_TC_EST = 4>  <LEGAL_MAX_TC = 4> <nounroll> <novectorize>
 ; CHECK-VF4-NEXT:        |      |   <i2 = 0>
-; CHECK-VF4-NEXT:        |      |   [[BB0:BB[0-9]+]].43:
+; CHECK-VF4-NEXT:        |      |   [[BB0:BB[0-9]+]].[[NUM:.*]]:
 ; CHECK-VF4-NEXT:        |      |   [[PERMUTE0:%.*]] = @llvm.x86.avx.vpermilvar.ps([[PHI_TEMP70]],  [[PHI_TEMP50]])
-; CHECK-VF4-NEXT:        |      |   [[DOTVEC110:%.*]] = [[PHI_TEMP90]] == -1
 ; CHECK-VF4-NEXT:        |      |   [[DOTVEC120:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE0]] : 0.000000e+00
 ; CHECK-VF4-NEXT:        |      |   [[DOTVEC130:%.*]] = [[DOTVEC120]]  +  [[PHI_TEMP70]]
 ; CHECK-VF4-NEXT:        |      |   [[DOTVEC140:%.*]] = ([[PHI_TEMP90]] == -1) ? [[DOTVEC130]] : [[PHI_TEMP70]]
@@ -63,7 +62,7 @@ define dso_local void @foo(ptr noalias nocapture noundef %A, ptr noalias nocaptu
 ; CHECK-VF4-NEXT:        |      |   if ([[EXTRACT_0_0]] == 1)
 ; CHECK-VF4-NEXT:        |      |   {
 ; CHECK-VF4-NEXT:        |      |      <i2 = i2 + 1>
-; CHECK-VF4-NEXT:        |      |      goto [[BB0]].43
+; CHECK-VF4-NEXT:        |      |      goto [[BB0]].[[NUM]]
 ; CHECK-VF4-NEXT:        |      |   }
 ; CHECK-VF4-NEXT:        |      + END LOOP
 ; CHECK-VF4-NEXT:        |   }
@@ -95,9 +94,8 @@ define dso_local void @foo(ptr noalias nocapture noundef %A, ptr noalias nocaptu
 ; CHECK-VF8-NEXT:        |
 ; CHECK-VF8-NEXT:        |      + UNKNOWN LOOP i2 <MAX_TC_EST = 8>  <LEGAL_MAX_TC = 8> <nounroll> <novectorize>
 ; CHECK-VF8-NEXT:        |      |   <i2 = 0>
-; CHECK-VF8-NEXT:        |      |   [[BB0:BB[0-9]+]].43:
+; CHECK-VF8-NEXT:        |      |   [[BB0:BB[0-9]+]].[[NUM:.*]]:
 ; CHECK-VF8-NEXT:        |      |   [[PERMUTE0:%.*]] = @llvm.x86.avx2.permps([[PHI_TEMP70]],  [[PHI_TEMP50]])
-; CHECK-VF8-NEXT:        |      |   [[DOTVEC110:%.*]] = [[PHI_TEMP90]] == -1
 ; CHECK-VF8-NEXT:        |      |   [[DOTVEC120:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE0]] : 0.000000e+00
 ; CHECK-VF8-NEXT:        |      |   [[DOTVEC130:%.*]] = [[DOTVEC120]]  +  [[PHI_TEMP70]]
 ; CHECK-VF8-NEXT:        |      |   [[DOTVEC140:%.*]] = ([[PHI_TEMP90]] == -1) ? [[DOTVEC130]] : [[PHI_TEMP70]]
@@ -116,7 +114,7 @@ define dso_local void @foo(ptr noalias nocapture noundef %A, ptr noalias nocaptu
 ; CHECK-VF8-NEXT:        |      |   if ([[EXTRACT_0_0]] == 1)
 ; CHECK-VF8-NEXT:        |      |   {
 ; CHECK-VF8-NEXT:        |      |      <i2 = i2 + 1>
-; CHECK-VF8-NEXT:        |      |      goto [[BB0]].43
+; CHECK-VF8-NEXT:        |      |      goto [[BB0]].[[NUM]]
 ; CHECK-VF8-NEXT:        |      |   }
 ; CHECK-VF8-NEXT:        |      + END LOOP
 ; CHECK-VF8-NEXT:        |   }

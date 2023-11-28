@@ -1,6 +1,6 @@
 //===- HIRMVForConstUB.cpp - Multiversioning for constant UB -================//
 //
-// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -41,6 +41,10 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESCR "."));
 
+static cl::opt<bool> DisableMultiExitLoops(
+    "disable-" OPT_SWITCH "-for-multi-exit-loops", cl::init(true), cl::Hidden,
+    cl::desc("Disable " OPT_DESCR " for multi-exit loops."));
+
 STATISTIC(LoopsMultiversioned,
           "Number of loops multiversioned by MV for const UB");
 
@@ -62,7 +66,7 @@ public:
 private:
   bool analyzeAndTransformLoop(HLLoop *Loop);
   void transformLoop(HLLoop *Loop, unsigned TempIndex, int64_t Constant);
-  bool transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop, unsigned BlobIndex,
+  void transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop, unsigned BlobIndex,
                           int64_t NewValue);
   void transformLoop(HLLoop *Loop, SmallVectorImpl<unsigned> &TripCounts);
 
@@ -88,7 +92,7 @@ private:
 } // namespace
 
 static void propagateConstant(HLNode *Node, unsigned TempIndex,
-                              int64_t Constant) {
+                              int64_t Constant, bool RemoveEmptyParentNodes) {
   bool LoopChanged = false;
   HLLoop *Loop = dyn_cast<HLLoop>(Node);
 
@@ -123,11 +127,13 @@ static void propagateConstant(HLNode *Node, unsigned TempIndex,
   });
 
   if (LoopChanged) {
-    // Reset Max TC info.
-    Loop->setMaxTripCountEstimate(0);
-    Loop->setLegalMaxTripCount(0);
+    if (Loop->isConstTripLoop()) {
+      // Reset Max TC info.
+      Loop->setMaxTripCountEstimate(0);
+      Loop->setLegalMaxTripCount(0);
+    }
 
-    HLNodeUtils::removeRedundantNodes(Node);
+    HLNodeUtils::removeRedundantNodes(Node, RemoveEmptyParentNodes);
   }
 }
 
@@ -205,6 +211,14 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop,
 
   HLNodeUtils::moveAsFirstElseChild(LastIf, Loop);
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(LastIf);
+
+  // If the new condition is inside a loop, then we need to check if the
+  // parent loop is multi-exit. If so, then we need to update the number
+  // of exits since it may change.
+  auto *ParentLoop = LastIf->getParentLoop();
+  if (Loop->isMultiExit() && ParentLoop && ParentLoop->isMultiExit())
+    HLNodeUtils::updateNumLoopExits(LastIf->getOutermostParentLoop());
+
   LoopsMultiversioned++;
 }
 
@@ -227,9 +241,16 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
   SmallVector<const RegDDRef *, 1> Aux = {Loop->getUpperDDRef()};
   LHS->makeConsistent(Aux, Level - 1);
 
-  propagateConstant(Loop, TempIndex, Constant);
+  propagateConstant(Loop, TempIndex, Constant, true /*Remove parent*/);
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(If);
+
+  // If the new condition is inside a loop, then we need to check if the
+  // parent loop is multi-exit. If so, then we need to update the number
+  // of exits since it may change.
+  auto *ParentLoop = If->getParentLoop();
+  if (Loop->isMultiExit() && ParentLoop && ParentLoop->isMultiExit())
+    HLNodeUtils::updateNumLoopExits(If->getOutermostParentLoop());
 
   LoopsMultiversioned++;
 }
@@ -266,7 +287,7 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
 // In most of the cases the loop range would consist of single loop. But if
 // multiple sibling loops are candidates with same BlobIdx and same NewValue,
 // we would like to put all of them under the same condition.
-bool HIRMVForConstUB::transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop,
+void HIRMVForConstUB::transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop,
                                          unsigned BlobIndex, int64_t NewValue) {
   // Since we multiversion those loops under the same condition using the same
   // blob, the blob should be defined no later than in the preheader of the very
@@ -299,16 +320,33 @@ bool HIRMVForConstUB::transformLoopRange(HLLoop *FromLoop, HLLoop *ToLoop,
     HLNodeUtils::insertAsLastThenChild(If, ThenNode);
 
     // Propogate new constant value of blob throught loopnest.
-    propagateConstant(ThenNode, BlobIndex, NewValue);
+    propagateConstant(ThenNode, BlobIndex, NewValue,
+                      false /*Do not remove parent*/);
+  }
+
+  // It is possible that after constant propogation and DCE 'then' branch
+  // would be optimized away. In this case 'if' would only consist of empty
+  // 'then' branch. All we need to do is remove 'if' and return.
+  if (!If->hasThenChildren()) {
+    HLNodeUtils::remove(If);
+    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(FromLoop);
+    return;
   }
 
   // Move original node range into else branch.
   HLNodeUtils::moveAsLastElseChildren(If, FromLoop->getIterator(),
                                       std::next(ToLoop->getIterator()));
 
+  // If the new condition is inside a loop, then we need to check if the
+  // parent loop is multi-exit. If so, then we need to update the number
+  // of exits since it may change.
+  auto *ParentLoop = If->getParentLoop();
+  if (ParentLoop && ParentLoop->isMultiExit())
+    HLNodeUtils::updateNumLoopExits(If->getOutermostParentLoop());
+
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(If);
 
-  return true;
+  return;
 }
 
 bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
@@ -322,6 +360,10 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
     transformLoop(Loop, TripCounts);
     return true;
   }
+
+  // Multiversioning of the multi-exit loops is non-profitable.
+  if (DisableMultiExitLoops && Loop->isMultiExit())
+    return false;
 
   RegDDRef *Ref = Loop->getUpperDDRef();
   CanonExpr *CE = Ref->getSingleCanonExpr();
@@ -416,6 +458,11 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
   for (auto *Parent = Loop->getParentLoop();
        Parent && (Parent->getNestingLevel() > DefAtLvl);
        Parent = Parent->getParentLoop()) {
+
+    // Multiversioning of the multi-exit loops is non-profitable.
+    if (DisableMultiExitLoops && Parent->isMultiExit())
+      return false;
+
     auto *TCCanonExpr = Parent->getTripCountCanonExpr();
     if (TCCanonExpr &&
         TCCanonExpr->replaceTempBlobByConstant(BlobIndex, NewBlobValue)) {
@@ -507,38 +554,4 @@ PreservedAnalyses HIRMVForConstUBPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   HIRMVForConstUB(HIRF).run();
   return PreservedAnalyses::all();
-}
-
-class HIRMVForConstUBLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRMVForConstUBLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRMVForConstUBLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRMVForConstUB(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
-        .run();
-  }
-};
-
-char HIRMVForConstUBLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRMVForConstUBLegacyPass, OPT_SWITCH, OPT_DESCR, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRMVForConstUBLegacyPass, OPT_SWITCH, OPT_DESCR, false,
-                    false)
-
-FunctionPass *llvm::createHIRMVForConstUBPass() {
-  return new HIRMVForConstUBLegacyPass();
 }

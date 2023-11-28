@@ -25,9 +25,9 @@ class VPlanVPDATest : public VPlanTestBase {};
 TEST_F(VPlanVPDATest, TestVPlanDAPartialUpdate) {
   std::array<StringRef, 1> ModuleStrings = {{
       R"(
-    define void @da_test(i32* %A, i64 %N, i64* %Idx) {
+    define void @da_test(ptr %A, i64 %N, ptr %Idx) {
       entry:
-        %outer.idx = load i64, i64* %Idx
+        %outer.idx = load i64, ptr %Idx
         br label %for.body
       for.body:
         %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]

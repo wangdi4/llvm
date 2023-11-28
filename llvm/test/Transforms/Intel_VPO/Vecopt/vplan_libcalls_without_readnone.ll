@@ -4,7 +4,7 @@
 ; RUN: opt < %s -passes=vplan-vec -vplan-force-vf=2 -vplan-print-scalvec-results -tli-vectorize-non-readonly-libcalls=false -vector-library=SVML -S | FileCheck %s --check-prefix=LLVM-IR
 ; Checks for LLVM-IR VPlan vectorizer
 ; LLVM-IR-LABEL: VPlan after ScalVec analysis:
-; LLVM-IR:         [DA: Div, SVA: ( V )] float {{%vp.*}} = call float {{%vp.*}} float (float)* @logf [Serial] (SVAOpBits 0->V 1->F )
+; LLVM-IR:         [DA: Div, SVA: ( V )] float {{%vp.*}} = call float {{%vp.*}} ptr @logf [Serial] (SVAOpBits 0->V 1->F )
 
 ; LLVM-IR-LABEL: vector.body:
 ; LLVM-IR:         [[ARG_EXTRACT_1:%.*]] = extractelement <2 x float> [[ARG:%.*]], i32 1
@@ -33,17 +33,17 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(float* nocapture %a) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %a) local_unnamed_addr #0 {
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
-  %ptridx = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  %1 = load float, float* %ptridx, align 4
+  %ptridx = getelementptr inbounds float, ptr %a, i64 %indvars.iv
+  %1 = load float, ptr %ptridx, align 4
   %call = call float @logf(float %1) #2
-  store float %call, float* %ptridx, align 4
+  store float %call, ptr %ptridx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body

@@ -18,12 +18,6 @@
 
 using namespace llvm;
 
-// Command line option for other passes to use TLS mode
-bool EnableTLSGlobals;
-static cl::opt<bool, true> OptEnableTLSGlobals(
-    "sycl-kernel-enable-tls-globals", cl::desc("Enable TLS globals"),
-    cl::location(EnableTLSGlobals), cl::init(false), cl::Hidden);
-
 PreservedAnalyses AddTLSGlobalsPass::run(Module &M, ModuleAnalysisManager &AM) {
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
   LocalBufferInfo *LBInfo = &AM.getResult<LocalBufferAnalysis>(M);
@@ -41,13 +35,13 @@ PreservedAnalyses AddTLSGlobalsPass::run(Module &M, ModuleAnalysisManager &AM) {
     if (I == ImplicitArgsUtils::IA_BARRIER_BUFFER && NoBarrier)
       continue;
 
-    // TODO handle name conflicts
-    assert(!M.getGlobalVariable(ImplicitArgsUtils::getArgName(I)));
+    assert(!M.getNamedGlobal(ImplicitArgsUtils::getArgNameWithPrefix(I)) &&
+           "TLS global variable already exists");
     Type *ArgType = IAInfo->getArgType(I);
     GlobalVariable *GV = new GlobalVariable(
-        M, ArgType, false, GlobalValue::LinkOnceODRLinkage,
-        UndefValue::get(ArgType), ImplicitArgsUtils::getArgName(I), nullptr,
-        GlobalValue::GeneralDynamicTLSModel);
+        M, ArgType, false, GlobalValue::InternalLinkage,
+        UndefValue::get(ArgType), ImplicitArgsUtils::getArgNameWithPrefix(I),
+        nullptr, GlobalValue::GeneralDynamicTLSModel);
     GV->setAlignment(M.getDataLayout().getPreferredAlign(GV));
   }
 

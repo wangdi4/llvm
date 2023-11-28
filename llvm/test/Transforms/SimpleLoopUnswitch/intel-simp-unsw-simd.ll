@@ -489,8 +489,7 @@ attributes #1 = { nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_si
 !148 = !{!4, !33, !7, !36, !8, !37, !9, !38, !10, !39, !11, !40, !12, !41, !13, !42, !14, !43, !15, !44, !16, !45, !17, !46, !18, !21, !19, !20, !47, !22, !23, !26, !27, !28, !48, !29, !49, !50, !30, !31}
 !149 = !{!"branch_weights", i32 99, i32 1}
 !150 = distinct !{!150, !151, !155, !156}
-!151 = distinct !{!"intel.optreport.rootnode", !152}
-!152 = distinct !{!"intel.optreport", !153}
+!151 = distinct !{!"intel.optreport", !153}
 !153 = !{!"intel.optreport.remarks", !154}
 !154 = !{!"intel.optreport.remark", i32 0, !"OpenMP: Outlined parallel loop"}
 !155 = !{!"llvm.loop.vectorize.ivdep_loop", i32 0}

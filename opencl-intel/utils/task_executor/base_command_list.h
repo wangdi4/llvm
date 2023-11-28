@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -18,8 +18,7 @@
 #include "cl_synch_objects.h"
 #include "task_executor.h"
 #include "task_group.h"
-
-#include <tbb/partitioner.h>
+#include "tbb/partitioner.h"
 
 namespace Intel {
 namespace OpenCL {

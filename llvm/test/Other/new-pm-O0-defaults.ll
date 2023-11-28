@@ -32,11 +32,15 @@
 ; CHECK-DIS: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DIS-NEXT: Running pass: AddDiscriminatorsPass
 ; CHECK-DIS-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
+; CHECK-DIS-NEXT: Running pass: InlineReportSetupPass ;INTEL
+; CHECK-DIS-NEXT: Running pass: InlineForceInlinePass ;INTEL
 ; CHECK-DIS-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-DIS-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-DIS-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-DEFAULT: Running analysis: InnerAnalysisManagerProxy ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
+; CHECK-DEFAULT-NEXT: Running pass: InlineReportSetupPass ;INTEL
+; CHECK-DEFAULT-NEXT: Running pass: InlineForceInlinePass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: AlwaysInlinerPass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running analysis: ProfileSummaryAnalysis
@@ -50,6 +54,9 @@
 ; CHECK-THINLTO-NEXT: Running pass: GlobalDCEPass
 ; CHECK-LTO: Running pass: CrossDSOCFIPass on [module]
 ; INTEL_CUSTOMIZATION
+; CHECK-LTO-NEXT: Running pass: RequireAnalysisPass<llvm::DopeVectorTypeAnalysis, llvm::Module, llvm::AnalysisManager<Module>> on [module]
+; CHECK-LTO-NEXT: Running analysis: DopeVectorTypeAnalysis on [module]
+; CHECK-LTO-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-LTO-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-LTO-NEXT: Running analysis: XmainOptLevelAnalysis
 ; CHECK-LTO-NEXT: Running pass: RequireAnalysisPass
@@ -66,6 +73,9 @@
 ; CHECK-LTO-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-DEFAULT-NEXT: Running pass: Intel_DebugPass ;INTEL
 ; CHECK-DIS-NEXT: Running pass: Intel_DebugPass ;INTEL
+; CHECK-THINLTO: Running analysis: InnerAnalysisManagerProxy<FunctionAnalysisManager, Module> ;INTEL
+; CHECK-NEXT: Running pass: InlineReportMakeCurrentPass ;INTEL
+; CHECK-NEXT: Running pass: InlineReportEmitterPass ;INTEL
 ; CHECK-NEXT: Running pass: PrintModulePass
 
 ; Make sure we get the IR back out without changes when we print the module.

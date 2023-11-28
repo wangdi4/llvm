@@ -1,4 +1,4 @@
-; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
 
 ; This test checks that get_*_id calls are replaced in O0 and -g mode in the
 ; case there is no kernels.
@@ -18,11 +18,11 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64, align 8
 ; CHECK-NEXT: %dst.addr = alloca ptr addrspace(1), align 8
 ; CHECK-NEXT: %lid0.addr = alloca i64, align 8
-; CHECK-NEXT: %lid0 = load i64, ptr @LocalIds, align 8
+; CHECK-NEXT: %lid0 = load i64, ptr @__LocalIds, align 8
 ; CHECK-NEXT: store i64 %lid0, ptr %lid0.addr, align 8
-; CHECK-NEXT: %lid1 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 1), align 8
+; CHECK-NEXT: %lid1 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 1), align 8
 ; CHECK-NEXT: store i64 %lid1, ptr %lid1.addr, align 8
-; CHECK-NEXT: %lid2 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @LocalIds, i64 0, i32 2), align 8
+; CHECK-NEXT: %lid2 = load i64, ptr getelementptr inbounds ([3 x i64], ptr @__LocalIds, i64 0, i32 2), align 8
 ; CHECK-NEXT: store i64 %lid2, ptr %lid2.addr, align 8
 ; CHECK-NEXT: %base.gid0 = call i64 @get_base_global_id.(i32 0)
 ; CHECK-NEXT: %gid0 = add i64 %lid0, %base.gid0

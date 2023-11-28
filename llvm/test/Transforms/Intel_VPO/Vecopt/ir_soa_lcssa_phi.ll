@@ -13,42 +13,41 @@ define dso_local void @foo_soa_lcssa_from_sub_loop() {
 ; CHECK-NEXT:     [DA: [Shape: Uniform]] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 0, [[BB2]] ],  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB3]]
 ; CHECK-NEXT:     [DA: [Shape: Uniform]] i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 1
 ; CHECK-NEXT:     [DA: [Shape: Unit Stride, Stride: i64 1]] i64 [[VP_IDX:%.*]] = add i64 [[VP_INNER_IV]] i64 [[VP_IV:%.*]]
-; CHECK-NEXT:     [DA: [Shape: SOA Strided, Stride: VF x i64 4]] i32* [[VP_GEP:%.*]] = getelementptr [1024 x i32]* [[VP_ARR_PRIV:%.*]] i64 0 i64 [[VP_IDX]]
-; CHECK-NEXT:     [DA: [Shape: SOA Unit Stride, Stride: i64 4]] i32* [[VP_GEP_UNI:%.*]] = getelementptr [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_INNER_IV]]
+; CHECK-NEXT:     [DA: [Shape: SOA Strided, Stride: VF x i64 4]] ptr [[VP_GEP:%.*]] = getelementptr [1024 x i32], ptr [[VP_ARR_PRIV:%.*]] i64 0 i64 [[VP_IDX]]
+; CHECK-NEXT:     [DA: [Shape: SOA Unit Stride, Stride: i64 4]] ptr [[VP_GEP_UNI:%.*]] = getelementptr [1024 x i32], ptr [[VP_ARR_PRIV]] i64 0 i64 [[VP_INNER_IV]]
 ; CHECK-NEXT:     [DA: [Shape: Uniform]] i1 [[VP_INNER_EXITCOND:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 100
 ; CHECK-NEXT:     [DA: [Shape: Uniform]] br i1 [[VP_INNER_EXITCOND]], [[BB4:BB[0-9]+]], [[BB3]]
 ;
 ; CHECK:    [[BB4]]:
-; CHECK-NEXT:     [DA: [Shape: SOA Strided, Stride: VF x i64 4]] i32* [[VP_GEP_LCSSA:%.*]] = phi  [ i32* [[VP_GEP]], [[BB3]] ]
-; CHECK-NEXT:     [DA: [Shape: SOA Unit Stride, Stride: i64 4]] i32* [[VP_GEP_UNI_LCSSA:%.*]] = phi  [ i32* [[VP_GEP_UNI]], [[BB3]] ]
+; CHECK-NEXT:     [DA: [Shape: SOA Strided, Stride: VF x i64 4]] ptr [[VP_GEP_LCSSA:%.*]] = phi  [ ptr [[VP_GEP]], [[BB3]] ]
+; CHECK-NEXT:     [DA: [Shape: SOA Unit Stride, Stride: i64 4]] ptr [[VP_GEP_UNI_LCSSA:%.*]] = phi  [ ptr [[VP_GEP_UNI]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: [Shape: Random]] i32 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:4}
-; CHECK-NEXT:     [DA: [Shape: SOA Converted]] i32* [[VP1:%.*]] = getelementptr i32* [[VP_GEP_LCSSA]] i32 0 i32 [[VP_CONST_STEP]]
-; CHECK-NEXT:     [DA: [Shape: Random]] i32 [[VP_INNER_DEF:%.*]] = load i32* [[VP1]]
-; CHECK-NEXT:     [DA: [Shape: Random]] i32 [[VP_INNER_UNI_DEF:%.*]] = load i32* [[VP_GEP_UNI_LCSSA]]
+; CHECK-NEXT:     [DA: [Shape: SOA Converted]] ptr [[VP1:%.*]] = getelementptr i32, ptr [[VP_GEP_LCSSA]] i32 0 i32 [[VP_CONST_STEP]]
+; CHECK-NEXT:     [DA: [Shape: Random]] i32 [[VP_INNER_DEF:%.*]] = load ptr [[VP1]]
+; CHECK-NEXT:     [DA: [Shape: Random]] i32 [[VP_INNER_UNI_DEF:%.*]] = load ptr [[VP_GEP_UNI_LCSSA]]
 ;
 ; Generated code
 ; CHECK:  define dso_local void @foo_soa_lcssa_from_sub_loop() {
 ; CHECK:  VPlannedBB3:
-; CHECK:         [[SOA_VECTORGEP0:%.*]] = getelementptr [1024 x <4 x i32>], [1024 x <4 x i32>]* [[ARR_PRIV_SOA_VEC0:%.*]], <4 x i64> zeroinitializer, <4 x i64> [[TMP5:%.*]]
-; CHECK-NEXT:    [[SOA_SCALAR_GEP50:%.*]] = getelementptr [1024 x <4 x i32>], [1024 x <4 x i32>]* [[ARR_PRIV_SOA_VEC0]], i64 0, i64 [[UNI_PHI40:%.*]]
-; CHECK:       VPlannedBB6:
-; CHECK-NEXT:    [[VEC_PHI70:%.*]] = phi <4 x <4 x i32>*> [ [[SOA_VECTORGEP0]], [[VPLANNEDBB30:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI80:%.*]] = phi <4 x i32>* [ [[SOA_SCALAR_GEP50]], [[VPLANNEDBB30]] ]
-; CHECK-NEXT:    [[SOA_VECTORGEP90:%.*]] = getelementptr <4 x i32>, <4 x <4 x i32>*> [[VEC_PHI70]], <4 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[SOA_VECTORGEP90]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> poison)
-; CHECK-NEXT:    [[WIDE_LOAD100:%.*]] = load <4 x i32>, <4 x i32>* [[UNI_PHI80]], align 4
+; CHECK:         [[SOA_VECTORGEP0:%.*]] = getelementptr [1024 x <4 x i32>], ptr [[ARR_PRIV_SOA_VEC0:%.*]], <4 x i64> zeroinitializer, <4 x i64> [[TMP5:%.*]]
+; CHECK-NEXT:    [[SOA_SCALAR_GEP50:%.*]] = getelementptr [1024 x <4 x i32>], ptr [[ARR_PRIV_SOA_VEC0]], i64 0, i64 [[UNI_PHI40:%.*]]
+; CHECK:       VPlannedBB5:
+; CHECK-NEXT:    [[VEC_PHI70:%.*]] = phi <4 x ptr> [ [[SOA_VECTORGEP0]], [[VPLANNEDBB30:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI80:%.*]] = phi ptr [ [[SOA_SCALAR_GEP50]], [[VPLANNEDBB30]] ]
+; CHECK-NEXT:    [[SOA_VECTORGEP90:%.*]] = getelementptr <4 x i32>, <4 x ptr> [[VEC_PHI70]], <4 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> [[SOA_VECTORGEP90]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> poison)
+; CHECK-NEXT:    [[WIDE_LOAD100:%.*]] = load <4 x i32>, ptr [[UNI_PHI80]], align 4
 entry:
   %arr.priv = alloca [1024 x i32], align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr.priv, i32 0, i32 1024), "QUAL.OMP.SIMDLEN"(i32 4)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr.priv, i32 0, i32 1024), "QUAL.OMP.SIMDLEN"(i32 4)]
   br label %outer.header
 
 outer.header:
   %iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %iv.next, %outer.latch ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv, i32 0, i32 0
-  %ld = load i32, i32* %arrayidx
+  %ld = load i32, ptr %arr.priv
   %iv.next = add nuw nsw i64 %iv, 1
   br label %inner.header
 
@@ -56,16 +55,16 @@ inner.header:
   %inner.iv = phi i64 [ 0, %outer.header ], [ %inner.iv.next, %inner.header ]
   %inner.iv.next = add nsw nuw i64 %inner.iv, 1
   %idx = add nuw nsw i64 %inner.iv, %iv
-  %gep = getelementptr [1024 x i32], [1024 x i32]* %arr.priv, i64 0, i64 %idx
-  %gep.uni = getelementptr [1024 x i32], [1024 x i32]* %arr.priv, i64 0, i64 %inner.iv
+  %gep = getelementptr [1024 x i32], ptr %arr.priv, i64 0, i64 %idx
+  %gep.uni = getelementptr [1024 x i32], ptr %arr.priv, i64 0, i64 %inner.iv
   %inner.exitcond = icmp eq i64 %inner.iv.next, 100
   br i1 %inner.exitcond, label %outer.latch, label %inner.header
 
 outer.latch:
-  %gep.lcssa = phi i32* [ %gep, %inner.header ]
-  %gep.uni.lcssa = phi i32* [ %gep.uni, %inner.header ]
-  %inner.def = load i32, i32* %gep.lcssa
-  %inner.uni.def = load i32, i32* %gep.uni.lcssa
+  %gep.lcssa = phi ptr [ %gep, %inner.header ]
+  %gep.uni.lcssa = phi ptr [ %gep.uni, %inner.header ]
+  %inner.def = load i32, ptr %gep.lcssa
+  %inner.uni.def = load i32, ptr %gep.uni.lcssa
   %some_cmp = icmp eq i64 %iv.next, 1024
   br i1 %some_cmp, label %loop.exit, label %outer.header
 

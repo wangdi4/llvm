@@ -19,25 +19,25 @@
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
 ; opt -passes=sycl-kernel-target-ext-type-lower,sycl-kernel-equalizer %s -S
 ; ----------------------------------------------------
-; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc %s -S | FileCheck %s
-; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=2 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=2 %s -S | FileCheck %s --check-prefixes=CHECK,IGNOREDEPTH
-; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=1 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=1 %s -S | FileCheck %s --check-prefixes=CHECK,DEFAULT
-; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=0 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=0 %s -S | FileCheck %s --check-prefixes=CHECK,STRICT
+
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -sycl-channel-depth-emulation-mode=2 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -sycl-channel-depth-emulation-mode=2 %s -S | FileCheck %s --check-prefixes=CHECK,IGNOREDEPTH
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -sycl-channel-depth-emulation-mode=1 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -sycl-channel-depth-emulation-mode=1 %s -S | FileCheck %s --check-prefixes=CHECK,DEFAULT
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -sycl-channel-depth-emulation-mode=0 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -sycl-channel-depth-emulation-mode=0 %s -S | FileCheck %s --check-prefixes=CHECK,STRICT
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-@bar = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
-@far = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !2
-@star = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
-@bar_arr = addrspace(1) global [5 x target("spirv.Channel")] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
-@far_arr = addrspace(1) global [5 x [4 x target("spirv.Channel")]] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !2
-@star_arr = addrspace(1) global [5 x [4 x [3 x target("spirv.Channel")]]] zeroinitializer, align 4, !packet_size !0, !packet_align !0
+@bar = addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !0, !packet_align !0, !depth !1
+@far = addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !0, !packet_align !0, !depth !2
+@star = addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !0, !packet_align !0
+@bar_arr = addrspace(1) global [5 x ptr addrspace(1)] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
+@far_arr = addrspace(1) global [5 x [4 x ptr addrspace(1)]] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !2
+@star_arr = addrspace(1) global [5 x [4 x [3 x ptr addrspace(1)]]] zeroinitializer, align 4, !packet_size !0, !packet_align !0
 
 ; CHECK-DAG: @[[PIPE_BAR:bar.*]] = addrspace(1) global ptr addrspace(1)
 ; CHECK-DAG: @[[PIPE_FAR:far.*]] = addrspace(1) global ptr addrspace(1)

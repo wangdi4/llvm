@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -26,16 +26,14 @@
 #include "memory_test.h"
 #include "program_service_test.h"
 
+#include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <time.h>
 #ifdef _WIN32
 #include <windows.h>
 #endif
-
-#include <math.h>
-#include <stdio.h>
-#include <time.h>
 
 using namespace llvm;
 

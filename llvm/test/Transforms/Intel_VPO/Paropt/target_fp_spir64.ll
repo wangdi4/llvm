@@ -1,11 +1,11 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-target-non-wilocal-fp-alloc-mode=rtl -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=RTL
-; RUN: opt -opaque-pointers=1 -vpo-paropt-target-non-wilocal-fp-alloc-mode=rtl -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=RTL
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-target-non-wilocal-fp-alloc-mode=rtl -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=RTL
+; RUN: opt -vpo-paropt-target-non-wilocal-fp-alloc-mode=rtl -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=RTL
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-target-non-wilocal-fp-alloc-mode=module -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=MODULE
-; RUN: opt -opaque-pointers=1 -vpo-paropt-target-non-wilocal-fp-alloc-mode=module -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=MODULE
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-target-non-wilocal-fp-alloc-mode=module -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=MODULE
+; RUN: opt -vpo-paropt-target-non-wilocal-fp-alloc-mode=module -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=MODULE
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-target-non-wilocal-fp-alloc-mode=wilocal -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=LOCAL
-; RUN: opt -opaque-pointers=1 -vpo-paropt-target-non-wilocal-fp-alloc-mode=wilocal -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=LOCAL
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-target-non-wilocal-fp-alloc-mode=wilocal -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefix=LOCAL
+; RUN: opt -vpo-paropt-target-non-wilocal-fp-alloc-mode=wilocal -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefix=LOCAL
 
 ; Test src:
 ; #include <stdio.h>

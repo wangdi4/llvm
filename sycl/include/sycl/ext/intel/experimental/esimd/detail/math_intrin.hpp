@@ -27,10 +27,12 @@
 
 /// @cond ESIMD_DETAIL
 
+#include <cmath>
 #include <sycl/ext/intel/esimd/detail/defines_elementary.hpp>
 #include <sycl/ext/intel/esimd/detail/host_util.hpp>
 #include <sycl/ext/intel/esimd/detail/math_intrin.hpp>
 #include <sycl/ext/intel/esimd/detail/types.hpp>
+#include <sycl/ext/intel/esimd/xmx/common.hpp>
 
 #define __ESIMD_raw_vec_t(T, SZ)                                               \
   sycl::ext::intel::esimd::detail::vector_type_t<                              \
@@ -687,7 +689,7 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
       /* end INTEL_CUSTOMIZATION */
 
       // U = s / src1_ops_per_dword;
-      U = s >> unsigned(log2(src1_ops_per_dword));
+      U = s >> unsigned(std::log2(src1_ops_per_dword));
 
       for (unsigned n = 0; n < SIMDSize; n++) {
         for (unsigned d = 0; d < ops_per_chan; d++) {

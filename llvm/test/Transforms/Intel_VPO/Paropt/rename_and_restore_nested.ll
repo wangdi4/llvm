@@ -40,7 +40,7 @@
 
 
 ; Check for the undone renaming after restore:
-; RESTR-NOT alloca [10 x i8]*
+; RESTR-NOT alloca ptr
 ; RESTR-NOT: "QUAL.OMP.OPERAND.ADDR"
 ; RESTR: "QUAL.OMP.PRIVATE:TYPED"(ptr %y,
 ; RESTR: getelementptr inbounds [10 x i8], ptr %y
@@ -61,7 +61,7 @@ entry:
   call void @llvm.lifetime.start.p0(i64 10, ptr %0)
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
-    "QUAL.OMP.PRIVATE:TYPED"([10 x i8]* %y, i8 0, i64 10) ]
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %y, i8 0, i64 10) ]
 
   %arrayidx = getelementptr inbounds [10 x i8], ptr %y, i64 0, i64 0
   %2 = load i8, ptr %arrayidx, align 1, !tbaa !2
@@ -69,7 +69,7 @@ entry:
   %call = call i32 (ptr, ...) @printf(ptr @.str, i32 %conv)
 
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
-    "QUAL.OMP.PRIVATE:TYPED"([10 x i8]* %y, i8 0, i64 10) ]
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %y, i8 0, i64 10) ]
 
   %arrayidx1 = getelementptr inbounds [10 x i8], ptr %y, i64 0, i64 0
   %4 = load i8, ptr %arrayidx1, align 1, !tbaa !2

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,9 +17,9 @@
 
 #include "Exception.h"
 #include "IMemoryObjectDesc.h"
-#include "assert.h"
 #include "dxfloat.h"
 #include "llvm/Support/DataTypes.h" // LLVM data types
+#include <assert.h>
 #include <map>
 #include <sstream>
 #include <vector>

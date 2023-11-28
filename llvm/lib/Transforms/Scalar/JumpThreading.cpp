@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -155,11 +155,10 @@ ConservativeJumpThreading("conservative-jump-threading",
           cl::desc("Use conservative heuristics for loop headers and multi-BB "
                    "thread regions"),
           cl::init(true), cl::Hidden);
-#endif // INTEL_CUSTOMIZATION
 
-JumpThreadingPass::JumpThreadingPass(int T,                             // INTEL
-                                     bool AllowCFGSimps) {              // INTEL
-  DoCFGSimplifications = AllowCFGSimps;                                 // INTEL
+JumpThreadingPass::JumpThreadingPass(int T, bool AllowCFGSimps) {
+  DoCFGSimplifications = AllowCFGSimps;
+#endif // INTEL_CUSTOMIZATION
   DefaultBBDupThreshold = (T == -1) ? BBDuplicateThreshold : unsigned(T);
 }
 
@@ -298,7 +297,6 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &LVI = AM.getResult<LazyValueAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
-
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &PDT = AM.getResult<PostDominatorTreeAnalysis>(F); // INTEL
 
@@ -336,10 +334,11 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
          "PDT broken after JumpThreading");
 #endif
 
-  PreservedAnalyses PA;                 // INTEL
-  PA.preserve<AndersensAA>();           // INTEL
-  PA.preserve<WholeProgramAnalysis>();  // INTEL
-
+#if INTEL_CUSTOMIZATION
+  PreservedAnalyses PA;
+  PA.preserve<AndersensAA>();
+  PA.preserve<WholeProgramAnalysis>();
+#endif // INTEL_CUSTOMIZATION
   return getPreservedAnalysis();
 }
 
@@ -469,9 +468,8 @@ bool JumpThreadingPass::runImpl(Function &F_, FunctionAnalysisManager *FAM_,
   } while (Changed);
 
   LoopHeaders.clear();
-  CountableSingleExitLoopLatches.clear();   // INTEL
-  CountableSingleExitLoopHeaders.clear();   // INTEL
-  // Flush only the Dominator Tree.
+  CountableSingleExitLoopLatches.clear(); // INTEL
+  CountableSingleExitLoopHeaders.clear(); // INTEL
   return EverChanged;
 }
 
@@ -779,6 +777,8 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
     ThreadRegionInfo &RegionInfo,       // INTEL
     ConstantPreference Preference, DenseSet<Value *> &RecursionSet,
     Instruction *CxtI) {
+  const DataLayout &DL = BB->getModule()->getDataLayout();
+
   // This method walks up use-def chains recursively.  Because of this, we could
   // get into an infinite loop going around loops in the use-def chain.  To
   // prevent this, keep track of what (value, block) pairs we've already visited
@@ -892,16 +892,19 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
   // Handle Cast instructions.
   if (CastInst *CI = dyn_cast<CastInst>(I)) {
     Value *Source = CI->getOperand(0);
-    computeValueKnownInPredecessorsImpl(Source, BB, Result, RegionInfo, // INTEL
+    PredValueInfoTy Vals;
+    computeValueKnownInPredecessorsImpl(Source, BB, Vals, RegionInfo, // INTEL
                                         Preference, RecursionSet, CxtI);// INTEL
-    if (Result.empty())
+    if (Vals.empty())
       return false;
 
     // Convert the known values.
-    for (auto &R : Result)
-      R.first = ConstantExpr::getCast(CI->getOpcode(), R.first, CI->getType());
+    for (auto &Val : Vals)
+      if (Constant *Folded = ConstantFoldCastOperand(CI->getOpcode(), Val.first,
+                                                     CI->getType(), DL))
+        Result.emplace_back(Folded, Val.second);
 
-    return true;
+    return !Result.empty();
   }
 
   if (FreezeInst *FI = dyn_cast<FreezeInst>(I)) {
@@ -929,12 +932,12 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
       PredValueInfoTy LHSVals, RHSVals;
       ThreadRegionInfoTy RegionInfoOp0, RegionInfoOp1;                  // INTEL
 
-      computeValueKnownInPredecessorsImpl(Op0, BB, LHSVals,
-                                          RegionInfoOp0,                    // INTEL
+#if INTEL_CUSTOMIZATION
+      computeValueKnownInPredecessorsImpl(Op0, BB, LHSVals, RegionInfoOp0,
                                           WantInteger, RecursionSet, CxtI);
-      computeValueKnownInPredecessorsImpl(Op1, BB, RHSVals,
-                                          RegionInfoOp1,                    // INTEL
+      computeValueKnownInPredecessorsImpl(Op1, BB, RHSVals, RegionInfoOp1,
                                           WantInteger, RecursionSet, CxtI);
+#endif // INTEL_CUSTOMIZATION
 
       if (LHSVals.empty() && RHSVals.empty())
         return false;
@@ -976,10 +979,11 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
             Result.emplace_back(InterestingVal, RHSVal.second);
         }
 
-      if (!Result.empty())                                              // INTEL
-        RegionInfo.insert(RegionInfo.end(), RegionInfoOp1.begin(),      // INTEL
-                          RegionInfoOp1.end());                         // INTEL
-
+#if INTEL_CUSTOMIZATION
+      if (!Result.empty())
+        RegionInfo.insert(RegionInfo.end(), RegionInfoOp1.begin(),
+                          RegionInfoOp1.end());
+#endif // INTEL_CUSTOMIZATION
       return !Result.empty();
     }
 
@@ -1004,10 +1008,8 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
   } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(I)) {
     if (Preference != WantInteger)
       return false;
-
     ThreadRegionInfoTy RegionInfoOp0;                                   // INTEL
     if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(1))) {
-      const DataLayout &DL = BO->getModule()->getDataLayout();
       PredValueInfoTy LHSVals;
       computeValueKnownInPredecessorsImpl(BO->getOperand(0), BB, LHSVals,
                                           RegionInfoOp0,                    // INTEL
@@ -1024,10 +1026,11 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
       }
     }
 
-    if (!Result.empty())                                                // INTEL
-      RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),        // INTEL
-                        RegionInfoOp0.end());                           // INTEL
-
+#if INTEL_CUSTOMIZATION
+    if (!Result.empty())
+      RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),
+                        RegionInfoOp0.end());
+#endif // INTEL_CUSTOMIZATION
     return !Result.empty();
   }
 
@@ -1043,7 +1046,10 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
     PHINode *PN = dyn_cast<PHINode>(CmpLHS);
     if (!PN)
       PN = dyn_cast<PHINode>(CmpRHS);
-    if (PN && PN->getParent() == BB) {
+    // Do not perform phi translation across a loop header phi, because this
+    // may result in comparison of values from two different loop iterations.
+    // FIXME: This check is broken if LoopHeaders is not populated.
+    if (PN && PN->getParent() == BB && !LoopHeaders.contains(BB)) {
       const DataLayout &DL = PN->getModule()->getDataLayout();
       // We can do this simplification if any comparisons fold to true or false.
       // See if any do.
@@ -1106,7 +1112,6 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
       if (!Result.empty())                                              // INTEL
         RegionInfo.push_back(std::make_pair(BB, BB));                   // INTEL
-
       return !Result.empty();
     }
 
@@ -1132,7 +1137,6 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
         if (!Result.empty())                                            // INTEL
           RegionInfo.push_back(std::make_pair(BB, BB));                 // INTEL
-
         return !Result.empty();
       }
 
@@ -1174,7 +1178,6 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
             if (!Result.empty())                                        // INTEL
               RegionInfo.push_back(std::make_pair(BB, BB));             // INTEL
-
             return !Result.empty();
           }
         }
@@ -1195,9 +1198,11 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
           Result.emplace_back(KC, LHSVal.second);
       }
 
-      if (!Result.empty())                                              // INTEL
-        RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),      // INTEL
-                          RegionInfoOp0.end());                         // INTEL
+#if INTEL_CUSTOMIZATION
+      if (!Result.empty())
+        RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),
+                          RegionInfoOp0.end());
+#endif // INTEL_CUSTOMIZATION
 
       return !Result.empty();
     }
@@ -1235,9 +1240,11 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
           Result.emplace_back(Val, C.second);
       }
 
-      if (!Result.empty())                                              // INTEL
-        RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),      // INTEL
-                          RegionInfoOp0.end());                         // INTEL
+#if INTEL_CUSTOMIZATION
+      if (!Result.empty())
+        RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),
+                          RegionInfoOp0.end());
+#endif // INTEL_CUSTOMIZATION
 
       return !Result.empty();
     }
@@ -1253,7 +1260,6 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
   if (!Result.empty())                                                  // INTEL
     RegionInfo.push_back(std::make_pair(BB, BB));                       // INTEL
-
   return !Result.empty();
 }
 
@@ -1844,6 +1850,7 @@ bool JumpThreadingPass::simplifyPartiallyRedundantLoad(LoadInst *LoadI) {
     if (IsLoadCSE) {
       LoadInst *NLoadI = cast<LoadInst>(AvailableVal);
       combineMetadataForCSE(NLoadI, LoadI, false);
+      LVI->forgetValue(NLoadI);
     };
 
     // If the returned value is the load itself, replace with poison. This can
@@ -2007,8 +2014,8 @@ bool JumpThreadingPass::simplifyPartiallyRedundantLoad(LoadInst *LoadI) {
 
   // Create a PHI node at the start of the block for the PRE'd load value.
   pred_iterator PB = pred_begin(LoadBB), PE = pred_end(LoadBB);
-  PHINode *PN = PHINode::Create(LoadI->getType(), std::distance(PB, PE), "",
-                                &LoadBB->front());
+  PHINode *PN = PHINode::Create(LoadI->getType(), std::distance(PB, PE), "");
+  PN->insertBefore(LoadBB->begin());
   PN->takeName(LoadI);
   PN->setDebugLoc(LoadI->getDebugLoc());
 
@@ -2036,6 +2043,7 @@ bool JumpThreadingPass::simplifyPartiallyRedundantLoad(LoadInst *LoadI) {
 
   for (LoadInst *PredLoadI : CSELoads) {
     combineMetadataForCSE(PredLoadI, LoadI, true);
+    LVI->forgetValue(PredLoadI);
   }
 
   LoadI->replaceAllUsesWith(PN);
@@ -2136,12 +2144,12 @@ Constant *JumpThreadingPass::evaluateOnPredecessorEdge(BasicBlock *BB,
 bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
                                                ConstantPreference Preference,
                                                Instruction *CxtI) {
+#if INTEL_CUSTOMIZATION
   // If threading this would thread across a loop header, don't even try to
   // thread the edge.
-  if (LoopHeaders.count(BB) && !JumpThreadLoopHeader)                   // INTEL
+  if (LoopHeaders.count(BB) && !JumpThreadLoopHeader)
     return false;
 
-#if INTEL_CUSTOMIZATION
   // workaround for non-conforming C application code. Pointer is converted
   // to null using a subtraction. Optimizer cannot assume GEP results are
   // non-null if there are subtractions.
@@ -2155,19 +2163,22 @@ bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
 #endif // INTEL_CUSTOMIZATION
 
   PredValueInfoTy PredValues;
-  // bool Changed = false;                                              // INTEL
-  ThreadRegionInfoTy RegionInfo;                                        // INTEL
-  if (!computeValueKnownInPredecessors(Cond, BB, PredValues,            // INTEL
-                                       RegionInfo,                      // INTEL
-                                       Preference, CxtI)) {             // INTEL
+#if INTEL_CUSTOMIZATION
+  // bool Changed = false;
+  ThreadRegionInfoTy RegionInfo;
+  if (!computeValueKnownInPredecessors(Cond, BB, PredValues, RegionInfo,
+                                       Preference, CxtI)) {
+#endif // INTEL_CUSTOMIZATION
     // We don't have known values in predecessors.  See if we can thread through
     // BB and its sole predecessor.
     return maybethreadThroughTwoBasicBlocks(BB, Cond);
   }
 
-  assert(!PredValues.empty() && !RegionInfo.empty() &&                  // INTEL
-         "computeValueKnownInPredecessors returned true with no "       // INTEL
-         "values or regions");                                          // INTEL
+#if INTEL_CUSTOMIZATION
+  assert(!PredValues.empty() && !RegionInfo.empty() &&
+         "computeValueKnownInPredecessors returned true with no "
+         "values or regions");
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "IN BB: " << *BB;
              for (const auto &PredValue : PredValues) {
@@ -2256,9 +2267,10 @@ bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
   // If all the predecessors go to a single known successor, we want to fold,
   // not thread. By doing so, we do not need to duplicate the current block and
   // also miss potential opportunities in case we dont/cant duplicate.
-  if (OnlyDest && OnlyDest != MultipleDestSentinel &&                  // INTEL
-      RegionInfo.size() == 1 &&                                        // INTEL
-      RegionInfo.back().first == RegionInfo.back().second) {           // INTEL
+#if INTEL_CUSTOMIZATION
+  if (OnlyDest && OnlyDest != MultipleDestSentinel && RegionInfo.size() == 1 &&
+      RegionInfo.back().first == RegionInfo.back().second) {
+#endif // INTEL_CUSTOMIZATION
     if (BB->hasNPredecessors(PredToDestList.size())) {
       bool SeenFirstBranchToOnlyDest = false;
       std::vector <DominatorTree::UpdateType> Updates;
@@ -2536,7 +2548,7 @@ bool JumpThreadingPass::maybeMergeBasicBlockIntoOnlyPred(BasicBlock *BB) {
     return false;
 
   const Instruction *TI = SinglePred->getTerminator();
-  if (TI->isExceptionalTerminator() || TI->getNumSuccessors() != 1 ||
+  if (TI->isSpecialTerminator() || TI->getNumSuccessors() != 1 ||
       !DoCFGSimplifications ||                                         // INTEL
       SinglePred == BB || hasAddressTakenAndUsed(BB))
     return false;
@@ -2625,11 +2637,9 @@ void JumpThreadingPass::updateSSA(
 
     // Find debug values outside of the block
     findDbgValues(DbgValues, &I);
-    DbgValues.erase(remove_if(DbgValues,
-                              [&](const DbgValueInst *DbgVal) {
-                                return DbgVal->getParent() == BB;
-                              }),
-                    DbgValues.end());
+    llvm::erase_if(DbgValues, [&](const DbgValueInst *DbgVal) {
+      return DbgVal->getParent() == BB;
+    });
 
     // If there are no uses outside the block, we're done with this instruction.
     if (UsesToRename.empty() && DbgValues.empty())
@@ -2978,13 +2988,15 @@ bool JumpThreadingPass::maybethreadThroughTwoBasicBlocks(BasicBlock *BB,
   }
 
   // Compute the cost of duplicating BB and PredBB.
-  SmallVector<BasicBlock*, 1> RegionBlocks;                            // INTEL
-  RegionBlocks.push_back(BB);                                          // INTEL
+#if INTEL_CUSTOMIZATION
+  SmallVector<BasicBlock*, 1> RegionBlocks;
+  RegionBlocks.push_back(BB);
   unsigned BBCost =
-    getJumpThreadDuplicationCost(TTI, RegionBlocks, BB, BBDupThreshold);// INTEL
-  RegionBlocks[0] = PredBB;                                            // INTEL
+    getJumpThreadDuplicationCost(TTI, RegionBlocks, BB, BBDupThreshold);
+  RegionBlocks[0] = PredBB;
   unsigned PredBBCost = getJumpThreadDuplicationCost(
-      TTI, RegionBlocks, PredBB, BBDupThreshold);                      // INTEL
+      TTI, RegionBlocks, PredBB, BBDupThreshold);
+#endif // INTEL_CUSTOMIZATION
 
   // Give up if costs are too high.  We need to check BBCost and PredBBCost
   // individually before checking their sum because getJumpThreadDuplicationCost
@@ -3027,7 +3039,7 @@ void JumpThreadingPass::threadThroughTwoBasicBlocks(BasicBlock *PredPredBB,
     assert(BPI && "It's expected BPI to exist along with BFI");
     auto NewBBFreq = BFI->getBlockFreq(PredPredBB) *
                      BPI->getEdgeProbability(PredPredBB, PredBB);
-    BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+    BFI->setBlockFreq(NewBB, NewBBFreq);
   }
 
   // We are going to have to map operands from the original BB block to the new
@@ -3070,17 +3082,19 @@ void JumpThreadingPass::threadThroughTwoBasicBlocks(BasicBlock *PredPredBB,
 
   SmallVector<BasicBlock *, 1> PredsToFactor;
   PredsToFactor.push_back(NewBB);
-  ThreadRegionInfoTy RegionInfo;                                        // INTEL
-  RegionInfo.push_back(std::make_pair(BB, BB));                         // INTEL
-  SmallVector<BasicBlock *, 1> RegionBlocks;                            // INTEL
-  RegionBlocks.push_back(BB);                                           // INTEL
-  threadEdge(RegionInfo, RegionBlocks, false, PredsToFactor, SuccBB);   // INTEL
+#if INTEL_CUSTOMIZATION
+  ThreadRegionInfoTy RegionInfo;
+  RegionInfo.push_back(std::make_pair(BB, BB));
+  SmallVector<BasicBlock *, 1> RegionBlocks;
+  RegionBlocks.push_back(BB);
+  threadEdge(RegionInfo, RegionBlocks, false, PredsToFactor, SuccBB);
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
 /// ThreadEdge was significantly modified to support distant jump threading.
-/// Not every line was changed, but the entire routine is under
-/// INTEL_CUSTOMIZATION, because any community changes to this routine will need
+/// Not every line was changed, but the entire routine is marked,
+/// because any community changes to this routine will need
 /// to be manually merged.
 ///
 /// ThreadEdge - We have decided that it is safe and profitable to factor the
@@ -3310,7 +3324,7 @@ void JumpThreadingPass::threadEdge(
       assert(BPI && "It's expected BPI to exist along with BFI");
       auto NewBBFreq =
           BFI->getBlockFreq(PredBB) * BPI->getEdgeProbability(PredBB, OldBB);
-      BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+      BFI->setBlockFreq(NewBB, NewBBFreq);
     }
 
   }
@@ -3598,9 +3612,8 @@ BasicBlock *JumpThreadingPass::splitBlockPreds(BasicBlock *BB,
       if (BFI) // Update frequencies between Pred -> NewBB.
         NewBBFreq += FreqMap.lookup(Pred);
     }
-    if (BFI) { // Apply the summed frequency to NewBB.
-      BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
-    }
+    if (BFI) // Apply the summed frequency to NewBB.
+      BFI->setBlockFreq(NewBB, NewBBFreq);
   }
 
   DTU->applyUpdatesPermissive(Updates);
@@ -3654,7 +3667,7 @@ void JumpThreadingPass::updateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
   SmallVector<BasicBlock*, 16> ReadyBlocks;
   auto NewRegionTopFreq =
     BFI->getBlockFreq(PredBB) * BPI->getEdgeProbability(PredBB, NewRegionTop);
-  BFI->setBlockFreq(NewRegionTop, NewRegionTopFreq.getFrequency());
+  BFI->setBlockFreq(NewRegionTop, NewRegionTopFreq);
   ReadyBlocks.push_back(RegionTop);
 
   while (!ReadyBlocks.empty()) {
@@ -3667,7 +3680,7 @@ void JumpThreadingPass::updateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
     auto BBOrigFreq = BFI->getBlockFreq(BB);
     auto NewBBFreq = BFI->getBlockFreq(NewBB);
     auto BBNewFreq = BBOrigFreq - NewBBFreq;
-    BFI->setBlockFreq(BB, BBNewFreq.getFrequency());
+    BFI->setBlockFreq(BB, BBNewFreq);
 
     // The bottom block in the region needs special treatment. We don't have to
     // worry about the outgoing edge weights for NewBB since it now ends in an
@@ -3769,7 +3782,7 @@ void JumpThreadingPass::updateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
       auto EdgeFreq =
           BFI->getBlockFreq(NewBB) * BPI->getEdgeProbability(BB, SuccIdx);
       auto NewSuccFreq = BFI->getBlockFreq(NewSucc) + EdgeFreq;
-      BFI->setBlockFreq(NewSucc, NewSuccFreq.getFrequency());
+      BFI->setBlockFreq(NewSucc, NewSuccFreq);
 
       if (--BlockPredCount[NewSucc] == 0)
         ReadyBlocks.push_back(*SI);
@@ -3830,12 +3843,13 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
                  << "' - it might prevent jump threading from converging!\n");
       return false;
     }
-#endif // INTEL_CUSTOMIZATION
 
-  SmallVector<BasicBlock*, 1> RegionBlocks;                             // INTEL
-  RegionBlocks.push_back(BB);                                           // INTEL
-  unsigned DuplicationCost =                                            // INTEL
-    getJumpThreadDuplicationCost(TTI, RegionBlocks, BB, BBDupThreshold);// INTEL
+  // use single block for duplication cost
+  SmallVector<BasicBlock *, 1> RegionBlocks;
+  RegionBlocks.push_back(BB);
+  unsigned DuplicationCost =
+      getJumpThreadDuplicationCost(TTI, RegionBlocks, BB, BBDupThreshold);
+#endif // INTEL_CUSTOMIZATION
   if (DuplicationCost > BBDupThreshold) {
     LLVM_DEBUG(dbgs() << "  Not duplicating BB '" << BB->getName()
                       << "' - Cost is too high: " << DuplicationCost << "\n");
@@ -4003,7 +4017,7 @@ void JumpThreadingPass::unfoldSelectInstr(BasicBlock *Pred, BasicBlock *BB,
     BranchProbability PredToNewBBProb = BranchProbability::getBranchProbability(
         TrueWeight, TrueWeight + FalseWeight);
     auto NewBBFreq = BFI->getBlockFreq(Pred) * PredToNewBBProb;
-    BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+    BFI->setBlockFreq(NewBB, NewBBFreq);
   }
 
   // The select is now dead.
@@ -4182,7 +4196,9 @@ bool JumpThreadingPass::tryToUnfoldSelectInCurrBB(BasicBlock *BB) {
     Value *Cond = SI->getCondition();
     if (!isGuaranteedNotToBeUndefOrPoison(Cond, nullptr, SI))
       Cond = new FreezeInst(Cond, "cond.fr", SI);
-    Instruction *Term = SplitBlockAndInsertIfThen(Cond, SI, false);
+    MDNode *BranchWeights = getBranchWeightMDNode(*SI);
+    Instruction *Term =
+        SplitBlockAndInsertIfThen(Cond, SI, false, BranchWeights);
     BasicBlock *SplitBB = SI->getParent();
     BasicBlock *NewBB = Term->getParent();
     PHINode *NewPN = PHINode::Create(SI->getType(), 2, "", SI);
@@ -4292,10 +4308,12 @@ bool JumpThreadingPass::threadGuard(BasicBlock *BB, IntrinsicInst *Guard,
 
   ValueToValueMapTy UnguardedMapping, GuardedMapping;
   Instruction *AfterGuard = Guard->getNextNode();
-  SmallVector<BasicBlock*, 1> RegionBlocks;                             // INTEL
-  RegionBlocks.push_back(BB);                                           // INTEL
-  unsigned Cost =                                                       // INTEL
-    getJumpThreadDuplicationCost(TTI, RegionBlocks, BB, BBDupThreshold);// INTEL
+#if INTEL_CUSTOMIZATION
+  SmallVector<BasicBlock *, 1> RegionBlocks;
+  RegionBlocks.push_back(BB);
+  unsigned Cost =
+      getJumpThreadDuplicationCost(TTI, RegionBlocks, BB, BBDupThreshold);
+#endif // INTEL_CUSTOMIZATION
   if (Cost > BBDupThreshold)
     return false;
   // Duplicate all instructions before the guard and the guard itself to the

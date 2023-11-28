@@ -10,7 +10,7 @@ target triple = "x86_64-pc-linux"
 
 @test.i = external addrspace(3) global i32
 
-; CHECK-NOT: @test.i =
+; CHECK: @test.i = external addrspace(3) global i32
 
 define dso_local void @test(ptr addrspace(1) noundef align 4 %dst, ptr addrspace(3) noalias %pLocalMemBase, ptr %pWorkDim, ptr %pWGId, [4 x i64] %BaseGlbId, ptr %pSpecialBuf, ptr %RuntimeHandle) !vectorized_kernel !1 !vectorized_width !2 !kernel_arg_base_type !4 !arg_type_null_val !5 {
 entry:
@@ -41,7 +41,7 @@ entry:
 !2 = !{i32 1}
 !3 = !{i32 16}
 !4 = !{!"int*"}
-!5 = !{i32 addrspace(1)* null}
+!5 = !{ptr addrspace(1) null}
 
 ; CHECK: [[LOCAL_SIZE]] = !{i32 4}
 

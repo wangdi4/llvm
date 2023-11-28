@@ -35,5 +35,5 @@ TEST(AsLib, SomeDrivers) {
   EXPECT_FALSE(lldInvoke("ld64.lld")); // Mach-O
   EXPECT_FALSE(lldInvoke("lld-link")); // COFF
   EXPECT_FALSE(lldInvoke("wasm-ld"));  // Wasm
-#endif
+#endif // INTEL_CUSTOMIZATION
 }

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,8 +13,8 @@
 // License.
 
 #include "pipe.h"
+#include "CL/cl_fpga_ext.h"
 #include "framework_proxy.h"
-#include <CL/cl_fpga_ext.h>
 #include <algorithm>
 
 using namespace Intel::OpenCL::Framework;

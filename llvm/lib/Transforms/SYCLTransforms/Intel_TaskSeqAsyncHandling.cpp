@@ -1,6 +1,6 @@
 // ===--- Intel_TaskSeqAsyncHandling.cpp ------------------------ C++ -*--=== //
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -87,8 +87,8 @@ private:
   void generateAsyncBodies();
 
   void updateBuiltinInAsyncMap(Function *Builtin, Function *NewBuiltin);
-  void updateTaskFuncInAsyncMap(Function *TaskF, Function *NewTaskF,
-                                Function *Builtin, Function *NewBuiltin);
+  void updateTaskFuncInAsyncMap(Function *Builtin, Function *TaskF,
+                                Function *NewTaskF);
   void replaceBuiltinInVector(Function *Builtin, Function *NewBuiltin);
 
   void
@@ -144,7 +144,7 @@ private:
 
   FunctionType *getBlockInvokeType() {
     auto *RetTy = Type::getVoidTy(Ctx);
-    auto *PtrTy = Type::getInt8PtrTy(Ctx);
+    auto *PtrTy = PointerType::getUnqual(Ctx);
     auto *FTy = FunctionType::get(RetTy, {PtrTy}, false);
     return FTy;
   }
@@ -250,67 +250,21 @@ Function *Impl::lowerTaskFunctionSRetArgToReturnType(Function *F) {
 
 void Impl::fixupTaskFuncUsersAfterLoweringSRetArg(Function *TaskF,
                                                   Function *NewTaskF) {
-  DenseMap<Function *, Function *> BuiltinsMap;
-  // Create a function declaration
   for (auto *U : make_early_inc_range(TaskF->users())) {
     CallInst *CI = cast<CallInst>(U);
     LLVM_DEBUG(dbgs() << "Fix up user of task function: " << *CI << "\n");
     Function *Builtin = CI->getCalledFunction();
     assert(Builtin->isDeclaration() && "Expect function declaration");
 
-    size_t Index = 0, TaskFuncIndex = 0;
-    SmallVector<Value *> NewArgs;
-    for (; Index < CI->arg_size(); Index++) {
-      if (dyn_cast<Function>(CI->getArgOperand(Index)) == TaskF) {
-        NewArgs.push_back(NewTaskF);
-        TaskFuncIndex = Index;
-      } else
-        NewArgs.push_back(CI->getArgOperand(Index));
-    }
-
-    Index = 0;
-    Function *NewBuiltin = nullptr;
-    bool IsNewFuncCreated = false;
-    if (BuiltinsMap.count(Builtin))
-      NewBuiltin = BuiltinsMap[Builtin];
-    else {
-      SmallVector<Type *> NewTys;
-      for (auto I = Builtin->arg_begin(), E = Builtin->arg_end(); I != E;
-           I++, Index++) {
-        if (TaskFuncIndex == Index) {
-          Type *FuncPtrTy = PointerType::get(
-              NewTaskF->getFunctionType(),
-              cast<PointerType>(I->getType())->getAddressSpace());
-          NewTys.push_back(FuncPtrTy);
-        } else
-          NewTys.push_back(I->getType());
-      }
-
-      FunctionType *NewBuiltinFTy =
-          FunctionType::get(Builtin->getReturnType(), NewTys, false);
-      std::string Name = Builtin->getName().str();
-      Builtin->setName(Builtin->getName() + "_before.TaskSeqAsyncHandling");
-      NewBuiltin = Function::Create(NewBuiltinFTy, Builtin->getLinkage(), Name,
-                                    Builtin->getParent());
-      BuiltinsMap[Builtin] = NewBuiltin;
-      IsNewFuncCreated = true;
-    }
-    LLVM_DEBUG(dbgs() << "New builtin for calling new task function ("
-                      << NewTaskF->getName() << "): " << *NewBuiltin << "\n");
-
-    // Replace function call with new one
-    IRBuilder<> Builder(CI);
-    CallInst *NewCI =
-        Builder.CreateCall(NewBuiltin->getFunctionType(), NewBuiltin, NewArgs);
-    CI->replaceAllUsesWith(NewCI);
-    CI->eraseFromParent();
-
-    if (!IsNewFuncCreated)
-      continue;
-    replaceBuiltinInVector(Builtin, NewBuiltin);
-    StringRef FName = Builtin->getName();
-    if (FName.startswith(BuiltinAsyncPattern))
-      updateTaskFuncInAsyncMap(Builtin, TaskF, NewBuiltin, NewTaskF);
+    size_t Index = 0;
+    for (; Index < CI->arg_size(); Index++)
+      if (dyn_cast<Function>(CI->getArgOperand(Index)) == TaskF)
+        break;
+    // Update builtin function args. We don't need to update builtin function
+    // type since the arg is function pointer type.
+    CI->setArgOperand(Index, NewTaskF);
+    if (Builtin->getName().startswith(BuiltinAsyncPattern))
+      updateTaskFuncInAsyncMap(Builtin, TaskF, NewTaskF);
   }
 }
 
@@ -341,7 +295,7 @@ void Impl::updateBuiltinInAsyncMap(Function *Builtin, Function *NewBuiltin) {
 }
 
 void Impl::updateTaskFuncInAsyncMap(Function *Builtin, Function *TaskF,
-                                    Function *NewBuiltin, Function *NewTaskF) {
+                                    Function *NewTaskF) {
   for (auto I = AsyncBuiltinToTaskFuncMap[Builtin].begin(),
             E = AsyncBuiltinToTaskFuncMap[Builtin].end();
        I != E; I++) {
@@ -350,16 +304,10 @@ void Impl::updateTaskFuncInAsyncMap(Function *Builtin, Function *TaskF,
                         << " to " << TaskF->getName()
                         << " in task func map!\n");
       AsyncBuiltinToTaskFuncMap[Builtin].erase(I);
-
-      if (AsyncBuiltinToTaskFuncMap[Builtin].size() == 0) {
-        LLVM_DEBUG(dbgs() << "Erase mapping of builtin " << Builtin->getName()
-                          << " in task func map!\n");
-        AsyncBuiltinToTaskFuncMap.erase(Builtin);
-      }
     }
   }
-  AsyncBuiltinToTaskFuncMap[NewBuiltin].push_back(NewTaskF);
-  LLVM_DEBUG(dbgs() << "Map " << NewBuiltin->getName() << " with "
+  AsyncBuiltinToTaskFuncMap[Builtin].push_back(NewTaskF);
+  LLVM_DEBUG(dbgs() << "Map " << Builtin->getName() << " with "
                     << NewTaskF->getName() << " in task function map\n");
 }
 
@@ -497,7 +445,7 @@ void Impl::collectTaskFuncs() {
 
 void Impl::generateInvokeMappers() {
   for (Function *F : Asyncs) {
-    auto *VoidPtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+    auto *VoidPtrTy = PointerType::get(Ctx, ADDRESS_SPACE_GENERIC);
     auto *MapperType = FunctionType::get(VoidPtrTy, {VoidPtrTy}, false);
     auto MapperName = getBlockInvokeMapperName(F);
     auto MapperCallee = M.getOrInsertFunction(MapperName, MapperType);
@@ -563,7 +511,7 @@ void Impl::createBlockLiteralTypes() {
     FunctionType *TaskFuncType = findTaskFuncType(F);
     assert(TaskFuncType && "task func type not found");
     auto *UnsignedTy = Type::getIntNTy(Ctx, sizeof(unsigned) * 8);
-    auto *PtrTy = Type::getInt8PtrTy(Ctx);
+    auto *PtrTy = PointerType::getUnqual(Ctx);
     SmallVector<Type *> EltTypes;
     EltTypes.reserve(TaskFuncType->getNumParams() + 4);
     EltTypes.append({UnsignedTy, UnsignedTy, PtrTy});
@@ -590,14 +538,14 @@ size_t getRetTypeSizeOfTaskFunction(Function *F) {
 FunctionCallee Impl::getBackendCreateTaskSeq() {
   // void *__create_task_sequence(size_t return_type_size)
   auto *SizeTTy = Type::getIntNTy(Ctx, sizeof(size_t) * 8);
-  auto *RetTy = Type::getInt8PtrTy(Ctx);
+  auto *RetTy = PointerType::getUnqual(Ctx);
   auto *FTy = FunctionType::get(RetTy, {SizeTTy}, false);
   return M.getOrInsertFunction(BackendCreateTaskSeqName, FTy);
 }
 
 FunctionCallee Impl::getBackendReleaseTaskSeq() {
   // void __release_task_sequence(void *task_seq)
-  auto *PtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+  auto *PtrTy = PointerType::get(Ctx, ADDRESS_SPACE_GENERIC);
   auto *RetTy = Type::getVoidTy(Ctx);
   auto *FTy = FunctionType::get(RetTy, {PtrTy}, false);
   return M.getOrInsertFunction(BackendReleaseTaskSeqName, FTy);
@@ -605,7 +553,7 @@ FunctionCallee Impl::getBackendReleaseTaskSeq() {
 
 FunctionCallee Impl::getBackendGet() {
   // void *__get(void *task_seq, unsigned capacity)
-  auto *PtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+  auto *PtrTy = PointerType::get(Ctx, ADDRESS_SPACE_GENERIC);
   auto *I32Ty = Type::getInt32Ty(Ctx);
   auto *RetTy = PtrTy;
   auto *FTy = FunctionType::get(RetTy, {PtrTy, I32Ty}, false);
@@ -615,7 +563,7 @@ FunctionCallee Impl::getBackendGet() {
 FunctionCallee Impl::getBackendAsync() {
   // void __async(void *task_seq, unsigned capacity,
   //              void *block_invoke, void *block_literal)
-  auto *PtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+  auto *PtrTy = PointerType::get(Ctx, ADDRESS_SPACE_GENERIC);
   auto *I32Ty = Type::getInt32Ty(Ctx);
   auto *RetTy = Type::getVoidTy(Ctx);
   auto *FTy = FunctionType::get(RetTy, {PtrTy, I32Ty, PtrTy, PtrTy}, false);
@@ -631,15 +579,60 @@ void Impl::generateCreateTaskSeqBodies() {
   //   void *impl = __create_task_sequence(return_type_size);
   //   return (size_t)impl;
   // }
+  // We need to obtain return type size from task function. Convert task
+  // function pointer to integer, compare the value with every task function and
+  // then get results. Generated IR is like following:
+  //   define internal i64 @"__spirv_TaskSequenceCreateINTEL"(ptr %obj, ptr %f)
+  //   {
+  //       %4 = ptrtoint ptr %f to i64
+  //       %5 = icmp eq i64 %4, ptrtoint (ptr @userTaskFunc1 to i64)
+  //       %6 = select i1 %5, i64 0, i64 8
+  //       %7 = icmp eq i64 %4, ptrtoint (ptr @userTaskFunc2 to i64)
+  //       %8 = select i1 %7, i64 0, i64 %6
+  //       %9 = icmp eq i64 %4, ptrtoint (ptr @userTaskFunc3 to i64)
+  //       %10 = select i1 %9, i64 8, i64 %8
+  //       %11 = call ptr @__create_task_sequence(i64 %10)
+  //       %12 = ptrtoint ptr %11 to i64
+  //       ret i64 %12
+  //     }
   FunctionCallee BackendCreateTaskSeq = getBackendCreateTaskSeq();
   auto *RetTypeSizeTy = BackendCreateTaskSeq.getFunctionType()->getParamType(0);
   for (Function *F : Creates) {
     auto Entry = BasicBlock::Create(Ctx);
     Entry->insertInto(F);
     IRB.SetInsertPoint(Entry);
-    size_t RetTypeSize = getRetTypeSizeOfTaskFunction(F);
-    auto *RetTypeSizeVal = ConstantInt::get(RetTypeSizeTy, RetTypeSize);
-    auto *CI = IRB.CreateCall(BackendCreateTaskSeq, {RetTypeSizeVal});
+    std::set<Function *> TaskFuncs;
+    for (auto *U : F->users()) {
+      auto *CI = cast<CallInst>(U);
+      assert(CI->getCalledFunction() == F &&
+             "__spirv_TaskSequenceCreate isn't directly called?");
+      TaskFuncs.insert(
+          cast<Function>(CI->getArgOperand(1)->stripPointerCasts()));
+    }
+    assert(!TaskFuncs.empty() &&
+           "__spirv_TaskSequenceCreate builtin doesn't have users?");
+    auto TaskIt = TaskFuncs.begin();
+    auto &DL = F->getParent()->getDataLayout();
+    auto GetTaskFuncRetTypeSize = [&](Function *TaskFunc) {
+      auto RetType = TaskFunc->getReturnType();
+      return RetType->isVoidTy() ? 0
+                                 : DL.getTypeAllocSize(RetType).getFixedValue();
+    };
+    Value *LastVal =
+        ConstantInt::get(RetTypeSizeTy, GetTaskFuncRetTypeSize(*TaskIt));
+    if (TaskFuncs.size() > 1) {
+      auto *IntPtrTy = IntegerType::getIntNTy(Ctx, sizeof(intptr_t) * 8);
+      auto *TaskFuncVar = IRB.CreatePtrToInt(F->getArg(1), IntPtrTy);
+      for (++TaskIt; TaskIt != TaskFuncs.end(); ++TaskIt) {
+        auto *TaskFuncVal = ConstantExpr::getPtrToInt(*TaskIt, IntPtrTy);
+        auto *Cmp = IRB.CreateICmp(CmpInst::ICMP_EQ, TaskFuncVar, TaskFuncVal);
+        Value *RetVal =
+            ConstantInt::get(RetTypeSizeTy, GetTaskFuncRetTypeSize(*TaskIt));
+        auto *Select = IRB.CreateSelect(Cmp, RetVal, LastVal);
+        LastVal = Select;
+      }
+    }
+    auto *CI = IRB.CreateCall(BackendCreateTaskSeq, {LastVal});
     auto *RetBC = IRB.CreatePointerCast(CI, F->getReturnType());
     IRB.CreateRet(RetBC);
     F->setLinkage(GlobalValue::InternalLinkage);
@@ -716,7 +709,7 @@ void Impl::generateAsyncBodies() {
   // }
   auto *Int32Ty = Type::getInt32Ty(Ctx);
   auto *Zero = ConstantInt::get(Int32Ty, 0);
-  auto *VoidPtrTy = Type::getInt8PtrTy(Ctx, ADDRESS_SPACE_GENERIC);
+  auto *VoidPtrTy = PointerType::get(Ctx, ADDRESS_SPACE_GENERIC);
   FunctionCallee BackendAsync = getBackendAsync();
   for (Function *F : Asyncs) {
     LLVM_DEBUG(dbgs() << "Generate async body: " << F->getName() << "\n");

@@ -1,6 +1,6 @@
 //===-- IntelLoopVectorizationPlanner.h -------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -17,12 +17,12 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZATIONPLANNER_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZATIONPLANNER_H
 
+#include "Driver.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanLoopUnroller.h"
 #include "IntelVPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 
 namespace llvm {
 class Loop;
@@ -40,8 +40,8 @@ using namespace llvm::loopopt;
 namespace vpo {
 class VPlanVLSAnalysis;
 class WRNVecLoopNode;
-class VPOCodeGen;
-class VPOVectorizationLegality;
+class CodeGenLLVM;
+class LegalityLLVM;
 class WRNVecLoopNode;
 class VPlanHCFGBuilder;
 class VPlanRemainderEvaluator;
@@ -355,8 +355,7 @@ public:
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
                            const TargetLibraryInfo *TLI,
                            const TargetTransformInfo *TTI, const DataLayout *DL,
-                           class DominatorTree *DT,
-                           VPOVectorizationLegality *Legal,
+                           class DominatorTree *DT, LegalityLLVM *Legal,
                            VPlanVLSAnalysis *VLSA, LLVMContext *C,
                            BlockFrequencyInfo *BFI = nullptr)
       : VectorlengthMD(nullptr), WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL),
@@ -419,7 +418,7 @@ public:
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
-  void executeBestPlan(VPOCodeGen &LB);
+  void executeBestPlan(CodeGenLLVM &LB);
 
   /// Post VPlan FrontEnd pass to verify that we can process the VPlan that
   /// was constructed. There are some limitations in CG, CM, and other parts of
@@ -468,6 +467,7 @@ public:
     VectorlengthMD =
         findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.vectorlength");
     IsVecRemainder = readVecRemainderEnabled();
+    IsVecAlign = readVecAlignEnabled();
     IsDynAlign = readDynAlignEnabled();
     UnrollCount =
         getOptionalIntLoopAttribute(TheLoop, "llvm.loop.unroll.count");
@@ -577,9 +577,8 @@ public:
   void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
                         OptRemarkID BailoutID, Args &&...BailoutArgs) const {
     BR.BailoutLevel = BailoutLevel;
-    BR.BailoutRemark = OptRemark::get(
-        *Context, static_cast<unsigned>(BailoutID),
-        OptReportDiag::getMsg(BailoutID), std::forward<Args>(BailoutArgs)...);
+    BR.BailoutRemark =
+        OptRemark::get(*Context, BailoutID, std::forward<Args>(BailoutArgs)...);
   }
 
   /// Access the cached bailout remark.
@@ -637,6 +636,11 @@ protected:
   /// Otherwise, it is std::nullopt.
   std::optional<bool> IsVecRemainder;
 
+  /// Contains true if "llvm.loop.intel.vector.aligned" metadata is specified
+  /// and false if "llvm.loop.intel.vector.unaligned" metadata is specified.
+  /// Otherwise, it is std::nullopt.
+  std::optional<bool> IsVecAlign;
+
   /// Contains true or false value from "llvm.loop.vectorize.dynamic_align"
   /// metadata
   bool IsDynAlign = true;
@@ -648,6 +652,11 @@ protected:
   /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
   ///  no such metadata, returns std::nullopt.
   std::optional<bool> readVecRemainderEnabled();
+
+  /// Returns true if "llvm.loop.intel.vector.aligned" metadata is specified
+  /// and false if "llvm.loop.intel.vector.unaligned" metadata is specified.
+  /// Otherwise, it is std::nullopt.
+  std::optional<bool> readVecAlignEnabled();
 
   /// Returns true/false value if "llvm.loop.intel.vector.dynamic_align"/
   /// "llvm.loop.intel.vector.nodynamic_align" metadata is specified. If there
@@ -685,25 +694,42 @@ protected:
 
   /// Select simplest vectorization scenario: no peel, non-masked main loop with
   /// specified vector and unroll factors, scalar remainder.
-  void selectSimplestVecScenario(unsigned VF, unsigned UF,
-                                 bool IsMainMasked = false);
+  void selectSimplestVecScenario(unsigned VF, unsigned UF, bool IsMainMasked,
+                                 bool AddRemainder);
 
   /// Fill in the map of top loops descriptors (see TopLoopDescrs and its type
   /// for details). The scalar loops are skipped due to we don't have VPLoops
   /// for them and they are created only during CG
   void fillLoopDescrs();
 
-  /// Reports a reason for vectorization bailout. Always returns false.
+  /// Reports a reason for vectorization bailout.
   /// \p Message will appear both in the debug dump and the opt report remark.
   template <typename... Args>
   void bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
-               std::string Message, Args &&...BailoutArgs) const;
+               std::string Message, Args &&...BailoutArgs) const {
+    DEBUG_WITH_TYPE("LoopVectorizationPlanner", dbgs() << Message << '\n');
+    setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
+  }
+
+  /// Reports a reason for vectorization bailout.
+  /// The auxiliary remark string for \p MessageID will appear both in the debug
+  /// dump and the opt report remark.
+  template <typename... Args>
+  void bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
+               AuxRemarkID MessageID, Args &&...BailoutArgs) const {
+    DEBUG_WITH_TYPE("LoopVectorizationPlanner",
+                    dbgs() << OptReportAuxDiag::getMsg(MessageID) << '\n');
+    setBailoutRemark(Level, ID, MessageID, std::forward<Args>(BailoutArgs)...);
+  }
 
   /// Reports a reason for vectorization bailout. Always returns false.
   /// \p Debug will appear in the debug dump, but not in the opt report remark.
   template <typename... Args>
   void bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
-                        std::string Debug, Args &&...BailoutArgs) const;
+                        std::string Debug, Args &&...BailoutArgs) const {
+    DEBUG_WITH_TYPE("LoopVectorizationPlanner", dbgs() << Debug << '\n');
+    setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
+  }
 
   /// Go through all VPlans and run \p ProcessPlan on each of them.
   template <class F> void transformAllVPlans(F &ProcessPlan) {
@@ -723,6 +749,10 @@ protected:
         TransformPlan(*Pair.second.MaskedModeLoop);
     }
   }
+
+  /// Set VPlan attributes inferred from function. E.g. restricting dumps
+  /// and detecting loop created for vector function body.
+  static void setVPlanFlagsFromFunction(VPlan *Plan, const Function *F);
 
   /// WRegion info of the loop we evaluate. It can be null.
   WRNVecLoopNode *WRLp;
@@ -778,11 +808,6 @@ protected:
   // Bail-out reason data.
   mutable VPlanBailoutRemark BR;
 
-  /// Convenience function for optimization remark substitution strings.
-  std::string getAuxMsg(AuxRemarkID ID) const {
-    return OptReportAuxDiag::getMsg(ID);
-  }
-
   struct VPPeelSummary {
     std::string Scenario;
     std::string Formula;
@@ -828,6 +853,9 @@ private:
   // void sinkScalarOperands(Instruction *PredInst, VPlan *Plan);
 
   void runInitialVecSpecificTransforms(VPlanVector *Plan);
+
+  /// Check for fences after initial transforms and bail out if found.
+  bool fencesFound(VPlan *Plan);
 
   /// Main function that canonicalizes the CFG and applyies loop massaging
   /// transformations like mergeLoopExits transform.
@@ -884,7 +912,7 @@ private:
   // LoopVectorizationCostModel *CM;
 
   // TODO: Move to base class
-  VPOCodeGen *ILV = nullptr;
+  CodeGenLLVM *ILV = nullptr;
 
   // InnerLoopVectorizer *ILV = nullptr;
 
@@ -903,6 +931,9 @@ private:
   /// Internal loop number. The loops are numbered sequentially throughout
   /// one compilation. The loop numbers can be used for debugging.
   static int VPlanOrderNumber;
+
+  /// True iff fences were detected during canProcessLoopBody().
+  mutable bool FencesInInput = false;
 };
 
 } // namespace vpo

@@ -1,6 +1,6 @@
 //===-------- DDRefUtils.h - Utilities for DDRef class ---*- C++ -*--------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -334,7 +334,8 @@ public:
   static bool haveEqualBaseAndShape(const RegDDRef *Ref1, const RegDDRef *Ref2,
                                     bool RelaxedMode,
                                     unsigned NumIgnorableDims = 0,
-                                    bool IgnoreBaseCE = false);
+                                    bool IgnoreBaseCE = false,
+                                    bool IgnoreBasePtrElementType = false);
 
   /// Returns true if both haveEqualBaseAndShape() and haveEqualOffsets() are
   /// true.
@@ -441,6 +442,36 @@ public:
   /// assignment and HIRDDAnalysis.
   static void removeNoAliasScopes(AAMDNodes &AANodes,
                                   const SmallPtrSetImpl<MDNode *> &RemoveSet);
+
+  /// Return true if the input group of RegDDRefs are accessing the memory
+  /// contiguously within the input loop. For example, assume the group contains
+  /// the following RegDDRefs:
+  ///
+  ///   (%A)[4 * i1 + sext.i32.i64(%t)]
+  ///   (%A)[4 * i1 + sext.i32.i64(%t) + 1]
+  ///   (%A)[4 * i1 + sext.i32.i64(%t) + 2]
+  ///   (%A)[4 * i1 + sext.i32.i64(%t) + 3]
+  ///
+  /// The IV coefficient for the innermost loop (i1) is 4. The group have 4
+  /// entries, all the entries have the same base canon expr, the RegDDRefs
+  /// are accessing entries from 0 to 3, and the distance between each RegDDRef
+  /// is 1. This means that the entries in the group represents an access to
+  /// the memory that is contiguous.
+  /// This function can also work on a delinearized group. An example group is
+  ///
+  ///   (%0)[2 * i1][4 * i2] <-- (%0)[2 * %18 * i1 + 4 * i2]
+  ///   (%0)[2 * i1][4 * i2 + 1] <-- (%0)[2 * %18 * i1 + 4 * i2 + 1]
+  ///   (%0)[2 * i1][4 * i2 + 2]
+  ///   (%0)[2 * i1][4 * i2 + 3]
+  ///   (%0)[2 * i1 + 1][4 * i2] <-- (%0)[2 * %18 * i1 + 4 * i2 + %18]
+  ///   (%0)[2 * i1 + 1][4 * i2 + 1]
+  ///   (%0)[2 * i1 + 1][4 * i2 + 2]
+  ///   (%0)[2 * i1 + 1][4 * i2 + 3]
+  static bool isGroupAccessingContiguousMemory(
+      const SmallVectorImpl<RegDDRef *> &Group,
+      function_ref<bool(const RegDDRef *)> IsRval, const HLLoop *InnermostLoop,
+      TargetTransformInfo &TTI,
+      std::optional<int64_t> ContiguousStrideSizeThreshold = std::nullopt);
 };
 
 } // End namespace loopopt

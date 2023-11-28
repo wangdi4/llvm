@@ -1,6 +1,6 @@
 // ===- HIRIfReversal.cpp - Implement HIR If Reversal Transformation -===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -198,44 +198,4 @@ PreservedAnalyses HIRIfReversalPass::runImpl(llvm::Function &F,
                     .run();
 
   return PreservedAnalyses::all();
-}
-
-class HIRIfReversalLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRIfReversalLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRIfReversalLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRIfReversal(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                         getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                         getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
-        .run();
-  }
-};
-
-char HIRIfReversalLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRIfReversalLegacyPass, "hir-if-reversal",
-                      "HIR If Reversal", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRIfReversalLegacyPass, "hir-if-reversal",
-                    "HIR If Reversal", false, false)
-
-FunctionPass *llvm::createHIRIfReversalPass() {
-  return new HIRIfReversalLegacyPass();
 }

@@ -1,6 +1,6 @@
 //===----- HIRGenerateMKLCall.cpp - Implements MKL Call transformation ----===//
 //
-// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -173,38 +173,7 @@ private:
 
 namespace {
 
-class HIRGenerateMKLCallLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRGenerateMKLCallLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRGenerateMKLCallLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &Func) override;
-  void releaseMemory() override{};
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-
 } // namespace
-
-char HIRGenerateMKLCallLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRGenerateMKLCallLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRGenerateMKLCallLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIRGenerateMKLCallPass() {
-  return new HIRGenerateMKLCallLegacyPass();
-}
 
 PreservedAnalyses HIRGenerateMKLCallPass::runImpl(Function &Func,
                                                   FunctionAnalysisManager &AM,
@@ -224,17 +193,6 @@ bool HIRGenerateMKLCall::run() {
                     << HIRF.getFunction().getName() << "\n");
 
   return generateMKLCall(HIRF.getFunction().getContext());
-}
-
-bool HIRGenerateMKLCallLegacyPass::runOnFunction(Function &Func) {
-  if (skipFunction(Func)) {
-    return false;
-  }
-
-  return HIRGenerateMKLCall(
-             getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
-      .run();
 }
 
 // Gather all perfect Loop Nests with level 2/3
@@ -530,7 +488,7 @@ bool checkIV(const RegDDRef *RRef) {
 // Create the dope vector structure type with required fields
 void HIRGenerateMKLCall::createDopeVectorType(LLVMContext &Context,
                                               Type *IntType) {
-  Type *AddrType = Type::getInt8PtrTy(Context);
+  Type *AddrType = PointerType::getUnqual(Context);
   constexpr unsigned int max_dope_vector_fields = 12;
   SmallVector<Type *, max_dope_vector_fields> DopeVectorFields = {
       AddrType, // ".addr_a0"

@@ -1,6 +1,6 @@
 //===-------- Intel_X86EmitMultiVersionResolver.cpp -----------------------===//
 //
-// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -222,16 +222,14 @@ Value *X86::emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr) {
   return Builder.CreateICmpEQ(CpuValue, Builder.getInt32(Val));
 }
 
-Value *X86::emitCpuSupports(IRBuilderBase &Builder, uint64_t FeaturesMask) {
-
-  uint32_t Features1 = Lo_32(FeaturesMask);
-  uint32_t Features2 = Hi_32(FeaturesMask);
+Value *X86::emitCpuSupports(IRBuilderBase &Builder,
+                            std::array<uint32_t, 4> FeaturesMask) {
 
   Value *Result = Builder.getTrue();
   Type *Int32Ty = Builder.getInt32Ty();
   Type *CpuModelType = getCpuModelType(Builder);
 
-  if (Features1 != 0) {
+  if (FeaturesMask[0] != 0) {
     Value *CpuModel = getOrCreateGlobal(Builder, "__cpu_model", CpuModelType);
 
     // Grab the first (0th) element from the field __cpu_features off of the
@@ -243,21 +241,23 @@ Value *X86::emitCpuSupports(IRBuilderBase &Builder, uint64_t FeaturesMask) {
         Builder.CreateAlignedLoad(Int32Ty, CpuFeatures, MaybeAlign(4));
 
     // Check the value of the bit corresponding to the feature requested.
-    Value *Mask = Builder.getInt32(Features1);
+    Value *Mask = Builder.getInt32(FeaturesMask[0]);
     Value *Bitset = Builder.CreateAnd(Features, Mask);
     Value *Cmp = Builder.CreateICmpEQ(Bitset, Mask);
     Result = Builder.CreateAnd(Result, Cmp);
   }
-
-  if (Features2 != 0) {
-    Value *CpuFeatures2 =
-        getOrCreateGlobal(Builder, "__cpu_features2", Int32Ty);
-
-    Value *Features =
-        Builder.CreateAlignedLoad(Int32Ty, CpuFeatures2, Align(4));
-
+  llvm::Type *ATy = llvm::ArrayType::get(Int32Ty, 3);
+  Value *CpuFeatures2 = getOrCreateGlobal(Builder, "__cpu_features2", Int32Ty);
+  cast<llvm::GlobalValue>(CpuFeatures2)->setDSOLocal(true);
+  for (int i = 1; i != 4; ++i) {
+    const uint32_t M = FeaturesMask[i];
+    if (!M)
+      continue;
+    Value *Idxs[] = {Builder.getInt32(0), Builder.getInt32(i - 1)};
+    Value *Features = Builder.CreateAlignedLoad(
+        Int32Ty, Builder.CreateGEP(ATy, CpuFeatures2, Idxs), Align(4));
     // Check the value of the bit corresponding to the feature requested.
-    Value *Mask = Builder.getInt32(Features2);
+    Value *Mask = Builder.getInt32(M);
     Value *Bitset = Builder.CreateAnd(Features, Mask);
     Value *Cmp = Builder.CreateICmpEQ(Bitset, Mask);
     Result = Builder.CreateAnd(Result, Cmp);

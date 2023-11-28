@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
-; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -irmover-enable-full-dtrans-types-check -S %S/Inputs/intel-merge-mangled11-a.ll %S/Inputs/intel-merge-mangled11-b.ll | FileCheck %s
+; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-mangled11-a.ll %S/Inputs/intel-merge-mangled11-b.ll | FileCheck %s
 
 ; This test case checks that the metadata based type merging is not affected
 ; when one field of a structure is an array of pointers and the other is not.

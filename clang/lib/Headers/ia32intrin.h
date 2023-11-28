@@ -1,5 +1,20 @@
-/* ===-------- ia32intrin.h ---------------------------------------------------===
+/* ===-------- ia32intrin.h ---------------------------------------------------=== */
+/* INTEL_CUSTOMIZATION */
+/*
+ * Modifications, Copyright (C) 2023 Intel Corporation
  *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
+/*
  * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
  * See https://llvm.org/LICENSE.txt for license information.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -10,7 +25,9 @@
 #ifndef __IA32INTRIN_H
 #define __IA32INTRIN_H
 
+/* INTEL_CUSTOMIZATION */
 #include <immintrin.h>
+/* end  INTEL_CUSTOMIZATION */
 
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
@@ -82,7 +99,9 @@ _bswap(int __A) {
 #define _bit_scan_forward(A) __bsfd((A))
 #define _bit_scan_reverse(A) __bsrd((A))
 
-/* #ifdef __x86_64__ */ /* INTEL */
+/* INTEL_CUSTOMIZATION */
+/* #ifdef __x86_64__ */
+/* end INTEL_CUSTOMIZATION */
 /** Find the first set bit starting from the lsb. Result is undefined if
  *  input is 0.
  *
@@ -134,7 +153,9 @@ __bswapq(long long __A) {
 }
 
 #define _bswap64(A) __bswapq((A))
-/* #endif */ /* INTEL */
+/* INTEL_CUSTOMIZATION */
+/* #endif */
+/* end INTEL_CUSTOMIZATION */
 
 /** Counts the number of bits in the source operand having a value of 1.
  *
@@ -155,8 +176,9 @@ __popcntd(unsigned int __A)
 }
 
 #define _popcnt32(A) __popcntd((A))
-
-/* #ifdef __x86_64__ */ /* INTEL */
+/* INTEL_CUSTOMIZATION */
+/* #ifdef __x86_64__ */
+/* end INTEL_CUSTOMIZATION */
 /** Counts the number of bits in the source operand having a value of 1.
  *
  *  \headerfile <x86intrin.h>
@@ -176,7 +198,9 @@ __popcntq(unsigned long long __A)
 }
 
 #define _popcnt64(A) __popcntq((A))
-/* #endif */ /* __x86_64__ */ /* INTEL */
+/* INTEL_CUSTOMIZATION */
+/* #endif */ /* __x86_64__ */
+/* end INTEL_CUSTOMIZATION */
 
 #ifdef __x86_64__
 static __inline__ unsigned long long __DEFAULT_FN_ATTRS

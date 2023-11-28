@@ -212,7 +212,7 @@ bool X86StackRealign::runOnMachineFunction(MachineFunction &MF) {
   LIS = &getAnalysis<LiveIntervals>();
   MBFI = &getAnalysis<MachineBlockFrequencyInfo>();
 
-  uint64_t EntryFreq = MBFI->getEntryFreq();
+  uint64_t EntryFreq = MBFI->getEntryFreq().getFrequency();
   if (EntryFreq == 0)
     return false;
 

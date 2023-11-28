@@ -64,8 +64,18 @@ public:
       return It->second;
 
     if (auto *TETy = dyn_cast<TargetExtType>(Ty)) {
-      addMapping(Ty, TETy->getLayoutType());
-      return TETy->getLayoutType();
+      auto *LTy = TETy->getLayoutType();
+      if (isa<PointerType>(LTy)) {
+        unsigned AS = StringSwitch<unsigned>(TETy->getName())
+                          .Case("spirv.DeviceEvent", ADDRESS_SPACE_PRIVATE)
+                          .Case("spirv.Event", ADDRESS_SPACE_PRIVATE)
+                          .Case("spirv.Queue", ADDRESS_SPACE_PRIVATE)
+                          .Case("spirv.Sampler", ADDRESS_SPACE_CONSTANT)
+                          .Default(ADDRESS_SPACE_GLOBAL);
+        LTy = PointerType::get(LTy, AS);
+      }
+      addMapping(Ty, LTy);
+      return LTy;
     }
 
     bool Changed = false;
@@ -98,7 +108,7 @@ public:
                                    cast<StructType>(Ty)->isPacked());
       break;
     default:
-      llvm_unreachable("Unhandled derived type to remap");
+      return Ty;
     }
 
     addMapping(Ty, NewTy);
@@ -188,15 +198,11 @@ getPointeeInMemoryAttrWithNewType(Argument &Arg,
 }
 
 /// Replace target extension type with its layout type.
-/// Assume target extension type, e.g. pipe and image2d_t, is only allowed for
-/// function parameter.
-/// FPGA channel global variables are not handled in this function. They'll be
-/// handled in ChannelPipeTransformationPass.
 static bool materializeTargetExtType(Module &M,
                                      SmallVectorImpl<Function *> &Kernels) {
   // Retrieve address space for TargetExtType pointer argument.
   TargetExtTypeMapTy TETypeMap;
-  SmallPtrSet<Type *, 16> VisitedType;
+  SmallPtrSet<Type *, 16> VisitedTypes;
   for (Function &F : M) {
     SYCLKernelMetadataAPI::KernelMetadataAPI KMD(&F);
     if (KMD.ArgAddrSpaceList.hasValue()) {
@@ -210,24 +216,12 @@ static bool materializeTargetExtType(Module &M,
           TETypeMap.addMapping(TETy, Ty);
         }
       }
-      std::ignore = TETypeMap.get(F.getReturnType(), VisitedType);
+      std::ignore = TETypeMap.get(F.getReturnType(), VisitedTypes);
     } else {
       // nonspirv kernels and non-kernel functions.
       auto AddMapping = [&](Type *Ty) {
-        if (auto *TETy = dyn_cast<TargetExtType>(Ty);
-            TETy && !TETypeMap.hasMapping(TETy)) {
-          auto *LTy = TETy->getLayoutType();
-          if (isa<PointerType>(LTy)) {
-            unsigned AS = StringSwitch<unsigned>(TETy->getName())
-                              .Case("spirv.DeviceEvent", ADDRESS_SPACE_PRIVATE)
-                              .Case("spirv.Event", ADDRESS_SPACE_PRIVATE)
-                              .Case("spirv.Queue", ADDRESS_SPACE_PRIVATE)
-                              .Case("spirv.Sampler", ADDRESS_SPACE_CONSTANT)
-                              .Default(ADDRESS_SPACE_GLOBAL);
-            LTy = PointerType::get(LTy, AS);
-          }
-          TETypeMap.addMapping(TETy, LTy);
-        }
+        if (auto *TETy = dyn_cast<TargetExtType>(Ty))
+          std::ignore = TETypeMap.get(TETy, VisitedTypes);
       };
       for (auto &A : F.args())
         AddMapping(getArgType(A));
@@ -235,9 +229,30 @@ static bool materializeTargetExtType(Module &M,
     }
   }
 
+  // Handle global variables, e.g. FPGA channel globals.
+  ValueToValueMapTy VMap;
+  SmallVector<GlobalObject *, 16> GlobalsToRemove;
+  for (auto &GV : M.globals()) {
+    auto *Ty = GV.getValueType();
+    auto *NewTy = TETypeMap.get(Ty, VisitedTypes);
+    if (NewTy == Ty)
+      continue;
+    // Create new global variables.
+    auto *NewGV =
+        new GlobalVariable(M, NewTy, GV.isConstant(), GV.getLinkage(), nullptr,
+                           "", &GV, GV.getThreadLocalMode(),
+                           GV.getAddressSpace(), GV.isExternallyInitialized());
+    NewGV->copyAttributesFrom(&GV);
+    NewGV->setComdat(GV.getComdat());
+    NewGV->setAlignment(M.getDataLayout().getPreferredAlign(NewGV));
+    NewGV->takeName(&GV);
+    VMap[&GV] = NewGV;
+    GlobalsToRemove.push_back(&GV);
+  }
+
   // Handle named struct type.
   for (auto *Ty : M.getIdentifiedStructTypes())
-    std::ignore = TETypeMap.get(Ty, VisitedType);
+    std::ignore = TETypeMap.get(Ty, VisitedTypes);
 
   // Find functions with argument of target extension type. Create a new
   // function with new argument of layout type.
@@ -251,8 +266,6 @@ static bool materializeTargetExtType(Module &M,
     }
     WorkList.push_back(&F);
   }
-  ValueToValueMapTy VMap;
-  SmallVector<Function *, 16> FuncsToRemove;
   for (Function *F : WorkList) {
     SmallVector<Type *> NewArgTypes(F->arg_size());
     for (const auto &[Idx, A] : llvm::enumerate(F->args())) {
@@ -274,7 +287,7 @@ static bool materializeTargetExtType(Module &M,
     NewF->splice(NewF->begin(), F);
     NewF->takeName(F);
     VMap[F] = NewF;
-    FuncsToRemove.push_back(F);
+    GlobalsToRemove.push_back(F);
 
     // Add argument with TargetExtType to VMap.
     for (auto It = F->arg_begin(), E = F->arg_end(), NewIt = NewF->arg_begin();
@@ -296,9 +309,31 @@ static bool materializeTargetExtType(Module &M,
     return !Kernels.empty();
   }
 
-  // Handle each function.
   ValueMapper VMapper(VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals,
                       &TETypeMap);
+
+  // Now we can create new global variable initializer/metadata that could refer
+  // to newly created global values.
+  for (GlobalObject *G : GlobalsToRemove) {
+    auto *GV = dyn_cast<GlobalVariable>(G);
+    if (!GV)
+      continue;
+    auto *NewGV = cast<GlobalVariable>(VMap[GV]);
+    NewGV->setInitializer(VMapper.mapConstant(*GV->getInitializer()));
+    SmallVector<std::pair<unsigned, MDNode *>, 2> MDs;
+    GV->getAllMetadata(MDs);
+    for (auto &Pair : MDs)
+      NewGV->addMetadata(Pair.first, *VMapper.mapMDNode(*Pair.second));
+
+    // Handle global variable's instruction users.
+    DenseSet<Value *> Visited;
+    SmallPtrSet<Instruction *, 32> InstToRemap;
+    findInstUsers(GV, InstToRemap, Visited);
+    for (auto *I : InstToRemap)
+      VMapper.remapInstruction(*I);
+  }
+
+  // Handle each function and remap instructions.
   SmallVector<Function *, 32> FuncsToAddMD;
   for (Function &F : M) {
     if (F.isDeclaration()) {
@@ -325,7 +360,7 @@ static bool materializeTargetExtType(Module &M,
     for (Instruction &I : instructions(&F)) {
       if (auto *AI = dyn_cast<AllocaInst>(&I)) {
         Type *AllocTy = AI->getAllocatedType();
-        if (TETypeMap.get(AllocTy, VisitedType) != AllocTy)
+        if (TETypeMap.get(AllocTy, VisitedTypes) != AllocTy)
           findInstUsers(&I, ToRemap, Visited);
       } else if (auto *LI = dyn_cast<LoadInst>(&I)) {
         if (TETypeMap.hasMapping(LI->getType()))
@@ -350,9 +385,10 @@ static bool materializeTargetExtType(Module &M,
   FuncsToAddMD.append(Kernels.begin(), Kernels.end());
   formArgTypeNullValMetadata(FuncsToAddMD, VMap);
 
-  for (Function *F : FuncsToRemove) {
-    assert(F->use_empty() && "function still has use");
-    const_cast<Function *>(F)->eraseFromParent();
+  for (GlobalObject *G : GlobalsToRemove) {
+    G->removeDeadConstantUsers();
+    assert(G->use_empty() && "global object still has use");
+    G->eraseFromParent();
   }
 
   return !FuncsToAddMD.empty() || !TETypeMap.empty();

@@ -1,4 +1,21 @@
 //===-- HexagonMCTargetDesc.cpp - Hexagon Target Descriptions -------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -85,6 +102,7 @@ cl::opt<bool> MV68("mv68", cl::Hidden, cl::desc("Build for Hexagon V68"),
 cl::opt<bool> MV69("mv69", cl::Hidden, cl::desc("Build for Hexagon V69"),
                    cl::init(false));
 
+#if INTEL_CUSTOMIZATION
 cl::opt<Hexagon::ArchEnum>
     EnableHVX("mhvx",
       cl::desc("Enable Hexagon Vector eXtensions"),
@@ -101,6 +119,7 @@ cl::opt<Hexagon::ArchEnum>
       // Sentinel for flag not present.
       cl::init(Hexagon::ArchEnum::NoArch), cl::ValueOptional);
 } // namespace
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
   DisableHVX("mno-hvx", cl::Hidden,
@@ -400,7 +419,7 @@ std::string selectHexagonFS(StringRef CPU, StringRef FS) {
              .Case("hexagonv67", "+hvxv67")
              .Case("hexagonv67t", "+hvxv67")
              .Case("hexagonv68", "+hvxv68")
-             .Case("hexagonv69", "+hvxv69"));
+             .Case("hexagonv69", "+hvxv69")); // INTEL
     break;
   }
   case Hexagon::ArchEnum::NoArch:
@@ -448,8 +467,8 @@ FeatureBitset Hexagon_MC::completeHVXFeatures(const FeatureBitset &S) {
   // turns on hvxvNN, corresponding to the existing ArchVNN.
   FeatureBitset FB = S;
   unsigned CpuArch = ArchV5;
-  for (unsigned F : {ArchV69, ArchV68, ArchV67, ArchV66, ArchV65, ArchV62,
-                     ArchV60, ArchV55, ArchV5}) {
+  for (unsigned F : {ArchV69, ArchV68, ArchV67, ArchV66, ArchV65, ArchV62, // INTEL
+                     ArchV60, ArchV55, ArchV5}) { // INTEL
     if (!FB.test(F))
       continue;
     CpuArch = F;
@@ -465,7 +484,7 @@ FeatureBitset Hexagon_MC::completeHVXFeatures(const FeatureBitset &S) {
   bool HasHvxVer = false;
   for (unsigned F : {ExtensionHVXV60, ExtensionHVXV62, ExtensionHVXV65,
                      ExtensionHVXV66, ExtensionHVXV67, ExtensionHVXV68,
-                     ExtensionHVXV69}) {
+                     ExtensionHVXV69}) { // INTEL
     if (!FB.test(F))
       continue;
     HasHvxVer = true;
@@ -512,7 +531,7 @@ MCSubtargetInfo *Hexagon_MC::createHexagonMCSubtargetInfo(const Triple &TT,
 
   MCSubtargetInfo *X = createHexagonMCSubtargetInfoImpl(
       TT, CPUName, /*TuneCPU*/ CPUName, ArchFS);
-  if (X != nullptr && (CPUName == "hexagonv67t"))
+  if (X != nullptr && (CPUName == "hexagonv67t")) // INTEL
     addArchSubtarget(X, ArchFS);
 
   if (CPU.equals("help"))
@@ -552,8 +571,7 @@ MCSubtargetInfo *Hexagon_MC::createHexagonMCSubtargetInfo(const Triple &TT,
   return X;
 }
 
-void Hexagon_MC::addArchSubtarget(MCSubtargetInfo const *STI,
-                                  StringRef FS) {
+void Hexagon_MC::addArchSubtarget(MCSubtargetInfo const *STI, StringRef FS) {
   assert(STI != nullptr);
   if (STI->getCPU().contains("t")) {
     auto ArchSTI = createHexagonMCSubtargetInfo(
@@ -577,7 +595,7 @@ unsigned Hexagon_MC::GetELFFlags(const MCSubtargetInfo &STI) {
       .Case("hexagonv67", llvm::ELF::EF_HEXAGON_MACH_V67)
       .Case("hexagonv67t", llvm::ELF::EF_HEXAGON_MACH_V67T)
       .Case("hexagonv68", llvm::ELF::EF_HEXAGON_MACH_V68)
-      .Case("hexagonv69", llvm::ELF::EF_HEXAGON_MACH_V69);
+      .Case("hexagonv69", llvm::ELF::EF_HEXAGON_MACH_V69); // INTEL
 }
 
 llvm::ArrayRef<MCPhysReg> Hexagon_MC::GetVectRegRev() {
@@ -637,8 +655,8 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeHexagonTargetMC() {
                                     createHexagonMCRegisterInfo);
 
   // Register the MC subtarget info.
-  TargetRegistry::RegisterMCSubtargetInfo(getTheHexagonTarget(),
-    Hexagon_MC::createHexagonMCSubtargetInfo);
+  TargetRegistry::RegisterMCSubtargetInfo(
+      getTheHexagonTarget(), Hexagon_MC::createHexagonMCSubtargetInfo);
 
   // Register the MC Code Emitter
   TargetRegistry::RegisterMCCodeEmitter(getTheHexagonTarget(),
@@ -648,18 +666,16 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeHexagonTargetMC() {
   TargetRegistry::RegisterMCAsmBackend(getTheHexagonTarget(),
                                        createHexagonAsmBackend);
 
-
   // Register the MC instruction analyzer.
   TargetRegistry::RegisterMCInstrAnalysis(getTheHexagonTarget(),
                                           createHexagonMCInstrAnalysis);
 
   // Register the obj streamer
-  TargetRegistry::RegisterELFStreamer(getTheHexagonTarget(),
-                                      createMCStreamer);
+  TargetRegistry::RegisterELFStreamer(getTheHexagonTarget(), createMCStreamer);
 
   // Register the obj target streamer
-  TargetRegistry::RegisterObjectTargetStreamer(getTheHexagonTarget(),
-                                      createHexagonObjectTargetStreamer);
+  TargetRegistry::RegisterObjectTargetStreamer(
+      getTheHexagonTarget(), createHexagonObjectTargetStreamer);
 
   // Register the asm streamer
   TargetRegistry::RegisterAsmTargetStreamer(getTheHexagonTarget(),

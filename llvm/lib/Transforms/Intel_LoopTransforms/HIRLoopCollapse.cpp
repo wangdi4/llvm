@@ -1,6 +1,6 @@
 //==--- HIRLoopCollapse.cpp -Implements Loop Collapse Pass -*- C++ -*---===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1581,46 +1581,4 @@ PreservedAnalyses HIRLoopCollapsePass::runImpl(
 
   ModifiedHIR = HIRLoopCollapse(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
-}
-
-namespace {
-
-class HIRLoopCollapseLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRLoopCollapseLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRLoopCollapseLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      LLVM_DEBUG(dbgs() << "HIR Loop Collapse Skipped\n");
-      return false;
-    }
-
-    return HIRLoopCollapse(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                           getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
-        .run();
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-  }
-};
-
-} // namespace
-
-char HIRLoopCollapseLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(HIRLoopCollapseLegacyPass, "hir-loop-collapse",
-                      "HIR Loop Collapse", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRLoopCollapseLegacyPass, "hir-loop-collapse",
-                    "HIR Loop Collapse", false, false)
-
-FunctionPass *llvm::createHIRLoopCollapsePass() {
-  return new HIRLoopCollapseLegacyPass();
 }

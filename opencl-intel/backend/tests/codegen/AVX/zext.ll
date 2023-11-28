@@ -25,11 +25,11 @@ define <4 x i64> @zext_4i32_to_4i64(<4 x i32> %A) nounwind {
   ret <4 x i64>%B
 }
 
-define <4 x i32> @zext_8i8addr_to_4i32(i8* %V) nounwind {
+define <4 x i32> @zext_8i8addr_to_4i32(ptr %V) nounwind {
 ; CHECK zext_8i8addr_to_4i32
 ; CHECK: vpmovzxbd
-  %V1 = bitcast i8* %V to <4 x i8>*
-  %V2 = load <4 x i8>, <4 x i8>* %V1, align 4
+  %V1 = bitcast ptr %V to ptr
+  %V2 = load <4 x i8>, ptr %V1, align 4
   %C = zext <4 x i8> %V2 to <4 x i32>
   ret <4 x i32>%C
 }

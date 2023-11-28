@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -std=c++11 -triple x86_64-pc-linux-gnu -o- %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -std=c++11 -triple x86_64-pc-linux-gnu -o- %s | FileCheck %s
 
 // Global @x:
 // CHECK: [[X_GLOBAL:@[^ ]+]]{{.*}}thread_local global

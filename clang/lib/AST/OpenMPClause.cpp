@@ -145,10 +145,11 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
 #if INTEL_COLLAB
   case OMPC_data:
   case OMPC_need_device_ptr:
-#endif // INTEL_COLLAB`
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
   case OMPC_ompx_assert:
+  case OMPC_ompx_register_alloc_mode:
 #endif // INTEL_CUSTOMIZATION
   case OMPC_private:
   case OMPC_shared:
@@ -207,6 +208,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_affinity:
   case OMPC_when:
   case OMPC_bind:
+  case OMPC_ompx_bare:
     break;
   default:
     break;
@@ -291,7 +293,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_has_device_addr:
 #if INTEL_COLLAB
   case OMPC_need_device_ptr:
-#endif
+#endif // INTEL_COLLAB
   case OMPC_unified_address:
   case OMPC_unified_shared_memory:
   case OMPC_reverse_offload:
@@ -315,6 +317,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
   case OMPC_ompx_assert:
+  case OMPC_ompx_register_alloc_mode:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
@@ -629,15 +632,17 @@ void OMPLinearClause::setUsedExprs(ArrayRef<Expr *> UE) {
 OMPLinearClause *OMPLinearClause::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
     OpenMPLinearClauseKind Modifier, SourceLocation ModifierLoc,
-    SourceLocation ColonLoc, SourceLocation EndLoc, ArrayRef<Expr *> VL,
-    ArrayRef<Expr *> PL, ArrayRef<Expr *> IL, Expr *Step, Expr *CalcStep,
-    Stmt *PreInit, Expr *PostUpdate) {
+    SourceLocation ColonLoc, SourceLocation StepModifierLoc,
+    SourceLocation EndLoc, ArrayRef<Expr *> VL, ArrayRef<Expr *> PL,
+    ArrayRef<Expr *> IL, Expr *Step, Expr *CalcStep, Stmt *PreInit,
+    Expr *PostUpdate) {
   // Allocate space for 5 lists (Vars, Inits, Updates, Finals), 2 expressions
   // (Step and CalcStep), list of used expression + step.
   void *Mem =
       C.Allocate(totalSizeToAlloc<Expr *>(5 * VL.size() + 2 + VL.size() + 1));
-  OMPLinearClause *Clause = new (Mem) OMPLinearClause(
-      StartLoc, LParenLoc, Modifier, ModifierLoc, ColonLoc, EndLoc, VL.size());
+  OMPLinearClause *Clause =
+      new (Mem) OMPLinearClause(StartLoc, LParenLoc, Modifier, ModifierLoc,
+                                ColonLoc, StepModifierLoc, EndLoc, VL.size());
   Clause->setVarRefs(VL);
   Clause->setPrivates(PL);
   Clause->setInits(IL);
@@ -2546,16 +2551,20 @@ void OMPClausePrinter::VisitOMPInReductionClause(OMPInReductionClause *Node) {
 void OMPClausePrinter::VisitOMPLinearClause(OMPLinearClause *Node) {
   if (!Node->varlist_empty()) {
     OS << "linear";
-    if (Node->getModifierLoc().isValid()) {
-      OS << '('
-         << getOpenMPSimpleClauseTypeName(OMPC_linear, Node->getModifier());
-    }
     VisitOMPClauseList(Node, '(');
-    if (Node->getModifierLoc().isValid())
-      OS << ')';
-    if (Node->getStep() != nullptr) {
+    if (Node->getModifierLoc().isValid() || Node->getStep() != nullptr) {
       OS << ": ";
+    }
+    if (Node->getModifierLoc().isValid()) {
+      OS << getOpenMPSimpleClauseTypeName(OMPC_linear, Node->getModifier());
+    }
+    if (Node->getStep() != nullptr) {
+      if (Node->getModifierLoc().isValid()) {
+        OS << ", ";
+      }
+      OS << "step(";
       Node->getStep()->printPretty(OS, nullptr, Policy, 0);
+      OS << ")";
     }
     OS << ")";
   }
@@ -2850,6 +2859,16 @@ void OMPClausePrinter::VisitOMPXDynCGroupMemClause(
   OS << ")";
 }
 
+#if INTEL_CUSTOMIZATION
+void OMPClausePrinter::VisitOMPXRegisterAllocModeClause(
+    OMPXRegisterAllocModeClause *Node) {
+  OS << "ompx_register_alloc_mode("
+     << getOpenMPSimpleClauseTypeName(OMPC_ompx_register_alloc_mode,
+                                      unsigned(Node->getModeKind()))
+     << ")";
+}
+#endif // INTEL_CUSTOMIZATION
+
 void OMPClausePrinter::VisitOMPDoacrossClause(OMPDoacrossClause *Node) {
   OS << "doacross(";
   OpenMPDoacrossClauseModifier DepType = Node->getDependenceType();
@@ -2872,6 +2891,22 @@ void OMPClausePrinter::VisitOMPDoacrossClause(OMPDoacrossClause *Node) {
   }
   VisitOMPClauseList(Node, ' ');
   OS << ")";
+}
+
+void OMPClausePrinter::VisitOMPXAttributeClause(OMPXAttributeClause *Node) {
+  OS << "ompx_attribute(";
+  bool IsFirst = true;
+  for (auto &Attr : Node->getAttrs()) {
+    if (!IsFirst)
+      OS << ", ";
+    Attr->printPretty(OS, Policy);
+    IsFirst = false;
+  }
+  OS << ")";
+}
+
+void OMPClausePrinter::VisitOMPXBareClause(OMPXBareClause *Node) {
+  OS << "ompx_bare";
 }
 
 void OMPTraitInfo::getAsVariantMatchInfo(ASTContext &ASTCtx,

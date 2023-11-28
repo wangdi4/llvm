@@ -25,7 +25,7 @@ written using SIMD types from a SYCL kernel.
 
 == Notice
 
-Copyright (c) 2021-2022 Intel Corporation.  All rights reserved.
+Copyright (c) 2021 Intel Corporation.  All rights reserved.
 
 == Status
 

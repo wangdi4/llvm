@@ -35,7 +35,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree noinline norecurse nounwind uwtable
-define dso_local void @foo(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #0 !dbg !6 !intel.optreport.rootnode !8 {
+define dso_local void @foo(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #0 !dbg !6 !intel.optreport !8 {
 entry:
   %gepload = load float, float* %c, align 4, !dbg !17, !tbaa !18
   %gepload26 = load float, float* %b, align 4, !dbg !22, !tbaa !18
@@ -138,15 +138,13 @@ attributes #3 = { nounwind }
 !5 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.2.0 (YYYY.x.0.MMDD)"}
 !6 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 3, type: !7, scopeLine: 3, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
 !7 = !DISubroutineType(types: !2)
-!8 = distinct !{!"intel.optreport.rootnode", !9}
-!9 = distinct !{!"intel.optreport", !10}
+!8 = distinct !{!"intel.optreport", !10}
 !10 = !{!"intel.optreport.first_child", !11}
-!11 = distinct !{!"intel.optreport.rootnode", !12}
-!12 = distinct !{!"intel.optreport", !13, !15}
+!11 = distinct !{!"intel.optreport", !13, !15}
 !13 = !{!"intel.optreport.debug_location", !14}
 !14 = !DILocation(line: 5, column: 3, scope: !6)
 !15 = !{!"intel.optreport.remarks", !16}
-!16 = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 4}
+!16 = !{!"intel.optreport.remark", i32 25436, i32 4}
 !17 = !DILocation(line: 6, column: 19, scope: !6)
 !18 = !{!19, !19, i64 0}
 !19 = !{!"float", !20, i64 0}

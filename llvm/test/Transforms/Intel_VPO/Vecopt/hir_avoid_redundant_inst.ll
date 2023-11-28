@@ -21,7 +21,7 @@
 ; or for truncation of of i1 to i32.
 ;
 ;
-define void @foo(i32* noalias %lp1, i32* noalias %lp2) {
+define void @foo(ptr noalias %lp1, ptr noalias %lp2) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -38,10 +38,10 @@ define void @foo(i32* noalias %lp1, i32* noalias %lp2) {
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP4:%.*]] = trunc i64 [[VP2]] to i32
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = add i64 [[VP2]] i64 2
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[LP10:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     store i32 [[VP4]] i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[LP20:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     store i32 [[VP4]] i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[LP10:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     store i32 [[VP4]] ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[LP20:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     store i32 [[VP4]] ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp slt i64 [[VP3]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -66,10 +66,10 @@ for.body:                                         ; preds = %entry, %for.body
   %l1.010 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %conv = trunc i64 %l1.010 to i32
   %add = add nuw nsw i64 %l1.010, 2
-  %arrayidx = getelementptr inbounds i32, i32* %lp1, i64 %add
-  store i32 %conv, i32* %arrayidx, align 4
-  %arrayidx3 = getelementptr inbounds i32, i32* %lp2, i64 %add
-  store i32 %conv, i32* %arrayidx3, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %lp1, i64 %add
+  store i32 %conv, ptr %arrayidx, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %lp2, i64 %add
+  store i32 %conv, ptr %arrayidx3, align 4
   %inc = add nuw nsw i64 %l1.010, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.end, label %for.body

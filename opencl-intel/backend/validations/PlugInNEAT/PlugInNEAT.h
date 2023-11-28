@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,7 +15,16 @@
 #ifndef LLI_PLUGIN_NEAT_H
 #define LLI_PLUGIN_NEAT_H
 
+#include "BufferContainerList.h"
+#include "IBufferContainer.h"
+#include "IMemoryObject.h"
 #include "InterpreterPlugIn.h"
+#include "InterpreterPluggable.h"
+#include "NEATValue.h"
+#include "NEATVector.h"
+#include "OCLBuiltinParser.h"
+#include "OpenCLCompilationFlags.h"
+
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/IR/Function.h"
@@ -23,14 +32,6 @@
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-
-#include "BufferContainerList.h"
-#include "IBufferContainer.h"
-#include "IMemoryObject.h"
-#include "NEATValue.h"
-#include "NEATVector.h"
-#include "OCLBuiltinParser.h"
-#include "OpenCLCompilationFlags.h"
 
 namespace llvm {
 

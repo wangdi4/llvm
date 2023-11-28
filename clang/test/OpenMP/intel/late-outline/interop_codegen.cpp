@@ -1,20 +1,10 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -I%S/Inputs -emit-pch -o %t -std=c++14 -fopenmp \
+// RUN: %clang_cc1 -I%S/Inputs -emit-pch -o %t -std=c++14 -fopenmp \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s
 
-// RUN: %clang_cc1 -opaque-pointers -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
+// RUN: %clang_cc1 -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
 // RUN:  -fopenmp-late-outline -include-pch %t -verify \
-// RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck \
-// RUN:  --check-prefixes=CHECK,CHECK-NEW %s
-
-// RUN: %clang_cc1 -opaque-pointers -I%S/Inputs -emit-pch -o %t -std=c++14 -fopenmp \
-// RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu \
-// RUN:  -fno-openmp-new-depend-ir %s
-
-// RUN: %clang_cc1 -opaque-pointers -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
-// RUN:  -fopenmp-late-outline -include-pch %t -verify \
-// RUN:  -fno-openmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s | \
-// RUN:  FileCheck --check-prefixes=CHECK,CHECK-OLD %s
+// RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // expected-no-diagnostics
 #ifndef HEADER
@@ -35,10 +25,8 @@ void foo1(int dev) {
 
   //CHECK: DIR.OMP.INTEROP
   //CHECK-SAME: QUAL.OMP.INIT:TARGETSYNC"([[T]] [[O1]])
-  //CHECK-OLD-SAME: QUAL.OMP.DEPEND
-  //CHECK-OLD-SAME: QUAL.OMP.DEVICE
-  //CHECK-NEW-SAME: QUAL.OMP.DEVICE
-  //CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr %{{.*}})
+  //CHECK-SAME: QUAL.OMP.DEVICE
+  //CHECK-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr %{{.*}})
   //CHECK: DIR.OMP.END.INTEROP
   #pragma omp interop init(targetsync:obj1) depend(inout:arr) device(dev)
 
@@ -50,8 +38,7 @@ void foo1(int dev) {
 
   //CHECK: DIR.OMP.INTEROP
   //CHECK-SAME: QUAL.OMP.USE"([[T]] [[O1]])
-  //CHECK-OLD-SAME: QUAL.OMP.DEPEND
-  //CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr %{{.*}})
+  //CHECK-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr %{{.*}})
   //CHECK: DIR.OMP.END.INTEROP
   #pragma omp interop use(obj1) depend(inout:arr)
 
@@ -62,8 +49,7 @@ void foo1(int dev) {
 
   //CHECK: DIR.OMP.INTEROP
   //CHECK-SAME: QUAL.OMP.DESTROY"([[T]] [[O1]])
-  //CHECK-OLD-SAME: QUAL.OMP.DEPEND
-  //CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr %{{.*}})
+  //CHECK-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr %{{.*}})
   //CHECK: DIR.OMP.END.INTEROP
   #pragma omp interop destroy(obj1) depend(inout:arr)
 

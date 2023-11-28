@@ -8,36 +8,56 @@
 
 #pragma once
 
-#include <CL/__spirv/spirv_types.hpp>
-#include <sycl/atomic.hpp>
-#include <sycl/buffer.hpp>
-#include <sycl/detail/accessor_iterator.hpp>
-#include <sycl/detail/cl.h>
-#include <sycl/detail/common.hpp>
-#include <sycl/detail/export.hpp>
-#include <sycl/detail/generic_type_traits.hpp>
-#include <sycl/detail/handler_proxy.hpp>
-#include <sycl/detail/image_accessor_util.hpp>
+#include <sycl/access/access.hpp>                     // for target, mode
+#include <sycl/aliases.hpp>                           // for float4, int4
+#include <sycl/aspects.hpp>                           // for aspect
+#include <sycl/atomic.hpp>                            // for atomic
+#include <sycl/buffer.hpp>                            // for range
+#include <sycl/detail/accessor_iterator.hpp>          // for accessor_iterator
+#include <sycl/detail/common.hpp>                     // for code_location
+#include <sycl/detail/defines.hpp>                    // for __SYCL_SPECIAL...
+#include <sycl/detail/defines_elementary.hpp>         // for __SYCL2020_DEP...
+#include <sycl/detail/export.hpp>                     // for __SYCL_EXPORT
+#include <sycl/detail/generic_type_traits.hpp>        // for is_genint, Try...
+#include <sycl/detail/handler_proxy.hpp>              // for associateWithH...
+#include <sycl/detail/helpers.hpp>                    // for loop
+#include <sycl/detail/image_accessor_util.hpp>        // for imageReadSampl...
+#include <sycl/detail/owner_less_base.hpp>            // for OwnerLessBase
+#include <sycl/detail/pi.h>                           // for PI_ERROR_INVAL...
+#include <sycl/detail/property_helper.hpp>            // for PropWithDataKind
+#include <sycl/detail/property_list_base.hpp>         // for PropertyListBase
+#include <sycl/detail/type_list.hpp>                  // for is_contained
+#include <sycl/detail/type_traits.hpp>                // for const_if_const_AS
+#include <sycl/device.hpp>                            // for device
+#include <sycl/exception.hpp>                         // for make_error_code
+#include <sycl/ext/oneapi/accessor_property_list.hpp> // for accessor_prope...
+#include <sycl/ext/oneapi/weak_object_base.hpp>       // for getSyclWeakObj...
+#include <sycl/id.hpp>                                // for id
+#include <sycl/image.hpp>                             // for image, image_c...
+#include <sycl/multi_ptr.hpp>                         // for multi_ptr
+#include <sycl/pointers.hpp>                          // for local_ptr, glo...
+#include <sycl/properties/accessor_properties.hpp>    // for buffer_location
+#include <sycl/properties/buffer_properties.hpp>      // for buffer, buffer...
+#include <sycl/property_list.hpp>                     // for property_list
+#include <sycl/range.hpp>                             // for range
+#include <sycl/sampler.hpp>                           // for addressing_mode
+#include <sycl/types.hpp>                             // for vec
+
+#ifdef __SYCL_DEVICE_ONLY__
 #include <sycl/detail/image_ocl_types.hpp>
-#include <sycl/detail/owner_less_base.hpp>
-#include <sycl/device.hpp>
-#include <sycl/exception.hpp>
-#include <sycl/ext/oneapi/accessor_property_list.hpp>
-#include <sycl/ext/oneapi/weak_object_base.hpp>
-#include <sycl/id.hpp>
-#include <sycl/image.hpp>
-#include <sycl/pointers.hpp>
-#include <sycl/properties/accessor_properties.hpp>
-#include <sycl/properties/buffer_properties.hpp>
-#include <sycl/property_list.hpp>
-#include <sycl/property_list_conversion.hpp>
-#include <sycl/sampler.hpp>
+#endif
 
-#include <iterator>
-#include <optional>
-#include <type_traits>
-
-#include <utility>
+#include <cstddef>     // for size_t
+#include <functional>  // for hash
+#include <iterator>    // for reverse_iterator
+#include <limits>      // for numeric_limits
+#include <memory>      // for shared_ptr
+#include <optional>    // for nullopt, optional
+#include <stdint.h>    // for uint32_t
+#include <tuple>       // for _Swallow_assign
+#include <type_traits> // for enable_if_t
+#include <typeinfo>    // for type_info
+#include <variant>     // for hash
 
 /// \file accessor.hpp
 /// The file contains implementations of accessor class.
@@ -553,6 +573,7 @@ public:
   const range<3> &getMemoryRange() const;
   void *getPtr() const noexcept;
   bool isPlaceholder() const;
+  bool isMemoryObjectUsedByGraph() const;
 
   detail::AccHostDataT &getAccData();
 
@@ -1031,9 +1052,9 @@ public:
   template <typename CoordT, int Dims = Dimensions,
             typename = std::enable_if_t<
                 (Dims > 0) && (IsValidCoordDataT<Dims, CoordT>::value) &&
-                (detail::is_genint<CoordT>::value) &&
-                ((IsImageAcc && IsImageAccessReadOnly) ||
-                 (IsHostImageAcc && IsImageAccessAnyRead))>>
+                (detail::is_genint_v<CoordT>)&&(
+                    (IsImageAcc && IsImageAccessReadOnly) ||
+                    (IsHostImageAcc && IsImageAccessAnyRead))>>
   DataT read(const CoordT &Coords) const {
 #ifdef __SYCL_DEVICE_ONLY__
     return __invoke__ImageRead<DataT, OCLImageTy, CoordT>(MImageObj, Coords);
@@ -1072,12 +1093,13 @@ public:
   // (accessTarget == access::target::host_image && (accessMode ==
   // access::mode::write || accessMode == access::mode::discard_write ||
   // accessMode == access::mode::read_write))
-  template <typename CoordT, int Dims = Dimensions,
-            typename = std::enable_if_t<
-                (Dims > 0) && (detail::is_genint<CoordT>::value) &&
-                (IsValidCoordDataT<Dims, CoordT>::value) &&
-                ((IsImageAcc && IsImageAccessWriteOnly) ||
-                 (IsHostImageAcc && IsImageAccessAnyWrite))>>
+  template <
+      typename CoordT, int Dims = Dimensions,
+      typename = std::enable_if_t<(Dims > 0) &&
+                                  (detail::is_genint_v<CoordT>)&&(
+                                      IsValidCoordDataT<Dims, CoordT>::value) &&
+                                  ((IsImageAcc && IsImageAccessWriteOnly) ||
+                                   (IsHostImageAcc && IsImageAccessAnyWrite))>>
   void write(const CoordT &Coords, const DataT &Color) const {
 #ifdef __SYCL_DEVICE_ONLY__
     __invoke__ImageWrite<OCLImageTy, CoordT, DataT>(MImageObj, Coords, Color);
@@ -1467,6 +1489,18 @@ public:
       typename std::iterator_traits<iterator>::difference_type;
   using size_type = std::size_t;
 
+  /// If creating a host_accessor this checks to see if the underlying memory
+  /// object is currently in use by a command_graph, and throws if it is.
+  void throwIfUsedByGraph() const {
+#ifndef __SYCL_DEVICE_ONLY__
+    if (IsHostBuf && AccessorBaseHost::isMemoryObjectUsedByGraph()) {
+      throw sycl::exception(make_error_code(errc::invalid),
+                            "Host accessors cannot be created for buffers "
+                            "which are currently in use by a command graph.");
+    }
+#endif
+  }
+
   // The list of accessor constructors with their arguments
   // -------+---------+-------+----+-----+--------------
   // Dimensions = 0
@@ -1536,6 +1570,7 @@ public:
       : impl(id<AdjustedDim>(), detail::GetZeroDimAccessRange(BufferRef),
              BufferRef.get_range()) {
     (void)PropertyList;
+    (void)CodeLoc;
 #else
       : AccessorBaseHost(
             /*Offset=*/{0, 0, 0},
@@ -1546,6 +1581,7 @@ public:
             detail::getSyclObjImpl(BufferRef).get(), AdjustedDim, sizeof(DataT),
             IsPlaceH, BufferRef.OffsetInBytes, BufferRef.IsSubBuffer,
             PropertyList) {
+    throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     if (!AccessorBaseHost::isPlaceholder())
       addHostAccessorAndWait(AccessorBaseHost::impl.get());
@@ -1575,6 +1611,7 @@ public:
       : impl(id<AdjustedDim>(), detail::GetZeroDimAccessRange(BufferRef),
              BufferRef.get_range()) {
     (void)PropertyList;
+    (void)CodeLoc;
 #else
       : AccessorBaseHost(
             /*Offset=*/{0, 0, 0},
@@ -1585,6 +1622,7 @@ public:
             detail::getSyclObjImpl(BufferRef).get(), AdjustedDim, sizeof(DataT),
             IsPlaceH, BufferRef.OffsetInBytes, BufferRef.IsSubBuffer,
             PropertyList) {
+    throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     if (!AccessorBaseHost::isPlaceholder())
       addHostAccessorAndWait(AccessorBaseHost::impl.get());
@@ -1610,6 +1648,7 @@ public:
              BufferRef.get_range()) {
     (void)CommandGroupHandler;
     (void)PropertyList;
+    (void)CodeLoc;
   }
 #else
       : AccessorBaseHost(
@@ -1620,6 +1659,7 @@ public:
             getAdjustedMode(PropertyList),
             detail::getSyclObjImpl(BufferRef).get(), Dimensions, sizeof(DataT),
             BufferRef.OffsetInBytes, BufferRef.IsSubBuffer, PropertyList) {
+    throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     detail::associateWithHandler(CommandGroupHandler, this, AccessTarget);
     initHostAcc();
@@ -1646,6 +1686,7 @@ public:
              BufferRef.get_range()) {
     (void)CommandGroupHandler;
     (void)PropertyList;
+    (void)CodeLoc;
   }
 #else
       : AccessorBaseHost(
@@ -1656,6 +1697,7 @@ public:
             getAdjustedMode(PropertyList),
             detail::getSyclObjImpl(BufferRef).get(), Dimensions, sizeof(DataT),
             BufferRef.OffsetInBytes, BufferRef.IsSubBuffer, PropertyList) {
+    throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     detail::associateWithHandler(CommandGroupHandler, this, AccessTarget);
     initHostAcc();
@@ -1678,6 +1720,7 @@ public:
 #ifdef __SYCL_DEVICE_ONLY__
       : impl(id<Dimensions>(), BufferRef.get_range(), BufferRef.get_range()) {
     (void)PropertyList;
+    (void)CodeLoc;
   }
 #else
       : AccessorBaseHost(
@@ -1688,6 +1731,7 @@ public:
             detail::getSyclObjImpl(BufferRef).get(), Dimensions, sizeof(DataT),
             IsPlaceH, BufferRef.OffsetInBytes, BufferRef.IsSubBuffer,
             PropertyList) {
+    throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     if (!AccessorBaseHost::isPlaceholder())
       addHostAccessorAndWait(AccessorBaseHost::impl.get());
@@ -1713,6 +1757,7 @@ public:
 #ifdef __SYCL_DEVICE_ONLY__
       : impl(id<Dimensions>(), BufferRef.get_range(), BufferRef.get_range()) {
     (void)PropertyList;
+    (void)CodeLoc;
   }
 #else
       : AccessorBaseHost(
@@ -1723,6 +1768,7 @@ public:
             detail::getSyclObjImpl(BufferRef).get(), Dimensions, sizeof(DataT),
             IsPlaceH, BufferRef.OffsetInBytes, BufferRef.IsSubBuffer,
             PropertyList) {
+    throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     if (!AccessorBaseHost::isPlaceholder())
       addHostAccessorAndWait(AccessorBaseHost::impl.get());
@@ -1776,6 +1822,7 @@ public:
       : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.get_range()) {
     (void)CommandGroupHandler;
     (void)PropertyList;
+    (void)CodeLoc;
   }
 #else
       : AccessorBaseHost(
@@ -1785,6 +1832,7 @@ public:
             getAdjustedMode(PropertyList),
             detail::getSyclObjImpl(BufferRef).get(), Dimensions, sizeof(DataT),
             BufferRef.OffsetInBytes, BufferRef.IsSubBuffer, PropertyList) {
+    throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     detail::associateWithHandler(CommandGroupHandler, this, AccessTarget);
     initHostAcc();
@@ -1810,6 +1858,7 @@ public:
       : impl(id<AdjustedDim>(), BufferRef.get_range(), BufferRef.get_range()) {
     (void)CommandGroupHandler;
     (void)PropertyList;
+    (void)CodeLoc;
   }
 #else
       : AccessorBaseHost(
@@ -1819,6 +1868,7 @@ public:
             getAdjustedMode(PropertyList),
             detail::getSyclObjImpl(BufferRef).get(), Dimensions, sizeof(DataT),
             BufferRef.OffsetInBytes, BufferRef.IsSubBuffer, PropertyList) {
+    throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     initHostAcc();
     detail::associateWithHandler(CommandGroupHandler, this, AccessTarget);
@@ -1985,6 +2035,7 @@ public:
 #ifdef __SYCL_DEVICE_ONLY__
       : impl(AccessOffset, AccessRange, BufferRef.get_range()) {
     (void)PropertyList;
+    (void)CodeLoc;
   }
 #else
       : AccessorBaseHost(detail::convertToArrayOfN<3, 0>(AccessOffset),
@@ -1994,6 +2045,7 @@ public:
                          detail::getSyclObjImpl(BufferRef).get(), Dimensions,
                          sizeof(DataT), IsPlaceH, BufferRef.OffsetInBytes,
                          BufferRef.IsSubBuffer, PropertyList) {
+    throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     if (!AccessorBaseHost::isPlaceholder())
       addHostAccessorAndWait(AccessorBaseHost::impl.get());
@@ -2027,6 +2079,7 @@ public:
 #ifdef __SYCL_DEVICE_ONLY__
       : impl(AccessOffset, AccessRange, BufferRef.get_range()) {
     (void)PropertyList;
+    (void)CodeLoc;
   }
 #else
       : AccessorBaseHost(detail::convertToArrayOfN<3, 0>(AccessOffset),
@@ -2036,6 +2089,7 @@ public:
                          detail::getSyclObjImpl(BufferRef).get(), Dimensions,
                          sizeof(DataT), IsPlaceH, BufferRef.OffsetInBytes,
                          BufferRef.IsSubBuffer, PropertyList) {
+    throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     if (!AccessorBaseHost::isPlaceholder())
       addHostAccessorAndWait(AccessorBaseHost::impl.get());
@@ -2098,6 +2152,7 @@ public:
       : impl(AccessOffset, AccessRange, BufferRef.get_range()) {
     (void)CommandGroupHandler;
     (void)PropertyList;
+    (void)CodeLoc;
   }
 #else
       : AccessorBaseHost(detail::convertToArrayOfN<3, 0>(AccessOffset),
@@ -2107,6 +2162,7 @@ public:
                          detail::getSyclObjImpl(BufferRef).get(), Dimensions,
                          sizeof(DataT), BufferRef.OffsetInBytes,
                          BufferRef.IsSubBuffer, PropertyList) {
+    throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     if (BufferRef.isOutOfBounds(AccessOffset, AccessRange,
                                 BufferRef.get_range()))
@@ -2140,6 +2196,7 @@ public:
       : impl(AccessOffset, AccessRange, BufferRef.get_range()) {
     (void)CommandGroupHandler;
     (void)PropertyList;
+    (void)CodeLoc;
   }
 #else
       : AccessorBaseHost(detail::convertToArrayOfN<3, 0>(AccessOffset),
@@ -2149,6 +2206,7 @@ public:
                          detail::getSyclObjImpl(BufferRef).get(), Dimensions,
                          sizeof(DataT), BufferRef.OffsetInBytes,
                          BufferRef.IsSubBuffer, PropertyList) {
+    throwIfUsedByGraph();
     preScreenAccessor(PropertyList);
     if (BufferRef.isOutOfBounds(AccessOffset, AccessRange,
                                 BufferRef.get_range()))
@@ -2215,6 +2273,7 @@ public:
     static_assert(
         PropertyListT::template areSameCompileTimeProperties<NewPropsT...>(),
         "Compile-time-constant properties must be the same");
+    (void)CodeLoc;
 #ifndef __SYCL_DEVICE_ONLY__
     detail::constructorNotification(getMemoryObject(), impl.get(), AccessTarget,
                                     AccessMode, CodeLoc);
@@ -2804,7 +2863,9 @@ public:
   local_accessor_base(handler &, const detail::code_location CodeLoc =
                                      detail::code_location::current())
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(range<AdjustedDim>{1}){}
+      : impl(range<AdjustedDim>{1}) {
+    (void)CodeLoc;
+  }
 #else
       : LocalAccessorBaseHost(range<3>{1, 1, 1}, AdjustedDim, sizeof(DataT)) {
     detail::constructorNotification(nullptr, LocalAccessorBaseHost::impl.get(),
@@ -2820,6 +2881,7 @@ public:
 #ifdef __SYCL_DEVICE_ONLY__
       : impl(range<AdjustedDim>{1}) {
     (void)propList;
+    (void)CodeLoc;
   }
 #else
       : LocalAccessorBaseHost(range<3>{1, 1, 1}, AdjustedDim, sizeof(DataT),
@@ -2835,7 +2897,9 @@ public:
       range<Dimensions> AllocationSize, handler &,
       const detail::code_location CodeLoc = detail::code_location::current())
 #ifdef __SYCL_DEVICE_ONLY__
-      : impl(AllocationSize){}
+      : impl(AllocationSize) {
+    (void)CodeLoc;
+  }
 #else
       : LocalAccessorBaseHost(detail::convertToArrayOfN<3, 1>(AllocationSize),
                               AdjustedDim, sizeof(DataT)) {
@@ -2854,6 +2918,7 @@ public:
 #ifdef __SYCL_DEVICE_ONLY__
       : impl(AllocationSize) {
     (void)propList;
+    (void)CodeLoc;
   }
 #else
       : LocalAccessorBaseHost(detail::convertToArrayOfN<3, 1>(AllocationSize),
@@ -3529,6 +3594,7 @@ public:
     AccessorT::MAccData = other.MAccData;
 #else
   {
+    (void)other;
 #endif // __SYCL_DEVICE_ONLY__
   }
 
@@ -3544,6 +3610,7 @@ public:
     AccessorT::MAccData = other.MAccData;
 #else
   {
+    (void)other;
 #endif // __SYCL_DEVICE_ONLY__
   }
 
@@ -3640,7 +3707,12 @@ public:
       handler &CommandGroupHandlerRef, const property_list &PropList = {},
       const detail::code_location CodeLoc = detail::code_location::current())
 #ifdef __SYCL_DEVICE_ONLY__
-      {}
+  {
+    (void)ImageRef;
+    (void)CommandGroupHandlerRef;
+    (void)PropList;
+    (void)CodeLoc;
+  }
 #else
       : host_base_class(detail::convertToArrayOfN<3, 1>(ImageRef.get_range()),
                         AccessMode, detail::getSyclObjImpl(ImageRef).get(),
@@ -3906,7 +3978,12 @@ public:
       handler &CommandGroupHandlerRef, const property_list &PropList = {},
       const detail::code_location CodeLoc = detail::code_location::current())
 #ifdef __SYCL_DEVICE_ONLY__
-      {}
+  {
+    (void)ImageRef;
+    (void)CommandGroupHandlerRef;
+    (void)PropList;
+    (void)CodeLoc;
+  }
 #else
       : host_base_class(detail::convertToArrayOfN<3, 1>(ImageRef.get_range()),
                         detail::getSyclObjImpl(ImageRef).get(), Dimensions,

@@ -3393,13 +3393,13 @@ let Predicates = [UseSSE2] in {
 // Prefetch intrinsic.
 let Predicates = [HasSSEPrefetch], SchedRW = [WriteLoad] in {
 def PREFETCHT0   : I<0x18, MRM1m, (outs), (ins i8mem:$src),
-    "prefetcht0\t$src", [(prefetch addr:$src, imm, (i32 3), imm)]>, TB; // INTEL
+    "prefetcht0\t$src", [(prefetch addr:$src, timm, (i32 3), timm)]>, TB; // INTEL
 def PREFETCHT1   : I<0x18, MRM2m, (outs), (ins i8mem:$src),
-    "prefetcht1\t$src", [(prefetch addr:$src, imm, (i32 2), imm)]>, TB; // INTEL
+    "prefetcht1\t$src", [(prefetch addr:$src, timm, (i32 2), timm)]>, TB; // INTEL
 def PREFETCHT2   : I<0x18, MRM3m, (outs), (ins i8mem:$src),
-    "prefetcht2\t$src", [(prefetch addr:$src, imm, (i32 1), imm)]>, TB; // INTEL
+    "prefetcht2\t$src", [(prefetch addr:$src, timm, (i32 1), timm)]>, TB; // INTEL
 def PREFETCHNTA  : I<0x18, MRM0m, (outs), (ins i8mem:$src),
-    "prefetchnta\t$src", [(prefetch addr:$src, imm, (i32 0), imm)]>, TB; // INTEL
+    "prefetchnta\t$src", [(prefetch addr:$src, timm, (i32 0), timm)]>, TB; // INTEL
 }
 
 // FIXME: How should flush instruction be modeled?
@@ -5783,8 +5783,6 @@ let Predicates = [HasAVX, NoAVX256P_And_NoBWI] in
   def : Pat<(store bf16:$src, addr:$dst), (VPEXTRWmr addr:$dst, (v8i16 (COPY_TO_REGCLASS BFR16:$src, VR128)), 0)>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
-
-
 /// SS41I_extract32 - SSE 4.1 extract 32 bits to int reg or memory destination
 multiclass SS41I_extract32<bits<8> opc, string OpcodeStr> {
   def rr : SS4AIi8<opc, MRMDestReg, (outs GR32:$dst),
@@ -6305,7 +6303,6 @@ defm VTESTPDY : avx_bittest<0x0F, "vtestpd", VR256, f256mem, loadv4f64, v4f64,
 //===----------------------------------------------------------------------===//
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 multiclass popcntrr_base<bits<8> opcode, bits<8> opcode2, X86TypeInfo info> {
 let Defs = [EFLAGS], Predicates = [HasPOPCNT], Opcode = opcode in
   def NAME : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst), 
@@ -6354,40 +6351,6 @@ defm POPCNT32rr : popcntrr_base<0xB8, 0x88, Xi32>;
 defm POPCNT32rm : popcntrm_base<0xB8, 0x88, Xi32>;
 defm POPCNT64rr : popcntrr_base<0xB8, 0x88, Xi64>;
 defm POPCNT64rm : popcntrm_base<0xB8, 0x88, Xi64>;
-#else // INTEL_FEATURE_ISA_APX_F
-let Defs = [EFLAGS], Predicates = [HasPOPCNT] in {
-  def POPCNT16rr : I<0xB8, MRMSrcReg, (outs GR16:$dst), (ins GR16:$src),
-                     "popcnt{w}\t{$src, $dst|$dst, $src}",
-                     [(set GR16:$dst, (ctpop GR16:$src)), (implicit EFLAGS)]>,
-                     Sched<[WritePOPCNT]>, OpSize16, XS;
-  def POPCNT16rm : I<0xB8, MRMSrcMem, (outs GR16:$dst), (ins i16mem:$src),
-                     "popcnt{w}\t{$src, $dst|$dst, $src}",
-                     [(set GR16:$dst, (ctpop (loadi16 addr:$src))),
-                      (implicit EFLAGS)]>,
-                      Sched<[WritePOPCNT.Folded]>, OpSize16, XS;
-
-  def POPCNT32rr : I<0xB8, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                     "popcnt{l}\t{$src, $dst|$dst, $src}",
-                     [(set GR32:$dst, (ctpop GR32:$src)), (implicit EFLAGS)]>,
-                     Sched<[WritePOPCNT]>, OpSize32, XS;
-
-  def POPCNT32rm : I<0xB8, MRMSrcMem, (outs GR32:$dst), (ins i32mem:$src),
-                     "popcnt{l}\t{$src, $dst|$dst, $src}",
-                     [(set GR32:$dst, (ctpop (loadi32 addr:$src))),
-                      (implicit EFLAGS)]>,
-                      Sched<[WritePOPCNT.Folded]>, OpSize32, XS;
-
-  def POPCNT64rr : RI<0xB8, MRMSrcReg, (outs GR64:$dst), (ins GR64:$src),
-                      "popcnt{q}\t{$src, $dst|$dst, $src}",
-                      [(set GR64:$dst, (ctpop GR64:$src)), (implicit EFLAGS)]>,
-                      Sched<[WritePOPCNT]>, XS;
-  def POPCNT64rm : RI<0xB8, MRMSrcMem, (outs GR64:$dst), (ins i64mem:$src),
-                      "popcnt{q}\t{$src, $dst|$dst, $src}",
-                      [(set GR64:$dst, (ctpop (loadi64 addr:$src))),
-                       (implicit EFLAGS)]>,
-                       Sched<[WritePOPCNT.Folded]>, XS;
-}
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 // SS41I_unop_rm_int_v16 - SSE 4.1 unary operator whose type is v8i16.
@@ -7761,7 +7724,7 @@ def : Pat<(nontemporalstore FR64:$src, addr:$dst),
 // VBROADCAST - Load from memory and broadcast to all elements of the
 //              destination operand
 //
-let isReMaterializable = 1, canFoldAsLoad = 1 in
+let isReMaterializable = 1, canFoldAsLoad = 1 in // INTEL
 class avx_broadcast_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
                            X86MemOperand x86memop, ValueType VT,
                            PatFrag bcast_frag, SchedWrite Sched> :
@@ -9134,7 +9097,8 @@ multiclass VCVTNEPS2BF16_BASE {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
-let Predicates = [HasAVXNECONVERT, NoVLX_Or_NoNECONVERT], checkVEXPredicate = 1 in {
+let Predicates = [HasAVXNECONVERT, NoVLX_Or_NoNECONVERT] in {
+  let checkVEXPredicate = 1 in {
 #else // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 let Predicates = [HasAVXNECONVERT] in {
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
@@ -9151,8 +9115,18 @@ let Predicates = [HasAVXNECONVERT] in {
        f256mem>, T8XD;
   defm VCVTNEOPH2PS : AVX_NE_CONVERT_BASE<0xb0, "vcvtneoph2ps", f128mem,
        f256mem>, T8PS;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+  }
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+#endif // INTEL_CUSTOMIZATION
   let checkVEXPredicate = 1 in
   defm VCVTNEPS2BF16 : VCVTNEPS2BF16_BASE, VEX, T8XS, ExplicitVEXPrefix;
+
+  def : Pat<(v8bf16 (X86vfpround (v8f32 VR256:$src))),
+            (VCVTNEPS2BF16Yrr VR256:$src)>;
+  def : Pat<(v8bf16 (X86vfpround (loadv8f32 addr:$src))),
+            (VCVTNEPS2BF16Yrm addr:$src)>;
 }
 
 def : InstAlias<"vcvtneps2bf16x\t{$src, $dst|$dst, $src}",

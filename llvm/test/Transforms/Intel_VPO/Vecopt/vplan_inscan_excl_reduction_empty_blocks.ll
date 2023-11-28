@@ -3,7 +3,7 @@
 ; REQUIRES: asserts
 
 ; This test checks if VPlan processes IR with extra-empty blocks correctly (check for empty_block* in input IR below)
-; These empty blocks might appear if IR was not properly optimized before passing into VPlan
+; These empty blocks might appear is IR was not properly optimized before passing into VPlan
 ; Check that we still vectorize not fully optimized IR with empty blocks and reduction
 
 ;; float foo(float *A, float *B) {
@@ -105,7 +105,7 @@ DIR.OMP.SIMD.1:
   br label %DIR.OMP.SIMD.126
 
 DIR.OMP.SIMD.126:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr %x.red, float 0.000000e+00, i32 1, i64 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:INSCAN.TYPED"(ptr %x.red, float 0.000000e+00, i32 1, i64 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.END.SCAN.2
 
 DIR.OMP.END.SCAN.2:                               ; preds = %DIR.OMP.SIMD.126, %DIR.VPO.END.GUARD.MEM.MOTION.533

@@ -79,7 +79,7 @@ bool X86SplitLongBlockPass::runOnMachineFunction(MachineFunction &MF) {
   const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
   if (skipFunction(MF.getFunction()) || SplitLongBlockBlockLength == 0)
     return false;
-  if (!(TM.getOptLevel() == CodeGenOpt::Aggressive &&
+  if (!(TM.getOptLevel() == CodeGenOptLevel::Aggressive &&
         TM.Options.IntelAdvancedOptim))
     return false;
   // Currently only enabled for SKL and earlier

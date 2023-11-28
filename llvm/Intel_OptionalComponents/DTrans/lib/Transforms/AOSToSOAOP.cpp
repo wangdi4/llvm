@@ -1,6 +1,6 @@
 //==== AOSToSOAOP.cpp - AOS-to-SOA with support for opaque pointers ====//
 //
-// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,16 +8,16 @@
 //
 //===---------------------------------------------------------------------===//
 // This file implements the DTrans Array of Structures to Structure of Arrays
-// data layout optimization pass with support for IR using either opaque or
-// non-opaque pointers.
+// data layout optimization pass for IR using opaque pointers. (Non-opaque
+// pointers may be shown in the examples for clarity purposes, but the support
+// for that form has been removed from code.)
 //
 // The AOS-to-SOA transformation will convert an allocation of a structure
 // into a form where pointers to the structures of the type transformed are
 // no longer used, but instead accesses are made using an integer index into
 // an array.
 //
-// The following example shows the use of non-opaque pointers, with opaque
-// pointers things are similar except all pointer types will simply be 'ptr'.
+// The following example shows the use of non-opaque pointers.
 //
 // For example:
 //   %struct.test = type { i64, %struct.test* }
@@ -366,7 +366,7 @@ public:
                           AOSToSOAOPPass::GetTLIFuncType GetTLI,
                           SmallVectorImpl<dtrans::StructInfo *> &Types)
       : DTransOPOptBase(Ctx, DTInfo, DepTypePrefix), DL(DL), GetTLI(GetTLI),
-        Materializer(*getTypeRemapper()) {
+        Materializer(*getTypeRemapper()), Ctx(Ctx) {
     std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
     PtrSizeIntLLVMType = Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
   }
@@ -495,6 +495,7 @@ private: // data
   const DataLayout &DL;
   AOSToSOAOPPass::GetTLIFuncType GetTLI;
   AOSToSOAMaterializer Materializer;
+  LLVMContext &Ctx;
 
   // The list of types to be transformed.
   SmallVector<dtrans::StructInfo *, 4> TypesToTransform;
@@ -572,9 +573,6 @@ void AOSCollector::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     if (!OrigFieldType->isPointerTy())
       return;
 
-    if (!OrigFieldType->isOpaquePointerTy())
-      return;
-
     llvm::StructType *NewStructTy =
         Transform.getDependentTypeReplacement(OrigStructTy);
     llvm::Type *NewFieldType = NewStructTy->getElementType(FieldIdx);
@@ -620,8 +618,6 @@ void AOSCollector::visitLoadInst(LoadInst &I) {
   }
 
   FuncInfo.InstructionsToAnnotate.push_back({&I, LLVMStructType});
-  if (!I.getType()->isOpaquePointerTy())
-    return;
 
   // If the type loaded is a pointer to the transformed type, we want to
   // change it to appear in an address space so that the type remapping will
@@ -671,8 +667,6 @@ void AOSCollector::visitStoreInst(StoreInst &I) {
   }
 
   FuncInfo.InstructionsToAnnotate.push_back({&I, LLVMStructType});
-  if (!Val->getType()->isOpaquePointerTy())
-    return;
 
   if (!isa<ConstantData>((Val)))
     return;
@@ -727,12 +721,8 @@ void AOSCollector::visitCallBase(CallBase &I) {
   // processed.
   FuncInfo.CallsToConvert.push_back(&I);
 
-  // When typed-pointers are being used, the value mapper class can handle all
-  // the conversions necessary. When opaque pointers are in use, we need to
-  // process the pointers to change the function call signature to pass integers
-  // instead of pointer types.
-  if (!F->getType()->isOpaquePointerTy())
-    return;
+  // When opaque pointers are in use, we need to process the pointers to change
+  // the function call signature to pass integers instead of pointer types.
 
   Function *CloneFn = Transform.getClonedFunction(F);
   assert(CloneFn &&
@@ -877,9 +867,6 @@ void AOSCollector::visitReturnInst(ReturnInst &I) {
   if (!isa<ConstantPointerNull>(V))
     return;
 
-  if (!V->getType()->isOpaquePointerTy())
-    return;
-
   Function *F = I.getFunction();
   if (!Transform.isFnClonedForIndex(F))
     return;
@@ -909,14 +896,14 @@ void AOSCollector::visitReturnInst(ReturnInst &I) {
   }
 }
 
-// For a PHINode instruction, when opaque pointers are in use, if the type
-// represents a pointer to the type being transformed, we need to mark the
-// instruction with the address space to recognize that the type will be changed
-// to an integer index. Also, we need to consider the 'null' value pointer to
-// see if an integer 0 needs to be substituted for the index.
+// For a PHINode instruction, if the type represents an opaque pointer to the
+// type being transformed, we need to mark the instruction with the address
+// space to recognize that the type will be changed to an integer index. Also,
+// we need to consider the 'null' value pointer to see if an integer 0 needs to
+// be substituted for the index.
 void AOSCollector::visitPHINode(PHINode &I) {
   llvm::Type *Ty = I.getType();
-  if (!Ty->isOpaquePointerTy())
+  if (!Ty->isPointerTy())
     return;
 
   DTransStructType *StructTy = getDTransStructTypeforValue(&I);
@@ -934,14 +921,14 @@ void AOSCollector::visitPHINode(PHINode &I) {
           {&I, Elem.index(), TypeInAddrSpace});
 }
 
-// For a select instruction, when opaque pointers are in use, if the type
-// represents a pointer to the type being transformed, we need to mark the
-// instruction with the address space to recognize that the type will be changed
-// to an integer index. Also, we need to consider the 'null' value pointer to
-// see if an integer 0 needs to be substituted for the index.
+// For a select instruction, if the type represents an opaque pointer to the
+// type being transformed, we need to mark the instruction with the address
+// space to recognize that the type will be changed to an integer index. Also,
+// we need to consider the 'null' value pointer to see if an integer 0 needs to
+// be substituted for the index.
 void AOSCollector::visitSelectInst(SelectInst &I) {
   llvm::Type *Ty = I.getType();
-  if (!Ty->isOpaquePointerTy())
+  if (!Ty->isPointerTy())
     return;
 
   DTransStructType *StructTy = getDTransStructTypeforValue(&I);
@@ -968,10 +955,6 @@ void AOSCollector::visitICmpInst(ICmpInst &I) {
   bool IsNull0 = isa<ConstantPointerNull>(Op0);
   bool IsNull1 = isa<ConstantPointerNull>(Op1);
   if ((!IsNull0 && !IsNull1) || (IsNull0 && IsNull1))
-    return;
-
-  Value *NullOp = IsNull0 ? Op0 : Op1;
-  if (!NullOp->getType()->isOpaquePointerTy())
     return;
 
   Value *NonNullOp = IsNull0 ? Op1 : Op0;
@@ -1059,7 +1042,7 @@ void AOSCollector::visitAllocaInst(AllocaInst &I) {
   // we need to handle this in the convertAlloca routine. We only need to handle
   // it for the case of one level of indirection because the allocation type
   // remains 'ptr' for all other cases, and just the metadata needs updating.
-  if (I.getType()->isOpaquePointerTy() && PtrLevel == 1)
+  if (I.getType()->isPointerTy() && PtrLevel == 1)
     FuncInfo.AllocasToConvert.push_back(&I);
 
   FuncInfo.InstMDToUpdate.push_back({&I, DType});
@@ -1176,16 +1159,10 @@ bool AOSToSOAOPTransformImpl::prepareTypes(Module &M) {
     // transformed into that address space. (DTrans does not support code using
     // address spaces, so there will not be a conflict with any existing pointer
     // type.
-    uint32_t AddrSpaceForType = UsingOpaquePtrs ? Elem.index() + 1 : 0;
-    if (!UsingOpaquePtrs)
-      TypeRemapper.addTypeMapping(
-          OrigLLVMTy->getPointerTo(), getIndexLLVMType(),
-          TM.getOrCreatePointerType(DTransStructTy), getIndexDTransType());
-    else
-      TypeRemapper.addTypeMapping(
-          PointerType::get(OrigLLVMTy, AddrSpaceForType), getIndexLLVMType(),
-          TM.getOrCreatePointerType(DTransStructTy), getIndexDTransType());
-
+    uint32_t AddrSpaceForType = Elem.index() + 1;
+    TypeRemapper.addTypeMapping(
+        PointerType::get(OrigLLVMTy, AddrSpaceForType), getIndexLLVMType(),
+        TM.getOrCreatePointerType(DTransStructTy), getIndexDTransType());
     SOATypeInfoTy Info;
     Info.AddrSpaceForType = AddrSpaceForType;
     Info.OrigStructType = OrigLLVMTy;
@@ -1220,7 +1197,7 @@ void AOSToSOAOPTransformImpl::populateTypes(Module &M) {
       DTransType *DTransRemapType = TypeRemapper.remapType(DTransFieldTy);
       llvm::Type *LLVMRemapType = DTransRemapType->getLLVMType();
       Info.LLVMStructRemappedFieldsTypes.push_back(LLVMRemapType);
-      LLVMDataTypes.push_back(LLVMRemapType->getPointerTo());
+      LLVMDataTypes.push_back(PointerType::getUnqual(Ctx));
       DTransDataTypes.push_back(TM.getOrCreatePointerType(DTransRemapType));
     }
 
@@ -1433,13 +1410,11 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
         assert(DTArgTy->isPointerTy() &&
                DTArgTy->getPointerElementType()->isStructTy() &&
                "Only pointers to structures should be changed to int types");
-        if (OrigArgTy->isOpaquePointerTy()) {
-          auto *StructTy =
-              cast<DTransStructType>(DTArgTy->getPointerElementType());
-          llvm::Type *TypeInAddrSpace = getAddrSpacePtrForType(StructTy);
-          Argument *A = F.getArg(ArgIdx);
-          A->mutateType(TypeInAddrSpace);
-        }
+        auto *StructTy =
+            cast<DTransStructType>(DTArgTy->getPointerElementType());
+        llvm::Type *TypeInAddrSpace = getAddrSpacePtrForType(StructTy);
+        Argument *A = F.getArg(ArgIdx);
+        A->mutateType(TypeInAddrSpace);
       }
     }
   }
@@ -1933,7 +1908,7 @@ void AOSToSOAOPTransformImpl::convertGEP(GetElementPtrInst *GEP) {
     assert(GEPSrcTy->isStructTy());
     auto *OrigStructTy = cast<llvm::StructType>(GEPSrcTy);
     CastInst *ArrayIdx =
-        CastInst::CreateBitOrPointerCast(Add, OrigStructTy->getPointerTo());
+        CastInst::CreateBitOrPointerCast(Add, PointerType::getUnqual(Ctx));
     ArrayIdx->insertBefore(GEP);
     FuncInfo->PtrConverts.insert(ArrayIdx);
     GEP->replaceAllUsesWith(ArrayIdx);
@@ -2100,8 +2075,6 @@ void AOSToSOAOPTransformImpl::convertDepByteGEP(GetElementPtrInst *GEP,
 // Note: This is only reachable when opaque pointers are used because the code
 // relies on the TypeRemapper to handle this when typed pointers are in use.
 void AOSToSOAOPTransformImpl::convertAlloca(AllocaInst *AI) {
-  assert(AI->getType()->isOpaquePointerTy() &&
-         "Only opaque pointer uses expected");
   assert(!AI->getAllocatedType()->isArrayTy() && "Unexpected array type");
 
   AI->setAllocatedType(IndexInfo.LLVMType);
@@ -2118,23 +2091,11 @@ void AOSToSOAOPTransformImpl::convertPtrSizedIntLoad(
   // Replace a load of the form:
   //    %val_i64 = load i64, i64* %p_i64
   //
-  // To be one of the following forms:
-  // (non-opaque pointers)
-  //    %1 = bitcast i64* %p_i64 to i32*
-  //    %2 = load i32, i32* %1
-  //    %val_i64 = zext i32 %2 to i64
-  //
-  // (opaque pointers)
+  // To be a load of an index:
   //    %2 = load i32, ptr %1
   //    %val_i64 = zext i32 %2 to i64
   //
   Value *PtrOp = LI->getPointerOperand();
-  if (!PtrOp->getType()->isOpaquePointerTy()) {
-    auto *NewPtrOp = CastInst::CreateBitOrPointerCast(
-        PtrOp, IndexInfo.LLVMType->getPointerTo(), "", LI);
-    FuncInfo->IntermediateConverts.push_back(NewPtrOp);
-    PtrOp = NewPtrOp;
-  }
 
   // Create a new load with the same attributes as the original instruction,
   // except for the alignment field. Because pointers to the structure are
@@ -2166,13 +2127,7 @@ void AOSToSOAOPTransformImpl::convertPtrSizedIntStore(
   // Replace a store of the form:
   //    store i64 %val_i64, i64* %p_i64
   //
-  // To be one of the following forms:
-  // (non-opaque pointers)
-  //    %1 = trunc i64 %val_i64 to i32
-  //    %2 = bitcast i32* %p_i64 to i32*
-  //    store i32 %1, i32* %2
-  //
-  // (opaque pointers)
+  // To be a store of an index:
   //    %1 = trunc i64 %val_i64 to i32
   //    store i32 %1,ptr %2
   Instruction *NewValOp = CastInst::Create(
@@ -2182,10 +2137,10 @@ void AOSToSOAOPTransformImpl::convertPtrSizedIntStore(
   Value *PtrOp = SI->getPointerOperand();
   Value *NewPtrOp = nullptr;
   if (auto *C = dyn_cast<Constant>(PtrOp))
-    NewPtrOp = ConstantExpr::getBitCast(C, IndexInfo.LLVMType->getPointerTo());
+    NewPtrOp = ConstantExpr::getBitCast(C, PointerType::getUnqual(Ctx));
   else {
     NewPtrOp = CastInst::CreateBitOrPointerCast(
-      PtrOp, IndexInfo.LLVMType->getPointerTo(), "", SI);
+        PtrOp, PointerType::getUnqual(Ctx), "", SI);
     FuncInfo->IntermediateConverts.push_back(cast<Instruction>(NewPtrOp));
   }
   // Create a new store with the same attributes as the original instruction,
@@ -2648,13 +2603,6 @@ void AOSToSOAOPTransformImpl::convertFreeCall(FreeCallInfo *CInfo,
       SOAInfo, ConstantInt::get(Type::getInt32Ty(SOAVar->getContext()), 0),
       InsertionPoint);
   Value *NewFreeArg = SOAAddr;
-  if (!FreeArg->getType()->isOpaquePointerTy()) {
-    CastInst *SOAAddrAsI8Ptr =
-        CastInst::CreateBitOrPointerCast(SOAAddr, FreeArg->getType());
-    SOAAddrAsI8Ptr->insertAfter(SOAAddr);
-    NewFreeArg = SOAAddrAsI8Ptr;
-  }
-
   for (auto *ICmp : ICmpsToFix) {
     // The original 'icmp' instruction may have been collected by the visitICmp
     // instruction to convert to an integer index test, so insert a new ICmp,

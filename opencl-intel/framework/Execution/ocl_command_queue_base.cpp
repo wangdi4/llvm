@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2023 Intel Corporation.
+// Copyright 2008 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,6 +14,7 @@
 
 #include "Context.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_types.h"
 #include "cl_user_logger.h"
 #include "command_queue.h"
 #include "context_module.h"
@@ -23,7 +24,6 @@
 #include "ocl_event.h"
 #include "ocl_itt.h"
 #include <cassert>
-#include <cl_types.h>
 #include <cstring>
 
 using namespace Intel::OpenCL::Framework;
@@ -85,6 +85,21 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(
     return errVal;
   }
 
+  // Register tracker event for blocking USMFree.
+  auto &usmPtrList = pCommand->GetUsmPtrList();
+  if (!usmPtrList.empty()) {
+    // Retain tracker event in case it is released by user or by following code
+    // when user event is null before USMBlockingFree.
+    m_pEventsManager->RetainEvent(pEventHandle);
+
+    std::shared_ptr<_cl_event> trackerEvtSPtr(
+        pEventHandle, [=](cl_event e) { m_pEventsManager->ReleaseEvent(e); });
+
+    for (auto usmPtr : usmPtrList)
+      m_pContext->GetContextModule().RegisterUSMFreeWaitEvent(usmPtr,
+                                                              trackerEvtSPtr);
+  }
+
   if (auto *Cmd = dynamic_cast<NDRangeKernelCommand *>(pCommand)) {
     if (Cmd->HasFPGASerializeCompleteCallBack()) {
       // This is for special handling of trackerEvent from
@@ -119,7 +134,9 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(
   RemoveFloatingDependence(pQueueEvent);
 
   if (CL_FAILED(errVal)) {
-    pCommand->CommandDone();
+    for (auto usmPtr : usmPtrList)
+      m_pContext->GetContextModule().UnregisterUSMFreeWaitEvent(usmPtr,
+                                                                pEventHandle);
     if (NULL == pUserEvent) {
       m_pEventsManager->ReleaseEvent(pEventHandle);
     }

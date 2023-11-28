@@ -1,6 +1,6 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple i386-pc-windows-msvc -emit-dtrans-info -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,W32
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-pc-windows-msvc -emit-dtrans-info -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,W64
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple i386-pc-windows-msvc -emit-dtrans-info -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,W32
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-pc-windows-msvc -emit-dtrans-info -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,W64
 using size_t = unsigned long long;
 class _String_val {
 public:

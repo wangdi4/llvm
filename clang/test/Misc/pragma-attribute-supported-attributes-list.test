@@ -1,4 +1,4 @@
-// RUN: clang-tblgen -gen-clang-test-pragma-attribute-supported-attributes -I%src_include_dir -I%src_include_dir/clang/Basic %src_include_dir/clang/Basic/Attr.td -o - | FileCheck %s;INTEL
+// INTEL RUN: clang-tblgen -gen-clang-test-pragma-attribute-supported-attributes -DINTEL_CUSTOMIZATION -DINTEL_COLLAB -I%src_include_dir -I%src_include_dir/clang/Basic %src_include_dir/clang/Basic/Attr.td -o - | FileCheck %s
 
 // The number of supported attributes should never go down!
 
@@ -62,6 +62,8 @@
 // CHECK-NEXT: ConsumableAutoCast (SubjectMatchRule_record)
 // CHECK-NEXT: ConsumableSetOnRead (SubjectMatchRule_record)
 // CHECK-NEXT: Convergent (SubjectMatchRule_function)
+// CHECK-NEXT: CoroOnlyDestroyWhenComplete (SubjectMatchRule_record)
+// CHECK-NEXT: CountedBy (SubjectMatchRule_field)
 // CHECK-NEXT: DLLExport (SubjectMatchRule_function, SubjectMatchRule_variable, SubjectMatchRule_record, SubjectMatchRule_objc_interface)
 // CHECK-NEXT: DLLImport (SubjectMatchRule_function, SubjectMatchRule_variable, SubjectMatchRule_record, SubjectMatchRule_objc_interface)
 // CHECK-NEXT: Destructor (SubjectMatchRule_function)
@@ -207,6 +209,8 @@
 // CHECK-NEXT: SYCLIntelMaxConcurrency (SubjectMatchRule_function)
 // CHECK-NEXT: SYCLIntelMaxGlobalWorkDim (SubjectMatchRule_function)
 // CHECK-NEXT: SYCLIntelMaxWorkGroupSize (SubjectMatchRule_function)
+// CHECK-NEXT: SYCLIntelMaxWorkGroupsPerMultiprocessor (SubjectMatchRule_function)
+// CHECK-NEXT: SYCLIntelMinWorkGroupsPerComputeUnit (SubjectMatchRule_function)
 // CHECK-NEXT: SYCLIntelNoGlobalWorkOffset (SubjectMatchRule_function)
 // CHECK-NEXT: SYCLIntelNumSimdWorkItems (SubjectMatchRule_function)
 // CHECK-NEXT: SYCLIntelPipeIO (SubjectMatchRule_variable)

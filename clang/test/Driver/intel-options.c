@@ -8,8 +8,8 @@
 // RUN: %clang_cl -### -c /Qopt-zmm-usage:low %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-LOW %s
 // RUN: %clang -### -c -mprefer-vector-width=512 -qopt-zmm-usage=low %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-LOW %s
 // RUN: %clang -### -c -qopt-zmm-usage=low -mprefer-vector-width=512 %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-HIGH %s
-// RUN: %clang -### -c -qopt-zmm-usage=invalid %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-INVALID %s
-// RUN: %clang_cl -### -c /Qopt-zmm-usage:invalid %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-INVALID %s
+// RUN: not %clang -### -c -qopt-zmm-usage=invalid %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-INVALID %s
+// RUN: not %clang_cl -### -c /Qopt-zmm-usage:invalid %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-INVALID %s
 // CHECK-ZMM-HIGH: "-mprefer-vector-width=512"
 // CHECK-ZMM-LOW: "-mprefer-vector-width=256"
 // CHECK-ZMM-INVALID: invalid value 'invalid'
@@ -686,10 +686,6 @@
 // CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-ra-spillreport=high"
 // CHECK-OPT-REPORT-MAX: "-mllvm" "-inline-report=0xf859"
 
-// RUN: %clang -### -O3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
-// RUN: %clang -### -Ofast -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
-// CHECK-GVN: "-mllvm" "-enable-gvn-hoist"
-
 // RUN: %clang --intel -Ofast -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST %s
 // RUN: %clang --intel -O2 -Ofast -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST %s
 // RUN: %clang --intel -Ofast -O2 -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST-O2 %s
@@ -949,7 +945,7 @@
 // HELP-CHECK_CL: USAGE: icx-cl [options] file...
 
 // RUN: not %clang -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK %s
-// SUPPORT-CHECK: icx: error: unsupported option '---'
+// SUPPORT-CHECK: icx: error: unknown argument: '---'
 
 // RUN: %clang_cl -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK-WIN %s -DICXNAME=icx-cl
 // RUN: %clang_cl -### --intel --icx --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK-WIN %s -DICXNAME=icx

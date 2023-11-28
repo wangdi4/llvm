@@ -1,6 +1,6 @@
 //===- HIROptVarPredicate.cpp - Optimization of predicates containing IVs -===//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -126,7 +126,6 @@ STATISTIC(LoopsSplit, "Loops split during optimization of predicates.");
 namespace {
 
 struct EqualCandidates : public SmallSetVector<HLIf *, 8> {
-  bool HasUnsafeCall = false;
   bool BothSidesIV = false;
 
   EqualCandidates(HLIf *If) { insert(If); }
@@ -141,20 +140,14 @@ struct EqualCandidates : public SmallSetVector<HLIf *, 8> {
     });
   }
 
-  bool isProfitable(const HLLoop *Lp) const {
+  bool shouldGenCode() const {
     if (DisableCostModel) {
       return true;
     }
 
-    return Lp->isInnermost() || HasUnsafeCall;
-  }
-
-  bool shouldGenCode(const HLLoop *Lp) const {
-    if (DisableCostModel) {
-      return true;
-    }
-
-    return Lp->isInnermost();
+    return std::any_of(begin(), end(), [&](const HLIf *If) {
+      return If->getLexicalParentLoop()->isInnermost();
+    });
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -232,7 +225,6 @@ class IfLookup final : public HLNodeVisitorBase {
   const HLNode *SkipNode;
 
   bool HasLabel;
-  bool HasUnsafeCall;
 
   void mergeCandidates(const IfLookup Src) {
     for (auto SrcEqualCandidates : Src.getCandidates()) {
@@ -242,7 +234,6 @@ class IfLookup final : public HLNodeVisitorBase {
           [If](const EqualCandidates &EC) { return EC.isEqual(If); });
       if (ExistingI != Candidates.end()) {
         ExistingI->insert(SrcEqualCandidates.begin(), SrcEqualCandidates.end());
-        ExistingI->HasUnsafeCall |= SrcEqualCandidates.HasUnsafeCall;
       } else {
         Candidates.push_back(SrcEqualCandidates);
       }
@@ -252,7 +243,7 @@ class IfLookup final : public HLNodeVisitorBase {
 public:
   IfLookup(SmallVectorImpl<EqualCandidates> &Candidates, unsigned Level)
       : Candidates(Candidates), Level(Level), SkipNode(nullptr),
-        HasLabel(false), HasUnsafeCall(false) {}
+        HasLabel(false) {}
 
   ArrayRef<EqualCandidates> getCandidates() const { return Candidates; }
 
@@ -266,8 +257,11 @@ public:
 
     // The input canon-expr needs to be invariant in an inner loop, and must
     // be defined outside of the loop.
-    if (!CE->isInvariantAtLevel(Level + 1) ||
-        CE->getDefinedAtLevel() == Level) {
+    if (Level == MaxLoopNestLevel) {
+      if (CE->isNonLinear())
+        return false;
+    } else if (!CE->isInvariantAtLevel(Level + 1) ||
+               CE->getDefinedAtLevel() == Level) {
       return false;
     }
 
@@ -332,7 +326,6 @@ public:
         Candidates.begin(), Candidates.end(),
         [If](const EqualCandidates &EC) { return EC.isEqual(If); });
     if (ExistingI != Candidates.end()) {
-      ExistingI->HasUnsafeCall |= Lookup.HasUnsafeCall;
       ExistingI->insert(If);
       return;
     }
@@ -356,8 +349,8 @@ public:
         return;
       }
 
-      unsigned LHSIVLevel = LHSRef->getSingleCanonExpr()->getFirstIVLevel();
-      unsigned RHSIVLevel = RHSRef->getSingleCanonExpr()->getFirstIVLevel();
+      unsigned LHSIVLevel = LHSRef->getSingleCanonExpr()->getOutermostIVLevel();
+      unsigned RHSIVLevel = RHSRef->getSingleCanonExpr()->getOutermostIVLevel();
 
       // If we consider i1 loop do not consider 'if (i1 + 1 != i2 + 1)' as a
       // candidate.
@@ -376,7 +369,6 @@ public:
     }
 
     Candidates.emplace_back(If);
-    Candidates.back().HasUnsafeCall = Lookup.HasUnsafeCall;
     Candidates.back().BothSidesIV = BothSidesIV;
   }
 
@@ -384,12 +376,13 @@ public:
 
   void visit(HLLoop *Loop) {
     SkipNode = Loop;
+    if (!Loop->isDo()) {
+      LLVM_DEBUG(dbgs() << "Unknown/Multiexit inner loop found, skipping.\n");
+      return;
+    }
+
     IfLookup Lookup(Candidates, Level);
     HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
-  }
-
-  void visit(const HLInst *Inst) {
-    HasUnsafeCall = HasUnsafeCall || Inst->isUnsafeSideEffectsCallInst();
   }
 
   void visit(const HLNode *) {}
@@ -901,8 +894,6 @@ bool HIROptVarPredicate::run() {
       HIRInvalidationUtils::invalidateNonLoopRegion(cast<HLRegion>(Node));
     }
     HLNodeUtils::removeRedundantNodes(Node, false);
-    // TODO: update exits for multiexit loops
-    // HLNodeUtils::updateNumLoopExits(Node);
   }
 
   return Modified;
@@ -1354,15 +1345,44 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
   IfLookup Lookup(Candidates, Level);
   HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
 
+  // Lambda function to return IF nesting level inside loop.
+  auto getIfNestingLevel = [](HLIf *If) {
+    unsigned Level = 1;
+    auto ParentNode = If->getParent();
+    while (!isa<HLLoop>(ParentNode)) {
+      ParentNode = ParentNode->getParent();
+      Level++;
+    }
+    return Level;
+  };
+
+  // Sort candidates giving preference to the innermost loop candidate. Inside
+  // innermost loop, give preference to the outermost IF in the IF nest.
+  auto sortOptVarPredCandidates = [getIfNestingLevel](EqualCandidates C1,
+                                                      EqualCandidates C2) {
+    HLIf *If1 = C1.front();
+    HLIf *If2 = C2.front();
+    unsigned NodeLevel1 = If1->getNodeLevel();
+    unsigned NodeLevel2 = If2->getNodeLevel();
+    if (NodeLevel1 != NodeLevel2)
+      return (NodeLevel1 > NodeLevel2);
+
+    unsigned If1NestingLevel = getIfNestingLevel(If1);
+    unsigned If2NestingLevel = getIfNestingLevel(If2);
+    if (If1NestingLevel != If2NestingLevel)
+      return (If1NestingLevel < If2NestingLevel);
+
+    return If1->getTopSortNum() < If2->getTopSortNum();
+  };
+
+  // IFs are gathered in the depth-first order. Reverse the list to give
+  // preference to the outermost IFs.
+  std::sort(Candidates.begin(), Candidates.end(), sortOptVarPredCandidates);
+
   for (const EqualCandidates &Candidate : Candidates) {
     LLVM_DEBUG(dbgs() << "Processing Ifs:\n");
     LLVM_DEBUG(Candidate.dump());
     LLVM_DEBUG(dbgs() << "\n");
-
-    if (!Candidate.isProfitable(Loop)) {
-      LLVM_DEBUG(dbgs() << "Skipping candidate is non-profitable.\n");
-      continue;
-    }
 
     if (!TransformNodes.empty()) {
       if (std::any_of(TransformNodes.begin(), TransformNodes.end(),
@@ -1457,6 +1477,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
 
     HLLoop *ParentLoop = Loop->getParentLoop();
     HLRegion *Region = Loop->getParentRegion();
+    bool IsAnyInnermostLoopTransformed = Candidate.shouldGenCode();
 
     SmallVector<HLLoop *, 4> OutLoopsVec;
     if (DirSIMD && !OutLoops)
@@ -1467,7 +1488,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
     if (DirSIMD)
       cloneSIMDDirs(*OutLoops, SIC);
 
-    if (SetRegionModified && Candidate.shouldGenCode(Loop)) {
+    if (SetRegionModified && IsAnyInnermostLoopTransformed) {
       Region->setGenCode();
     }
 
@@ -1492,41 +1513,6 @@ PreservedAnalyses HIROptVarPredicatePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   ModifiedHIR = HIROptVarPredicate(HIRF).run();
   return PreservedAnalyses::all();
-}
-
-class HIROptVarPredicateLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIROptVarPredicateLegacyPass() : HIRTransformPass(ID) {
-    initializeHIROptVarPredicateLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIROptVarPredicate(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
-        .run();
-  }
-};
-
-char HIROptVarPredicateLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIROptVarPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIROptVarPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIROptVarPredicatePass() {
-  return new HIROptVarPredicateLegacyPass();
 }
 
 std::unique_ptr<HIROptVarPredicateInterface>

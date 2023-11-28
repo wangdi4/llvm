@@ -29,17 +29,17 @@ define <8 x float> @test_vpermilps4(<8 x float> %v1) nounwind readonly {
   ret <8 x float> %t1
 }
 
-define <4 x double> @test_vpermilpd(<4 x double> addrspace(1)* nocapture %source) nounwind readonly {
+define <4 x double> @test_vpermilpd(ptr addrspace(1) nocapture %source) nounwind readonly {
 ; CHECK: test_vpermilpd
 ; CHECK: vpermilpd       $7
-  %v1 = load <4 x double>, <4 x double> addrspace(1)* %source, align 64
+  %v1 = load <4 x double>, ptr addrspace(1) %source, align 64
   %t1 = shufflevector <4 x double> %v1, <4 x double> undef, <4 x i32> <i32 1, i32 1, i32 3, i32 2>
   ret <4 x double> %t1
 }
-define <4 x double> @test_vpermilpd2(<4 x double> addrspace(1)* nocapture %source) nounwind readonly {
+define <4 x double> @test_vpermilpd2(ptr addrspace(1) nocapture %source) nounwind readonly {
 ; CHECK: test_vpermilpd2
 ; CHECK: vpermilpd       $13
-  %v1 = load <4 x double>, <4 x double> addrspace(1)* %source, align 64
+  %v1 = load <4 x double>, ptr addrspace(1) %source, align 64
   %t1 = shufflevector <4 x double> %v1, <4 x double> undef, <4 x i32> <i32 1, i32 undef, i32 3, i32 3>
   ret <4 x double> %t1
 }

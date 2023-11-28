@@ -5,11 +5,6 @@
 ; RUN: opt -disable-output -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
 ; RUN: opt -disable-output -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRVPE
 
-; RUN: opt -disable-output -passes="vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKPCFG
-; RUN: opt -disable-output -passes="vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKVPE
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRVPE
-
 ; Test debug location information on VPlan at specific points of vectorizer pipeline
 ; Original code source lines:
 ;     8      int s = 0;
@@ -41,28 +36,28 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKPCFG-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[S_RED_PROMOTED0:%.*]], [[BB1]] ],  [ i32 [[VP_ADD1:%.*]], [[BB2]] ]
 ; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:0
 ; CHECKPCFG-EMPTY:
-; CHECKPCFG-NEXT:     call metadata i64 [[INDVARS_IV0:%.*]] metadata !107 metadata !DIExpression() void (metadata, metadata, metadata)* @llvm.dbg.value
+; CHECKPCFG-NEXT:     call metadata i64 [[INDVARS_IV0:%.*]] metadata !107 metadata !DIExpression() ptr @llvm.dbg.value
 ; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:0
 ; CHECKPCFG-EMPTY:
-; CHECKPCFG-NEXT:     call i64 4 i8* [[TMP1:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECKPCFG-NEXT:     call i64 4 ptr [[TMP1:%.*]] ptr @llvm.lifetime.start.p0
 ; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKPCFG-EMPTY:
-; CHECKPCFG-NEXT:     i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [128 x i32]* @a i64 0 i64 [[VP_INDVARS_IV]]
+; CHECKPCFG-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [128 x i32], ptr @a i64 0 i64 [[VP_INDVARS_IV]]
 ; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:12:13
 ; CHECKPCFG-EMPTY:
-; CHECKPCFG-NEXT:     i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECKPCFG-NEXT:     i32 [[VP1:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:12:13
 ; CHECKPCFG-EMPTY:
 ; CHECKPCFG-NEXT:     i32 [[VP_ADD1]] = add i32 [[VP0]] i32 [[VP1]]
 ; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKPCFG-EMPTY:
-; CHECKPCFG-NEXT:     call i64 4 i8* [[TMP1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECKPCFG-NEXT:     call i64 4 ptr [[TMP1]] ptr @llvm.lifetime.end.p0
 ; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:13:5
 ; CHECKPCFG-EMPTY:
 ; CHECKPCFG-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:11:5
 ; CHECKPCFG-EMPTY:
-; CHECKPCFG-NEXT:     call metadata i64 [[INDVARS_IV_NEXT0:%.*]] metadata !107 metadata !DIExpression() void (metadata, metadata, metadata)* @llvm.dbg.value
+; CHECKPCFG-NEXT:     call metadata i64 [[INDVARS_IV_NEXT0:%.*]] metadata !107 metadata !DIExpression() ptr @llvm.dbg.value
 ; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:0
 ; CHECKPCFG-EMPTY:
 ; CHECKPCFG-NEXT:     i1 [[VP_EXITCOND_NOT:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 128
@@ -103,28 +98,28 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[VP_S_REDRED_INIT]], [[BB1]] ],  [ i32 [[VP_ADD1:%.*]], [[BB2]] ]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     call metadata i64 [[INDVARS_IV0:%.*]] metadata !107 metadata !DIExpression() void (metadata, metadata, metadata)* @llvm.dbg.value
+; CHECKVPE-NEXT:     call metadata i64 [[INDVARS_IV0:%.*]] metadata !107 metadata !DIExpression() ptr @llvm.dbg.value
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:0
 ; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     call i64 4 i8* [[TMP1:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECKVPE-NEXT:     call i64 4 ptr [[TMP1:%.*]] ptr @llvm.lifetime.start.p0
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [128 x i32]* @a i64 0 i64 [[VP_INDVARS_IV]]
+; CHECKVPE-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [128 x i32], ptr @a i64 0 i64 [[VP_INDVARS_IV]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:13
 ; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECKVPE-NEXT:     i32 [[VP1:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:13
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i32 [[VP_ADD1]] = add i32 [[VP0]] i32 [[VP1]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     call i64 4 i8* [[TMP1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECKVPE-NEXT:     call i64 4 ptr [[TMP1]] ptr @llvm.lifetime.end.p0
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:13:5
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:11:5
 ; CHECKVPE-EMPTY:
-; CHECKVPE-NEXT:     call metadata i64 [[INDVARS_IV_NEXT0:%.*]] metadata !107 metadata !DIExpression() void (metadata, metadata, metadata)* @llvm.dbg.value
+; CHECKVPE-NEXT:     call metadata i64 [[INDVARS_IV_NEXT0:%.*]] metadata !107 metadata !DIExpression() ptr @llvm.dbg.value
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:0
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i1 [[VP_EXITCOND_NOT:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 128
@@ -150,7 +145,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-LABEL:  VPlan after importing plain CFG:
 ; CHECKHIRPCFG-NEXT:  VPlan IR for: _Z3foov:HIR.#{{[0-9]+}}
 ; CHECKHIRPCFG-NEXT:  External Defs Start:
-; CHECKHIRPCFG-DAG:     [[VP0:%.*]] = {%2}
+; CHECKHIRPCFG-DAG:     [[VP0:%.*]] = {%1}
 ; CHECKHIRPCFG-DAG:     [[VP1:%.*]] = {@a}
 ; CHECKHIRPCFG-DAG:     [[VP2:%.*]] = {%i.linear.iv}
 ; CHECKHIRPCFG-NEXT:  External Defs End:
@@ -167,31 +162,25 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i32* [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds i32* [[I_LINEAR_IV0:%.*]]
+; CHECKHIRPCFG-NEXT:     ptr [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds ptr [[I_LINEAR_IV0:%.*]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i8* [[VP7:%.*]] = bitcast i32* [[I_LINEAR_IV0_SUB:%.*]]
-; CHECKHIRPCFG-NEXT:      DbgLoc:
-; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     call i64 4 i8* [[VP7]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECKHIRPCFG-NEXT:     call i64 4 ptr [[I_LINEAR_IV0_SUB]] ptr @llvm.lifetime.start.p0
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [128 x i32]* @a i64 0 i64 [[VP5]]
+; CHECKHIRPCFG-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @a i64 0 i64 [[VP5]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:12:13
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECKHIRPCFG-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:12:13
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     i32 [[VP4]] = add i32 [[VP3]] i32 [[VP_LOAD]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i32* [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds i32* [[I_LINEAR_IV0]]
+; CHECKHIRPCFG-NEXT:     ptr [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds ptr [[I_LINEAR_IV0]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i8* [[VP8:%.*]] = bitcast i32* [[I_LINEAR_IV0_SUB]]
-; CHECKHIRPCFG-NEXT:      DbgLoc:
-; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     call i64 4 i8* [[VP8]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECKHIRPCFG-NEXT:     call i64 4 ptr [[I_LINEAR_IV0_SUB]] ptr @llvm.lifetime.end.p0
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:13:5
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
@@ -209,12 +198,12 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-NEXT:     br <External Block>
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG:       External Uses:
-; CHECKHIRPCFG-NEXT:  Id: 0   i32 [[VP4]] -> [[VP10:%.*]] = {%2}
+; CHECKHIRPCFG-NEXT:  Id: 0   i32 [[VP4]] -> [[VP10:%.*]] = {%1}
 ;
 ; CHECKHIRVPE-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECKHIRVPE-NEXT:  VPlan IR for: _Z3foov:HIR.#{{[0-9]+}}
 ; CHECKHIRVPE-NEXT:  External Defs Start:
-; CHECKHIRVPE-DAG:     [[VP0:%.*]] = {%2}
+; CHECKHIRVPE-DAG:     [[VP0:%.*]] = {%1}
 ; CHECKHIRVPE-DAG:     [[VP1:%.*]] = {@a}
 ; CHECKHIRVPE-DAG:     [[VP2:%.*]] = {%i.linear.iv}
 ; CHECKHIRVPE-NEXT:  External Defs End:
@@ -240,31 +229,25 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:11:5
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i32* [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds i32* [[I_LINEAR_IV0:%.*]]
+; CHECKHIRVPE-NEXT:     ptr [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds ptr [[I_LINEAR_IV0:%.*]]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i8* [[VP7:%.*]] = bitcast i32* [[I_LINEAR_IV0_SUB:%.*]]
-; CHECKHIRVPE-NEXT:      DbgLoc:
-; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     call i64 4 i8* [[VP7]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECKHIRVPE-NEXT:     call i64 4 ptr [[I_LINEAR_IV0_SUB]] ptr @llvm.lifetime.start.p0
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [128 x i32]* @a i64 0 i64 [[VP5]]
+; CHECKHIRVPE-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @a i64 0 i64 [[VP5]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:12:13
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECKHIRVPE-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:12:13
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i32 [[VP4]] = add i32 [[VP3]] i32 [[VP_LOAD]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i32* [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds i32* [[I_LINEAR_IV0]]
+; CHECKHIRVPE-NEXT:     ptr [[I_LINEAR_IV0_SUB:%.*]] = subscript inbounds ptr [[I_LINEAR_IV0]]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i8* [[VP8:%.*]] = bitcast i32* [[I_LINEAR_IV0_SUB]]
-; CHECKHIRVPE-NEXT:      DbgLoc:
-; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     call i64 4 i8* [[VP8]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECKHIRVPE-NEXT:     call i64 4 ptr [[I_LINEAR_IV0_SUB]] ptr @llvm.lifetime.end.p0
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:13:5
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
@@ -288,37 +271,36 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:     br <External Block>
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE:       External Uses:
-; CHECKHIRVPE-NEXT:  Id: 0   i32 [[VP_RED_FINAL]] -> [[VP10:%.*]] = {%2}
+; CHECKHIRVPE-NEXT:  Id: 0   i32 [[VP_RED_FINAL]] -> [[VP10:%.*]] = {%1}
 ;
 DIR.OMP.SIMD.120:
   %s.red = alloca i32, align 4
   %i.linear.iv = alloca i32, align 4
   call void @llvm.dbg.value(metadata i32 0, metadata !106, metadata !DIExpression()), !dbg !111
-  call void @llvm.dbg.declare(metadata i32* undef, metadata !107, metadata !DIExpression()), !dbg !112
+  call void @llvm.dbg.declare(metadata ptr undef, metadata !107, metadata !DIExpression()), !dbg !112
   call void @llvm.dbg.value(metadata i32 127, metadata !109, metadata !DIExpression()), !dbg !112
-  call void @llvm.dbg.value(metadata i32* undef, metadata !110, metadata !DIExpression(DW_OP_deref)), !dbg !112
-  store i32 0, i32* %s.red, align 4, !dbg !113
+  call void @llvm.dbg.value(metadata ptr undef, metadata !110, metadata !DIExpression(DW_OP_deref)), !dbg !112
+  store i32 0, ptr %s.red, align 4, !dbg !113
   call void @llvm.dbg.value(metadata i32 0, metadata !107, metadata !DIExpression()), !dbg !112
   br label %DIR.OMP.SIMD.1, !dbg !112
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.120
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s.red, i32 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ], !dbg !113
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %s.red, i32 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ], !dbg !113
   br label %DIR.OMP.SIMD.2, !dbg !113
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %1 = bitcast i32* %i.linear.iv to i8*, !dbg !114
-  %s.red.promoted = load i32, i32* %s.red, align 4, !tbaa !115
+  %s.red.promoted = load i32, ptr %s.red, align 4, !tbaa !115
   br label %omp.inner.for.body, !dbg !114
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ], !dbg !112
-  %2 = phi i32 [ %s.red.promoted, %DIR.OMP.SIMD.2 ], [ %add1, %omp.inner.for.body ], !dbg !112
+  %1 = phi i32 [ %s.red.promoted, %DIR.OMP.SIMD.2 ], [ %add1, %omp.inner.for.body ], !dbg !112
   call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !107, metadata !DIExpression()), !dbg !112
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1) #3, !dbg !114, !llvm.access.group !119
-  %arrayidx = getelementptr inbounds [128 x i32], [128 x i32]* @a, i64 0, i64 %indvars.iv, !dbg !120, !intel-tbaa !122
-  %3 = load i32, i32* %arrayidx, align 4, !dbg !120, !tbaa !122, !llvm.access.group !119
-  %add1 = add nsw i32 %2, %3, !dbg !124
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %1) #3, !dbg !125, !llvm.access.group !119
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %i.linear.iv) #3, !dbg !114, !llvm.access.group !119
+  %arrayidx = getelementptr inbounds [128 x i32], ptr @a, i64 0, i64 %indvars.iv, !dbg !120, !intel-tbaa !122
+  %2 = load i32, ptr %arrayidx, align 4, !dbg !120, !tbaa !122, !llvm.access.group !119
+  %add1 = add nsw i32 %1, %2, !dbg !124
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i.linear.iv) #3, !dbg !125, !llvm.access.group !119
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !126
   call void @llvm.dbg.value(metadata i64 %indvars.iv.next, metadata !107, metadata !DIExpression()), !dbg !112
   %exitcond.not = icmp eq i64 %indvars.iv.next, 128, !dbg !126
@@ -338,7 +320,7 @@ DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #2
@@ -350,7 +332,7 @@ declare token @llvm.directive.region.entry() #3
 declare void @llvm.directive.region.exit(token) #3
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata) #2

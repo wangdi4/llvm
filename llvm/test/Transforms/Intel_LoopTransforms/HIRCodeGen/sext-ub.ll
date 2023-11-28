@@ -1,14 +1,13 @@
 ; RUN: opt -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
 ; Verifies UB is calcualted once before loop
-; Verifies UB is correctly sext
+; Verifies we reuse original inst %0 in UB
 ; Verifies UB is correctly used in bt
 
 ; basic cg
 ; CHECK: region.0:
 ;  sext.i32.i64(%n) + -1 is our ub for loop
 ; should be calculated but once, before we enter loop
-; CHECK: [[SEXT_OP1:%[0-9]+]] = sext i32 %n to i64
-; CHECK-NEXT:  [[UB1:%[0-9]+]] = add i64 [[SEXT_OP1]], -1
+; CHECK:  [[UB1:%[0-9]+]] = add i64 %0, -1
 ; CHECK-NEXT: br label %[[L1Label:loop.[0-9]+]]
 
 ; CHECK [[L1Label]]:

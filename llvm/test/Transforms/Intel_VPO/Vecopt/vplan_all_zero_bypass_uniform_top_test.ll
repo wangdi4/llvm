@@ -16,7 +16,7 @@ declare void @llvm.directive.region.exit(token)
 
 @A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 
-define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
+define dso_local void @foo(i64 %N, ptr %a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  VPlan after all zero bypass insertion:
 ; CHECK-NEXT:  VPlan IR for: foo:for.cond1.preheader.#{{[0-9]+}}
@@ -45,7 +45,7 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: [[BB5]]
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_INNER_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[A0:%.*]] i64 [[VP_INNER_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB6]] (SVAOpBits 0->F )
@@ -88,7 +88,7 @@ for.body3.preheader:
 
 for.body3:
   %inner.iv = phi i64 [ %inner.iv.next, %for.body3 ], [ 0, %for.body3.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %a, i64 %inner.iv
+  %arrayidx = getelementptr inbounds i64, ptr %a, i64 %inner.iv
   %inner.iv.next = add nuw nsw i64 %inner.iv, 1
   %exitcond = icmp eq i64 %inner.iv.next, %outer.iv
   br i1 %exitcond, label %for.inc5.loopexit, label %for.body3

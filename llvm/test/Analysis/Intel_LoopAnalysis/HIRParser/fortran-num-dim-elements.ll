@@ -1,5 +1,4 @@
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-framework-debug=parser -hir-details-dims 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>" -hir-framework-debug=parser -hir-details-dims 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-framework-debug=parser -hir-details-dims 2>&1 -disable-output | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -9,10 +8,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: + DO i1 = 0, 2, 1   <DO_LOOP>
 ; CHECK: |   (%A)[0:i1:40(i32:0)][0:0:4(i32:10)] = 5;
 ; CHECK: + END LOOP
-
-; CHECK-OPAQUE: + DO i1 = 0, 2, 1   <DO_LOOP>
-; CHECK-OPAQUE: |   (%A)[0:i1:40(i32:0)][0:0:4(i32:10)] = 5;
-; CHECK-OPAQUE: + END LOOP
 
 
 define void @MAIN__(ptr %A) {

@@ -1,6 +1,6 @@
 //===----------- HLNode.h - High level IR node ------------------*- C++ -*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -268,6 +268,24 @@ public:
     return const_cast<HLNode *>(this)->getNextNode();
   }
   HLNode *getNextNode();
+
+  /// Returns the previous node without using top sort number, if any, else
+  /// return nullptr. Note: This is more expensive in compile time. It should
+  /// only be used in rare circumstances (transformation needs to operate on
+  /// disconnected nodes) or very specific circumstances (framework usage).
+  const HLNode *getPrevNodeWithoutUsingTopSortNum() const {
+    return const_cast<HLNode *>(this)->getPrevNodeWithoutUsingTopSortNum();
+  }
+  HLNode *getPrevNodeWithoutUsingTopSortNum();
+
+  /// Returns the next node without using top sort number, if any, else return
+  /// nullptr. Note: This is more expensive in compile time. It should only be
+  /// used in rare circumstances (transformation needs to operate on
+  /// disconnected nodes) or very specific circumstances (framework usage).
+  const HLNode *getNextNodeWithoutUsingTopSortNum() const {
+    return const_cast<HLNode *>(this)->getNextNodeWithoutUsingTopSortNum();
+  }
+  HLNode *getNextNodeWithoutUsingTopSortNum();
 
   MDNode *getProfileData() const { return ProfileData; }
   void setProfileData(MDNode *ProfData) { ProfileData = ProfData; }

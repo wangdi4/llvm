@@ -1,4 +1,4 @@
-; RUN: opt  -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -disable-output -hir-details -hir-dead-store-elimination-deduce-region-local-alloca=true 2>&1 < %s | FileCheck %s
+; RUN: opt  -passes="hir-ssa-deconstruction,hir-dead-store-elimination" -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination -disable-output -hir-details 2>&1 < %s | FileCheck %s
 
 ; Verify that we eliminate the store to (%A)[0] by propagating its value to the
 ; load using a temp and mark the temp as livein to i2 loop.

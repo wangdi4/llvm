@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
 
 ; Test src:
 ;
@@ -31,20 +31,26 @@
 ;   return 0;
 ; }
 
-; // Evaluate decimal value representation of kmpc_loc.flags for correct flags bit representing type
-; // of work sharing construct
+; // Evaluate decimal value representation of kmpc_loc.flags (ident_t) for correct flags bit representing type
+; // of work sharing construct for calls to notify runtime of static loop scheduling
 ;
 ; // Loop construct flag check ( bit 0x200 )
 ; CHECK-DAG:   call void @__kmpc_for_static_init_4(ptr @.kmpc_loc.0.0, i32 %{{.*}}, i32 34, ptr %{{.*}}, ptr %{{.*}}, ptr %{{.*}}, ptr %{{.*}}, i32 1, i32 1)
 ; CHECK-DAG:   @.kmpc_loc.0.0 = private unnamed_addr global %struct.ident_t { i32 0, i32 838861314, i32 0, i32 0, ptr {{.*}} }
+; CHECK-DAG:   call void @__kmpc_for_static_fini(ptr @.kmpc_loc.0.0.2, i32 %{{.*}})
+; CHECK-DAG:   @.kmpc_loc.0.0.2 = private unnamed_addr global %struct.ident_t { i32 0, i32 838861314, i32 0, i32 0, ptr {{.*}} }
 ;
 ; // Sections construct check ( bit 0x400 )
 ; CHECK-DAG:   call void @__kmpc_for_static_init_4(ptr @.kmpc_loc.0.0.8, i32 %{{.*}}, i32 34, ptr %{{.*}}, ptr %{{.*}}, ptr %{{.*}}, ptr %{{.*}}, i32 1, i32 1)
 ; CHECK-DAG:   @.kmpc_loc.0.0.8 = private unnamed_addr global %struct.ident_t { i32 0, i32 838861826, i32 0, i32 0, ptr {{.*}} }
+; CHECK-DAG:   call void @__kmpc_for_static_fini(ptr @.kmpc_loc.0.0.10, i32 %{{.*}})
+; CHECK-DAG:   @.kmpc_loc.0.0.10 = private unnamed_addr global %struct.ident_t { i32 0, i32 838861826, i32 0, i32 0, ptr {{.*}} }
 ;
 ; // Distribute construct check ( bit 0x800 )
 ; CHECK-DAG:   call void @__kmpc_dist_for_static_init_4(ptr @.kmpc_loc.0.0.16, i32 %{{.*}}, i32 34, ptr %{{.*}}, ptr %{{.*}}, ptr %{{.*}}, ptr %{{.*}}, ptr %stride, i32 1, i32 1)
 ; CHECK-DAG:   @.kmpc_loc.0.0.16 = private unnamed_addr global %struct.ident_t { i32 0, i32 838862850, i32 0, i32 0, ptr {{.*}} }
+; CHECK-DAG:   call void @__kmpc_for_static_fini(ptr @.kmpc_loc.0.0.18, i32 %{{.*}})
+; CHECK-DAG:   @.kmpc_loc.0.0.18 = private unnamed_addr global %struct.ident_t { i32 0, i32 838862850, i32 0, i32 0, ptr {{.*}} }
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

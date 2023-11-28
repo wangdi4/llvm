@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone -disable-selective-mv < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -acd-enable-all < %s -S | FileCheck %s
 
 ; This test checks that GlobalAliases aliasing a multi-versioned function, are also
 ; multi-versioned.

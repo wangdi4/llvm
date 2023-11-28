@@ -287,10 +287,10 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
   Value *Ptr = II->getOperand(0)->getType()->getPointerAddressSpace() == 0
                    ? Builder.CreateBitCast(
                          II->getOperand(0),
-                         llvm::Type::getInt8PtrTy(Builder.getContext()))
+                         llvm::PointerType::getUnqual(Builder.getContext()))
                    : Builder.CreateAddrSpaceCast(
                          II->getOperand(0),
-                         llvm::Type::getInt8PtrTy(Builder.getContext()));
+                         llvm::PointerType::getUnqual(Builder.getContext()));
   // Create the argument list
   std::array<Value *, 4> Args{
       Rows, Cols, Ptr,
@@ -390,10 +390,10 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
   Value *Ptr = II->getOperand(1)->getType()->getPointerAddressSpace() == 0
                    ? Builder.CreateBitCast(
                          II->getOperand(1),
-                         llvm::Type::getInt8PtrTy(Builder.getContext()))
+                         llvm::PointerType::getUnqual(Builder.getContext()))
                    : Builder.CreateAddrSpaceCast(
                          II->getOperand(1),
-                         llvm::Type::getInt8PtrTy(Builder.getContext()));
+                         llvm::PointerType::getUnqual(Builder.getContext()));
   // Create the argument list
   std::array<Value *, 5> Args{
       Rows, Cols, Ptr,
@@ -410,10 +410,9 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
 
 bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
   // Transform %mad = call <4 x i8>
-  // @llvm.experimental.matrix.mad.v4i8.v8i8.v8i8( <8 x i8> %A, metadata
-  // !"matrix.rowmajor", <8 x i8> %B, metadata !"matrix.packed.b", <4 x i32>
-  // %C, metadata !"matrix.rowmajor", i32 2(A.rows), i32 4(B.rows), i32
-  // 2(C.cols), metadata !"scope.subgroup").
+  // @llvm.experimental.matrix.mad.v4i8.v8i8.v8i8( <8 x i8> %A,
+  // <8 x i8> %B, <4 x i32>, %C, i32 2(A.rows), i32 4(B.rows), i32 2(C.cols),
+  // metadata !"scope.subgroup").
   // into:
   // %a = call x86_amx @llvm.x86.cast.vector.to.tile.v4i8(<4 x i8> %A).
   // %b = call x86_amx @llvm.x86.cast.vector.to.tile.v4i8(<4 x i8> %B).
@@ -465,28 +464,28 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
   }
 
   Value *M =
-      Builder.getInt16(cast<ConstantInt>(II->getOperand(6))->getSExtValue());
+      Builder.getInt16(cast<ConstantInt>(II->getOperand(3))->getSExtValue());
   // K is measured by bytes
   Value *K =
-      Builder.getInt16(cast<ConstantInt>(II->getOperand(7))->getSExtValue() *
+      Builder.getInt16(cast<ConstantInt>(II->getOperand(4))->getSExtValue() *
                        (SrcMatrixElemType->getPrimitiveSizeInBits() / 8));
   // N is measured by bytes
   Value *N = Builder.getInt16(
-      cast<ConstantInt>(II->getOperand(8))->getSExtValue() * 4);
+      cast<ConstantInt>(II->getOperand(5))->getSExtValue() * 4);
   // M=A.rows, N=C.cols*4, K=B.rows,C,A,B
   std::array<Value *, 6> Args{
       M,
       N,
       K,
       Builder.CreateIntrinsic(Intrinsic::x86_cast_vector_to_tile,
-                              {II->getOperand(4)->getType()},
-                              {II->getOperand(4)}),
+                              {II->getOperand(2)->getType()},
+                              {II->getOperand(2)}),
       Builder.CreateIntrinsic(Intrinsic::x86_cast_vector_to_tile,
                               {II->getOperand(0)->getType()},
                               {II->getOperand(0)}),
       Builder.CreateIntrinsic(Intrinsic::x86_cast_vector_to_tile,
-                              {II->getOperand(2)->getType()},
-                              {II->getOperand(2)})};
+                              {II->getOperand(1)->getType()},
+                              {II->getOperand(1)})};
   Value *NewInst = Builder.CreateIntrinsic(IID, std::nullopt, Args);
   II->replaceAllUsesWith(Builder.CreateIntrinsic(
       Intrinsic::x86_cast_tile_to_vector, {MatrixType}, {NewInst}));
@@ -513,7 +512,7 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixExtractRowSlice(
     IntrinsicInst *II) {
   // Transform
   // %slice = call <4 x i32>
-  // @llvm.experimental.matrix.extract.row.slice.v8i32(<16 x i32> %mat,  i32 %x,
+  // @llvm.experimental.matrix.extract.row.slice.v8i32(<16 x i32> %mat, i32 %x,
   // i32 %y, i32 4, i32 4, i32 4, metadata !"matrix.rowmajor") into
   // =>
   // alloc <16 x i32>* %ptr
@@ -656,23 +655,18 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
           "float!\n";
     report_fatal_error(Twine(OS.str()));
   }
-  Metadata *MatUse = cast<MetadataAsValue>(II->getOperand(5))->getMetadata();
-  Metadata *MatLayout = cast<MetadataAsValue>(II->getOperand(3))->getMetadata();
+  Metadata *MatUse = cast<MetadataAsValue>(II->getOperand(4))->getMetadata();
   // If it is packed_b, the type can only be int8/bf16.
   // If it is row_major, the type can be int8/bf16/float/int32, Factor can only
   // be 1.
-  if ((cast<MDString>(MatUse)->getString().equals("matrix.use.b") ||
-       cast<MDString>(MatLayout)->getString().equals("matrix.packed.b")) &&
+  if (cast<MDString>(MatUse)->getString().equals("matrix.use.b") &&
       MatrixElemType->isIntegerTy(8))
     Factor = 4;
-  else if ((cast<MDString>(MatUse)->getString().equals("matrix.use.b") ||
-            cast<MDString>(MatLayout)->getString().equals("matrix.packed.b")) &&
+  else if (cast<MDString>(MatUse)->getString().equals("matrix.use.b") &&
            (MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy()))
     Factor = 2;
   else if (cast<MDString>(MatUse)->getString().equals("matrix.use.a") ||
-           cast<MDString>(MatUse)->getString().equals(
-               "matrix.use.accumulator") ||
-           cast<MDString>(MatLayout)->getString().equals("matrix.rowmajor"))
+           cast<MDString>(MatUse)->getString().equals("matrix.use.accumulator"))
     Factor = 1;
   else {
     std::string Str;

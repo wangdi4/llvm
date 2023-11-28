@@ -1,6 +1,6 @@
 //===- HIRIdiomRecognition.cpp - Implements Loop idiom recognition pass ---===//
 //
-// Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -645,8 +645,11 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
 }
 
 static HLIf *createTripCountCheck(const HLLoop *Loop) {
-  if (SmallTripCount == 0 || Loop->isConstTripLoop()) {
-    // It's already checked that constant trip count loop is not small.
+  // Don't create trip count check if the loop has constant trip count, the
+  // trip count is small, or the loop is not the innermost. We skip
+  // multiversioning for outer loops since they aren't profitable for
+  // vectorization.
+  if (SmallTripCount == 0 || Loop->isConstTripLoop() || !Loop->isInnermost()) {
     return nullptr;
   }
 
@@ -660,19 +663,11 @@ static HLIf *createTripCountCheck(const HLLoop *Loop) {
 }
 
 static bool isSmallCountLoop(const HLLoop *Loop) {
-  if (SmallTripCount == 0) {
+  if (SmallTripCount == 0)
     return false;
-  }
 
-  auto MaxTCEstimate = Loop->getMaxTripCountEstimate();
-  if (MaxTCEstimate != 0 && MaxTCEstimate <= SmallTripCount) {
+  if (Loop->hasLikelySmallTripCount(SmallTripCount))
     return true;
-  }
-
-  uint64_t ConstTC;
-  if (Loop->isConstTripLoop(&ConstTC) && ConstTC <= SmallTripCount) {
-    return true;
-  }
 
   return false;
 }
@@ -877,49 +872,4 @@ PreservedAnalyses HIRIdiomRecognitionPass::runImpl(
                           AM.getResult<TargetLibraryAnalysis>(F))
           .run();
   return PreservedAnalyses::all();
-}
-
-class HIRIdiomRecognitionLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRIdiomRecognitionLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRIdiomRecognitionLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRIdiomRecognition(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-               getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F))
-        .run();
-  }
-};
-
-char HIRIdiomRecognitionLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRIdiomRecognitionLegacyPass, OPT_SWITCH, OPT_DESC,
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRIdiomRecognitionLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIRIdiomRecognitionPass() {
-  return new HIRIdiomRecognitionLegacyPass();
 }

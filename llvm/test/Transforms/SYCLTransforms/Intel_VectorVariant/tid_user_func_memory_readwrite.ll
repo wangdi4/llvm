@@ -36,7 +36,7 @@ define dso_local void @basic(ptr addrspace(1) noalias nocapture noundef writeonl
 entry:
   %call = tail call fastcc i64 @foo() #8
   %arrayidx = getelementptr inbounds i64, ptr addrspace(1) %local_id, i64 %call
-  store i64 %call, ptr addrspace(1) %arrayidx, align 8, !tbaa !7
+  store i64 %call, ptr addrspace(1) %arrayidx, align 8
   ret void
 }
 
@@ -76,7 +76,7 @@ simd.loop.header:                                 ; preds = %simd.loop.latch, %s
 simd.loop.latch:                                  ; preds = %simd.loop.header
   %indvar = add nuw i32 %index, 1
   %vl.cond = icmp ult i32 %indvar, 16
-  br i1 %vl.cond, label %simd.loop.header, label %simd.end.region, !llvm.loop !11
+  br i1 %vl.cond, label %simd.loop.header, label %simd.end.region
 
 simd.end.region:                                  ; preds = %simd.loop.latch
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
@@ -110,7 +110,7 @@ simd.loop.header:                                 ; preds = %simd.loop.latch, %s
 simd.loop.latch:                                  ; preds = %simd.loop.header
   %indvar = add nuw i32 %index, 1
   %vl.cond = icmp ult i32 %indvar, 16
-  br i1 %vl.cond, label %simd.loop.header, label %simd.end.region, !llvm.loop !13
+  br i1 %vl.cond, label %simd.loop.header, label %simd.end.region
 
 simd.end.region:                                  ; preds = %simd.loop.latch
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
@@ -122,7 +122,7 @@ return:                                           ; preds = %simd.end.region
 }
 
 ; Function Attrs: convergent mustprogress nofree norecurse nounwind willreturn memory(readwrite)
-define dso_local void @_ZGVeN16u_basic(ptr addrspace(1) noalias nocapture noundef writeonly align 8 %local_id) local_unnamed_addr #6 !arg_type_null_val !2 !no_barrier_path !3 !kernel_has_sub_groups !4 !vectorized_width !14 !scalar_kernel !1 {
+define dso_local void @_ZGVeN16u_basic(ptr addrspace(1) noalias nocapture noundef writeonly align 8 %local_id) local_unnamed_addr #6 !arg_type_null_val !2 !no_barrier_path !3 !kernel_has_sub_groups !4 !vectorized_width !7 !scalar_kernel !1 {
 entry:
   %alloca.local_id = alloca ptr addrspace(1), align 8
   store ptr addrspace(1) %local_id, ptr %alloca.local_id, align 8
@@ -140,13 +140,13 @@ simd.loop.header:                                 ; preds = %simd.loop.latch, %s
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.latch ]
   %call = tail call fastcc i64 @foo() #8
   %arrayidx = getelementptr inbounds i64, ptr addrspace(1) %load.local_id, i64 %call
-  store i64 %call, ptr addrspace(1) %arrayidx, align 8, !tbaa !7
+  store i64 %call, ptr addrspace(1) %arrayidx, align 8
   br label %simd.loop.latch
 
 simd.loop.latch:                                  ; preds = %simd.loop.header
   %indvar = add nuw i32 %index, 1
   %vl.cond = icmp ult i32 %indvar, 16
-  br i1 %vl.cond, label %simd.loop.header, label %simd.end.region, !llvm.loop !15
+  br i1 %vl.cond, label %simd.loop.header, label %simd.end.region
 
 simd.end.region:                                  ; preds = %simd.loop.latch
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
@@ -176,14 +176,6 @@ attributes #8 = { convergent nounwind }
 !4 = !{i1 false}
 !5 = !{ptr @_ZGVeN16u_basic}
 !6 = !{i32 1}
-!7 = !{!8, !8, i64 0}
-!8 = !{!"long", !9, i64 0}
-!9 = !{!"omnipotent char", !10, i64 0}
-!10 = !{!"Simple C/C++ TBAA"}
-!11 = distinct !{!11, !12}
-!12 = !{!"llvm.loop.unroll.disable"}
-!13 = distinct !{!13, !12}
-!14 = !{i32 16}
-!15 = distinct !{!15, !12}
+!7 = !{i32 16}
 
 ; DEBUGIFY-NOT: WARNING

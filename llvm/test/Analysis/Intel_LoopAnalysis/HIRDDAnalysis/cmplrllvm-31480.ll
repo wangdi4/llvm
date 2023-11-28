@@ -1,4 +1,4 @@
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-blocking,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-pragma-loop-blocking,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test checks that DD does not refine last dimenision of the dependence vectors
 ; after nodes sinking and loop blocking. The node between 9:29 should be
@@ -48,9 +48,9 @@
 ;            END REGION
 
 
-; CHECK-DAG: 29:9 (%Z)[64 * i1 + i2] --> (%Z)[64 * i1 + i2] FLOW (= = *) (0 0 ?)
-; CHECK-DAG: 29:29 (%Z)[64 * i1 + i2] --> (%Z)[64 * i1 + i2] OUTPUT (= = *) (0 0 ?)
-; CHECK-DAG: 9:29 (%Z)[64 * i1 + i2] --> (%Z)[64 * i1 + i2] ANTI (= = *) (0 0 ?)
+; CHECK-DAG: (%Z)[64 * i1 + i2] --> (%Z)[64 * i1 + i2] FLOW (= = *) (0 0 ?)
+; CHECK-DAG: (%Z)[64 * i1 + i2] --> (%Z)[64 * i1 + i2] OUTPUT (= = *) (0 0 ?)
+; CHECK-DAG: (%Z)[64 * i1 + i2] --> (%Z)[64 * i1 + i2] ANTI (= = *) (0 0 ?)
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -69,6 +69,7 @@ bb4.preheader:                                    ; preds = %alloca_0
   %0 = zext i32 %"M_fetch.2" to i64
   %1 = add nuw nsw i32 %"N_fetch.3", 1
   %wide.trip.count16 = zext i32 %1 to i64
+  %prg = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.LEVEL"(i32 1), "QUAL.PRAGMA.FACTOR"(i32 64) ]
   br label %bb4
 
 bb4:                                              ; preds = %bb4.preheader, %bb9
@@ -107,6 +108,7 @@ bb9:                                              ; preds = %bb9.loopexit, %bb4
   br i1 %exitcond, label %bb5.loopexit, label %bb4
 
 bb5.loopexit:                                     ; preds = %bb9
+  call void @llvm.directive.region.exit(token %prg) [ "DIR.PRAGMA.END.BLOCK_LOOP"() ]
   br label %bb5
 
 bb5:                                              ; preds = %bb5.loopexit, %alloca_0
@@ -116,3 +118,9 @@ bb5:                                              ; preds = %bb5.loopexit, %allo
 ; Function Attrs: nofree nosync nounwind readnone speculatable
 declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64)
 
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #1
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token) #1
+attributes #1 = { nounwind }

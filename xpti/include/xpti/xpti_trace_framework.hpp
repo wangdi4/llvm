@@ -1,18 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// Modifications, Copyright (C) 2022 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -333,9 +318,6 @@ struct finally {
 
 } // namespace utils
 
-// INTEL_CUSTOMIZATION
-// Workaround for building libopenmp (with c++14)
-#if __cplusplus >= 201703L
 template <typename T>
 inline result_t addMetadata(trace_event_data_t *Event, const std::string &Key,
                             const T &Data) {
@@ -494,8 +476,6 @@ inline std::string readMetadata(const metadata_t::value_type &MD) {
   return std::string("Unknown metadata type, size ") +
          std::to_string(RawData.size);
 }
-#endif // __cplusplus >= 201703L
-// end INTEL_CUSTOMIZATION
 
 namespace framework {
 constexpr uint16_t signal = (uint16_t)xpti::trace_point_type_t::signal;

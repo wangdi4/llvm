@@ -1,6 +1,6 @@
 //===------- HIRTempCleanup.cpp - Implements Temp Cleanup pass ------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -712,6 +712,8 @@ public:
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
 
+  void visit(HLGoto *Goto);
+
   /// Main driver function to find and substitutes unnecessary temps.
   void substituteTemps(HLRegion *Reg);
 };
@@ -743,6 +745,34 @@ INITIALIZE_PASS_END(HIRTempCleanupLegacyPass, "hir-temp-cleanup",
 
 FunctionPass *llvm::createHIRTempCleanupPass() {
   return new HIRTempCleanupLegacyPass();
+}
+
+void TempSubstituter::visit(HLGoto *Goto) {
+  // Invalidate liveout load temp candidate if we haven't found its single use
+  // and encounter a goto which jumps out of temp's def loop. The temp could
+  // potentially have a liveout use out of this goto and cannot be safely
+  // substituted.
+  auto *ParentLp = Goto->getParentLoop();
+
+  if (!ParentLp)
+    return;
+
+  bool JumpsOutOfRegion = Goto->isExternal();
+
+  unsigned TargetTopSortNum =
+      JumpsOutOfRegion ? 0 : Goto->getTargetLabel()->getTopSortNum();
+
+  for (auto &Temp : CandidateTemps) {
+
+    if (!Temp.isValid() || !Temp.isLoad() || !Temp.isLiveoutLoadTemp() ||
+        Temp.getUseRef())
+      continue;
+
+    if (JumpsOutOfRegion ||
+        (Temp.getDefLoop() &&
+         (TargetTopSortNum > Temp.getDefLoop()->getMaxTopSortNum())))
+      Temp.markInvalid();
+  }
 }
 
 void TempSubstituter::processLiveoutTempUse(TempInfo &Temp, RegDDRef *UseRef) {

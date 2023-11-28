@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -45,6 +45,7 @@ class Module;
 class AttrBuilder;
 class Function;
 class Triple;
+class TargetMachine;
 
 namespace codegen {
 
@@ -61,6 +62,9 @@ ThreadModel::Model getThreadModel();
 
 CodeModel::Model getCodeModel();
 std::optional<CodeModel::Model> getExplicitCodeModel();
+
+uint64_t getLargeDataThreshold();
+std::optional<uint64_t> getExplicitLargeDataThreshold();
 
 llvm::ExceptionHandling getExceptionModel();
 
@@ -102,8 +106,6 @@ bool getEnableAIXExtendedAltivecABI();
 bool getDisableTailCalls();
 
 bool getStackSymbolOrdering();
-
-unsigned getOverrideStackAlignment();
 
 bool getStackRealign();
 
@@ -225,6 +227,14 @@ void setFunctionAttributes(StringRef CPU, StringRef Features, Module &M);
 /// Should value-tracking variable locations / instruction referencing be
 /// enabled by default for this triple?
 bool getDefaultValueTrackingVariableLocations(const llvm::Triple &T);
+
+/// Creates a TargetMachine instance with the options defined on the command
+/// line. This can be used for tools that do not need further customization of
+/// the TargetOptions.
+Expected<std::unique_ptr<TargetMachine>> createTargetMachineForTriple(
+    StringRef TargetTriple,
+    CodeGenOptLevel OptLevel = CodeGenOptLevel::Default);
+
 } // namespace codegen
 } // namespace llvm
 

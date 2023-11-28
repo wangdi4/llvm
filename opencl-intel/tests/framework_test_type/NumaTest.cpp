@@ -22,8 +22,8 @@
 #include "cl_sys_info.h"
 #include "common_utils.h"
 #include "task_executor.h"
-#include <tbb/global_control.h>
-#include <tbb/info.h>
+#include "tbb/global_control.h"
+#include "tbb/info.h"
 
 extern cl_device_type gDeviceType;
 
@@ -58,17 +58,17 @@ protected:
   }
 
 protected:
-  cl_platform_id m_platform;
-  cl_device_id m_device;
-  cl_context m_context;
-  cl_command_queue m_queue;
-  int m_numNumaNodes;
+  cl_platform_id m_platform = nullptr;
+  cl_device_id m_device = nullptr;
+  cl_context m_context = nullptr;
+  cl_command_queue m_queue = nullptr;
+  int m_numNumaNodes = 0;
 };
 
 /// This test checks that NUMA API is working correctly if SYCL_CPU_NUM_CUS is
 /// set to half number of CPUs.
 /// Disable the test because it is flaky.
-TEST_F(NumaTest, DISABLED_halfCUs) {
+TEST_F(NumaTest, halfCUs) {
   // Skip test if there is only a single NUMA node.
   if (m_numNumaNodes < 2)
     return;

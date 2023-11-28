@@ -1,6 +1,6 @@
 //===----------- HIRPrefetching.cpp Implements Prefetching class ---------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1004,51 +1004,4 @@ PreservedAnalyses HIRPrefetchingPass::runImpl(llvm::Function &F,
                                AM.getResult<TargetIRAnalysis>(F))
                     .run();
   return PreservedAnalyses::all();
-}
-
-class HIRPrefetchingLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRPrefetchingLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRPrefetchingLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
-    AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRPrefetching(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-               getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
-               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-               getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
-               getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F))
-        .run();
-  }
-};
-
-char HIRPrefetchingLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRPrefetchingLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
-INITIALIZE_PASS_END(HIRPrefetchingLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIRPrefetchingPass() {
-  return new HIRPrefetchingLegacyPass();
 }

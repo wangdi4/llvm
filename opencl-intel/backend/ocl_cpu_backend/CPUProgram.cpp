@@ -1,4 +1,4 @@
-// Copyright 2010-2021 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -20,7 +20,6 @@
 #include "Kernel.h"
 #include "ObjectCodeCache.h"
 #include "cl_sys_info.h"
-
 #include "llvm/ExecutionEngine/Orc/ObjectFileInterface.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Path.h"
@@ -226,7 +225,6 @@ void CPUProgram::SetObjectCache(ObjectCodeCache *oc) {
 void CPUProgram::CreateAndSetBlockToKernelMapper() {
   // create block to kernel mapper
   IBlockToKernelMapper *pMapper = new CPUBlockToKernelMapper((Program *)this);
-  assert(pMapper && "IBlockToKernelMapper object is NULL");
   assert(!GetRuntimeService().isNull() && "RuntimeService in Program is NULL");
   // set in RuntimeService new BlockToKernelMapper object
   GetRuntimeService()->SetBlockToKernelMapper(pMapper);

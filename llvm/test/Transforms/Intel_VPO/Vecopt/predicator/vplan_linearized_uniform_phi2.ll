@@ -4,12 +4,12 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test(i32 *%a, i32 %b) {
+define void @test(ptr %a, i32 %b) {
 ; CHECK-LABEL:  VPlan IR for: test
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr i32, ptr [[A0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load ptr [[VP_GEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
@@ -63,8 +63,8 @@ entry:
 ;     \ | /
 ;      BB4
   %lane = call i32 @llvm.vplan.laneid()
-  %gep = getelementptr i32, i32 *%a, i32 %lane
-  %ld = load i32, i32* %gep, align 4
+  %gep = getelementptr i32, ptr %a, i32 %lane
+  %ld = load i32, ptr %gep, align 4
   %uniform = icmp eq i32 %b,  42
   %varying = icmp eq i32 %ld,  42
   br label %bb0
@@ -98,13 +98,13 @@ bb4:
   ret void
 }
 
-define void @test2(i32 *%a, i32 %b) {
+define void @test2(ptr %a, i32 %b) {
 ;
 ; CHECK-LABEL:  VPlan IR for: test2
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr i32, ptr [[A0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load ptr [[VP_GEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
@@ -158,8 +158,8 @@ entry:
 ;       BB5
 
   %lane = call i32 @llvm.vplan.laneid()
-  %gep = getelementptr i32, i32 *%a, i32 %lane
-  %ld = load i32, i32* %gep, align 4
+  %gep = getelementptr i32, ptr %a, i32 %lane
+  %ld = load i32, ptr %gep, align 4
   %uniform = icmp eq i32 %b,  42
   %varying = icmp eq i32 %ld,  42
   br label %bb0
@@ -192,12 +192,12 @@ bb5:
   ret void
 }
 
-define void @active_lane_as_branch_cond(i32 *%a, i32 %b) {
+define void @active_lane_as_branch_cond(ptr %a, i32 %b) {
 ; CHECK-LABEL:  VPlan IR for: active_lane_as_branch_cond
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr i32, ptr [[A0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load ptr [[VP_GEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[VP_UNIFORM]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
@@ -246,8 +246,8 @@ define void @active_lane_as_branch_cond(i32 *%a, i32 %b) {
 ;
 entry:
   %lane = call i32 @llvm.vplan.laneid()
-  %gep = getelementptr i32, i32 *%a, i32 %lane
-  %ld = load i32, i32* %gep, align 4
+  %gep = getelementptr i32, ptr %a, i32 %lane
+  %ld = load i32, ptr %gep, align 4
   %uniform = icmp eq i32 %b,  42
   %varying = icmp eq i32 %ld,  42
   br label %bb0
@@ -278,12 +278,12 @@ bb6:
 
 ; Same as above, but active-lane's operand is a phi and not a blend
 ; post-predicator.
-define void @active_lane_as_branch_cond2(i32 *%a, i32 %b) {
+define void @active_lane_as_branch_cond2(ptr %a, i32 %b) {
 ; CHECK-LABEL:  VPlan IR for: active_lane_as_branch_cond2
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr i32, ptr [[A0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load ptr [[VP_GEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING_NOT:%.*]] = not i1 [[VP_VARYING]]
@@ -372,8 +372,8 @@ entry:
 ;   \ | /
 ;    BB7
   %lane = call i32 @llvm.vplan.laneid()
-  %gep = getelementptr i32, i32 *%a, i32 %lane
-  %ld = load i32, i32* %gep, align 4
+  %gep = getelementptr i32, ptr %a, i32 %lane
+  %ld = load i32, ptr %gep, align 4
   %uniform = icmp eq i32 %b,  42
   %varying = icmp eq i32 %ld,  42
   br label %bb0

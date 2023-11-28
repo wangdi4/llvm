@@ -236,6 +236,6 @@ attributes #3 = { convergent "uniform-work-group-size"="true" }
 !59 = distinct !DISubprogram(name: "second_kernel", scope: !8, file: !8, line: 15, type: !24, isLocal: false, isDefinition: true, scopeLine: 16, flags: DIFlagPrototyped, isOptimized: false, unit: !2, retainedNodes: !4)
 !60 = !DILocation(line: 17, column: 2, scope: !59)
 !61 = !DILocation(line: 18, column: 2, scope: !59)
-!62 = !{i8 addrspace(1)* null, i8 addrspace(1)* null}
+!62 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING

@@ -1,6 +1,6 @@
 //===--- HLRegion.cpp - Implements the HLRegion class ---------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -200,4 +200,27 @@ bool HLRegion::containsAllDereferences(const AllocaInst *Alloca,
   }
 
   return true;
+}
+
+bool HLRegion::canBeReentered() const {
+  auto *EntryBB = getEntryBBlock();
+  auto *FirstRegionLp = getFirstOutermostLLVMLoop();
+
+  const Loop *OuterLp = nullptr;
+  auto &HIRF = getHLNodeUtils().getHIRFramework();
+
+  // If the entry block belongs to the first loop in the region, we check for
+  // the existence of its parent loop else we get the parent loop of entry
+  // block.
+  if (FirstRegionLp && FirstRegionLp->contains(EntryBB)) {
+    OuterLp = FirstRegionLp->getParentLoop();
+  } else {
+    auto &LI = HIRF.getLoopInfo();
+    OuterLp = LI.getLoopFor(EntryBB);
+  }
+
+  if (OuterLp != nullptr)
+    return true;
+
+  return HIRF.functionHasIrreducibleCFG();
 }

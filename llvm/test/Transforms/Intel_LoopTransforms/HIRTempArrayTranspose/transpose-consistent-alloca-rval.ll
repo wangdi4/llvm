@@ -22,7 +22,7 @@
 ; HIR after transformation
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK:    @llvm.stacksave();
+; CHECK:    @llvm.stacksave.p0();
 ; CHECK:    %TranspTmpArr = alloca 600 * %load;
 ;
 ; CHECK:    + DO i1 = 0, 74, 1   <DO_LOOP>
@@ -44,7 +44,7 @@
 ;           |   + END LOOP
 ;           + END LOOP
 ;
-;           @llvm.stackrestore(&((%call22)[0]));
+;           @llvm.stackrestore.p0(&((%call22)[0]));
 ;     END REGION
 
 

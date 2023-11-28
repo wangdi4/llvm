@@ -1,6 +1,5 @@
 ; The test checks the line numbers in HIR
 
-; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -opaque-pointers -hir-cost-model-throttling=0 -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-cost-model-throttling=0 -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-cg" -hir-cost-model-throttling=0 -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
 
@@ -47,17 +46,11 @@
 ;38
 ;39 }
 
-; The bitcast operator on function pointers goes away with opaque pointers.
-
-; CHECK-OPAQUE: :9>        + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK-OPAQUE: :11>       |    %call = @bar();
-; CHECK-OPAQUE: :9>        + END LOOP
-
 ; CHECK: <0>          BEGIN REGION { }
 ; CHECK: :9>             + DO i1 = 0, 99, 1   <DO_LOOP>
 ;
 ; CHECK: :11>            |   %conv = sitofp.i32.float(i1);
-; CHECK: :11>            |   %call = bitcast (float (...)* @bar to float ()*)();
+; CHECK: :11>            |   %call = @bar();
 ; CHECK: :11>            |   %mul = %conv  *  %call;
 ; CHECK: :11>            |   %x.060 = %x.060  +  %mul;
 ;
@@ -70,7 +63,7 @@
 ; CHECK: :14>            |      %add5 = %x.060  +  %0;
 ; CHECK: :14>            |      (%a)[i1] = %add5;
 ;
-; CHECK: :16>            |      %call6 = bitcast (i32 (...)* @c1 to i32 ()*)();
+; CHECK: :16>            |      %call6 = @c1();
 ; CHECK: :16>            |      if (i1 > 0 & %call6 != 0)
 ; CHECK: :16>            |      {
 ;
@@ -89,18 +82,18 @@
 ; CHECK: :24>            |   %add22 = %conv17  +  %conv21;
 ; CHECK: :24>            |   (%c)[i1] = %add22;
 ;
-; CHECK: :26>            |   %call24 = bitcast (i32 (...)* @c1 to i32 ()*)();
+; CHECK: :26>            |   %call24 = @c1();
 ; CHECK: :26>            |   switch(%call24)
 ; CHECK: :26>            |   {
 ; CHECK: :26>            |   case 1:
 ;
-; CHECK: :28>            |      %call25 = bitcast (i32 (...)* @c2 to i32 ()*)();
+; CHECK: :28>            |      %call25 = @c2();
 ;
 ; CHECK:                 |      %conv31.sink.in = %call25;
 ; CHECK: :26>            |      break;
 ; CHECK: :26>            |   case 2:
 ;
-; CHECK: :31>            |      %call30 = bitcast (i32 (...)* @c1 to i32 ()*)();
+; CHECK: :31>            |      %call30 = @c1();
 ;
 ; CHECK:                 |      %conv31.sink.in = %call30;
 ; CHECK: :26>            |      break;
@@ -119,17 +112,17 @@
 
 ; CG:
 ; CHECK-CG: Module
-; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata float* {{.*}}, metadata !22, metadata {{.*}}), !dbg ![[m24:.*]]
-; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata float* {{.*}}, metadata !19, metadata {{.*}}), !dbg ![[m26:.*]]
-; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata float* {{.*}}, metadata !15, metadata {{.*}}), !dbg ![[m27:.*]]
+; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata ptr {{.*}}, metadata !22, metadata {{.*}}), !dbg ![[m24:.*]]
+; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata ptr {{.*}}, metadata !19, metadata {{.*}}), !dbg ![[m26:.*]]
+; CHECK-CG-DAG: call void @llvm.dbg.declare(metadata ptr {{.*}}, metadata !15, metadata {{.*}}), !dbg ![[m27:.*]]
 ; CHECK-CG: region.0:
 
 ; Call + float instructions
 ; CHECK-CG:  {{.*}} = sitofp i32 {{.*}} to float, !dbg ![[m33:.*]]
-; CHECK-CG:  {{.*}} = tail call float bitcast (float (...)* @bar to float ()*)(), !dbg ![[m33]]
+; CHECK-CG:  {{.*}} = tail call float @bar(), !dbg ![[m33]]
 ; CHECK-CG:  {{.*}} = fmul float {{.*}}, {{.*}}, !dbg ![[m33]]
 ; CHECK-CG:  {{.*}} = fadd float {{.*}}, {{.*}}, !dbg ![[m33]]
-; CHECK-CG:  store float {{.*}}, float* {{.*}}, !dbg ![[m33]]
+; CHECK-CG:  store float {{.*}}, ptr {{.*}}, !dbg ![[m33]]
 
 ; IF + complex predicate
 ; CHECK-CG:  %hir.cmp.7 = fcmp ogt float {{.*}}, 1.000000e+01, !dbg ![[m35:.*]]
@@ -139,28 +132,28 @@
 
 ; IF + multiple predicates
 ; CHECK-CG:  %hir.cmp.22 = icmp sgt i32 {{.*}}, 0, !dbg ![[m47:.*]]
-; CHECK-CG:  {{.*}} = load i32, i32* {{.*}}, !dbg ![[m45:.*]]
+; CHECK-CG:  {{.*}} = load i32, ptr {{.*}}, !dbg ![[m45:.*]]
 ; CHECK-CG:  %hir.cmp.224 = icmp ne i32 {{.*}}, 0, !dbg ![[m45]]
 ; CHECK-CG:  {{.*}} = and i1 %hir.cmp.22, %hir.cmp.224, !dbg ![[m45]]
 ; CHECK-CG:  br i1 {{.*}}, label %then.22, label %ifmerge.22, !dbg ![[m45]]
 
 ; Load ref + CE
-; CHECK-CG:  {{.*}} = load i32, i32* %i1.i32, align 4, !dbg ![[m26]]
+; CHECK-CG:  {{.*}} = load i32, ptr %i1.i32, align 4, !dbg ![[m26]]
 ; CHECK-CG:  {{.*}} = add i32 {{.*}}, 1, !dbg ![[m26]]
-; CHECK-CG:  %[[ptr:.*]] = getelementptr inbounds float, float* %a, i32 {{.*}}, !dbg ![[m26]]
-; CHECK-CG:  load float, float* %[[ptr]], align 4, !dbg ![[m26]]
+; CHECK-CG:  %[[ptr:.*]] = getelementptr inbounds float, ptr %a, i32 {{.*}}, !dbg ![[m26]]
+; CHECK-CG:  load float, ptr %[[ptr]], align 4, !dbg ![[m26]]
 
 ; Scalar store
-; CHECK-CG:  store float {{.*}}, float* {{.*}}, align 4, !dbg ![[m26]]
+; CHECK-CG:  store float {{.*}}, ptr {{.*}}, align 4, !dbg ![[m26]]
 
 ; Select
 ; CHECK-CG:  %hir.selcmp.37 = fcmp une float {{.*}}, 0.000000e+00, !dbg ![[m25:.*]]
 ; CHECK-CG:  {{.*}} = select i1 %hir.selcmp.37, float 1.000000e+01, float -1.000000e+01, !dbg ![[m25]]
 
 ; Store ref
-; CHECK-CG:  %[[ptr2:.*]] = getelementptr inbounds float, float* %c, i32 {{.*}}, !dbg ![[m52:.*]]
-; CHECK-CG:  {{.*}} = load float, float* {{.*}}, !dbg ![[m52]]
-; CHECK-CG:  store float {{.*}}, float* %[[ptr2]], align 4, !dbg ![[m52]]
+; CHECK-CG:  %[[ptr2:.*]] = getelementptr inbounds float, ptr %c, i32 {{.*}}, !dbg ![[m52:.*]]
+; CHECK-CG:  {{.*}} = load float, ptr {{.*}}, !dbg ![[m52]]
+; CHECK-CG:  store float {{.*}}, ptr %[[ptr2]], align 4, !dbg ![[m52]]
 
 ; Switch
 ; CHECK-CG:  switch i32 {{.*}}, label %hir.sw.43.default [
@@ -173,10 +166,10 @@ target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
 ; Function Attrs: nounwind
-define void @foo(float* nocapture %a, float* nocapture %c) local_unnamed_addr !dbg !7 {
+define void @foo(ptr nocapture %a, ptr nocapture %c) local_unnamed_addr !dbg !7 {
 entry:
-  tail call void @llvm.dbg.value(metadata float* %a, i64 0, metadata !13, metadata !23), !dbg !24
-  tail call void @llvm.dbg.value(metadata float* %c, i64 0, metadata !14, metadata !23), !dbg !24
+  tail call void @llvm.dbg.value(metadata ptr %a, i64 0, metadata !13, metadata !23), !dbg !24
+  tail call void @llvm.dbg.value(metadata ptr %c, i64 0, metadata !14, metadata !23), !dbg !24
   tail call void @llvm.dbg.value(metadata float 0.000000e+00, i64 0, metadata !15, metadata !23), !dbg !25
   tail call void @llvm.dbg.value(metadata i32 0, i64 0, metadata !16, metadata !23), !dbg !26
   tail call void @llvm.dbg.value(metadata float 0.000000e+00, i64 0, metadata !15, metadata !23), !dbg !25
@@ -190,7 +183,7 @@ for.body:                                         ; preds = %for.cond.backedge, 
   %x.060 = phi float [ 0.000000e+00, %entry ], [ %add, %for.cond.backedge ]
   %i.059 = phi i32 [ 0, %entry ], [ %add13, %for.cond.backedge ]
   %conv = sitofp i32 %i.059 to float, !dbg !30
-  %call = tail call float bitcast (float (...)* @bar to float ()*)(), !dbg !30
+  %call = tail call float @bar(), !dbg !30
   %mul = fmul float %conv, %call, !dbg !30
   %add = fadd float %x.060, %mul, !dbg !30
   tail call void @llvm.dbg.value(metadata float %add, i64 0, metadata !15, metadata !23), !dbg !25
@@ -200,54 +193,54 @@ for.body:                                         ; preds = %for.cond.backedge, 
   br i1 %or.cond, label %if.then, label %if.end12, !dbg !31
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds float, float* %a, i32 %i.059, !dbg !35
-  %0 = load float, float* %arrayidx, align 4, !dbg !35, !tbaa !37
+  %arrayidx = getelementptr inbounds float, ptr %a, i32 %i.059, !dbg !35
+  %0 = load float, ptr %arrayidx, align 4, !dbg !35, !tbaa !37
   %add5 = fadd float %add, %0, !dbg !35
-  store float %add5, float* %arrayidx, align 4, !dbg !35, !tbaa !37
-  %call6 = tail call i32 bitcast (i32 (...)* @c1 to i32 ()*)(), !dbg !41
+  store float %add5, ptr %arrayidx, align 4, !dbg !35, !tbaa !37
+  %call6 = tail call i32 @c1(), !dbg !41
   %tobool = icmp ne i32 %call6, 0, !dbg !41
   %cmp7 = icmp sgt i32 %i.059, 0, !dbg !43
   %or.cond34 = and i1 %cmp7, %tobool, !dbg !41
   br i1 %or.cond34, label %if.then9, label %if.end12, !dbg !41
 
 if.then9:                                         ; preds = %if.then
-  %1 = load float, float* %arrayidx, align 4, !dbg !45, !tbaa !37
+  %1 = load float, ptr %arrayidx, align 4, !dbg !45, !tbaa !37
   %add11 = fadd float %add, %1, !dbg !45
-  store float %add11, float* %arrayidx, align 4, !dbg !45, !tbaa !37
+  store float %add11, ptr %arrayidx, align 4, !dbg !45, !tbaa !37
   br label %if.end12, !dbg !47
 
 if.end12:                                         ; preds = %if.then, %if.then9, %for.body
   %add13 = add nuw nsw i32 %i.059, 1, !dbg !48
-  %arrayidx14 = getelementptr inbounds float, float* %a, i32 %add13, !dbg !48
-  %2 = load float, float* %arrayidx14, align 4, !dbg !48, !tbaa !37
+  %arrayidx14 = getelementptr inbounds float, ptr %a, i32 %add13, !dbg !48
+  %2 = load float, ptr %arrayidx14, align 4, !dbg !48, !tbaa !37
   %conv17 = fadd float %2, 2.000000e+00, !dbg !48
   tail call void @llvm.dbg.value(metadata float %conv17, i64 0, metadata !19, metadata !23), !dbg !48
   %tobool20 = fcmp une float %2, 0.000000e+00, !dbg !49
   %conv21 = select i1 %tobool20, float 1.000000e+01, float -1.000000e+01, !dbg !49
   tail call void @llvm.dbg.value(metadata float %conv21, i64 0, metadata !22, metadata !23), !dbg !49
   %add22 = fadd float %conv17, %conv21, !dbg !50
-  %arrayidx23 = getelementptr inbounds float, float* %c, i32 %i.059, !dbg !50
-  store float %add22, float* %arrayidx23, align 4, !dbg !50, !tbaa !37
-  %call24 = tail call i32 bitcast (i32 (...)* @c1 to i32 ()*)(), !dbg !51
+  %arrayidx23 = getelementptr inbounds float, ptr %c, i32 %i.059, !dbg !50
+  store float %add22, ptr %arrayidx23, align 4, !dbg !50, !tbaa !37
+  %call24 = tail call i32 @c1(), !dbg !51
   switch i32 %call24, label %for.cond.backedge [
     i32 1, label %sw.bb
     i32 2, label %sw.bb29
   ], !dbg !51
 
 sw.bb:                                            ; preds = %if.end12
-  %call25 = tail call i32 bitcast (i32 (...)* @c2 to i32 ()*)(), !dbg !52
+  %call25 = tail call i32 @c2(), !dbg !52
   br label %sw.epilog.sink.split, !dbg !54
 
 sw.bb29:                                          ; preds = %if.end12
-  %call30 = tail call i32 bitcast (i32 (...)* @c1 to i32 ()*)(), !dbg !55
+  %call30 = tail call i32 @c1(), !dbg !55
   br label %sw.epilog.sink.split, !dbg !56
 
 sw.epilog.sink.split:                             ; preds = %sw.bb, %sw.bb29
   %conv31.sink.in = phi i32 [ %call30, %sw.bb29 ], [ %call25, %sw.bb ]
   %conv31.sink = sitofp i32 %conv31.sink.in to float, !dbg !55
-  %3 = load float, float* %arrayidx23, align 4, !dbg !55, !tbaa !37
+  %3 = load float, ptr %arrayidx23, align 4, !dbg !55, !tbaa !37
   %add33 = fadd float %3, %conv31.sink, !dbg !55
-  store float %add33, float* %arrayidx23, align 4, !dbg !55, !tbaa !37
+  store float %add33, ptr %arrayidx23, align 4, !dbg !55, !tbaa !37
   br label %for.cond.backedge, !dbg !57
 
 for.cond.backedge:                                ; preds = %sw.epilog.sink.split, %if.end12

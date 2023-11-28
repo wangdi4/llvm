@@ -6,7 +6,7 @@
 extern "C" int printf(const char* fmt, ...);
 
 #ifdef __SYCL_DEVICE_ONLY__
-__attribute__((convergent)) extern SYCL_EXTERNAL void
+__attribute__((convergent)) extern __attribute__((sycl_device)) void
 __spirv_ControlBarrier(int, int, int) noexcept;
 #endif
 
@@ -670,7 +670,7 @@ public:
   }
 };
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 namespace ext {
 namespace intel {
 class non_uniform_sub_group {

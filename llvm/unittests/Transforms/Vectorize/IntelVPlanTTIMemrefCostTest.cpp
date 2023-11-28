@@ -11,11 +11,11 @@
 
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModel.h"
 #include "IntelVPlanTestBase.h"
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/TargetParser/Triple.h"
 #include "gtest/gtest.h"
 
 using namespace llvm;
@@ -35,7 +35,7 @@ createTargetMachine(std::string CPUStr, std::string FeaturesStr) {
   const Target *TheTarget = TargetRegistry::lookupTarget(TT, Error);
   return std::unique_ptr<TargetMachine>(TheTarget->createTargetMachine(
       TT, CPUStr, FeaturesStr, TargetOptions(), std::nullopt, std::nullopt,
-      CodeGenOpt::Default));
+      CodeGenOptLevel::Default));
 }
 
 class VPlanTTIMemrefCostTest : public vpo::VPlanTestBase {
@@ -48,26 +48,25 @@ protected:
 protected:
   void SetUp() override {
     Module &M = parseModule(R"(
-        define void @foo(i32* %p32, i1* %p1, i8** %pp8, i8* %p8,
-                         double %dval, double* %pd) {
+        define void @foo(ptr %p32, ptr %p1, ptr %pp8, ptr %p8,
+                         double %dval, ptr %pd) {
         entry:
           %lane = call i32 @llvm.vplan.laneid()
-          %gep0 = getelementptr inbounds i32, i32* %p32, i32 %lane
-          %val0 = load i32, i32* %gep0, align 1
-          %gep1 = getelementptr inbounds i1, i1* %p1, i32 %lane
-          %val1 = load i1,  i1*  %gep1, align 1
-          %gep2 = getelementptr inbounds i8*, i8** %pp8, i32 %lane
-          %val2 = load i8*, i8** %gep2, align 1
-          %gep3 = getelementptr inbounds i8, i8* %p8, i32 %lane
-          %val3 = load i8,  i8*  %gep3, align 1
-          store i32 %val0,  i32* %gep0, align 1
-          %gep4 = getelementptr inbounds double, double* %pd, i32 %lane
-          store double %dval, double* %gep4, align 1
+          %gep0 = getelementptr inbounds i32, ptr %p32, i32 %lane
+          %val0 = load i32, ptr %gep0, align 1
+          %gep1 = getelementptr inbounds i1, ptr %p1, i32 %lane
+          %val1 = load i1,  ptr  %gep1, align 1
+          %gep2 = getelementptr inbounds ptr, ptr %pp8, i32 %lane
+          %val2 = load ptr, ptr %gep2, align 1
+          %gep3 = getelementptr inbounds i8, ptr %p8, i32 %lane
+          %val3 = load i8,  ptr  %gep3, align 1
+          store i32 %val0,  ptr %gep0, align 1
+          %gep4 = getelementptr inbounds double, ptr %pd, i32 %lane
+          store double %dval, ptr %gep4, align 1
           ret void
         }
 
-        declare i32 @llvm.vplan.laneid())"
-    );
+        declare i32 @llvm.vplan.laneid())");
 
     Function *Func = M.getFunction("foo");
     EXPECT_TRUE(Func);
@@ -87,9 +86,9 @@ protected:
 
     TM = createTargetMachine("skx", "");
     auto TTIPass =
-      createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis());
+        createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis());
     const TargetTransformInfo &TTI =
-      (static_cast<TargetTransformInfoWrapperPass *>(TTIPass))->getTTI(*Func);
+        (static_cast<TargetTransformInfoWrapperPass *>(TTIPass))->getTTI(*Func);
 
     LoopVectorizationPlanner LVP(
         nullptr /* WRL */, nullptr /* Loop */, nullptr /* LoopInfo */,
@@ -167,9 +166,9 @@ TEST_F(VPlanTTIMemrefCostTest, Align64Size32) {
 TEST_F(VPlanTTIMemrefCostTest, 2xVectorGives2xCost) {
   // Check that cost of <8 x double> is twice of <16 x double>
   const auto Ty8xdoubleCost =
-    CM->getLoadStoreCost(VPInsts[5], Align(8), 8  /* VF */);
+      CM->getLoadStoreCost(VPInsts[5], Align(8), 8 /* VF */);
   const auto Ty16xdoubleCost =
-    CM->getLoadStoreCost(VPInsts[5], Align(8), 16  /* VF */);
+      CM->getLoadStoreCost(VPInsts[5], Align(8), 16 /* VF */);
   EXPECT_TRUE(Ty8xdoubleCost * 2 == Ty16xdoubleCost);
 }
 

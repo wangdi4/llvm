@@ -5,7 +5,7 @@
 ; RUN: opt < %s -S -passes=vplan-vec -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM-IR
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
-define void @mod_gauss_hermite_mp_derquadgausshermite_(double* %ptr, double %T_fetch, i64 %N) local_unnamed_addr {
+define void @mod_gauss_hermite_mp_derquadgausshermite_(ptr %ptr, double %T_fetch, i64 %N) local_unnamed_addr {
 ; LLVM-IR-LABEL: @mod_gauss_hermite_mp_derquadgausshermite_(
 ; LLVM-IR:       vector.body:
 ; LLVM-IR-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP8:%.*]], [[VECTOR_BODY:%.*]] ]
@@ -13,9 +13,8 @@ define void @mod_gauss_hermite_mp_derquadgausshermite_(double* %ptr, double %T_f
 ; LLVM-IR-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 1, i64 2>, [[VECTOR_PH]] ], [ [[TMP6:%.*]], [[VECTOR_BODY]] ]
 ; LLVM-IR-NEXT:    [[TMP2:%.*]] = add nsw <2 x i64> [[VEC_PHI]], <i64 -1, i64 -1>
 ; LLVM-IR-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <2 x i64> [[TMP2]], i32 0
-; LLVM-IR-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds double, double* [[PTR:%.*]], i64 [[DOTEXTRACT_0_]]
-; LLVM-IR-NEXT:    [[TMP3:%.*]] = bitcast double* [[SCALAR_GEP]] to <2 x double>*
-; LLVM-IR-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x double>, <2 x double>* [[TMP3]], align 8
+; LLVM-IR-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds double, ptr [[PTR:%.*]], i64 [[DOTEXTRACT_0_]]
+; LLVM-IR-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x double>, ptr [[SCALAR_GEP]], align 8
 ; LLVM-IR-NEXT:    [[WIDE_LOAD_EXTRACT_1_:%.*]] = extractelement <2 x double> [[WIDE_LOAD]], i32 1
 ; LLVM-IR-NEXT:    [[WIDE_LOAD_EXTRACT_0_:%.*]] = extractelement <2 x double> [[WIDE_LOAD]], i32 0
 ; LLVM-IR-NEXT:    [[TMP4:%.*]] = call double @llvm.experimental.constrained.fmul.f64(double [[WIDE_LOAD_EXTRACT_0_]], double [[T_FETCH:%.*]], metadata !"round.dynamic", metadata !"fpexcept.strict")
@@ -47,8 +46,8 @@ DIR.OMP.SIMD.1:
 bb9:
   %indvars.iv = phi i64 [ 1, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %bb9 ]
   %1 = add nsw i64 %indvars.iv, -1
-  %2 = getelementptr inbounds double, double* %ptr, i64 %1
-  %"mod_gauss_hermite_mp_h2d_[][]_fetch" = load double, double* %2, align 8
+  %2 = getelementptr inbounds double, ptr %ptr, i64 %1
+  %"mod_gauss_hermite_mp_h2d_[][]_fetch" = load double, ptr %2, align 8
   %mul = call double @llvm.experimental.constrained.fmul.f64(double %"mod_gauss_hermite_mp_h2d_[][]_fetch", double %T_fetch, metadata !"round.dynamic", metadata !"fpexcept.strict") #4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %rel41 = icmp sgt i64 %indvars.iv, %N

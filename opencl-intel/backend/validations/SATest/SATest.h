@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,14 +15,12 @@
 #ifndef SATest_H
 #define SATest_H
 
+#include "BufferContainerList.h"
 #include "IProgram.h"
 #include "IProgramRunner.h"
 #include "IRunConfiguration.h"
-
-#include "BufferContainerList.h"
 #include "RunResult.h"
 #include "RunnerFactoryGenerator.h"
-
 #include <string>
 
 namespace Validation {

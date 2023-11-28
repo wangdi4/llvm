@@ -1,6 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -no-opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 
 struct default_ctor {
   default_ctor () {};
@@ -26,26 +25,20 @@ void foo() {
 
 
 
-// PTR: %struct._ZTS16HasRefToInherits.HasRefToInherits = type { %struct._ZTS8Inherits.Inherits* }
 // OPQ: %struct._ZTS16HasRefToInherits.HasRefToInherits = type { ptr }
 
 // CHECK: %struct._ZTS8Inherits.Inherits = type { %struct._ZTS10NormalBase.NormalBase.base, [7 x i8] }
 
-// PTR: %struct._ZTS10NormalBase.NormalBase.base = type <{ %struct._ZTS12default_ctor.default_ctor, [7 x i8], i32*, %struct._ZTS12default_ctor.default_ctor }>
 // OPQ: %struct._ZTS10NormalBase.NormalBase.base = type <{ %struct._ZTS12default_ctor.default_ctor, [7 x i8], ptr, %struct._ZTS12default_ctor.default_ctor }>
 
 // CHECK: %struct._ZTS12default_ctor.default_ctor = type { i8 }
 
-// PTR: %struct._ZTS10NormalBase.NormalBase = type <{ %struct._ZTS12default_ctor.default_ctor, [7 x i8], i32*, %struct._ZTS12default_ctor.default_ctor, [7 x i8] }>
 // OPQ: %struct._ZTS10NormalBase.NormalBase = type <{ %struct._ZTS12default_ctor.default_ctor, [7 x i8], ptr, %struct._ZTS12default_ctor.default_ctor, [7 x i8] }>
 
-// PTR: declare !intel.dtrans.func.type ![[CTOR_MD:[0-9]+]] void @_ZN16HasRefToInheritsC1Ev(%struct._ZTS16HasRefToInherits.HasRefToInherits* {{.+}}"intel_dtrans_func_index"="1")
 // OPQ: declare !intel.dtrans.func.type ![[CTOR_MD:[0-9]+]] void @_ZN16HasRefToInheritsC1Ev(ptr {{.+}}"intel_dtrans_func_index"="1")
 
-// PTR: declare !intel.dtrans.func.type ![[FUNC_MD:[0-9]+]]  void @_ZN16HasRefToInherits4funcEv(%struct._ZTS16HasRefToInherits.HasRefToInherits* {{.+}}"intel_dtrans_func_index"="1")
 // OPQ: declare !intel.dtrans.func.type ![[FUNC_MD:[0-9]+]]  void @_ZN16HasRefToInherits4funcEv(ptr {{.+}}"intel_dtrans_func_index"="1")
 
-// PTR: !intel.dtrans.types = !{![[REFTOINH:[0-9]+]], ![[INHERITS:[0-9]+]], ![[NORMBASE_BASE:[0-9]+]], ![[DEF_CTOR:[0-9]+]], ![[NORMBASE:[0-9]+]]}
 // OPQ: !intel.dtrans.types = !{![[REFTOINH:[0-9]+]], ![[INHERITS:[0-9]+]], ![[NORMBASE:[0-9]+]], ![[NORMBASE_BASE:[0-9]+]], ![[DEF_CTOR:[0-9]+]]}
 
 // CHECK: ![[REFTOINH]] = !{!"S", %struct._ZTS16HasRefToInherits.HasRefToInherits zeroinitializer, i32 1, ![[INHERITS_PTR:[0-9]+]]}

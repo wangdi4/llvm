@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,8 +14,8 @@
 
 #pragma once
 
+#include "CL/cl.h"
 #include "cl_synch_objects.h"
-#include <CL/cl.h>
 #include <mutex>
 
 namespace Intel {

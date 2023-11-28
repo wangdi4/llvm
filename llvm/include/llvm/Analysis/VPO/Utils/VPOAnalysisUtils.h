@@ -112,6 +112,12 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "NONPOD"
 ///      Id = QUAL_OMP_PRIVATE
 ///
+/// * Sub-object operands (that are a part of a larger object). Example:
+///      FullName = "QUAL.OMP.PRIVATE:SUBOBJ"
+///      BaseName = "QUAL.OMP.PRIVATE"
+///      Modifier = "SUBOBJ"
+///      Id = QUAL_OMP_PRIVATE
+///
 #if INTEL_CUSTOMIZATION
 /// * Fortran NonPOD operands. Example:
 ///      FullName = "QUAL.OMP.PRIVATE:F90_NONPOD"
@@ -282,7 +288,11 @@ private:
   // Modifier for order clause
   bool IsReproducible : 1;
 
-  bool IsTyped : 1; // needed in case of data type transfer
+  // For clauses with extra operand-type information
+  bool IsTyped : 1;
+
+  // For clauses on a subobject of a larger object (like an array element)
+  bool IsSubObject : 1;
 
 public:
 
@@ -324,6 +334,7 @@ public:
   void setIsIV()                   { IsIV = true; }
   void setIsComplex()              { IsComplex = true; }
   void setIsTyped() { IsTyped = true; }
+  void setIsSubObject() { IsSubObject = true; }
 
   // Getters
   StringRef getFullName() const { return FullName; }
@@ -372,6 +383,7 @@ public:
   bool getIsIV() const { return IsIV; }
   bool getIsComplex() const { return IsComplex; }
   bool getIsTyped() const { return IsTyped; }
+  bool getIsSubObject() const { return IsSubObject; }
 };
 
 /// This class contains a set of utility functions used by VPO passes.

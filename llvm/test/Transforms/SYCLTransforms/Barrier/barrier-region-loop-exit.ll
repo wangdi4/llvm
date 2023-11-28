@@ -1,4 +1,4 @@
-; RUN: opt -passes=sycl-kernel-barrier -enable-native-debug=true %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier %s -S | FileCheck %s
 
 ; %i6.ascast.priv is used in the second loop.
 ; Check that %i6.ascast.priv's load from special buffer is inserted in exit of

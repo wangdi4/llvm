@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,16 +14,15 @@
 
 // \brief Tests for OpenCL common built-in functions (see spec. 6.11.4.) in
 // NEATALU
-#include "gtest_wrapper.h" // Test framework
-
-#include "DataGenerator.h"
 
 #include "ALUTest.h"
+#include "DataGenerator.h"
 #include "NEATALU.h"
 #include "NEATALUUtils.h"
 #include "NEATValue.h"
 #include "NEATVector.h"
 #include "RefALU.h"
+#include "gtest_wrapper.h" // Test framework
 
 using namespace Validation;
 

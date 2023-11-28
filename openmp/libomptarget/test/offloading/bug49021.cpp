@@ -1,6 +1,12 @@
 // RUN: %libomptarget-compilexx-generic -O3 && %libomptarget-run-generic
 // RUN: %libomptarget-compilexx-generic -O3 -ffast-math && %libomptarget-run-generic
+// RUN: %libomptarget-compileoptxx-generic -O3 && %libomptarget-run-generic
+// RUN: %libomptarget-compileoptxx-generic -O3 -ffast-math && %libomptarget-run-generic
 
+#if INTEL_CUSTOMIZATION
+// Workaround for non-default GCC environment
+#include <cstdio>
+#endif // INTEL_CUSTOMIZATION
 #include <iostream>
 
 template <typename T> int test_map() {

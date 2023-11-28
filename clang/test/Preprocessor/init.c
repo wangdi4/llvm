@@ -1083,7 +1083,7 @@
 // SPARC:#define __USER_LABEL_PREFIX__
 // INTEL_CUSTOMIZATION
 // SPARC:#define __VERSION__ "{{.*}}Intel(R) oneAPI DPC++/C++ Compiler{{.*}}
-// INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 // SPARC:#define __WCHAR_MAX__ 2147483647
 // SPARC:#define __WCHAR_TYPE__ int
 // SPARC:#define __WCHAR_WIDTH__ 32
@@ -1456,6 +1456,13 @@
 // RUN: %clang_cc1 -triple lanai-unknown-unknown -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix LANAI %s
 // LANAI: #define __lanai__ 1
 //
+// RUN: %clang_cc1 -triple=aarch64-unknown-haiku -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix HAIKU %s
+// RUN: %clang_cc1 -triple=arm-unknown-haiku -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix HAIKU %s
+// RUN: %clang_cc1 -triple=riscv64-unknown-haiku -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix HAIKU %s
+// RUN: %clang_cc1 -triple=x86_64-unknown-haiku -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix HAIKU %s
+// RUN: %clang_cc1 -triple=i386-unknown-haiku -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix HAIKU %s
+// HAIKU: #define __HAIKU__ 1
+//
 // RUN: %clang_cc1 -E -dM -ffreestanding -triple=amd64-unknown-openbsd6.1 < /dev/null | FileCheck -match-full-lines -check-prefix OPENBSD %s
 // RUN: %clang_cc1 -E -dM -ffreestanding -triple=aarch64-unknown-openbsd6.1 < /dev/null | FileCheck -match-full-lines -check-prefix OPENBSD %s
 // RUN: %clang_cc1 -E -dM -ffreestanding -triple=arm-unknown-openbsd6.1-gnueabi < /dev/null | FileCheck -match-full-lines -check-prefix OPENBSD %s
@@ -1662,7 +1669,7 @@
 // INTEL_CUSTOMIZATION
 // WEBASSEMBLY-NEXT:#define __INTEL_CLANG_COMPILER {{.*}}
 // WEBASSEMBLY-NEXT:#define __INTEL_LLVM_COMPILER {{.*}}
-// INTEL_CUSTOMIZATION 
+// end INTEL_CUSTOMIZATION
 // WEBASSEMBLY-NEXT:#define __INTMAX_C_SUFFIX__ LL
 // WEBASSEMBLY-NEXT:#define __INTMAX_FMTd__ "lld"
 // WEBASSEMBLY-NEXT:#define __INTMAX_FMTi__ "lli"

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2023 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,16 +14,16 @@
 
 #include "program.h"
 #include "Context.h"
+#include "Device.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_utils.h"
 #include "device_program.h"
+#include "fe_compiler.h"
 #include "framework_proxy.h"
 #include "kernel.h"
 #include "sampler.h"
-#include <Device.h>
 #include <algorithm>
 #include <assert.h>
-#include <cl_utils.h>
-#include <fe_compiler.h>
 #include <string.h>
 #include <string>
 #include <vector>
@@ -164,7 +164,8 @@ cl_err_code Program::ResetDeviceImageScopeGlobalVariable() {
 
     for (const auto &gv : gvs)
       if (gv.second.device_image_scope)
-        (void)memset(gv.second.pointer, 0, gv.second.size);
+        (void)memcpy(gv.second.pointer, m_gvInitValue[gv.second.pointer].get(),
+                     gv.second.size);
   }
 
   return CL_SUCCESS;
@@ -183,6 +184,14 @@ cl_err_code Program::AllocUSMForGVPointers() {
           deviceProgram->GetDeviceId(), gv.second.size, gv.second.pointer);
       if (CL_FAILED(err))
         return err;
+      // Record the initial value of the decorated globals since FPGA emulator
+      // need to reset them when the program is re-loaded.
+      if (m_pContext->IsFPGAEmulator() && gv.second.device_image_scope) {
+        m_gvInitValue[gv.second.pointer] =
+            std::make_unique<uint8_t[]>(gv.second.size);
+        (void)memcpy(m_gvInitValue[gv.second.pointer].get(), gv.second.pointer,
+                     gv.second.size);
+      }
     }
   }
   return CL_SUCCESS;
@@ -245,9 +254,6 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size,
   case CL_PROGRAM_DEVICES: {
     szParamValueSize = sizeof(cl_device_id) * m_szNumAssociatedDevices;
     clDevIds = new cl_device_id[m_szNumAssociatedDevices];
-    if (nullptr == clDevIds) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
     for (size_t i = 0; i < m_szNumAssociatedDevices; ++i) {
       clDevIds[i] = m_ppDevicePrograms[i]->GetDeviceId();
     }
@@ -401,12 +407,6 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size,
         for (size_t i = 0; i < uiNumKernels; ++i) {
           total_length += puiKernelNameLengths[i];
           pszKernelNames[i] = new char[puiKernelNameLengths[i]];
-          if (nullptr == pszKernelNames[i]) {
-            for (size_t j = 0; j < i; ++j) {
-              delete[] pszKernelNames[j];
-            }
-            return CL_OUT_OF_HOST_MEMORY;
-          }
         }
 
         // and finaly get the names
@@ -422,12 +422,6 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size,
         // once we have the actual names, we need to concatenate them
         assert(total_length > 0);
         szKernelsNames = new char[total_length];
-        if (nullptr == szKernelsNames) {
-          for (size_t i = 0; i < uiNumKernels; ++i) {
-            delete[] pszKernelNames[i];
-          }
-          return CL_OUT_OF_HOST_MEMORY;
-        }
 
         // There is at least one kernel
         STRCPY_S(szKernelsNames, total_length, pszKernelNames[0]);
@@ -752,9 +746,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels,
   }
 
   size_t *pszKernelNameLengths = new size_t[szNumKernels];
-  if (nullptr == pszKernelNameLengths) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   clErrRet = m_ppDevicePrograms[0]->GetKernelNames(
       nullptr, pszKernelNameLengths, szNumKernels);
   if (CL_FAILED(clErrRet)) {
@@ -762,20 +754,9 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels,
     return clErrRet;
   }
   char **ppKernelNames = new char *[szNumKernels];
-  if (nullptr == ppKernelNames) {
-    delete[] pszKernelNameLengths;
-    return CL_OUT_OF_HOST_MEMORY;
-  }
+
   for (size_t i = 0; i < szNumKernels; ++i) {
     ppKernelNames[i] = new char[pszKernelNameLengths[i]];
-    if (nullptr == ppKernelNames[i]) {
-      for (size_t j = 0; j < i; ++j) {
-        delete[] ppKernelNames[j];
-      }
-      delete[] ppKernelNames;
-      delete[] pszKernelNameLengths;
-      return CL_OUT_OF_HOST_MEMORY;
-    }
   }
 
   clErrRet = m_ppDevicePrograms[0]->GetKernelNames(

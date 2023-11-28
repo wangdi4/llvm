@@ -30,7 +30,6 @@
 #ifndef LLVM_ANALYSIS_IVDESCRIPTORS_H
 #define LLVM_ANALYSIS_IVDESCRIPTORS_H
 
-#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -50,28 +49,29 @@ class StoreInst;
 
 /// These are the kinds of recurrences that we support.
 enum class RecurKind {
-  None,       ///< Not a recurrence.
-  Add,        ///< Sum of integers.
-  Mul,        ///< Product of integers.
-  Or,         ///< Bitwise or logical OR of integers.
-  And,        ///< Bitwise or logical AND of integers.
-  Xor,        ///< Bitwise or logical XOR of integers.
-  SMin,       ///< Signed integer min implemented in terms of select(cmp()).
-  SMax,       ///< Signed integer max implemented in terms of select(cmp()).
-  UMin,       ///< Unisgned integer min implemented in terms of select(cmp()).
-  UMax,       ///< Unsigned integer max implemented in terms of select(cmp()).
-  FAdd,       ///< Sum of floats.
-  FMul,       ///< Product of floats.
-  FMin,       ///< FP min implemented in terms of select(cmp()).
-  FMax,       ///< FP max implemented in terms of select(cmp()).
-  FMinimum,   ///< FP min with llvm.minimum semantics
-  FMaximum,   ///< FP max with llvm.maximum semantics
-  FMulAdd,    ///< Fused multiply-add of floats (a * b + c).
-  Udr,        ///< User-defined recurrence operation. // INTEL
-  SelectICmp, ///< Integer select(icmp(),x,y) where one of (x,y) is loop
-              ///< invariant
-  SelectFCmp  ///< Integer select(fcmp(),x,y) where one of (x,y) is loop
-              ///< invariant
+  None,     ///< Not a recurrence.
+  Add,      ///< Sum of integers.
+  Mul,      ///< Product of integers.
+  Or,       ///< Bitwise or logical OR of integers.
+  And,      ///< Bitwise or logical AND of integers.
+  Xor,      ///< Bitwise or logical XOR of integers.
+  SMin,     ///< Signed integer min implemented in terms of select(cmp()).
+  SMax,     ///< Signed integer max implemented in terms of select(cmp()).
+  UMin,     ///< Unsigned integer min implemented in terms of select(cmp()).
+  UMax,     ///< Unsigned integer max implemented in terms of select(cmp()).
+  FAdd,     ///< Sum of floats.
+  FMul,     ///< Product of floats.
+  FMin,     ///< FP min implemented in terms of select(cmp()).
+  FMax,     ///< FP max implemented in terms of select(cmp()).
+  FMinimum, ///< FP min with llvm.minimum semantics
+  FMaximum, ///< FP max with llvm.maximum semantics
+  FMulAdd,  ///< Sum of float products with llvm.fmuladd(a * b + sum).
+  Udr,      ///< User-defined recurrence operation. // INTEL
+  IAnyOf,   ///< Any_of reduction with select(icmp(),x,y) where one of (x,y) is
+            ///< loop invariant, and both x and y are integer type.
+  FAnyOf    ///< Any_of reduction with select(fcmp(),x,y) where one of (x,y) is
+            ///< loop invariant, and both x and y are integer type.
+  // TODO: Any_of reduction need not be restricted to integer type only.
 };
 
 /// The RecurrenceDescriptor is used to identify recurrences variables in a
@@ -85,10 +85,10 @@ enum class RecurKind {
 /// special case of chains of recurrences (CR). See ScalarEvolution for CR
 /// references.
 
-/// This struct holds information about recurrence, kind, type, etc // INTEL.
-class RecurrenceDescriptorData { // INTEL
-public:
 #if INTEL_CUSTOMIZATION
+/// This struct holds information about recurrence, kind, type, etc
+class RecurrenceDescriptorData {
+public:
   RecurKind getRecurrenceKind() const { return Kind; }
   FastMathFlags getFastMathFlags() const { return FMF; }
 
@@ -143,8 +143,8 @@ public:
 
   /// Returns true if the recurrence kind is of the form
   ///   select(cmp(),x,y) where one of (x,y) is loop invariant.
-  static bool isSelectCmpRecurrenceKind(RecurKind Kind) {
-    return Kind == RecurKind::SelectICmp || Kind == RecurKind::SelectFCmp;
+  static bool isAnyOfRecurrenceKind(RecurKind Kind) {
+    return Kind == RecurKind::IAnyOf || Kind == RecurKind::FAnyOf;
   }
 
 protected:
@@ -209,7 +209,7 @@ class RecurrenceDescriptor
       RecurrenceDescriptorTempl<Value, Instruction, DescriptorValueStorage>;
 
 public:
-#endif
+#endif // INTEL_CUSTOMIZATION
   RecurrenceDescriptor() = default;
 
   RecurrenceDescriptor(Value *Start, Instruction *Exit, StoreInst *Store,
@@ -221,22 +221,22 @@ public:
       : RDTempl(Start, Exit, K, FMF, RT, Signed, Ordered),
         IntermediateStore(Store), ExactFPMathInst(ExactFP),
         MinWidthCastToRecurrenceType(MinWidthCastToRecurTy) {
-#endif
+#endif // INTEL_CUSTOMIZATION
     CastInsts.insert(CI.begin(), CI.end());
   }
 
-  /// Returns identity corresponding to the RecurrenceKind.
 #if INTEL_CUSTOMIZATION
+  /// Returns identity corresponding to the RecurrenceKind.
   Value *getRecurrenceIdentity(RecurKind K, Type *Tp, FastMathFlags FMF) const {
-#endif
     switch (K) {
-    case RecurKind::SelectICmp:
-    case RecurKind::SelectFCmp:
+    case RecurKind::IAnyOf:
+    case RecurKind::FAnyOf:
       return getRecurrenceStartValue();
     default:
       return getConstRecurrenceIdentity(K, Tp, FMF);
     }
   }
+#endif // INTEL_CUSTOMIZATION
 
   /// This POD struct holds information about a potential recurrence operation.
   class InstDesc {
@@ -303,8 +303,8 @@ public:
   /// where one of (X, Y) is a loop invariant integer and the other is a PHI
   /// value. \p Prev specifies the description of an already processed select
   /// instruction, so its corresponding cmp can be matched to it.
-  static InstDesc isSelectCmpPattern(Loop *Loop, PHINode *OrigPhi,
-                                     Instruction *I, InstDesc &Prev);
+  static InstDesc isAnyOfPattern(Loop *Loop, PHINode *OrigPhi, Instruction *I,
+                                 InstDesc &Prev);
 
   /// Returns a struct describing if the instruction is a
   /// Select(FCmp(X, Y), (Z = X op PHINode), PHINode) instruction pattern.
@@ -450,7 +450,7 @@ protected:
 class InductionDescriptor
     : public InductionDescriptorTempl<Value, BinaryOperator,
                                      DescriptorValueStorage> {
-#endif
+#endif // INTEL_CUSTOMIZATION
 public:
   /// Default constructor - creates an invalid induction.
   InductionDescriptor() = default;
@@ -458,11 +458,11 @@ public:
 #if !INTEL_CUSTOMIZATION
   Value *getStartValue() const { return StartValue; }
   InductionKind getKind() const { return IK; }
-#endif
+#endif // INTEL_CUSTOMIZATION
   const SCEV *getStep() const { return Step; }
 #if !INTEL_CUSTOMIZATION
   BinaryOperator *getInductionBinOp() const { return InductionBinOp; }
-#endif
+#endif // INTEL_CUSTOMIZATION
   ConstantInt *getConstIntStepValue() const;
 
   /// Returns true if \p Phi is an induction in the loop \p L. If \p Phi is an
@@ -477,8 +477,10 @@ public:
   static bool
   isInductionPHI(PHINode *Phi, const Loop *L, ScalarEvolution *SE,
                  InductionDescriptor &D, const SCEV *Expr = nullptr,
+#if INTEL_CUSTOMIZATION
                  SmallVectorImpl<Instruction *> *CastsToIgnore = nullptr,
-                 bool OnlyConstPtrStep = true); // INTEL
+                 bool OnlyConstPtrStep = true);
+#endif // INTEL_CUSTOMIZATION
 
   /// Returns true if \p Phi is a floating point induction in the loop \p L.
   /// If \p Phi is an induction, the induction descriptor \p D will contain
@@ -494,8 +496,10 @@ public:
   /// induction.
   static bool isInductionPHI(PHINode *Phi, const Loop *L,
                              PredicatedScalarEvolution &PSE,
+#if INTEL_CUSTOMIZATION
                              InductionDescriptor &D, bool Assume = false,
-                             bool OnlyConstPtrStep = true); // INTEL
+                             bool OnlyConstPtrStep = true);
+#endif // INTEL_CUSTOMIZATION
 
   /// Returns floating-point induction operator that does not allow
   /// reassociation (transforming the induction requires an override of normal
@@ -513,14 +517,7 @@ public:
     return InductionBinOp ? InductionBinOp->getOpcode()
                           : Instruction::BinaryOpsEnd;
   }
-#endif
-
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  Type *getElementType() const {
-    assert(IK == IK_PtrInduction && "Only pointer induction has element type");
-    return ElementType;
-  }
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
+#endif // INTEL_CUSTOMIZATION
 
   /// Returns a reference to the type cast instructions in the induction
   /// update chain, that are redundant when guarded with a runtime
@@ -533,9 +530,6 @@ private:
   /// Private constructor - used by \c isInductionPHI.
   InductionDescriptor(Value *Start, InductionKind K, const SCEV *Step,
                       BinaryOperator *InductionBinOp = nullptr,
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-                      Type *ElementType = nullptr,
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                       SmallVectorImpl<Instruction *> *Casts = nullptr);
 
 #if !INTEL_CUSTOMIZATION
@@ -543,19 +537,13 @@ private:
   TrackingVH<Value> StartValue;
   /// Induction kind.
   InductionKind IK = IK_NoInduction;
-#endif
+#endif // INTEL_CUSTOMIZATION
   /// Step value.
   const SCEV *Step = nullptr;
 #if !INTEL_CUSTOMIZATION
   // Instruction that advances induction variable.
   BinaryOperator *InductionBinOp = nullptr;
-#endif
-
-#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
-  // Element type for pointer induction variables.
-  // TODO: This can be dropped once support for typed pointers is removed.
-  Type *ElementType = nullptr;
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+#endif // INTEL_CUSTOMIZATION
 
   // Instructions used for type-casts of the induction variable,
   // that are redundant when guarded with a runtime SCEV overflow check.

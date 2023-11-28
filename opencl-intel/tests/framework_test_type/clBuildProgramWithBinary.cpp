@@ -233,7 +233,9 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc) {
   delete[] pBinarySizes;
   delete[] pBinaryStatus;
   delete[] ppContainers;
-  delete[] pCont;
+
+  free(pCont);
+
   clReleaseProgram(g_clProgram);
   clReleaseContext(context);
   return bResult;

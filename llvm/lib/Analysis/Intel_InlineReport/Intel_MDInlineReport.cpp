@@ -1,6 +1,6 @@
 //===--- Intel_MDInlineReport.cpp  --Inlining report vis metadata --------===//
 //
-// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -318,12 +318,29 @@ bool CallSiteInliningReport::isCallSiteInliningReportMetadata(
   return S->getString() == CallSiteTag;
 }
 
-void InlineReportBuilder::addMultiversionedCallSite(CallBase *CB) {
+void CallSiteInliningReport::initReason(CallBase *CB) {
+  Function *Callee = CB->getCalledFunction();
+  if (Callee) {
+    if (Callee->isDeclaration()) {
+      if (Callee->isIntrinsic())
+        llvm::setMDReasonNotInlined(CB, NinlrIntrinsic);
+      else
+        llvm::setMDReasonNotInlined(CB, NinlrExtern);
+    } else {
+      llvm::setMDReasonNotInlined(CB, NinlrNewlyCreated);
+    }
+  } else {
+    llvm::setMDReasonNotInlined(CB, NinlrIndirect);
+  }
+}
+
+void InlineReportBuilder::addCallSite(CallBase *CB) {
   if (!isMDIREnabled())
     return;
-  CallSiteInliningReport CSIR(CB, nullptr, NinlrMultiversionedCallsite);
+  CallSiteInliningReport CSIR(CB, nullptr, NinlrNoReason);
   Function *Caller = CB->getCaller();
   Function *Callee = CB->getCalledFunction();
+  CSIR.initReason(CB);
   std::string FuncName = std::string(Callee ? Callee->getName() : "");
   FuncName.insert(0, "name: ");
   CB->setMetadata(CallSiteTag, CSIR.get());
@@ -335,6 +352,8 @@ void InlineReportBuilder::addMultiversionedCallSite(CallBase *CB) {
   SmallVector<Metadata *, 100> Ops;
   Ops.push_back(llvm::MDString::get(Ctx, CallSitesTag));
   Metadata *CallerMD = Caller->getMetadata(FunctionTag);
+  if (!CallerMD)
+    return;
   auto *CallerMDTuple = cast<MDTuple>(CallerMD);
   if (Metadata *MDCSs = CallerMDTuple->getOperand(FMDIR_CSs).get()) {
     auto CSs = cast<MDTuple>(MDCSs);
@@ -346,6 +365,26 @@ void InlineReportBuilder::addMultiversionedCallSite(CallBase *CB) {
   MDNode *NewCSs = MDTuple::getDistinct(Ctx, Ops);
   CallerMDTuple->replaceOperandWith(FMDIR_CSs, NewCSs);
   addCallback(CB);
+}
+
+void InlineReportBuilder::addFunction(Function *F) {
+  if (!isMDIREnabled())
+    return;
+  std::vector<MDTuple *> CSs;
+  FunctionInliningReport FIR(F, &CSs, /*isDead=*/false, getLevel() & Compact);
+  addCallback(F);
+  initFunctionTemps(F);
+  Module *M = F->getParent();
+  NamedMDNode *ModuleInlineReport = M->getOrInsertNamedMetadata(ModuleTag);
+  ModuleInlineReport->addOperand(FIR.get());
+  F->setMetadata(FunctionTag, FIR.get());
+}
+
+void InlineReportBuilder::addMultiversionedCallSite(CallBase *CB) {
+  if (!isMDIREnabled())
+    return;
+  addCallSite(CB);
+  llvm::setMDReasonNotInlined(CB, NinlrMultiversionedCallsite);
 }
 
 void InlineReportBuilder::deleteFunctionBody(Function *F) {
@@ -630,7 +669,10 @@ void InlineReportBuilder::setIsCompact(Function *F, bool Value) {
   std::string IsCompactStr = "isCompact: ";
   IsCompactStr.append(std::to_string(Value));
   auto IsCompactMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, IsCompactStr));
-  auto FIR = cast<MDTuple>(F->getMetadata(FunctionTag));
+  auto FMD = F->getMetadata(FunctionTag);
+  if (!FMD)
+    return;
+  auto FIR = cast<MDTuple>(FMD);
   FIR->replaceOperandWith(FMDIR_IsCompact, IsCompactMD);
 }
 
@@ -1207,7 +1249,7 @@ void InlineReportBuilder::cloneFunction(Function *OldFunction,
   auto *OldFunctionMDTuple = dyn_cast<MDTuple>(OldFunctionMD);
   if (!OldFunctionMDTuple)
     return;
-  LLVMContext &Ctx = NewFunction->getParent()->getContext();
+  LLVMContext &Ctx = OldFunction->getParent()->getContext();
   Metadata *NewFunctionMD = copyMD(Ctx, OldFunctionMD);
   auto *NewFunctionMDTuple = cast<MDTuple>(NewFunctionMD);
   // Update the function name to correspond to NewFunction.
@@ -1226,7 +1268,7 @@ void InlineReportBuilder::cloneFunction(Function *OldFunction,
   // Update the clone's list of callsites.
   Module *M = OldFunction->getParent();
   NamedMDNode *ModuleInlineReport = M->getOrInsertNamedMetadata(ModuleTag);
-  initFunctionTemps(NewFunction);
+  initFunctionTemps(NewFunction, M);
   ModuleInlineReport->addOperand(NewFunctionMDTuple);
   SmallVector<Metadata *, 100> Ops;
   SmallPtrSet<Metadata *, 32> CopiedMD;
@@ -1367,6 +1409,21 @@ void InlineReportBuilder::replaceAllUsesWith(Function *OldFunction,
       setCalledFunction(CB, NewFunction);
 }
 
+void InlineReportBuilder::replaceUsesWithIf(
+    Function *OldFunction, Function *NewFunction,
+    llvm::function_ref<bool(Use &U)> ShouldReplace) {
+  //
+  // NOTE: This should be called before replaceUsesWithIf() in Value.cpp,
+  // because it uses the 'users' list to find the users of 'OldFunction'.
+  //
+  if (!isMDIREnabled())
+    return;
+  for (auto &U : OldFunction->uses())
+    if (ShouldReplace(U))
+      if (auto CB = dyn_cast<CallBase>(U.getUser()))
+        setCalledFunction(CB, NewFunction);
+}
+
 void InlineReportBuilder::removeCallBasesInBasicBlocks(
     SmallSetVector<BasicBlock *, 8> &BlocksToRemove) {
   if (!isMDIREnabled())
@@ -1391,7 +1448,7 @@ void InlineReportBuilder::setBrokerTarget(CallBase *CB, Function *F) {
   if (!CBMD)
     return;
   auto CSIR = cast<MDTuple>(CBMD);
-  std::string FuncName = std::string(F ? F->getName() : "");
+  std::string FuncName = std::string(F->hasName() ? F->getName() : "");
   FuncName.insert(0, "name: ");
   LLVMContext &Ctx = CB->getModule()->getContext();
   auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));

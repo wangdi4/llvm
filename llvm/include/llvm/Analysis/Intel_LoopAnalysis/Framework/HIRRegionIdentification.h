@@ -1,6 +1,6 @@
 //===---- HIRRegionIdentification.h - Identifies HIR regions ---*- C++ --*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -26,6 +26,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Support/CommandLine.h"
 
 namespace llvm {
 
@@ -44,6 +45,8 @@ class SCEV;
 class TargetLibraryInfo;
 class MDNode;
 class Type;
+
+extern cl::opt<bool> AllowRegionsForLoopMaterialization;
 
 namespace loopopt {
 
@@ -221,6 +224,13 @@ public:
                           const Loop *Lp = nullptr,
                           bool IsLastIndexedType = false);
 
+  /// Returns true if \p GEPOrSubs represents one-past-end array access.
+  static bool isOnePastEndConstGEP(const GEPOperator *GEPOrSubsOp);
+
+  /// Returns true if \p GEPOpSubs contains out-of-range access.
+  static bool containsUnsupportedIdx(const GEPOrSubsOperator *GEPOrSubsOp,
+                                     const Loop *Lp);
+
   /// Returns true if \p GEPOp contains a type not supported by HIR.
   static bool containsUnsupportedTy(const GEPOrSubsOperator *GEPOp,
                                     const Loop *Lp = nullptr);
@@ -242,10 +252,6 @@ public:
   const Value *getHeaderPhiUpdateVal(const PHINode *Phi) const {
     return getHeaderPhiOperand(Phi, false);
   }
-
-  /// Returns true if the \p AddRecPtrPhi has unconventional access pattern
-  /// (through a bitcast, for example).
-  bool hasNonGEPAccess(const PHINode *AddRecPtrPhi) const;
 
   /// Returns true if \p BB can be reached from any of the \p FromBBs before
   /// hitting any \p EndBBs and without going through any backedges.

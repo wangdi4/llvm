@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -passes="inline" -S -o - %s | FileCheck %s
+; RUN: opt -passes="inline" -S -o - %s | FileCheck %s
 
 ; When inlining a function that contains an alloca outside the first block,
 ; the inliner normally inserts a stacksave/stackrestore to simulate the

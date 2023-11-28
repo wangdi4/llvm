@@ -1,6 +1,5 @@
 // INTEL_FEATURE_SW_DTRANS
 // REQUIRES: x86-registered-target, intel_feature_sw_dtrans
-// UNSUPPORTED: enable-opaque-pointers
 
 /// Intel specific optimization options that are available only under
 /// INTEL FEATURE SW_DTRANS. This test case is the same as
@@ -15,6 +14,7 @@
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_DEFAULT_DTRANS %s
 // RUN: %clang_cl -Qopt-mem-layout-trans:2 -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_DEFAULT_DTRANS %s
+// LAYOUT_TRANS_DEFAULT_DTRANS: "-emit-dtrans-info"
 // LAYOUT_TRANS_DEFAULT_DTRANS: "-mllvm" "-enable-dtrans"
 // LAYOUT_TRANS_DEFAULT_DTRANS: "-mllvm" "-enable-npm-dtrans"
 // LAYOUT_TRANS_DEFAULT_DTRANS: "-mllvm" "-dtrans-mem-layout-level=2"
@@ -46,9 +46,9 @@
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_4 %s
 // LAYOUT_TRANS_4: "-mllvm" "-dtrans-mem-layout-level=4"
 
-// RUN: %clang -qopt-mem-layout-trans=8 -### -c %s 2>&1 \
+// RUN: not %clang -qopt-mem-layout-trans=8 -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_INVALID %s
-// RUN: %clang_cl -Qopt-mem-layout-trans:8 -### -c %s 2>&1 \
+// RUN: not %clang_cl -Qopt-mem-layout-trans:8 -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_INVALID %s
 // LAYOUT_TRANS_INVALID: error: invalid argument '8'
 

@@ -286,10 +286,10 @@ define void @load_mad_store_int8(ptr addrspace(4) %ptr, i64 %Stride) {
   %A = call <12 x i8> @llvm.experimental.matrix.load.v12i8.p4(ptr addrspace(4) %ptr, i64 %Stride, i1 false, i32 3, i32 4, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %B = call <20 x i8> @llvm.experimental.matrix.load.v20i8.p4(ptr addrspace(4) %ptr, i64 %Stride, i1 false, i32 4, i32 5, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %C = call <15 x i32> @llvm.experimental.matrix.load.v15i32.p4(ptr addrspace(4) %ptr, i64 %Stride, i1 false, i32 3, i32 5, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-  %D = call <15 x i32> @llvm.experimental.matrix.mad.v15i32.v12i8.v20i8(<12 x i8> %A, metadata !"matrix.rowmajor", <20 x i8> %B, metadata !"matrix.packed.b", <15 x i32> %C, metadata !"matrix.rowmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
-  %E = call <15 x i32> @llvm.experimental.matrix.sumad.v15i32.v12i8.v20i8(<12 x i8> %A, metadata !"matrix.rowmajor", <20 x i8> %B, metadata !"matrix.packed.b", <15 x i32> %C, metadata !"matrix.rowmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
-  %F = call <15 x i32> @llvm.experimental.matrix.usmad.v15i32.v12i8.v20i8(<12 x i8> %A, metadata !"matrix.rowmajor", <20 x i8> %B, metadata !"matrix.packed.b", <15 x i32> %C, metadata !"matrix.rowmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
-  %G = call <15 x i32> @llvm.experimental.matrix.uumad.v15i32.v12i8.v20i8(<12 x i8> %A, metadata !"matrix.rowmajor", <20 x i8> %B, metadata !"matrix.packed.b", <15 x i32> %C, metadata !"matrix.rowmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
+  %D = call <15 x i32> @llvm.experimental.matrix.mad.v15i32.v12i8.v20i8(<12 x i8> %A, <20 x i8> %B, <15 x i32> %C, i32 3, i32 4, i32 5, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
+  %E = call <15 x i32> @llvm.experimental.matrix.sumad.v15i32.v12i8.v20i8(<12 x i8> %A, <20 x i8> %B, <15 x i32> %C, i32 3, i32 4, i32 5, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
+  %F = call <15 x i32> @llvm.experimental.matrix.usmad.v15i32.v12i8.v20i8(<12 x i8> %A, <20 x i8> %B, <15 x i32> %C, i32 3, i32 4, i32 5, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
+  %G = call <15 x i32> @llvm.experimental.matrix.uumad.v15i32.v12i8.v20i8(<12 x i8> %A, <20 x i8> %B, <15 x i32> %C, i32 3, i32 4, i32 5, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
   call void @llvm.experimental.matrix.store.v15i32.p4(<15 x i32> %D, ptr addrspace(4) %ptr, i64 %Stride, i1 false, i32 3, i32 5, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret void
 }
@@ -322,7 +322,7 @@ define void @load_mad_store_bf16(ptr addrspace(4) %ptrA, ptr addrspace(4) %ptrB,
   %A = call <450 x i16> @llvm.experimental.matrix.load.v450i16.p4(ptr addrspace(4) %ptrA, i64 %Stride, i1 false, i32 15, i32 30, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %B = call <450 x i16> @llvm.experimental.matrix.load.v450i16.p4(ptr addrspace(4) %ptrB, i64 %Stride, i1 false, i32 30, i32 15, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %C = call <225 x float> @llvm.experimental.matrix.load.v225f32.p4(ptr addrspace(4) %ptrC, i64 %Stride, i1 false, i32 15, i32 15, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-  %D = call <225 x float> @llvm.experimental.matrix.mad.v225f32.v450i16.v450i16(<450 x i16> %A, metadata !"matrix.rowmajor", <450 x i16> %B, metadata !"matrix.packed.b", <225 x float> %C, metadata !"matrix.rowmajor", i32 15, i32 30, i32 15, metadata !"scope.subgroup")
+  %D = call <225 x float> @llvm.experimental.matrix.mad.v225f32.v450i16.v450i16(<450 x i16> %A, <450 x i16> %B, <225 x float> %C, i32 15, i32 30, i32 15, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
   call void @llvm.experimental.matrix.store.v225f32.p4(<225 x float> %D, ptr addrspace(4) %ptrD, i64 %Stride, i1 false, i32 15, i32 15, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret void
 }
@@ -370,10 +370,10 @@ define void @load_mad_store_int8_with_use(ptr addrspace(4) %ptr, i64 %Stride) {
   %A = call <12 x i8> @llvm.experimental.matrix.load.v12i8.p4(ptr addrspace(4) %ptr, i64 %Stride, i1 false, i32 3, i32 4, metadata !"matrix.columnmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
   %B = call <20 x i8> @llvm.experimental.matrix.load.v20i8.p4(ptr addrspace(4) %ptr, i64 %Stride, i1 false, i32 4, i32 5, metadata !"matrix.rowmajor", metadata !"matrix.packed", metadata !"scope.subgroup", metadata !"matrix.use.b")
   %C = call <15 x i32> @llvm.experimental.matrix.load.v15i32.p4(ptr addrspace(4) %ptr, i64 %Stride, i1 false, i32 3, i32 5, metadata !"matrix.columnmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.accumulator")
-  %D = call <15 x i32> @llvm.experimental.matrix.mad.v15i32.v12i8.v20i8(<12 x i8> %A, metadata !"matrix.columnmajor", <20 x i8> %B, metadata !"matrix.rowmajor", <15 x i32> %C, metadata !"matrix.columnmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
-  %E = call <15 x i32> @llvm.experimental.matrix.sumad.v15i32.v12i8.v20i8(<12 x i8> %A, metadata !"matrix.columnmajor", <20 x i8> %B, metadata !"matrix.rowmajor", <15 x i32> %C, metadata !"matrix.columnmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
-  %F = call <15 x i32> @llvm.experimental.matrix.usmad.v15i32.v12i8.v20i8(<12 x i8> %A, metadata !"matrix.columnmajor", <20 x i8> %B, metadata !"matrix.rowmajor", <15 x i32> %C, metadata !"matrix.columnmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
-  %G = call <15 x i32> @llvm.experimental.matrix.uumad.v15i32.v12i8.v20i8(<12 x i8> %A, metadata !"matrix.columnmajor", <20 x i8> %B, metadata !"matrix.rowmajor", <15 x i32> %C, metadata !"matrix.columnmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
+  %D = call <15 x i32> @llvm.experimental.matrix.mad.v15i32.v12i8.v20i8(<12 x i8> %A, <20 x i8> %B, <15 x i32> %C, i32 3, i32 4, i32 5, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
+  %E = call <15 x i32> @llvm.experimental.matrix.sumad.v15i32.v12i8.v20i8(<12 x i8> %A, <20 x i8> %B, <15 x i32> %C, i32 3, i32 4, i32 5, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
+  %F = call <15 x i32> @llvm.experimental.matrix.usmad.v15i32.v12i8.v20i8(<12 x i8> %A, <20 x i8> %B, <15 x i32> %C, i32 3, i32 4, i32 5, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
+  %G = call <15 x i32> @llvm.experimental.matrix.uumad.v15i32.v12i8.v20i8(<12 x i8> %A, <20 x i8> %B, <15 x i32> %C, i32 3, i32 4, i32 5, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
   call void @llvm.experimental.matrix.store.v15i32.p4(<15 x i32> %D, ptr addrspace(4) %ptr, i64 %Stride, i1 false, i32 3, i32 5, metadata !"matrix.columnmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.accumulator")
   ret void
 }
@@ -406,13 +406,13 @@ define void @load_mad_store_bf16_with_use(ptr addrspace(4) %ptrA, ptr addrspace(
   %A = call <450 x i16> @llvm.experimental.matrix.load.v450i16.p4(ptr addrspace(4) %ptrA, i64 %Stride, i1 false, i32 15, i32 30, metadata !"matrix.columnmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
   %B = call <450 x i16> @llvm.experimental.matrix.load.v450i16.p4(ptr addrspace(4) %ptrB, i64 %Stride, i1 false, i32 30, i32 15, metadata !"matrix.rowmajor", metadata !"matrix.packed", metadata !"scope.subgroup", metadata !"matrix.use.b")
   %C = call <225 x float> @llvm.experimental.matrix.load.v225f32.p4(ptr addrspace(4) %ptrC, i64 %Stride, i1 false, i32 15, i32 15, metadata !"matrix.columnmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.accumulator")
-  %D = call <225 x float> @llvm.experimental.matrix.mad.v225f32.v450i16.v450i16(<450 x i16> %A, metadata !"matrix.columnmajor", <450 x i16> %B, metadata !"matrix.rowmajor", <225 x float> %C, metadata !"matrix.columnmajor", i32 15, i32 30, i32 15, metadata !"scope.subgroup")
+  %D = call <225 x float> @llvm.experimental.matrix.mad.v225f32.v450i16.v450i16(<450 x i16> %A, <450 x i16> %B, <225 x float> %C, i32 15, i32 30, i32 15, metadata !"scope.subgroup", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none", metadata !"matrix.reinterpret.type.none")
   call void @llvm.experimental.matrix.store.v225f32.p4(<225 x float> %D, ptr addrspace(4) %ptrD, i64 %Stride, i1 false, i32 15, i32 15, metadata !"matrix.columnmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.accumulator")
   ret void
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(none)
-declare <225 x float> @llvm.experimental.matrix.mad.v225f32.v450i16.v450i16(<450 x i16>, metadata, <450 x i16>, metadata, <225 x float>, metadata, i32, i32, i32, metadata) #0
+declare <225 x float> @llvm.experimental.matrix.mad.v225f32.v450i16.v450i16(<450 x i16>, <450 x i16>, <225 x float>, i32, i32, i32, metadata, metadata, metadata, metadata, metadata) #0
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(read)
 declare <12 x i8> @llvm.experimental.matrix.load.v12i8.p4(ptr addrspace(4), i64, i1, i32, i32, metadata, metadata, metadata, metadata) #1
@@ -424,16 +424,16 @@ declare <20 x i8> @llvm.experimental.matrix.load.v20i8.p4(ptr addrspace(4), i64,
 declare <15 x i32> @llvm.experimental.matrix.load.v15i32.p4(ptr addrspace(4), i64, i1, i32, i32, metadata, metadata, metadata, metadata) #1
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(none)
-declare <15 x i32> @llvm.experimental.matrix.mad.v15i32.v12i8.v20i8(<12 x i8>, metadata, <20 x i8>, metadata, <15 x i32>, metadata, i32, i32, i32, metadata) #0
+declare <15 x i32> @llvm.experimental.matrix.mad.v15i32.v12i8.v20i8(<12 x i8>, <20 x i8>, <15 x i32>, i32, i32, i32, metadata, metadata, metadata, metadata, metadata) #0
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(none)
-declare <15 x i32> @llvm.experimental.matrix.sumad.v15i32.v12i8.v20i8(<12 x i8>, metadata, <20 x i8>, metadata, <15 x i32>, metadata, i32, i32, i32, metadata) #0
+declare <15 x i32> @llvm.experimental.matrix.sumad.v15i32.v12i8.v20i8(<12 x i8>, <20 x i8>, <15 x i32>, i32, i32, i32, metadata, metadata, metadata, metadata, metadata) #0
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(none)
-declare <15 x i32> @llvm.experimental.matrix.usmad.v15i32.v12i8.v20i8(<12 x i8>, metadata, <20 x i8>, metadata, <15 x i32>, metadata, i32, i32, i32, metadata) #0
+declare <15 x i32> @llvm.experimental.matrix.usmad.v15i32.v12i8.v20i8(<12 x i8>, <20 x i8>, <15 x i32>, i32, i32, i32, metadata, metadata, metadata, metadata, metadata) #0
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(none)
-declare <15 x i32> @llvm.experimental.matrix.uumad.v15i32.v12i8.v20i8(<12 x i8>, metadata, <20 x i8>, metadata, <15 x i32>, metadata, i32, i32, i32, metadata) #0
+declare <15 x i32> @llvm.experimental.matrix.uumad.v15i32.v12i8.v20i8(<12 x i8>, <20 x i8>, <15 x i32>, i32, i32, i32, metadata, metadata, metadata, metadata, metadata) #0
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(write)
 declare void @llvm.experimental.matrix.store.v15i32.p4(<15 x i32>, ptr addrspace(4), i64, i1, i32, i32, metadata, metadata, metadata, metadata) #2

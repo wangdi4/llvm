@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -39,7 +39,6 @@
 #include "llvm/Analysis/DomPrinter.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/IntervalPartition.h"
-#include "llvm/Analysis/Lint.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/RegionPass.h"
@@ -59,26 +58,21 @@
 #include "llvm/SYCLLowerIR/LowerWGScope.h"
 #include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
 #include "llvm/Support/Valgrind.h"
-#include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
-#include "llvm/Transforms/IPO/Attributor.h"
-#include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Instrumentation.h"
-#include "llvm/Transforms/Instrumentation/BoundsChecking.h"
 #include "llvm/Transforms/Instrumentation/SPIRITTAnnotations.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
-#include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Scalar/Scalarizer.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Transforms/Vectorize.h"
 
 #if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Vectorize.h"
 #include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
@@ -98,6 +92,7 @@
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #endif // INTEL_COLLAB
 
+#include "llvm/Transforms/Vectorize/LoadStoreVectorizer.h"
 #include <cstdlib>
 
 namespace {
@@ -113,7 +108,6 @@ namespace {
       if (std::getenv("bar") != (char*) -1)
         return;
 
-      (void) llvm::createAAEvalPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createNonLTOGlobalOptimizerPass();
       (void) llvm::createTbaaMDPropagationLegacyPass();
@@ -173,7 +167,6 @@ namespace {
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createLoopRotatePass();
       (void) llvm::createLowerConstantIntrinsicsPass();
-      (void) llvm::createLowerExpectIntrinsicPass();
       (void) llvm::createLowerGlobalDtorsLegacyPass();
       (void) llvm::createLowerInvokePass();
       (void) llvm::createLowerSwitchPass();
@@ -213,15 +206,16 @@ namespace {
       (void) llvm::createExpandLargeDivRemPass();
       (void) llvm::createExpandMemCmpPass();
       (void) llvm::createExpandVectorPredicationPass();
+#if INTEL_CUSTOMIZATION
       (void)llvm::createSYCLLowerWGScopePass();
       (void)llvm::createSYCLLowerESIMDPass();
       (void)llvm::createESIMDLowerLoadStorePass();
-      (void)llvm::createESIMDLowerVecArgPass();
       (void)llvm::createESIMDVerifierPass();
       (void)llvm::createSPIRITTAnnotationsLegacyPass();
       (void)llvm::createSYCLLowerWGLocalMemoryLegacyPass();
       (void)llvm::createESIMDVerifierPass();
       (void)llvm::createSYCLLowerInvokeSimdPass();
+#endif // INTEL_CUSTOMIZATION
       std::string buf;
       llvm::raw_string_ostream os(buf);
       (void) llvm::createPrintModulePass(os);
@@ -270,8 +264,7 @@ namespace {
       // HIR passes
       (void) llvm::createHIRRegionIdentificationWrapperPass();
       (void) llvm::createHIRSCCFormationWrapperPass();
-      (void) llvm::createHIRFrameworkWrapperPass();
-      (void) llvm::createHIROptReportEmitterWrapperPass();
+      (void)llvm::createHIRFrameworkWrapperPass();
       (void) llvm::createHIRDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
       (void) llvm::createHIRLoopResourceWrapperPass();
@@ -280,56 +273,13 @@ namespace {
       (void) llvm::createHIRSafeReductionAnalysisPass();
       (void) llvm::createHIRSparseArrayReductionAnalysisPass();
       (void) llvm::createHIRSSADeconstructionLegacyPass();
-      (void) llvm::createHIRTempCleanupPass();
-      (void) llvm::createHIRLoopInterchangePass();
-      (void) llvm::createHIRLoopBlockingPass();
-      (void) llvm::createHIRPragmaLoopBlockingPass();
-      (void) llvm::createHIRGenerateMKLCallPass();
-      (void) llvm::createHIROptPredicatePass();
-      (void) llvm::createHIROptVarPredicatePass();
-      (void) llvm::createHIRGeneralUnrollPass();
-      (void) llvm::createHIRUnrollAndJamPass();
-      (void) llvm::createHIRParDirInsertPass();
-      (void) llvm::createHIRVecDirInsertPass();
-      (void) llvm::createHIRLoopDistributionForMemRecPass();
-      (void) llvm::createHIRLoopDistributionForLoopNestPass();
-      (void) llvm::createHIRLoopRematerializePass();
-      (void) llvm::createHIRLoopRerollPass();
-      (void) llvm::createHIRLoopReversalPass();
-      (void) llvm::createHIRIfReversalPass();
-      (void) llvm::createHIRLoopCollapsePass();
-      (void) llvm::createHIRPMSymbolicTripCountCompleteUnrollLegacyPass();
-      (void) llvm::createHIRScalarReplArrayPass();
-      (void) llvm::createHIRIdiomRecognitionPass();
-      (void) llvm::createHIRMVForConstUBPass();
-      (void) llvm::createHIRMVForVariableStridePass();
-      (void) llvm::createHIRLoopConcatenationPass();
-      (void) llvm::createHIRArrayTransposePass();
-      (void) llvm::createHIRAosToSoaPass();
-#if INTEL_FEATURE_SW_ADVANCED
-      (void) llvm::createHIRInterLoopBlockingPass();
-#endif // INTEL_FEATURE_SW_ADVANCED
-      (void) llvm::createHIRLoopFusionPass();
-      (void) llvm::createHIRDummyTransformationPass();
-      (void) llvm::createHIRCodeGenWrapperPass();
-      (void) llvm::createHIRDeadStoreEliminationPass();
-      (void) llvm::createHIRLastValueComputationPass();
-      (void) llvm::createHIRPropagateCastedIVPass();
-      (void) llvm::createHIRMultiExitLoopRerollPass();
-      (void) llvm::createHIRMinMaxRecognitionPass();
-      (void) llvm::createHIRIdentityMatrixIdiomRecognitionPass();
-      (void) llvm::createHIRPrefetchingPass();
+      (void)llvm::createHIRTempCleanupPass();
+      (void)llvm::createHIRUnrollAndJamPass();
+      (void)llvm::createHIRVecDirInsertPass();
       (void) llvm::createHIRSinkingForPerfectLoopnestPass();
-      (void) llvm::createHIRUndoSinkingForPerfectLoopnestPass();
-      (void) llvm::createHIRConditionalTempSinkingPass();
-      (void) llvm::createHIRMemoryReductionSinkingPass();
-      (void) llvm::createHIRConditionalLoadStoreMotionPass();
-      (void) llvm::createHIRNontemporalMarkingPass();
+      (void)llvm::createHIRUndoSinkingForPerfectLoopnestPass();
       (void) llvm::createHIRStoreResultIntoTempArrayPass();
-      (void) llvm::createHIRSumWindowReusePass();
-      (void) llvm::createHIRNonZeroSinkingForPerfectLoopnestPass();
-      (void) llvm::createHIRIdentityMatrixSubstitutionPass();
-      (void) llvm::createHIRArrayScalarizationTestLauncherPass();
+      (void)llvm::createHIRSumWindowReusePass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

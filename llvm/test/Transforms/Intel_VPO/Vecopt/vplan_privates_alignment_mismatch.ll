@@ -8,39 +8,37 @@
 
 ; Check that original alloca's alignment is captured in VPlan.
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK:     [3 x double]* [[VP_F1_PRIV:%.*]] = allocate-priv [3 x double], OrigAlign = 16
+; CHECK:     ptr [[VP_F1_PRIV:%.*]] = allocate-priv [3 x double], OrigAlign = 16
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32* nocapture readonly %iarr) {
+define void @foo(ptr nocapture readonly %iarr) {
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[F1_PRIV:%.*]] = alloca [3 x double], align 16
 ; CHECK-NEXT:    [[F1_PRIV_LANE_0:%.*]] = alloca [3 x double], align 16
-; CHECK-NEXT:    [[F1_PRIV_INSERT_0:%.*]] = insertelement <2 x [3 x double]*> undef, [3 x double]* [[F1_PRIV_LANE_0]], i64 0
+; CHECK-NEXT:    [[F1_PRIV_INSERT_0:%.*]] = insertelement <2 x ptr> undef, ptr [[F1_PRIV_LANE_0]], i64 0
 ; CHECK-NEXT:    [[F1_PRIV_LANE_1:%.*]] = alloca [3 x double], align 16
-; CHECK-NEXT:    [[F1_PRIV_INSERT_1:%.*]] = insertelement <2 x [3 x double]*> [[F1_PRIV_INSERT_0]], [3 x double]* [[F1_PRIV_LANE_1]], i64 1
+; CHECK-NEXT:    [[F1_PRIV_INSERT_1:%.*]] = insertelement <2 x ptr> [[F1_PRIV_INSERT_0]], ptr [[F1_PRIV_LANE_1]], i64 1
+; CHECK-NEXT:    [[EXTRACT_1:%.*]] = extractelement <2 x ptr> [[F1_PRIV_INSERT_1_BCAST:%.*]], i32 1
+; CHECK-NEXT:    [[EXTRACT_0:%.*]] = extractelement <2 x ptr> [[F1_PRIV_INSERT_1_BCAST:%.*]], i32 0
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[F1_PRIV_INSERT_1_BCAST:%.*]] = bitcast <2 x [3 x double]*> [[F1_PRIV_INSERT_1]] to <2 x i8*>
-; CHECK-NEXT:    [[EXTRACT_1:%.*]] = extractelement <2 x i8*> [[F1_PRIV_INSERT_1_BCAST:%.*]], i32 1
-; CHECK-NEXT:    [[EXTRACT_0:%.*]] = extractelement <2 x i8*> %0, i32 0
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 24, i8* [[EXTRACT_0]])
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 24, i8* [[EXTRACT_1]])
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [3 x double], <2 x [3 x double]*> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> <i64 2, i64 2>
-; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [3 x double], <2 x [3 x double]*> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> <i64 1, i64 1>
-; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds [3 x double], <2 x [3 x double]*> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 24, ptr [[EXTRACT_0]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 24, ptr [[EXTRACT_1]])
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [3 x double], <2 x ptr> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> <i64 2, i64 2>
+; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [3 x double], <2 x ptr> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> <i64 1, i64 1>
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sitofp <2 x i64> [[VEC_PHI]] to <2 x double>
-; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> [[TMP0]], <2 x double*> [[MM_VECTORGEP3]], i32 16, <2 x i1> <i1 true, i1 true>)
+; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0(<2 x double> [[TMP0]], <2 x ptr> [[F1_PRIV_INSERT_1]], i32 16, <2 x i1> <i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP1:%.*]] = fmul <2 x double> [[TMP0]], <double 2.000000e+00, double 2.000000e+00>
-; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> [[TMP1]], <2 x double*> [[MM_VECTORGEP2]], i32 16, <2 x i1> <i1 true, i1 true>)
+; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0(<2 x double> [[TMP1]], <2 x ptr> [[MM_VECTORGEP2]], i32 16, <2 x i1> <i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP2:%.*]] = fmul <2 x double> [[TMP0]], <double 3.000000e+00, double 3.000000e+00>
-; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> [[TMP2]], <2 x double*> [[MM_VECTORGEP]], i32 16, <2 x i1> <i1 true, i1 true>)
+; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0(<2 x double> [[TMP2]], <2 x ptr> [[MM_VECTORGEP]], i32 16, <2 x i1> <i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], 100
@@ -51,23 +49,22 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([3 x double]* %f1.priv, double 0.000000e+00, i32 3) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %f1.priv, double 0.000000e+00, i32 3) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
-  %arrayidx0 = getelementptr inbounds [3 x double], [3 x double]* %f1.priv, i64 0, i64 0
-  %arrayidx1 = getelementptr inbounds [3 x double], [3 x double]* %f1.priv, i64 0, i64 1
-  %arrayidx2 = getelementptr inbounds [3 x double], [3 x double]* %f1.priv, i64 0, i64 2
+  %arrayidx1 = getelementptr inbounds [3 x double], ptr %f1.priv, i64 0, i64 1
+  %arrayidx2 = getelementptr inbounds [3 x double], ptr %f1.priv, i64 0, i64 2
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.QUAL.LIST.END.2
   %iv = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %iv.add, %omp.inner.for.body ]
   %val0 = sitofp i64 %iv to double
-  store double %val0, double* %arrayidx0, align 16
+  store double %val0, ptr %f1.priv, align 16
   %val1 = fmul double %val0, 2.000000e+00
-  store double %val1, double* %arrayidx1, align 16
+  store double %val1, ptr %arrayidx1, align 16
   %val2 = fmul double %val0, 3.000000e+00
-  store double %val2, double* %arrayidx2, align 16
+  store double %val2, ptr %arrayidx2, align 16
   %iv.add = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.add, 100
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

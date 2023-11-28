@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -150,13 +150,6 @@ DeviceProgram::SetBinaryInternal(size_t uiBinarySize, const void *pBinary,
 
   m_uiBinaryBitsSize = uiBinarySize;
   m_pBinaryBits = new char[uiBinarySize];
-
-  if (!m_pBinaryBits) {
-    m_uiBinaryBitsSize = 0;
-    m_state = DEVICE_PROGRAM_INVALID;
-    return CL_OUT_OF_HOST_MEMORY;
-  }
-
   MEMCPY_S(m_pBinaryBits, m_uiBinaryBitsSize, pBinary, m_uiBinaryBitsSize);
 
   SetBinaryTypeInternal(clBinaryType);
@@ -187,9 +180,6 @@ cl_err_code DeviceProgram::SetBuildLogInternal(const char *szBuildLog) {
         m_uiBuildLogSize + uiLogSize - 1; // no need for two NULL termination
 
     char *szNewBuildLog = new char[uiNewBuildLogSize];
-    if (!szNewBuildLog) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
 
     STRCPY_S(szNewBuildLog, uiNewBuildLogSize, m_szBuildLog);
     STRCAT_S(szNewBuildLog, uiNewBuildLogSize, szBuildLog);
@@ -202,9 +192,6 @@ cl_err_code DeviceProgram::SetBuildLogInternal(const char *szBuildLog) {
   }
 
   m_szBuildLog = new char[uiLogSize];
-  if (!m_szBuildLog) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
 
   STRCPY_S(m_szBuildLog, uiLogSize, szBuildLog);
   m_uiBuildLogSize = uiLogSize;
@@ -221,9 +208,6 @@ cl_err_code DeviceProgram::SetBuildOptionsInternal(const char *szBuildOptions) {
   if (szBuildOptions) {
     size_t uiOptionLength = strlen(szBuildOptions) + 1;
     m_szBuildOptions = new char[uiOptionLength];
-    if (!m_szBuildOptions) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
     MEMCPY_S(m_szBuildOptions, uiOptionLength, szBuildOptions, uiOptionLength);
   }
 
@@ -544,9 +528,6 @@ cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes,
   cl_err_code errRet = CL_SUCCESS;
   cl_dev_kernel *devKernels = new cl_dev_kernel[szNumNames];
 
-  if (nullptr == devKernels) {
-    return CL_OUT_OF_HOST_MEMORY;
-  }
   if (!pszNameSizes) {
     delete[] devKernels;
     return CL_INVALID_VALUE;

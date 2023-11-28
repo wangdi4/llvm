@@ -1,6 +1,6 @@
 //===- HIRAosToSoa.cpp Implements transformation similar to AOS to SOA -===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -881,39 +881,4 @@ PreservedAnalyses HIRAosToSoaPass::runImpl(llvm::Function &F,
                                            HIRFramework &HIRF) {
   ModifiedHIR = HIRAosToSoa(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
-}
-
-class HIRAosToSoaLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRAosToSoaLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRAosToSoaLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRAosToSoa(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                       getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
-        .run();
-  }
-};
-
-char HIRAosToSoaLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRAosToSoaLegacyPass, OPT_SWITCH, OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRAosToSoaLegacyPass, OPT_SWITCH, OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIRAosToSoaPass() {
-  return new HIRAosToSoaLegacyPass();
 }

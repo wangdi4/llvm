@@ -1,15 +1,17 @@
-; RUN: opt < %s -bugpoint-enable-legacy-pm -loop-unswitch -S < %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -loop-unswitch -intel-ir-optreport-emitter -intel-opt-report=low -intel-opt-report-file=stdout -disable-output < %s | FileCheck %s
 
 ; Verify that we do not duplicate loop opt report during partial unswitching.
 ; Only one of the loop versions contains the original remark.
 
-; CHECK: !llvm.loop [[ID1:!.*]]
-; CHECK: !llvm.loop [[ID2:!.*]]
+; CHECK:      Global optimization report for : partial_unswitch_true_successor
 
-; CHECK: [[ID1]] = distinct !{[[ID1]], [[DISABLE:.*]]}
-; CHECK: [[DISABLE]] = !{!"llvm.loop.unswitch.partial.disable"}
-; CHECK: [[ID2]] = distinct !{[[ID2]], [[OPTREPORT:.*]]}
-; CHECK: [[OPTREPORT]] = distinct !{!"intel.optreport.rootnode"
+; CHECK:      LOOP BEGIN
+; CHECK-NEXT: LOOP END
+
+; CHECK:      LOOP BEGIN
+; CHECK-NEXT:     remark #99999: Dummy remark for testing
+; CHECK-NEXT:     remark #25422: Invariant Condition hoisted out of this loop
+; CHECK-NEXT: LOOP END
 
 declare void @clobber()
 
@@ -40,8 +42,7 @@ exit:
 }
 
 !0 = distinct !{!0, !1}
-!1 = distinct !{!"intel.optreport.rootnode", !2}
-!2 = distinct !{!"intel.optreport", !3}
-!3 = !{!"intel.optreport.remarks", !4}
-!4 = !{!"intel.optreport.remark", !"dummy opt report"}
+!1 = distinct !{!"intel.optreport", !2}
+!2 = !{!"intel.optreport.remarks", !3}
+!3 = !{!"intel.optreport.remark", i32 99999}
 

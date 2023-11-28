@@ -18,9 +18,9 @@
 #define LLVM_TRANSFORMS_SYCLTRANSFORMS_CHANNEL_PIPE_TRANSFORMATION_H
 
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 
 namespace llvm {
+
 class ChannelPipeTransformationPass
     : public PassInfoMixin<ChannelPipeTransformationPass> {
 public:

@@ -1,6 +1,6 @@
 //===----- RegDDRef.cpp - Implements the RegDDRef class -------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -236,6 +236,16 @@ unsigned RegDDRef::findMaxBlobLevel(unsigned BlobIndex) const {
   return findMaxTempBlobLevel(Indices);
 }
 
+unsigned RegDDRef::findMaxBlobLevel(BlobTy Blob) const {
+  SmallVector<BlobTy, 8> TempBlobs;
+  SmallVector<unsigned, 8> Indices;
+
+  getBlobUtils().collectTempBlobs(Blob, TempBlobs);
+  getBlobUtils().mapBlobsToIndices(TempBlobs, Indices);
+
+  return findMaxTempBlobLevel(Indices);
+}
+
 void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
   SmallVector<unsigned, 8> BlobIndices;
 
@@ -334,7 +344,7 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
             !hasAnyVectorIndices()) {
           auto *PtrTy = dyn_cast<PointerType>(BitCastTy);
           // Printing '*' adjacent to 'ptr' doesn't make sense.
-          if (!PtrTy || !PtrTy->isOpaque()) {
+          if (!PtrTy) {
             OS << "*";
           }
         }
@@ -528,9 +538,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
         assert(isSelfMemRef(true) && "Self memref expected!");
         // For now we return i8 type for self fake refs in the presence of
         // opaque ptrs. Not sure if we can do better.
-        return cast<PointerType>(BasePtrTy)->isOpaque()
-                   ? Type::getInt8Ty(BasePtrTy->getContext())
-                   : BasePtrTy->getNonOpaquePointerElementType();
+        return Type::getInt8Ty(BasePtrTy->getContext());
 
       } else {
         assert(isSelfAddressOf(true) && "Self AddressOf ref expected!");
@@ -737,7 +745,7 @@ MemoryLocation RegDDRef::getMemoryLocation() const {
 
   Loc.Ptr = getLocationPtr(IsPrecise);
 
-  Loc.Size = IsPrecise ? LocationSize::precise(getDestTypeSizeInBytes())
+  Loc.Size = IsPrecise ? LocationSize::precise(getDestTypeStoreSizeInBytes())
                        : MemoryLocation::UnknownSize;
 
   getAAMetadata(Loc.AATags);
@@ -2319,13 +2327,6 @@ Type *RegDDRef::getDereferencedType() const {
                                                                    : nullptr;
 
   } else if (isSelfAddressOf()) {
-    auto *DestTy = getDestType();
-
-    // This is an attempt to keep original behavior for non-opaque pointer path.
-    if (!DestTy->isOpaquePointerTy()) {
-      DestTy->getNonOpaquePointerElementType();
-    }
-
     // This can return null.
     return getDimensionElementType(1);
   }

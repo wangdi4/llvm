@@ -45,7 +45,7 @@ define void @var_tripcount() local_unnamed_addr {
 ; CHECK:  Running analysis: DominatorTreeAnalysis on var_tripcount
 ; CHECK:  Running analysis: LoopAnalysis on var_tripcount
 ; CHECK:  Running pass: MathLibraryFunctionsReplacementPass on var_tripcount (1 instruction)
-; CHECK:  Running pass: vpo::VPlanDriverPass on var_tripcount (1 instruction)
+; CHECK:  Running pass: vpo::VPlanDriverLLVMPass on var_tripcount (1 instruction)
 ; CHECK:  Running analysis: OptimizationRemarkEmitterAnalysis on var_tripcount
 ; CHECK:  Running analysis: OptReportOptionsAnalysis on var_tripcount
 ; CHECK:  Running analysis: WRegionInfoAnalysis on var_tripcount

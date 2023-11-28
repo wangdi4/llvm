@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_DTRANS
 
 ; REQUIRES: intel_feature_sw_dtrans
-; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-types-03a.ll %S/Inputs/intel-merge-types-03b.ll | FileCheck %s -check-prefix=CHECK-AB
+; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-types-03a.ll %S/Inputs/intel-merge-types-03b.ll | FileCheck %s -check-prefix=CHECK-AB
 
 ; This test case checks that the types were merged when there are function
 ; pointers. In the case of non-opaque pointers, the CFE will generate a
@@ -61,7 +61,7 @@
 ; This test case checks that the types where merged correctly when the order of
 ; linking changes.
 
-; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-types-03b.ll %S/Inputs/intel-merge-types-03a.ll | FileCheck %s -check-prefix=CHECK-BA
+; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-types-03b.ll %S/Inputs/intel-merge-types-03a.ll | FileCheck %s -check-prefix=CHECK-BA
 
 ; Check that there is only one type
 

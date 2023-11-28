@@ -11,4 +11,8 @@ entry:
 
 ; CHECK: define void @rec1() #{{[0-9]*}} !recursive_call ![[#REC:]]
 ; CHECK: ![[#REC]] = !{i1 true}
+
+!spirv.Source = !{!0}
+!0 = !{i32 4, i32 100000}
+
 ; DEBUGIFY-NOT: WARNING

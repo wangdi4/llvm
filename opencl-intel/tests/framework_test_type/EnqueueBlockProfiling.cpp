@@ -39,100 +39,89 @@ static const char *source = R"(
   )";
 
 void enqueueBlockProfilingTest() {
-  std::string envName = "CL_CONFIG_USE_NATIVE_DEBUGGER";
+  cl_int err = CL_SUCCESS;
+  cl_int res[10] = {0};
+  cl_uint maxQueueSize = 0;
+  cl_platform_id platform = nullptr;
+  cl_device_id device = nullptr;
+  cl_command_queue queue;
+  size_t global = 10;
+  size_t local = 1;
+  cl_event event;
 
-  for (int i = 0; i < 2; i++) {
-    ASSERT_TRUE(SETENV(envName.c_str(), i == 0 ? "true" : "false"))
-        << ("Failed to set env " + envName);
+  err = clGetPlatformIDs(1, &platform, nullptr);
+  ASSERT_EQ(CL_SUCCESS, err) << " clGetPlatformIDs failed.";
 
-    cl_int err = CL_SUCCESS;
-    cl_int res[10] = {0};
-    cl_uint maxQueueSize = 0;
-    cl_platform_id platform = nullptr;
-    cl_device_id device = nullptr;
-    cl_command_queue queue;
-    size_t global = 10;
-    size_t local = 1;
-    cl_event event;
+  err = clGetDeviceIDs(platform, gDeviceType, 1, &device, nullptr);
+  ASSERT_EQ(CL_SUCCESS, err) << " clGetDeviceIDs failed on trying to obtain "
+                             << gDeviceType << " device type.";
 
-    err = clGetPlatformIDs(1, &platform, nullptr);
-    ASSERT_EQ(CL_SUCCESS, err) << " clGetPlatformIDs failed.";
+  const cl_context_properties prop[] = {CL_CONTEXT_PLATFORM,
+                                        (cl_context_properties)platform, 0};
+  cl_context context =
+      clCreateContext(prop, 1, &device, nullptr, nullptr, &err);
+  ASSERT_EQ(CL_SUCCESS, err) << " clCreateContext failed.";
 
-    err = clGetDeviceIDs(platform, gDeviceType, 1, &device, nullptr);
-    ASSERT_EQ(CL_SUCCESS, err) << " clGetDeviceIDs failed on trying to obtain "
-                               << gDeviceType << " device type.";
+  cl_command_queue_properties queueCreateProps[] = {0, 0, 0};
 
-    const cl_context_properties prop[] = {CL_CONTEXT_PLATFORM,
-                                          (cl_context_properties)platform, 0};
-    cl_context context =
-        clCreateContext(prop, 1, &device, nullptr, nullptr, &err);
-    ASSERT_EQ(CL_SUCCESS, err) << " clCreateContext failed.";
+  queue = clCreateCommandQueueWithProperties(context, device,
+                                             &queueCreateProps[0], &err);
 
-    cl_command_queue_properties queueCreateProps[] = {0, 0, 0};
+  err = clGetDeviceInfo(device, CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE,
+                        sizeof(maxQueueSize), &maxQueueSize, 0);
+  ASSERT_EQ(CL_SUCCESS, err) << " failed to get maxQueueSize.";
 
-    queue = clCreateCommandQueueWithProperties(context, device,
-                                               &queueCreateProps[0], &err);
+  cl_command_queue_properties queue_prop_def[] = {
+      CL_QUEUE_PROPERTIES,
+      CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_ON_DEVICE |
+          CL_QUEUE_ON_DEVICE_DEFAULT | CL_QUEUE_PROFILING_ENABLE,
+      CL_QUEUE_SIZE, maxQueueSize, 0};
 
-    err = clGetDeviceInfo(device, CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE,
-                          sizeof(maxQueueSize), &maxQueueSize, 0);
-    ASSERT_EQ(CL_SUCCESS, err) << " failed to get maxQueueSize.";
+  clCreateCommandQueueWithProperties(context, device, queue_prop_def, &err);
+  ASSERT_EQ(CL_SUCCESS, err) << " clCreateCommandQueueWithProperties failed.";
 
-    cl_command_queue_properties queue_prop_def[] = {
-        CL_QUEUE_PROPERTIES,
-        CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_ON_DEVICE |
-            CL_QUEUE_ON_DEVICE_DEFAULT | CL_QUEUE_PROFILING_ENABLE,
-        CL_QUEUE_SIZE, maxQueueSize, 0};
+  cl_program program =
+      clCreateProgramWithSource(context, 1, (const char **)&source, NULL, &err);
+  ASSERT_EQ(CL_SUCCESS, err) << " clCreateProgramWithSource failed.";
 
-    clCreateCommandQueueWithProperties(context, device, queue_prop_def, &err);
-    ASSERT_EQ(CL_SUCCESS, err) << " clCreateCommandQueueWithProperties failed.";
+  err = clBuildProgram(program, 1, &device, "-g -cl-opt-disable -cl-std=CL2.0",
+                       NULL, NULL);
+  ASSERT_EQ(CL_SUCCESS, err) << "clBuildProgram failed.";
 
-    cl_program program = clCreateProgramWithSource(
-        context, 1, (const char **)&source, NULL, &err);
-    ASSERT_EQ(CL_SUCCESS, err) << " clCreateProgramWithSource failed.";
+  cl_kernel kernel = clCreateKernel(program, "enqueue_block_profiling", &err);
+  ASSERT_EQ(CL_SUCCESS, err) << "clCreateKernel failed.";
 
-    err = clBuildProgram(program, 1, &device,
-                         "-g -cl-opt-disable -cl-std=CL2.0", NULL, NULL);
-    ASSERT_EQ(CL_SUCCESS, err) << "clBuildProgram failed.";
+  cl_mem mem = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
+                              sizeof(res), res, &err);
+  ASSERT_EQ(CL_SUCCESS, err) << "clCreateBuffer failed.";
 
-    cl_kernel kernel = clCreateKernel(program, "enqueue_block_profiling", &err);
-    ASSERT_EQ(CL_SUCCESS, err) << "clCreateKernel failed.";
+  err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &mem);
+  ASSERT_EQ(CL_SUCCESS, err) << "clSetKernelArg failed.";
 
-    cl_mem mem =
-        clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
-                       sizeof(res), res, &err);
-    ASSERT_EQ(CL_SUCCESS, err) << "clCreateBuffer failed.";
+  err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL,
+                               &event);
+  ASSERT_EQ(CL_SUCCESS, err) << "clEnqueueNDRangeKernel failed.";
 
-    err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &mem);
-    ASSERT_EQ(CL_SUCCESS, err) << "clSetKernelArg failed.";
+  err = clEnqueueReadBuffer(queue, mem, CL_TRUE, 0, sizeof(res), res, 0, NULL,
+                            NULL);
+  ASSERT_EQ(CL_SUCCESS, err) << "clEnqueueReadBuffer failed.";
 
-    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0,
-                                 NULL, &event);
-    ASSERT_EQ(CL_SUCCESS, err) << "clEnqueueNDRangeKernel failed.";
-
-    err = clEnqueueReadBuffer(queue, mem, CL_TRUE, 0, sizeof(res), res, 0, NULL,
-                              NULL);
-    ASSERT_EQ(CL_SUCCESS, err) << "clEnqueueReadBuffer failed.";
-
-    for (size_t i = 0; i < (sizeof(res) / sizeof(cl_int)); i++) {
-      ASSERT_EQ(res[i], 0) << "kernel results validation failed.";
-    }
-
-    err = clReleaseMemObject(mem);
-    ASSERT_EQ(CL_SUCCESS, err) << "clReleaseMemObject failed.";
-
-    err = clReleaseKernel(kernel);
-    ASSERT_EQ(CL_SUCCESS, err) << "clReleaseKernel failed.";
-
-    err = clReleaseProgram(program);
-    ASSERT_EQ(CL_SUCCESS, err) << "clReleaseProgram failed.";
-
-    err = clReleaseCommandQueue(queue);
-    ASSERT_EQ(CL_SUCCESS, err) << "clReleaseCommandQueue failed.";
-
-    err = clReleaseContext(context);
-    ASSERT_EQ(CL_SUCCESS, err) << "clReleaseContext failed.";
-
-    ASSERT_TRUE(UNSETENV(envName.c_str()))
-        << ("Failed to unset env " + envName);
+  for (size_t i = 0; i < (sizeof(res) / sizeof(cl_int)); i++) {
+    ASSERT_EQ(res[i], 0) << "kernel results validation failed.";
   }
+
+  err = clReleaseMemObject(mem);
+  ASSERT_EQ(CL_SUCCESS, err) << "clReleaseMemObject failed.";
+
+  err = clReleaseKernel(kernel);
+  ASSERT_EQ(CL_SUCCESS, err) << "clReleaseKernel failed.";
+
+  err = clReleaseProgram(program);
+  ASSERT_EQ(CL_SUCCESS, err) << "clReleaseProgram failed.";
+
+  err = clReleaseCommandQueue(queue);
+  ASSERT_EQ(CL_SUCCESS, err) << "clReleaseCommandQueue failed.";
+
+  err = clReleaseContext(context);
+  ASSERT_EQ(CL_SUCCESS, err) << "clReleaseContext failed.";
 }

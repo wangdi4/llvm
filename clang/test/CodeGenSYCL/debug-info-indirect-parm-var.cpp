@@ -3,7 +3,7 @@
 // RUN:  -aux-triple x86_64-unknown-linux-gnu \
 // RUN:  -fsycl-is-device -finclude-default-header\
 // RUN:  -debug-info-kind=limited -gno-column-info \
-// RUN:  -no-opaque-pointers \
+// RUN:  \
 // RUN:  | FileCheck %s
 
 #define KERNEL __attribute__((sycl_kernel))
@@ -27,12 +27,12 @@ int my_host() {
   return 0;
 }
 
-// CHECK: define dso_local spir_func void @_Z9my_kernel1S(
+// CHECK: define {{.*}}spir_func void @_Z9my_kernel1S(
 // CHECK-SAME: !dbg [[MY_KERNEL:![0-9]+]]
 // CHECK-SAME: {
-// CHECK: %[[AS_CAST:.*]] = addrspacecast %struct.{{.*}} {{.*}} to %struct.{{.*}} addrspace(4)*
+// CHECK: %[[AS_CAST:.*]] = addrspacecast ptr {{.*}} to ptr addrspace(4)
 // CHECK:   call void @llvm.dbg.declare(
-// CHECK-SAME: metadata %struct.S addrspace(4)* %[[AS_CAST]],
+// CHECK-SAME: metadata ptr addrspace(4) %[[AS_CAST]],
 // CHECK-SAME: metadata [[MY_PARAM:![0-9]+]],
 // CHECK-SAME: metadata !DIExpression(DW_OP_constu, 4, DW_OP_swap, DW_OP_xderef)
 // CHECK-SAME: )

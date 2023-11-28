@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -164,9 +164,20 @@ static cl::opt<bool> InlineEnableCostBenefitAnalysis(
     "inline-enable-cost-benefit-analysis", cl::Hidden, cl::init(false),
     cl::desc("Enable the cost-benefit analysis for the inliner"));
 
+// InlineSavingsMultiplier overrides per TTI multipliers iff it is
+// specified explicitly in command line options. This option is exposed
+// for tuning and testing.
 static cl::opt<int> InlineSavingsMultiplier(
     "inline-savings-multiplier", cl::Hidden, cl::init(8),
     cl::desc("Multiplier to multiply cycle savings by during inlining"));
+
+// InlineSavingsProfitableMultiplier overrides per TTI multipliers iff it is
+// specified explicitly in command line options. This option is exposed
+// for tuning and testing.
+static cl::opt<int> InlineSavingsProfitableMultiplier(
+    "inline-savings-profitable-multiplier", cl::Hidden, cl::init(4),
+    cl::desc("A multiplier on top of cycle savings to decide whether the "
+             "savings won't justify the cost"));
 
 static cl::opt<int>
     InlineSizeAllowance("inline-size-allowance", cl::Hidden, cl::init(100),
@@ -194,7 +205,7 @@ static cl::opt<int> ColdCallSiteRelFreq(
              "entry frequency, for a callsite to be cold in the absence of "
              "profile information."));
 
-static cl::opt<int> HotCallSiteRelFreq(
+static cl::opt<uint64_t> HotCallSiteRelFreq(
     "hot-callsite-rel-freq", cl::Hidden, cl::init(60),
     cl::desc("Minimum block frequency, expressed as a multiple of caller's "
              "entry frequency, for a callsite to be hot in the absence of "
@@ -238,9 +249,9 @@ static cl::opt<bool> DisableGEPConstOperand(
     "disable-gep-const-evaluation", cl::Hidden, cl::init(false),
     cl::desc("Disables evaluation of GetElementPtr with constant operands"));
 
+#if INTEL_CUSTOMIZATION
 // Options to vary heuristics for SYCL Compilations
 
-#if INTEL_CUSTOMIZATION
 static cl::opt<bool> IsSYCLHost("sycl-host", cl::Hidden, cl::init(false),
     cl::desc("Indicates this is a SYCL host compilation"));
 #endif //INTEL_CUSTOMIZATION
@@ -723,8 +734,8 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
   /// Handle a capped 'int' increment for Cost.
   void addCost(int64_t Inc) {
-    Inc = std::max<int64_t>(std::min<int64_t>(INT_MAX, Inc), INT_MIN);
-    Cost = std::max<int64_t>(std::min<int64_t>(INT_MAX, Inc + Cost), INT_MIN);
+    Inc = std::clamp<int64_t>(Inc, INT_MIN, INT_MAX);
+    Cost = std::clamp<int64_t>(Inc + Cost, INT_MIN, INT_MAX);
   }
 
   void onDisableSROA(AllocaInst *Arg) override {
@@ -798,7 +809,8 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       }
     } else
       // Otherwise simply add the cost for merely making the call.
-      addCost(CallPenalty);
+      addCost(TTI.getInlineCallPenalty(CandidateCall.getCaller(), Call,
+                                       CallPenalty));
   }
 
   void onFinalizeSwitch(unsigned JumpTableSize,
@@ -929,7 +941,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
         return false;
     } else {
       // Otherwise, require instrumentation profile.
-      if (!PSI->hasInstrumentationProfile())
+      if (!(PSI->hasInstrumentationProfile() || PSI->hasSampleProfile()))
         return false;
     }
 
@@ -957,9 +969,35 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     return true;
   }
 
+  // A helper function to choose between command line override and default.
+  unsigned getInliningCostBenefitAnalysisSavingsMultiplier() const {
+    if (InlineSavingsMultiplier.getNumOccurrences())
+      return InlineSavingsMultiplier;
+    return TTI.getInliningCostBenefitAnalysisSavingsMultiplier();
+  }
+
+  // A helper function to choose between command line override and default.
+  unsigned getInliningCostBenefitAnalysisProfitableMultiplier() const {
+    if (InlineSavingsProfitableMultiplier.getNumOccurrences())
+      return InlineSavingsProfitableMultiplier;
+    return TTI.getInliningCostBenefitAnalysisProfitableMultiplier();
+  }
+
+  void OverrideCycleSavingsAndSizeForTesting(APInt &CycleSavings, int &Size) {
+    if (std::optional<int> AttrCycleSavings = getStringFnAttrAsInt(
+            CandidateCall, "inline-cycle-savings-for-test")) {
+      CycleSavings = *AttrCycleSavings;
+    }
+
+    if (std::optional<int> AttrRuntimeCost = getStringFnAttrAsInt(
+            CandidateCall, "inline-runtime-cost-for-test")) {
+      Size = *AttrRuntimeCost;
+    }
+  }
+
   // Determine whether we should inline the given call site, taking into account
   // both the size cost and the cycle savings.  Return std::nullopt if we don't
-  // have suficient profiling information to determine.
+  // have sufficient profiling information to determine.
   std::optional<bool> costBenefitAnalysis() {
     if (!CostBenefitAnalysisEnabled)
       return std::nullopt;
@@ -997,6 +1035,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
                   SimplifiedValues.lookup(BI->getCondition()))) {
             CurrentSavings += InstrCost;
           }
+        } else if (SwitchInst *SI = dyn_cast<SwitchInst>(&I)) {
+          if (isa_and_present<ConstantInt>(SimplifiedValues.lookup(SI->getCondition())))
+            CurrentSavings += InstrCost;
         } else if (Value *V = dyn_cast<Value>(&I)) {
           // Count an instruction as savings if we can fold it.
           if (SimplifiedValues.count(V)) {
@@ -1020,32 +1061,58 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     // Compute the total savings for the call site.
     auto *CallerBB = CandidateCall.getParent();
     BlockFrequencyInfo *CallerBFI = &(GetBFI(*(CallerBB->getParent())));
-    CycleSavings += getCallsiteCost(this->CandidateCall, DL);
+    CycleSavings += getCallsiteCost(TTI, this->CandidateCall, DL);
     CycleSavings *= *CallerBFI->getBlockProfileCount(CallerBB);
 
-    // Remove the cost of the cold basic blocks.
+    // Remove the cost of the cold basic blocks to model the runtime cost more
+    // accurately. Both machine block placement and function splitting could
+    // place cold blocks further from hot blocks.
     int Size = Cost - ColdSize;
 
     // Allow tiny callees to be inlined regardless of whether they meet the
     // savings threshold.
     Size = Size > InlineSizeAllowance ? Size - InlineSizeAllowance : 1;
 
+    OverrideCycleSavingsAndSizeForTesting(CycleSavings, Size);
     CostBenefit.emplace(APInt(128, Size), CycleSavings);
 
-    // Return true if the savings justify the cost of inlining.  Specifically,
-    // we evaluate the following inequality:
+    // Let R be the ratio of CycleSavings to Size.  We accept the inlining
+    // opportunity if R is really high and reject if R is really low.  If R is
+    // somewhere in the middle, we fall back to the cost-based analysis.
     //
-    //  CycleSavings      PSI->getOrCompHotCountThreshold()
-    // -------------- >= -----------------------------------
-    //       Size              InlineSavingsMultiplier
+    // Specifically, let R = CycleSavings / Size, we accept the inlining
+    // opportunity if:
     //
-    // Note that the left hand side is specific to a call site.  The right hand
-    // side is a constant for the entire executable.
-    APInt LHS = CycleSavings;
-    LHS *= InlineSavingsMultiplier;
-    APInt RHS(128, PSI->getOrCompHotCountThreshold());
-    RHS *= Size;
-    return LHS.uge(RHS);
+    //             PSI->getOrCompHotCountThreshold()
+    // R > -------------------------------------------------
+    //     getInliningCostBenefitAnalysisSavingsMultiplier()
+    //
+    // and reject the inlining opportunity if:
+    //
+    //                PSI->getOrCompHotCountThreshold()
+    // R <= ----------------------------------------------------
+    //      getInliningCostBenefitAnalysisProfitableMultiplier()
+    //
+    // Otherwise, we fall back to the cost-based analysis.
+    //
+    // Implementation-wise, use multiplication (CycleSavings * Multiplier,
+    // HotCountThreshold * Size) rather than division to avoid precision loss.
+    APInt Threshold(128, PSI->getOrCompHotCountThreshold());
+    Threshold *= Size;
+
+    APInt UpperBoundCycleSavings = CycleSavings;
+    UpperBoundCycleSavings *= getInliningCostBenefitAnalysisSavingsMultiplier();
+    if (UpperBoundCycleSavings.uge(Threshold))
+      return true;
+
+    APInt LowerBoundCycleSavings = CycleSavings;
+    LowerBoundCycleSavings *=
+        getInliningCostBenefitAnalysisProfitableMultiplier();
+    if (LowerBoundCycleSavings.ult(Threshold))
+      return false;
+
+    // Otherwise, fall back to the cost-based analysis.
+    return std::nullopt;
   }
 
   InlineResult finalizeAnalysis() override {
@@ -1107,10 +1174,8 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 #endif // INTEL_FEATURE_SW_ADVANCED
         return InlineResult::failure("Cost over threshold.");
       }
-#endif // INTEL_CUSTOMIZATION
     }
 
-#if INTEL_CUSTOMIZATION
     bool IsProfitable = IgnoreThreshold || Cost < std::max(1, Threshold);
     InlineReason Reason =
         IsProfitable ? bestInlineReason(YesReasonVector, InlrProfitable)
@@ -1149,8 +1214,8 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       }
     }
     return false;
-#endif // INTEL_CUSTOMIZATION
   }
+#endif // INTEL_CUSTOMIZATION
 
   void onLoadEliminationOpportunity() override {
     LoadEliminationCost += InstrCost;
@@ -1203,7 +1268,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 #endif // INTEL_CUSTOMIZATION
     // Give out bonuses for the callsite, as the instructions setting them up
     // will be gone after inlining.
-    addCost(-getCallsiteCost(this->CandidateCall, DL));
+    addCost(-getCallsiteCost(TTI, this->CandidateCall, DL));
 
 #if INTEL_CUSTOMIZATION
     Function *Caller = CandidateCall.getFunction();
@@ -1322,13 +1387,12 @@ public:
 // Return true if CB is the sole call to local function Callee.
 static bool isSoleCallToLocalFunction(const CallBase &CB,
                                       const Function &Callee) {
-  return (Callee.hasLocalLinkage()
 #if INTEL_CUSTOMIZATION
-         // CQ370998: Added link once ODR linkage case.
-         || (InlineForXmain && Callee.hasLinkOnceODRLinkage())
-#endif
-         ) &&
+  return (Callee.hasLocalLinkage()
+          // CQ370998: Added link once ODR linkage case.
+          || (InlineForXmain && Callee.hasLinkOnceODRLinkage())) &&
          Callee.hasOneLiveUse() &&
+#endif // INTEL_CUSTOMIZATION
          &Callee == CB.getCalledFunction();
 }
 
@@ -1420,7 +1484,7 @@ private:
                                 GetAssumptionCache, GetBFI, PSI, ORE,
                                 nullptr, nullptr, nullptr, false, true);
       if (CA.analyze(TTI).isSuccess()) {
-#endif // INTEL)CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
         increment(InlineCostFeatureIndex::nested_inline_cost_estimate,
                   CA.getCost());
         increment(InlineCostFeatureIndex::nested_inlines, 1);
@@ -1517,7 +1581,7 @@ private:
   InlineResult onAnalysisStart(const TargetTransformInfo &CalleeTTI) override {
 #endif // INTEL_CUSTOMIZATION
     increment(InlineCostFeatureIndex::callsite_cost,
-              -1 * getCallsiteCost(this->CandidateCall, DL));
+              -1 * getCallsiteCost(TTI, this->CandidateCall, DL));
 
     set(InlineCostFeatureIndex::cold_cc_penalty,
         (F.getCallingConv() == CallingConv::Cold));
@@ -2098,10 +2162,11 @@ InlineCostCallAnalyzer::getHotCallSiteThreshold(CallBase &Call,
   // potentially cache the computation of scaled entry frequency, but the added
   // complexity is not worth it unless this scaling shows up high in the
   // profiles.
-  auto CallSiteBB = Call.getParent();
-  auto CallSiteFreq = CallerBFI->getBlockFreq(CallSiteBB).getFrequency();
-  auto CallerEntryFreq = CallerBFI->getEntryFreq();
-  if (CallSiteFreq >= CallerEntryFreq * HotCallSiteRelFreq)
+  const BasicBlock *CallSiteBB = Call.getParent();
+  BlockFrequency CallSiteFreq = CallerBFI->getBlockFreq(CallSiteBB);
+  BlockFrequency CallerEntryFreq = CallerBFI->getEntryFreq();
+  std::optional<BlockFrequency> Limit = CallerEntryFreq.mul(HotCallSiteRelFreq);
+  if (Limit && CallSiteFreq >= *Limit)
     return Params.LocallyHotCallSiteThreshold;
 
   // Otherwise treat it normally.
@@ -2853,11 +2918,11 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
     else if (HasIndirectBr)
       IR = InlineResult::failure("indirect branch")     // INTEL
                .setIntelInlReason(NinlrIndirectBranch); // INTEL
-    else if (HasLocalEscape)
+    else if (HasLocalEscape)                            // INTEL
       IR = InlineResult::failure("disallowed inlining of "   // INTEL
                                  "@llvm.localescape")        // INTEL
                .setIntelInlReason(NinlrCallsLocalEscape);    // INTEL
-    else if (HasBranchFunnel)
+    else if (HasBranchFunnel)                                // INTEL
       IR = InlineResult::failure("disallowed inlining of "    // INTEL
                                  "@llvm.icall.branch.funnel") // INTEL
                .setIntelInlReason(NinlrCallsBranchFunnel);    // INTEL
@@ -3192,19 +3257,22 @@ LLVM_DUMP_METHOD void InlineCostCallAnalyzer::dump() { print(dbgs()); }
 /// Test that there are no attribute conflicts between Caller and Callee
 ///        that prevent inlining.
 static bool functionsHaveCompatibleAttributes(
-    Function *Caller, Function *Callee,
+    Function *Caller, Function *Callee, TargetTransformInfo &TTI,
     function_ref<const TargetLibraryInfo &(Function &)> &GetTLI) {
   // Note that CalleeTLI must be a copy not a reference. The legacy pass manager
   // caches the most recently created TLI in the TargetLibraryInfoWrapperPass
   // object, and always returns the same object (which is overwritten on each
   // GetTLI call). Therefore we copy the first result.
   auto CalleeTLI = GetTLI(*Callee);
-  return GetTLI(*Caller).areInlineCompatible(CalleeTLI,
+  return (IgnoreTTIInlineCompatible ||
+          TTI.areInlineCompatible(Caller, Callee)) &&
+         GetTLI(*Caller).areInlineCompatible(CalleeTLI,
                                              InlineCallerSupersetNoBuiltin) &&
          AttributeFuncs::areInlineCompatible(*Caller, *Callee);
 }
 
-int llvm::getCallsiteCost(const CallBase &Call, const DataLayout &DL) {
+int llvm::getCallsiteCost(const TargetTransformInfo &TTI, const CallBase &Call,
+                          const DataLayout &DL) {
   int64_t Cost = 0;
   for (unsigned I = 0, E = Call.arg_size(); I != E; ++I) {
     if (Call.isByValArgument(I)) {
@@ -3234,7 +3302,8 @@ int llvm::getCallsiteCost(const CallBase &Call, const DataLayout &DL) {
   }
   // The call instruction also disappears after inlining.
   Cost += InstrCost;
-  Cost += CallPenalty;
+  Cost += TTI.getInlineCallPenalty(Call.getCaller(), Call, CallPenalty);
+
   return std::min<int64_t>(Cost, INT_MAX);
 }
 
@@ -3367,31 +3436,47 @@ std::optional<InlineResult> llvm::getAttributeBasedInliningDecision(
             .setIntelInlReason(NinlrByvalArgsWithoutAllocaAS);       // INTEL
     }
 
-  // Never inline functions with conflicting target attributes.
-  Function *Caller = Call.getCaller();
-  if (!IgnoreTTIInlineCompatible &&
-      !CalleeTTI.areInlineCompatible(Caller, Callee))
-    return InlineResult::failure("conflicting target attributes");
-
   // Calls to functions with always-inline attributes should be inlined
   // whenever possible.
   if (Call.hasFnAttr(Attribute::AlwaysInline)) {
     if (Call.getAttributes().hasFnAttr(Attribute::NoInline))
-      return InlineResult::failure("noinline call site attribute");
+      return InlineResult::failure("noinline callee attribute")
+          .setIntelInlReason(NinlrNoinlineAttribute);
 
     auto IsViable = isInlineViable(*Callee);
 #if INTEL_CUSTOMIZATION
-    if (IsViable.isSuccess())
-      return InlineResult::success().setIntelInlReason(InlrAlwaysInline);
+    if (IsViable.isSuccess()) {
+      // if only the callee has the 'alwaysinline' attribute, then set inline
+      // reason to "callee always inline", otherwise "callsite always inline"
+      // is used.
+      if (!Call.hasFnAttrOnCallsite(Attribute::AlwaysInline))
+        return InlineResult::success().setIntelInlReason(InlrAlwaysInline);
+      return InlineResult::success().setIntelInlReason(InlrCSAlwaysInline);
+    }
     assert(IsNotInlinedReason(IsViable.getIntelInlReason()));
     return InlineResult::failure(IsViable.getFailureReason())
         .setIntelInlReason(IsViable.getIntelInlReason());
   }
   if (Call.hasFnAttr(Attribute::AlwaysInlineRecursive)) {
+    if (Call.hasFnAttrOnCallsite(Attribute::NoInline))
+      return InlineResult::failure("noinline callsite attribute")
+          .setIntelInlReason(NinlrNoinlineCallsite);
+    if (Callee->hasFnAttribute(Attribute::NoInline)) {
+      return InlineResult::failure("noinline callee attribute")
+          .setIntelInlReason(NinlrNoinlineAttribute);
+    }
+
     auto IsViable = isInlineViable(*Callee);
-    if (IsViable.isSuccess())
+    if (IsViable.isSuccess()) {
+      // if only the callee has the 'alwaysinline_recursive' attribute, then
+      // set inline reason to "callee always inline", otherwise "callsite
+      // always inline" is used.
+      if (!Call.hasFnAttrOnCallsite(Attribute::AlwaysInlineRecursive))
+        return InlineResult::success().setIntelInlReason(
+            InlrAlwaysInlineRecursive);
       return InlineResult::success().setIntelInlReason(
-          InlrAlwaysInlineRecursive);
+          InlrCSAlwaysInlineRecursive);
+    }
     assert(IsNotInlinedReason(IsViable.getIntelInlReason()));
     return InlineResult::failure(
                "inapplicable always inline recursive attribute")
@@ -3406,12 +3491,8 @@ std::optional<InlineResult> llvm::getAttributeBasedInliningDecision(
 
   // Never inline functions with conflicting attributes (unless callee has
   // always-inline attribute).
-  // FIXME: functionsHaveCompatibleAttributes below checks for compatibilities
-  // of different kinds of function attributes -- sanitizer-related ones,
-  // checkDenormMode, no-builtin-memcpy, etc.  It's unclear if we really want
-  // the always-inline attribute to take precedence over these different types
-  // of function attributes.
-  if (!functionsHaveCompatibleAttributes(Caller, Callee, GetTLI))
+  Function *Caller = Call.getCaller();
+  if (!functionsHaveCompatibleAttributes(Caller, Callee, CalleeTTI, GetTLI))
     return InlineResult::failure("conflicting attributes") // INTEL
 	.setIntelInlReason(NinlrMismatchedAttributes);     // INTEL
 
@@ -3461,11 +3542,22 @@ InlineCost llvm::getInlineCost(
   if (UserDecision) {
 #if INTEL_CUSTOMIZATION
     if (UserDecision->isSuccess()) {
-      if (UserDecision->getIntelInlReason() == InlrAlwaysInlineRecursive)
+      switch (UserDecision->getIntelInlReason()) {
+      case InlrCSAlwaysInlineRecursive:
+        return llvm::InlineCost::getAlways("always inline recursive attribute",
+                                           InlrCSAlwaysInlineRecursive);
+      case InlrCSAlwaysInline:
+        return llvm::InlineCost::getAlways("always inline attribute",
+                                           InlrCSAlwaysInline);
+      case InlrAlwaysInlineRecursive:
         return llvm::InlineCost::getAlways("always inline recursive attribute",
                                            InlrAlwaysInlineRecursive);
-      return llvm::InlineCost::getAlways("always inline attribute",
-                                         InlrAlwaysInline);
+      case InlrAlwaysInline:
+        return llvm::InlineCost::getAlways("always inline attribute",
+                                           InlrAlwaysInline);
+      default:
+        llvm_unreachable("unexpected inline reason");
+      }
     }
     return llvm::InlineCost::getNever(UserDecision->getFailureReason(),
                                       UserDecision->getIntelInlReason());
@@ -3614,9 +3706,11 @@ InlineParams llvm::getInlineParams(int Threshold) {
   // Set the HintThreshold knob from the -inlinehint-threshold.
   Params.HintThreshold = HintThreshold;
 
+#if INTEL_CUSTOMIZATION
   // Set the  DoubleCallSiteHintThreshold knob from the
   // -double-callsite-inlinehint-threshold.
   Params.DoubleCallSiteHintThreshold = DoubleCallSiteHintThreshold;
+#endif // INTEL_CUSTOMIZATION
 
   // Set the HotCallSiteThreshold knob from the -hot-callsite-threshold.
   Params.HotCallSiteThreshold = HotCallSiteThreshold;

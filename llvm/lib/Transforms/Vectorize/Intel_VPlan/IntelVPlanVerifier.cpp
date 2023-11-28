@@ -1,6 +1,6 @@
 //===-- IntelVPlanVerifier.cpp --------------------------------------------===//
 //
-//   Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -117,6 +117,7 @@ void VPlanVerifier::verifyCFGExternals(const VPlan *Plan) {
   Plan->getExternals().verifyVPExternalDefs();
   Plan->getExternals().verifyVPExternalDefsHIR();
   Plan->getExternals().verifyVPMetadataAsValues();
+  Plan->getExternals().verifyVPExternalUses();
 }
 
 // Static interface to verify a VPlan
@@ -155,6 +156,68 @@ void VPlanVerifier::verifyDAShape(const VPInstruction *Inst) const {
   }
 }
 
+// Verify the LiveIn/Out lists attached to the VPlan
+void VPlanVerifier::verifyLiveInOut(const VPlanVector *Plan) const {
+  const VPExternalValues &Externals = Plan->getExternals();
+  unsigned Idx = 0;
+  auto NumExtUses = std::distance(Plan->getExternals().externalUses().begin(),
+                                  Plan->getExternals().externalUses().end());
+  for (const VPLiveOutValue *LiveOut : Plan->liveOutValues()) {
+    assert(Idx < NumExtUses &&
+           "Live out index exceeds number of external uses");
+    assert(LiveOut && "Null live out in plan list");
+    unsigned MergeId = LiveOut->getMergeId();
+    assert(Idx == MergeId && "Live out index and merge ID do not match!");
+    assert(Externals.getVPExternalUse(MergeId) &&
+           "No matching VPExternalUse for live out");
+    Idx++;
+    (void)MergeId;
+  }
+
+  Idx = 0;
+  for (const VPLiveInValue *LiveIn : Plan->liveInValues()) {
+    assert(Idx < NumExtUses &&
+           "Live out index exceeds number of external uses");
+    // Not all external uses are live-in, but the size of LiveIns is maintained
+    // to allow indexing based off of MergeId. So, skip any null entries
+    if (LiveIn) {
+      unsigned MergeId = LiveIn->getMergeId();
+      assert(Idx == MergeId && "Live in index and merge ID do not match!");
+      assert(Externals.getVPExternalUse(MergeId) &&
+             "No matching VPExternalUse for live in");
+      (void)MergeId;
+    }
+    Idx++;
+  }
+  (void)Idx;
+  (void)Externals;
+  (void)NumExtUses;
+}
+
+void VPlanVerifier::verifyHeaderExitPredicates(const VPLoop *Lp) const {
+  auto *Header = Lp->getHeader();
+  assert(Header);
+
+  auto *HeaderPredicate = Header->getBlockPredicate();
+  SmallVector<VPBasicBlock *, 4> ExitingBlocks;
+  Lp->getExitingBlocks(ExitingBlocks);
+  for (auto *Exit : ExitingBlocks) {
+    auto *ExitPredicate = Exit->getBlockPredicate();
+    ASSERT_VPBB((HeaderPredicate && ExitPredicate) ||
+                    (!HeaderPredicate && !ExitPredicate),
+                Header,
+                "Loop header and exit must both be predicated or neither");
+
+    if (HeaderPredicate)
+      ASSERT_VPVALUE(
+          HeaderPredicate->getOperand(0) == ExitPredicate->getOperand(0),
+          HeaderPredicate,
+          "Header and exit block of loop do not have the same predicate");
+    (void)ExitPredicate;
+  }
+  (void)HeaderPredicate;
+}
+
 // Public interface to verify the loop and its loop info.
 void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
                                 unsigned int CheckFlags) {
@@ -167,8 +230,10 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
 
   LLVM_DEBUG(dbgs() << "Verifying loop nest.\n");
 
-  if (!shouldSkipExternals())
+  if (!shouldSkipExternals()) {
     verifyCFGExternals(Plan);
+    verifyLiveInOut(Plan);
+  }
 
   unsigned BBNum = 0;
   (void)BBNum;
@@ -187,10 +252,6 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
            "VPlan Post-Dominator Tree failed to verify");
 #endif
 
-  if (!shouldSkipDA()) {
-    verifyDA(Plan);
-  }
-
   // Skipped in cases where the loop info isn't updated to reflect
   // transformations that have been performed
   if (!VPLInfo || shouldSkipLoopInfo())
@@ -199,6 +260,8 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
   VPLoop *TopLoop = *VPLInfo->begin();
   for (auto *CurVPLoop : post_order(TopLoop)) {
     CurVPLoop->verifyLoop();
+
+    verifyHeaderExitPredicates(CurVPLoop);
   }
 
   // The number of subloops can change in the VPLoop as a result of VPEntity
@@ -811,11 +874,21 @@ void VPlanVerifier::verifyInstruction(const VPInstruction *Inst,
   verifyOperands(Inst);
   verifyUsers(Inst);
   verifySpecificInstruction(Inst);
-  if (auto *Plan = dyn_cast<VPlanVector>(Block->getParent()))
+  if (auto *Plan = dyn_cast<VPlanVector>(Block->getParent())) {
     verifySSA(Inst, Plan->getDT());
 
-  if (!shouldSkipDAShapes() && !shouldSkipDA()) {
-    verifyDAShape(Inst);
+    if (!shouldSkipDA()) {
+      auto *DA = Plan->getVPlanDA();
+      if (!DA)
+        return;
+
+      ASSERT_VPVALUE(!DA->getVectorShape(*Inst).isUndefined(), Inst,
+                     "Shape has not been defined for instruction");
+
+      if (!shouldSkipDAShapes()) {
+        verifyDAShape(Inst);
+      }
+    }
   }
 }
 

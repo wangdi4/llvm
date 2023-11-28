@@ -2,12 +2,12 @@
 
 ; Check that TLS globals are generated and debug info is attached to new alloca.
 
-; CHECK-DAG: @LocalIds = linkonce_odr thread_local global [3 x i64] undef, align 16
-; CHECK-DAG: @pWorkDim = linkonce_odr thread_local global {{.*}} undef, align 8
-; CHECK-DAG: @pWGId = linkonce_odr thread_local global {{i64\*|ptr}} undef, align 8
-; CHECK-DAG: @BaseGlbId = linkonce_odr thread_local global [4 x i64] undef, align 16
-; CHECK-DAG: @pSpecialBuf = linkonce_odr thread_local global {{i8\*|ptr}} undef, align 8
-; CHECK-DAG: @RuntimeHandle = linkonce_odr thread_local global {{\{\}\*|ptr}} undef, align 8
+; CHECK-DAG: @__LocalIds = internal thread_local global [3 x i64] undef, align 16
+; CHECK-DAG: @__pWorkDim = internal thread_local global {{.*}} undef, align 8
+; CHECK-DAG: @__pWGId = internal thread_local global {{i64\*|ptr}} undef, align 8
+; CHECK-DAG: @__BaseGlbId = internal thread_local global [4 x i64] undef, align 16
+; CHECK-DAG: @__pSpecialBuf = internal thread_local global {{i8\*|ptr}} undef, align 8
+; CHECK-DAG: @__RuntimeHandle = internal thread_local global {{\{\}\*|ptr}} undef, align 8
 
 ; CHECK-LABEL: @test
 

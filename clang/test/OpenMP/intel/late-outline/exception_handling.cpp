@@ -1,38 +1,37 @@
 // INTEL_COLLAB
-//
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -disable-llvm-passes \
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -disable-llvm-passes \
 // RUN:  -fexceptions -fcxx-exceptions \
-// RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu \
 // RUN:  | FileCheck %s --check-prefixes=BOTH,NOOPT
 
 // Same as above adding -O2
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -disable-llvm-passes -O2 \
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -disable-llvm-passes -O2 \
 // RUN:  -fexceptions -fcxx-exceptions \
-// RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu \
 // RUN:  | FileCheck %s -check-prefixes=BOTH,OPT
 
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions \
-// RUN: -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=x86_64-pc-linux-gnu \
+// RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN: -DTARGET_TEST -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix TTEST
 //
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions \
-// RUN: -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=x86_64-pc-linux-gnu \
+// RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN: -DTARGET_TEST -emit-llvm-bc %s -o %t-targ-host.bc
 
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-pc-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions \
-// RUN: -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=x86_64-pc-linux-gnu \
+// RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN: -fopenmp-is-device -fopenmp-host-ir-file-path %t-targ-host.bc \
 // RUN: -DTARGET_TEST -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix TTEST
 
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-pc-windows-msvc19.29.30133 -fopenmp \
-// RUN: -fexceptions -fcxx-exceptions -fopenmp-late-outline -fopenmp-typed-clauses -DWTEST \
+// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc19.29.30133 -fopenmp \
+// RUN: -fexceptions -fcxx-exceptions -fopenmp-late-outline -DWTEST \
 // RUN: -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix WTEST
 
@@ -42,50 +41,51 @@ extern void goo(float*);
 // Optimized and non-optimized IR is different, so test both.
 // Loops and non-loops use a different code path, so test both.
 
-//BOTH: test_loops
+//BOTH: define {{.*}}test_loops
 void test_loops(float *x)
 {
-  //BOTH: call token{{.*}}DIR.OMP.PARALLEL.LOOP
-  //BOTH: invoke void{{.*}}bar
-  //BOTH-NEXT: unwind label %[[TLP:.*lpad[0-9]*]]
+  // Test that there are two terminate.lpad, one for each region.
   #pragma omp parallel for
   for (int i = 0; i < 10; ++i)
     try { bar(x); } catch(...) {}
+  //BOTH: catch{{[0-9]*}}:
+  //BOTH: unwind label %[[TLP:terminate.lpad[0-9]*]]
+  //BOTH: [[TLP]]:
+  //BOTH: call void @__clang_call_terminate
 
-  //BOTH: call token{{.*}}DIR.OMP.PARALLEL.LOOP
-  //BOTH: invoke void{{.*}}goo
-  //BOTH-NEXT: unwind label %[[TLP20:.*lpad[0-9]*]]
   #pragma omp parallel for
   for (int i = 0; i < 10; ++i)
     try { goo(x); } catch(...) {}
-
-  //BOTH: [[TLP]]:
-  //BOTH: call void @__clang_call_terminate
+  //BOTH: catch{{[0-9]*}}:
+  //BOTH: unwind label %[[TLP20:terminate.lpad[0-9]*]]
   //BOTH: [[TLP20]]:
   //BOTH: call void @__clang_call_terminate
 
+  //BOTH: }
 }
 
 
-//BOTH: test_non_loops
+//BOTH: define {{.*}}test_non_loops
 void test_non_loops(float *x)
 {
-  //BOTH: call token{{.*}}DIR.OMP.PARALLEL
-  //BOTH: invoke void{{.*}}bar
-  //BOTH-NEXT: unwind label %[[TLP:.*lpad[0-9]*]]
+  // Test that there are two terminate.lpad, one for each region.
   #pragma omp parallel
   try { bar(x); } catch(...) {}
 
-  //BOTH: call token{{.*}}DIR.OMP.PARALLEL
-  //BOTH: invoke void{{.*}}goo
-  //BOTH-NEXT: unwind label %[[TLP20:.*lpad[0-9]*]]
+  //BOTH: catch{{[0-9]*}}:
+  //BOTH: unwind label %[[TLP:terminate.lpad[0-9]*]]
+  //BOTH: [[TLP]]:
+  //BOTH: call void @__clang_call_terminate
+
   #pragma omp parallel
   try { goo(x); } catch(...) {}
 
-  //BOTH: [[TLP]]:
-  //BOTH: call void @__clang_call_terminate
+  //BOTH: catch{{[0-9]*}}:
+  //BOTH: unwind label %[[TLP20:terminate.lpad[0-9]*]]
   //BOTH: [[TLP20]]:
   //BOTH: call void @__clang_call_terminate
+
+  //BOTH: }
 }
 
 // Since it is not legal to throw out of a OpenMP region,

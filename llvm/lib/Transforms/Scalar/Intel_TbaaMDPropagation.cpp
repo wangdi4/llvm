@@ -1,6 +1,6 @@
 //===-- TbaaMDPropagation.cpp - TBAA recovery for return pointers implementation -===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -60,6 +60,11 @@
 // the function containing the intrinsic has been inlined.  The CleanupFakeLoads
 // pass should be run after all inlining is complete to remove remaining
 // intrinsics.
+// It is important to remove fakeloads before other optimization passes:
+// - SROA and others will block on the unknown intrinsic.
+// - fakeload may carry control-flow sensitive attributes such as "nonnull".
+// If it is moved to another block, it may cause optimization errors.
+// (53133)
 //
 //===----------------------------------------------------------------------===//
 
@@ -237,13 +242,13 @@ void propagateIntelTBAAToMemInst(Instruction &MemInst, Value *PointerOp) {
   // The GEP indexes into the struct, which can result in any type. If the
   // result type does not match the i8 load type, the TBAA info cannot be used
   // for the load.
-  if (GEP->getPointerOperandType()->isOpaquePointerTy()) {
+  if (GEP->getPointerOperandType()->isPointerTy()) {
     auto *GEPType = GEP->getResultElementType();
     // If the GEP result itself is a "ptr" type, we can't tell if it is
     // actually compatible with any other "ptr" types. This may be overly
     // conservative as C++ rules not allow dereferences of an object
     // from incompatible pointer types.
-    if (GEPType->isOpaquePointerTy()) {
+    if (GEPType->isPointerTy()) {
       return;
     }
     if (auto *LI = dyn_cast<LoadInst>(&MemInst)) {
@@ -307,8 +312,8 @@ void TbaaMDPropagationImpl::removeBadArgMD(Function *F) {
   // Check for 2 args, both opaque pointer type.
   if (F->arg_size() != 2)
     return;
-  if (!F->getArg(0)->getType()->isOpaquePointerTy() ||
-      !F->getArg(1)->getType()->isOpaquePointerTy())
+  if (!F->getArg(0)->getType()->isPointerTy() ||
+      !F->getArg(1)->getType()->isPointerTy())
     return;
 
   // This function takes an instruction with intel-tbaa or tbaa MD, and

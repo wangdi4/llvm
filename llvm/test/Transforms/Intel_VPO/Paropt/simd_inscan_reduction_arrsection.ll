@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ;; static float x[20];
 ;; void array_inscan_reduction(float *B) {
@@ -21,26 +21,10 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @_Z22array_inscan_reductionPf(ptr %B) {
 ;
-; CHECK-LABEL:  red.init.body:
-; CHECK-NEXT:    [[RED_CPY_DEST_PTR0:%.*]] = phi ptr [ [[_ZL1X_RED_GEP0:%.*]], [[DIR_OMP_SIMD_16_SPLIT13_SPLIT0:%.*]] ], [ [[RED_CPY_DEST_INC0:%.*]], [[RED_INIT_BODY0:%.*]] ]
-; CHECK-NEXT:    [[RED_CPY_SRC_PTR0:%.*]] = phi ptr [ @_ZL1x, [[DIR_OMP_SIMD_16_SPLIT13_SPLIT0]] ], [ [[RED_CPY_SRC_INC0:%.*]], [[RED_INIT_BODY0]] ]
-; CHECK-NEXT:    [[TMP3:%.*]] = load float, ptr [[RED_CPY_SRC_PTR0]], align 4
-; CHECK-NEXT:    store float [[TMP3]], ptr [[RED_CPY_DEST_PTR0]], align 4
-; CHECK-NEXT:    [[RED_CPY_DEST_INC0]] = getelementptr float, ptr [[RED_CPY_DEST_PTR0]], i32 1
-; CHECK-NEXT:    [[RED_CPY_SRC_INC0]] = getelementptr float, ptr [[RED_CPY_SRC_PTR0]], i32 1
-; CHECK-NEXT:    [[RED_CPY_DONE0:%.*]] = icmp eq ptr [[RED_CPY_DEST_INC0]], [[TMP2:%.*]]
-; CHECK-NEXT:    br i1 [[RED_CPY_DONE0]], label [[RED_INIT_DONE0:%.*]], label [[RED_INIT_BODY0]]
-
-; CHECK-LABEL:  fastred.update.body:
-; CHECK-NEXT:    [[FASTRED_CPY_DEST_PTR0:%.*]] = phi ptr [ [[_ZL1X_FAST_RED_GEP_MINUS_OFFSET17_CAST_PLUS_OFFSET0:%.*]], [[OMP_INNER_FOR_COND_OMP_INNER_FOR_END_CRIT_EDGE0:%.*]] ], [ [[FASTRED_CPY_DEST_INC0:%.*]], [[FASTRED_UPDATE_BODY0:%.*]] ]
-; CHECK-NEXT:    [[FASTRED_CPY_SRC_PTR0:%.*]] = phi ptr [ [[_ZL1X_RED_GEP0]], [[OMP_INNER_FOR_COND_OMP_INNER_FOR_END_CRIT_EDGE0]] ], [ [[FASTRED_CPY_SRC_INC0:%.*]], [[FASTRED_UPDATE_BODY0]] ]
-; CHECK-NEXT:    [[TMP20:%.*]] = load float, ptr [[FASTRED_CPY_SRC_PTR0]], align 4
-; CHECK-NEXT:    store float [[TMP20]], ptr [[FASTRED_CPY_DEST_PTR0]], align 4
-; CHECK-NEXT:    [[FASTRED_CPY_DEST_INC0]] = getelementptr float, ptr [[FASTRED_CPY_DEST_PTR0]], i32 1
-; CHECK-NEXT:    [[FASTRED_CPY_SRC_INC0]] = getelementptr float, ptr [[FASTRED_CPY_SRC_PTR0]], i32 1
-; CHECK-NEXT:    [[FASTRED_CPY_DONE0:%.*]] = icmp eq ptr [[FASTRED_CPY_DEST_INC0]], [[TMP19:%.*]]
-; CHECK-NEXT:    br i1 [[FASTRED_CPY_DONE0]], label [[FASTRED_UPDATE_DONE0:%.*]], label [[FASTRED_UPDATE_BODY0]]
+; CHECK:         [[ARRAY:@.*]] = internal global [20 x float] zeroinitializer, align 16
+; CHECK:         "QUAL.OMP.REDUCTION.ADD:ARRSECT.INSCAN.TYPED"(ptr [[ARRAY]], float 0.000000e+00, i64 10, i64 2, i64 1)
 ;
+
 entry:
   %B.addr = alloca ptr, align 8
   %.omp.iv = alloca i32, align 4

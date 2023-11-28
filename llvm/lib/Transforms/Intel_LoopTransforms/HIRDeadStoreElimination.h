@@ -58,24 +58,6 @@ struct NonLinearTempInfo {
 
 namespace dse {
 
-class HIRDeadStoreEliminationLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-  HIRDeadStoreEliminationLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRDeadStoreEliminationLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-
 class HIRDeadStoreElimination {
   HIRDDAnalysis &HDDA;
   HIRLoopStatistics &HLS;
@@ -121,6 +103,12 @@ class HIRDeadStoreElimination {
   // Collects memrefs and addressOf refs in the region. Returns false if no
   // memrefs were found.
   bool doCollection(HLRegion &Region);
+
+  /// Returns true if there is an aliasing load in the region prior to the first
+  /// store ref of \p RefGroup which can reuse the store's value on reentering
+  /// the region.
+  bool foundReuseInAliasingLiveinLoad(const HLRegion &Region,
+                                      const RefGroupTy &RefGroup);
 
   /// Returns true if \p Ref escapes via an AddressOf ref and cannot be proven
   /// to be safe for analysis.

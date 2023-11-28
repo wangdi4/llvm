@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 // ===- HIRInterLoopBlocking.cpp - Blocking over multiple loopnests -==//
 //
-// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 //
 //===----------------------------------------------------------------------===//
@@ -4352,51 +4352,6 @@ PreservedAnalyses HIRInterLoopBlockingPass::runImpl(
                        AM.getResult<HIRLoopStatisticsAnalysis>(F), F);
 
   return PreservedAnalyses::all();
-}
-
-class HIRInterLoopBlockingLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRInterLoopBlockingLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRInterLoopBlockingLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRArraySectionAnalysisWrapperPass>();
-    AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return driver(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                  getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA(),
-                  getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                  getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
-                  getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(), F);
-  }
-};
-
-char HIRInterLoopBlockingLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRInterLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC,
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRArraySectionAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(HIRInterLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIRInterLoopBlockingPass() {
-  return new HIRInterLoopBlockingLegacyPass();
 }
 
 #endif // INTEL_FEATURE_SW_ADVANCED

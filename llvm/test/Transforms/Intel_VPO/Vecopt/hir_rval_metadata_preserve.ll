@@ -5,26 +5,26 @@ define internal fastcc void @shell_(double %0, double %1, i32 %2, i32 %3, i32 %4
 ;
 ; CHECK:       + DO i64 i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:  |   [[NSBGEPCOPY0:%.*]] = undef
-; CHECK-NEXT:  |   <LVAL-REG> NON-LINEAR <4 x double*> [[NSBGEPCOPY0]]
+; CHECK-NEXT:  |   <LVAL-REG> NON-LINEAR <4 x ptr> [[NSBGEPCOPY0]]
 ; CHECK-NEXT:  |
 ; CHECK-NEXT:  |   [[NSBGEPCOPY10:%.*]] = undef
-; CHECK-NEXT:  |   <LVAL-REG> NON-LINEAR double* [[NSBGEPCOPY10]]
+; CHECK-NEXT:  |   <LVAL-REG> NON-LINEAR ptr [[NSBGEPCOPY10]]
 ; CHECK-NEXT:  |
 ; CHECK-NEXT:  |   [[DOTVEC0:%.*]] = (<4 x double>*)([[NSBGEPCOPY10]])[0][%18 + -1][i1]
 ; CHECK-NEXT:  |   <LVAL-REG> NON-LINEAR <4 x double> [[DOTVEC0]]
-; CHECK-NEXT:  |   <RVAL-REG> {al:1}(<4 x double>*)(NON-LINEAR double* [[NSBGEPCOPY10]])[i64 0][LINEAR i64 [[TMP18:%.*]] + -1][LINEAR i64 i1] inbounds  !alias.scope !1 !noalias !4 {undefined}
-; CHECK-NEXT:  |      <BLOB> NON-LINEAR double* [[NSBGEPCOPY10]] 
+; CHECK-NEXT:  |   <RVAL-REG> {al:1}(<4 x double>*)(NON-LINEAR ptr [[NSBGEPCOPY10]])[i64 0][LINEAR i64 [[TMP18:%.*]] + -1][LINEAR i64 i1] inbounds  !alias.scope !1 !noalias !4 {undefined}
+; CHECK-NEXT:  |      <BLOB> NON-LINEAR ptr [[NSBGEPCOPY10]] 
 ; CHECK-NEXT:  |      <BLOB> LINEAR i64 [[TMP18]] 
 ; CHECK-NEXT:  |
 ; CHECK-NEXT:  |   [[NSBGEPCOPY20:%.*]] = undef
-; CHECK-NEXT:  |   <LVAL-REG> NON-LINEAR <4 x double*> [[NSBGEPCOPY20]] 
+; CHECK-NEXT:  |   <LVAL-REG> NON-LINEAR <4 x ptr> [[NSBGEPCOPY20]] 
 ; CHECK-NEXT:  |
 ; CHECK-NEXT:  |   [[NSBGEPCOPY30:%.*]] = undef
-; CHECK-NEXT:  |   <LVAL-REG> NON-LINEAR double* [[NSBGEPCOPY30]] 
+; CHECK-NEXT:  |   <LVAL-REG> NON-LINEAR ptr [[NSBGEPCOPY30]] 
 ; CHECK-NEXT:  |
 ; CHECK-NEXT:  |   (<4 x double>*)([[NSBGEPCOPY30]])[0][%18 + -1][i1] = [[DOTVEC0]]
-; CHECK-NEXT:  |   <LVAL-REG> {al:1}(<4 x double>*)(NON-LINEAR double* [[NSBGEPCOPY30]])[i64 0][LINEAR i64 [[TMP18]] + -1][LINEAR i64 i1] inbounds  !alias.scope !1 !noalias !4 {undefined} 
-; CHECK-NEXT:  |      <BLOB> NON-LINEAR double* [[NSBGEPCOPY30]] 
+; CHECK-NEXT:  |   <LVAL-REG> {al:1}(<4 x double>*)(NON-LINEAR ptr [[NSBGEPCOPY30]])[i64 0][LINEAR i64 [[TMP18]] + -1][LINEAR i64 i1] inbounds  !alias.scope !1 !noalias !4 {undefined} 
+; CHECK-NEXT:  |      <BLOB> NON-LINEAR ptr [[NSBGEPCOPY30]] 
 ; CHECK-NEXT:  |      <BLOB> LINEAR i64 [[TMP18]] 
 ; CHECK-NEXT:  |   <RVAL-REG> NON-LINEAR <4 x double> [[DOTVEC0]] 
 ; CHECK-NEXT:  |
@@ -32,30 +32,30 @@ define internal fastcc void @shell_(double %0, double %1, i32 %2, i32 %3, i32 %4
 ;
 ; CHECK:       + DO i64 i1 = {{.*}}, 100, 1   <DO_LOOP>
 ; CHECK:       |   (undef)[0][%18 + -1][i1] = (undef)[0][%18 + -1][i1]
-; CHECK-NEXT:  |   <LVAL-REG> {al:1}(double* undef)[i64 0][LINEAR i64 [[TMP18]] + -1][LINEAR i64 i1] inbounds  !alias.scope !1 !noalias !4 {undefined} 
+; CHECK-NEXT:  |   <LVAL-REG> {al:1}(ptr undef)[i64 0][LINEAR i64 [[TMP18]] + -1][LINEAR i64 i1] inbounds  !alias.scope !1 !noalias !4 {undefined} 
 ; CHECK-NEXT:  |      <BLOB> LINEAR i64 [[TMP18]] 
-; CHECK-NEXT:  |   <RVAL-REG> {al:1}(double* undef)[i64 0][LINEAR i64 [[TMP18]] + -1][LINEAR i64 i1] inbounds  !alias.scope !1 !noalias !4 {undefined} 
+; CHECK-NEXT:  |   <RVAL-REG> {al:1}(ptr undef)[i64 0][LINEAR i64 [[TMP18]] + -1][LINEAR i64 i1] inbounds  !alias.scope !1 !noalias !4 {undefined} 
 ; CHECK-NEXT:  |      <BLOB> LINEAR i64 [[TMP18]] 
 ; CHECK-NEXT:  |
 ; CHECK-NEXT:  + END LOOP
 ;
 14:
-  %15 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 undef, double* elementtype(double) nonnull undef, i64 1)
-  %16 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 undef, double* elementtype(double) nonnull undef, i64 1)
+  %15 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 undef, ptr elementtype(double) nonnull undef, i64 1)
+  %16 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 undef, ptr elementtype(double) nonnull undef, i64 1)
   br label %17
 
 17:                                               ; preds = %28, %14
   %18 = phi i64 [ 1, %14 ], [ %29, %28 ]
-  %19 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %15, i64 %18)
-  %20 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %16, i64 %18)
+  %19 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %15, i64 %18)
+  %20 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %16, i64 %18)
   br label %21
 
 21:                                               ; preds = %21, %17
   %22 = phi i64 [ %26, %21 ], [ 1, %17 ]
-  %23 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %19, i64 %22)
-  %24 = load double, double* %23, align 1, !alias.scope !0, !noalias !3
-  %25 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %20, i64 %22)
-  store double %24, double* %25, align 1, !alias.scope !0, !noalias !3
+  %23 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %19, i64 %22)
+  %24 = load double, ptr %23, align 1, !alias.scope !0, !noalias !3
+  %25 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %20, i64 %22)
+  store double %24, ptr %25, align 1, !alias.scope !0, !noalias !3
   %26 = add nuw nsw i64 %22, 1
   %27 = icmp eq i64 %26, 102
   br i1 %27, label %28, label %21
@@ -65,7 +65,7 @@ define internal fastcc void @shell_(double %0, double %1, i32 %2, i32 %3, i32 %4
   br label %17
 }
 
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64)
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64)
 
 attributes #0 = { "no-infs-fp-math"="true" }
 

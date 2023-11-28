@@ -1,6 +1,6 @@
 //===- BarrierUtils.h - Barrier Utils ---------------------------*- C++ -*-===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -101,6 +101,9 @@ public:
   ///        synchronize functions.
   FuncSet getRecursiveFunctionsWithSync();
 
+  /// \brief return all intel_device_barrier instructions in the module
+  InstVec getDeviceBarrierCallInsts();
+
   /// \brief Find calls to WG functions upon their type
   /// \param type - type of WG functions to find
   /// \returns container with calls to WG functions of requested type
@@ -200,6 +203,11 @@ public:
   void replaceSortSizeWithTotalSize(IRBuilderBase &B, CallInst *WGCallInst,
                                     unsigned ArgIdx, Value *LLSize);
 
+  /// \brief Replace intel_device_barrier's param with number of work groups
+  /// \param NumsGroup number of work groups.
+  /// \param B IRBuilder used to create new instructions.
+  CallInst *createDeviceBarrierWithWGCount(Value *NumsGroup, IRBuilderBase &B);
+
   /// \brief return an indicator regarding given function calls
   /// a function defined in the module (that was not inlined)
   /// \param Func the given function
@@ -241,18 +249,6 @@ private:
   /// insert all found usage instructions into
   void findAllUsesOfFunc(StringRef name, InstSet &usesSet);
 
-  /// \brief Create function declaration with given name and type specification
-  /// \param name the given function name
-  /// \param pResult type of return value of the function
-  /// \param funcTyArgs types vector of all arguments values of the function
-  /// \returns Function new declared function
-  Function *createFunctionDeclaration(StringRef name, Type *pResult,
-                                      ArrayRef<Type *> funcTyArgs);
-
-  /// \brief Add ReadNone attribute to given function.
-  /// \param Func the given function.
-  void SetFunctionAttributeReadNone(Function *Func);
-
 private:
   /// Pointer to current processed module
   Module *M;
@@ -273,6 +269,8 @@ private:
   Function *GetLocalSizeFunc;
   /// This holds the get_global_id() function
   Function *GetGIDFunc;
+  /// This holds the intel_device_barrier() function
+  Function *DeviceBarrierFunc = nullptr;
   /// This holds the get_local_id() function
   Function *GetLIDFunc;
   /// This holds the get_sub_group_size() function

@@ -296,6 +296,52 @@ void collectFunctionsAndGlobalVariablesToExtract(
   }
 }
 
+// Check "spirv.ExecutionMode" named metadata in the module and remove nodes
+// that reference kernels that have dead prototypes or don't reference any
+// kernel at all (nullptr). Dead prototypes are removed as well.
+void processSubModuleNamedMetadata(Module *M) {
+  auto ExecutionModeMD = M->getNamedMetadata("spirv.ExecutionMode");
+  if (!ExecutionModeMD)
+    return;
+
+  bool ContainsNodesToRemove = false;
+  std::vector<MDNode *> ValueVec;
+  for (auto Op : ExecutionModeMD->operands()) {
+    assert(Op->getNumOperands() > 0);
+    if (!Op->getOperand(0)) {
+      ContainsNodesToRemove = true;
+      continue;
+    }
+
+    // If the first operand is not nullptr then it has to be a kernel
+    // function.
+    Value *Val = cast<ValueAsMetadata>(Op->getOperand(0))->getValue();
+    Function *F = cast<Function>(Val);
+    // If kernel function is just a prototype and unused then we can remove it
+    // and later remove corresponding spirv.ExecutionMode metadata node.
+    if (F->isDeclaration() && F->use_empty()) {
+      F->eraseFromParent();
+      ContainsNodesToRemove = true;
+      continue;
+    }
+
+    // Rememver nodes which we need to keep in the module.
+    ValueVec.push_back(Op);
+  }
+  if (!ContainsNodesToRemove)
+    return;
+
+  if (ValueVec.empty()) {
+    // If all nodes need to be removed then just remove named metadata
+    // completely.
+    ExecutionModeMD->eraseFromParent();
+  } else {
+    ExecutionModeMD->clearOperands();
+    for (auto MD : ValueVec)
+      ExecutionModeMD->addOperand(MD);
+  }
+}
+
 ModuleDesc extractSubModule(const ModuleDesc &MD,
                             const SetVector<const GlobalValue *> GVs,
                             EntryPointGroup &&ModuleEntryPoints) {
@@ -329,6 +375,10 @@ ModuleDesc extractCallGraph(const ModuleDesc &MD,
       GVs, MD.getModule(), ModuleEntryPoints, CG, IncludeFunctionPredicate);
 
   ModuleDesc SplitM = extractSubModule(MD, GVs, std::move(ModuleEntryPoints));
+  // TODO: cleanup pass is now called for each output module at the end of
+  // sycl-post-link. This call is redundant. However, we subsequently run
+  // GenXSPIRVWriterAdaptor pass that relies on this cleanup. This cleanup call
+  // can be removed once that pass no longer depends on this cleanup.
   SplitM.cleanup();
 
   return SplitM;
@@ -351,6 +401,10 @@ ModuleDesc extractESIMDSubModule(const ModuleDesc &MD,
       GVs, MD.getModule(), ModuleEntryPoints, CG, IncludeFunctionPredicate);
 
   ModuleDesc SplitM = extractSubModule(MD, GVs, std::move(ModuleEntryPoints));
+  // TODO: cleanup pass is now called for each output module at the end of
+  // sycl-post-link. This call is redundant. However, we subsequently run
+  // GenXSPIRVWriterAdaptor pass that relies on this cleanup. This cleanup call
+  // can be removed once that pass no longer depends on this cleanup.
   SplitM.cleanup();
 
   return SplitM;
@@ -450,7 +504,15 @@ public:
   using ModuleSplitterBase::ModuleSplitterBase; // to inherit base constructors
 
   ModuleDesc nextSplit() override {
-    return ModuleDesc{releaseInputModule(), nextGroup(), Input.Props};
+    ModuleDesc Desc{releaseInputModule(), nextGroup(), Input.Props};
+    // Do some basic optimization like unused symbol removal
+    // even if there was no split.
+    // TODO: cleanup pass is now called for each output module at the end of
+    // sycl-post-link. This call is redundant. However, we subsequently run
+    // GenXSPIRVWriterAdaptor pass that relies on this cleanup. This cleanup
+    // call can be removed once that pass no longer depends on this cleanup.
+    Desc.cleanup();
+    return Desc;
   }
 };
 
@@ -719,6 +781,30 @@ void ModuleDesc::cleanup() {
   MPM.addPass(StripDeadDebugInfoPass());  // Remove dead debug info.
   MPM.addPass(StripDeadPrototypesPass()); // Remove dead func decls.
   MPM.run(*M, MAM);
+
+  // Original module may have named metadata (spirv.ExecutionMode) referencing
+  // kernels in the module. Some of the Metadata nodes may reference kernels
+  // which are not included into the extracted submodule, in such case
+  // CloneModule either leaves that metadata nodes as is but they will reference
+  // dead prototype of the kernel or operand will be replace with nullptr. So
+  // process all nodes in the named metadata and remove nodes which are
+  // referencing kernels which are not included into submodule.
+  processSubModuleNamedMetadata(M.get());
+}
+
+bool ModuleDesc::isSpecConstantDefault() const {
+  return Props.IsSpecConstantDefault;
+}
+
+void ModuleDesc::setSpecConstantDefault(bool Value) {
+  Props.IsSpecConstantDefault = Value;
+}
+
+ModuleDesc ModuleDesc::clone() const {
+  std::unique_ptr<Module> NewModule = CloneModule(getModule());
+  ModuleDesc NewMD(std::move(NewModule));
+  NewMD.EntryPoints.Props = EntryPoints.Props;
+  return NewMD;
 }
 
 #ifndef NDEBUG
@@ -788,6 +874,12 @@ void EntryPointGroup::rebuildFromNames(const std::vector<std::string> &Names,
   });
 }
 
+void EntryPointGroup::rebuild(const Module &M) {
+  for (const Function &F : M.functions())
+    if (F.getCallingConv() == CallingConv::SPIR_KERNEL)
+      Functions.insert(const_cast<Function *>(&F));
+}
+
 namespace {
 // This is a helper class, which allows to group/categorize function based on
 // provided rules. It is intended to be used in device code split
@@ -818,6 +910,12 @@ public:
   // resulting identifier.
   void registerSimpleStringAttributeRule(StringRef AttrName) {
     Rules.emplace_back(Rule::RKind::K_SimpleStringAttribute, AttrName);
+  }
+
+  // Creates a simple rule, which adds a value of a string metadata into a
+  // resulting identifier.
+  void registerSimpleStringMetadataRule(StringRef MetadataName) {
+    Rules.emplace_back(Rule::RKind::K_SimpleStringMetadata, MetadataName);
   }
 
   // Creates a simple rule, which adds one or another value to a resulting
@@ -868,6 +966,8 @@ private:
       K_Callback,
       // Copy value of the specified attribute, if present
       K_SimpleStringAttribute,
+      // Copy value of the specified metadata, if present
+      K_SimpleStringMetadata,
       // Use one or another string based on the specified metadata presence
       K_FlagMetadata,
       // Use one or another string based on the specified attribute presence
@@ -885,6 +985,7 @@ private:
       switch (K) {
       case RKind::K_SimpleStringAttribute:
       case RKind::K_IntegersListMetadata:
+      case RKind::K_SimpleStringMetadata:
       case RKind::K_SortedIntegersListMetadata:
         return 0;
       case RKind::K_Callback:
@@ -925,6 +1026,18 @@ std::string FunctionsCategorizer::computeCategoryFor(Function *F) const {
       if (F->hasFnAttribute(AttrName)) {
         Attribute Attr = F->getFnAttribute(AttrName);
         Result += Attr.getValueAsString();
+      }
+    } break;
+
+    case Rule::RKind::K_SimpleStringMetadata: {
+      StringRef MetadataName =
+          R.getStorage<Rule::RKind::K_SimpleStringMetadata>();
+      if (F->hasMetadata(MetadataName)) {
+        auto *MDN = F->getMetadata(MetadataName);
+        for (size_t I = 0, E = MDN->getNumOperands(); I < E; ++I) {
+          MDString *S = cast<llvm::MDString>(MDN->getOperand(I).get());
+          Result += "-" + S->getString().str();
+        }
       }
     } break;
 
@@ -984,7 +1097,8 @@ std::string FunctionsCategorizer::computeCategoryFor(Function *F) const {
 std::unique_ptr<ModuleSplitterBase>
 getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
 #if INTEL_COLLAB
-                      bool EmitOnlyKernelsAsEntryPoints, bool IsOMPOffload) {
+                      bool EmitOnlyKernelsAsEntryPoints, bool DoOMPOffload,
+                      bool DoOmpExplicitSIMDSplit) {
 #else
                       bool EmitOnlyKernelsAsEntryPoints) {
 #endif // INTEL_COLLAB
@@ -1024,6 +1138,8 @@ getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
         "intel_reqd_sub_group_size");
     Categorizer.registerSimpleStringAttributeRule(
         sycl::utils::ATTR_SYCL_OPTLEVEL);
+    Categorizer.registerSimpleStringMetadataRule("sycl_joint_matrix");
+    Categorizer.registerSimpleStringMetadataRule("sycl_joint_matrix_mad");
     break;
   }
 
@@ -1049,7 +1165,7 @@ getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
 #if INTEL_COLLAB
     // For OpenMP offloading we may need an extra module with global variable
     // definitions
-    Groups.reserve(EntryPointsMap.size() + IsOMPOffload);
+    Groups.reserve(EntryPointsMap.size() + DoOMPOffload);
 #else
     Groups.reserve(EntryPointsMap.size());
 #endif // INTEL_COLLAB
@@ -1058,7 +1174,8 @@ getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
     for (auto &[Key, EntryPoints] : EntryPointsMap)
       Groups.emplace_back(Key, std::move(EntryPoints), MDProps);
 #if INTEL_COLLAB
-    if (IsOMPOffload && Scope_PerKernel == Scope) {
+    if (DoOMPOffload && (Scope_PerKernel == Scope ||
+                         (Scope_Global == Scope && DoOmpExplicitSIMDSplit))) {
       EntryPointSet IndirectFuncSet;
       for (auto &F : MD.getModule().functions()) {
         if (!F.hasFnAttribute("referenced-indirectly"))
@@ -1070,7 +1187,8 @@ getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
 #endif // INTEL_COLLAB
   }
 #if INTEL_COLLAB
-  if (IsOMPOffload && (Scope_PerKernel == Scope))
+  if (DoOMPOffload && (Scope_PerKernel == Scope ||
+                       (Scope_Global == Scope && DoOmpExplicitSIMDSplit)))
     return std::make_unique<OMPModuleSplitter>(std::move(MD),
                                                std::move(Groups));
 #endif // INTEL_COLLAB

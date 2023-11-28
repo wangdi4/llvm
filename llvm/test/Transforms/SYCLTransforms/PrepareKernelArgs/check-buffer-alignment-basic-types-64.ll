@@ -43,7 +43,7 @@ entry:
 !sycl.kernels = !{!0}
 !0 = !{ptr @t1}
 !1 = !{!"short", !"char*", !"char", !"int", !"float", !"long", !"double"}
-!2 = !{i16 0, i8 addrspace(1)* null, i8 0, i32 0, float 0.000000e+00, i64 0, double 0.000000e+00}
+!2 = !{i16 0, ptr addrspace(1) null, i8 0, i32 0, float 0.000000e+00, i64 0, double 0.000000e+00}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-42: WARNING: Instruction with empty DebugLoc in function t1 {{.*}}

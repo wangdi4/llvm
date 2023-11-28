@@ -129,6 +129,15 @@ static bool noBarrierPath(SmallPtrSetImpl<Function *> &Kernels,
   });
 }
 
+/// Return true if the unit of the function has FullDebug emission kind.
+static bool hasFullDebugEmissionKind(Function &F) {
+  DISubprogram *SP = F.getSubprogram();
+  if (!SP)
+    return false;
+  DICompileUnit *CU = SP->getUnit();
+  return CU && CU->getEmissionKind() == DICompileUnit::FullDebug;
+}
+
 bool ImplicitGIDImpl::run() {
   BUtils.init(&M);
   SGH.initialize(M);
@@ -152,11 +161,15 @@ bool ImplicitGIDImpl::run() {
   CompilationUtils::FuncSet AllKernels = CompilationUtils::getAllKernels(M);
   SmallVector<Function *, 16> NonKernelFuncs;
   for (auto &F : M)
-    if (!F.isDeclaration() && !AllKernels.contains(&F))
+    if (!F.isDeclaration() && !AllKernels.contains(&F) &&
+        hasFullDebugEmissionKind(F))
       NonKernelFuncs.push_back(&F);
 
   // Process kernel functions.
   for (auto *F : KL) {
+    if (!hasFullDebugEmissionKind(*F))
+      continue;
+
     auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(F);
     if (HandleBarrier) {
       if (!KIMD.NoBarrierPath.get())

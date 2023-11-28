@@ -1,6 +1,6 @@
 //===- BuiltinCallToInst.cpp - Resolve supported builtin calls --*- C++ -*-===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -219,12 +219,11 @@ void BuiltinCallToInstPass::handleShuffleCalls(CallInst *ShuffleCall,
       cast<FixedVectorType>(Mask->getType())->getNumElements();
   Type *MaskTy = FixedVectorType::get(
       Type::getInt32Ty(ShuffleCall->getContext()), MaskVecSize);
-
   // We previously searched for shuffle calls with constant mask only.
   // So we can assume mask is constant here.
   // If mask scalar size is not 32 then Zext or Trunc the mask to get to 32.
   if (Mask->getType()->getScalarSizeInBits() < MaskTy->getScalarSizeInBits())
-    NewMask = ConstantExpr::getZExt(cast<Constant>(Mask), MaskTy);
+    NewMask = ConstantFoldCastInstruction(Instruction::ZExt, cast<Constant>(Mask), MaskTy);
   else if (Mask->getType()->getScalarSizeInBits() >
            MaskTy->getScalarSizeInBits())
     NewMask = ConstantExpr::getTrunc(cast<Constant>(Mask), MaskTy);
@@ -237,7 +236,7 @@ void BuiltinCallToInstPass::handleShuffleCalls(CallInst *ShuffleCall,
   // here for safety, but assert...
   if (!ShuffleVectorInst::isValidOperands(FirstVec, SecondVec, NewMask)) {
     assert(isa<ConstantExpr>(NewMask) &&
-           "Got invalid shuffle paramters not due to mask being a constant "
+           "Got invalid shuffle parameters not due to mask being a constant "
            "expressions");
     return;
   }

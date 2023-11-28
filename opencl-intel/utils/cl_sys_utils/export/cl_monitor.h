@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,13 +12,12 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <cl_stopwatch.h>
-#include <cl_types.h>
-
 #ifndef _CL_MONITOR_H
 #define _CL_MONITOR_H
 
+#include "cl_stopwatch.h"
 #include "cl_sys_defines.h"
+#include "cl_types.h"
 
 // #define __PERF_MONITOR__
 #define MAX_SAMPLE_NAME 64

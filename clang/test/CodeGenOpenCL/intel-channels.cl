@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir -emit-llvm %s -o - | FileCheck %s
 
 #pragma OPENCL EXTENSION cl_intel_channels : enable
 

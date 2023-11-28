@@ -14,17 +14,12 @@
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
-class CallGraph;
-class RuntimeService;
 
 /// Deduce the maximum WG dimemsion that needs to be executed and save result
 /// to max_wg_dimensions metadata.
 class DeduceMaxWGDimPass : public PassInfoMixin<DeduceMaxWGDimPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-
-  // Glue for old PM.
-  bool runImpl(Module &M, RuntimeService &RTS, CallGraph &CG);
 };
 
 } // namespace llvm

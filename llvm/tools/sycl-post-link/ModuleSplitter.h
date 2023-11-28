@@ -110,6 +110,7 @@ class ModuleDesc {
 
 public:
   struct Properties {
+    bool IsSpecConstantDefault = false;
     bool SpecConstsMet = false;
   };
   std::string Name = "";
@@ -168,6 +169,8 @@ public:
 
   void rebuildEntryPoints(const Module &M) { EntryPoints.rebuild(M); }
 
+  void rebuildEntryPoints() { EntryPoints.rebuild(*M); }
+
   void renameDuplicatesOf(const Module &M, StringRef Suff);
 
   // Fixups an invoke_simd target linkage so that it is not dropped by global
@@ -183,6 +186,11 @@ public:
 
   // Cleans up module IR - removes dead globals, debug info etc.
   void cleanup();
+
+  bool isSpecConstantDefault() const;
+  void setSpecConstantDefault(bool Value);
+
+  ModuleDesc clone() const;
 
 #ifndef NDEBUG
   void verifyESIMDProperty() const;
@@ -246,7 +254,8 @@ std::unique_ptr<ModuleSplitterBase>
 getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
 #if INTEL_COLLAB
                       bool EmitOnlyKernelsAsEntryPoints,
-                      bool DoOmpOffload = false);
+                      bool DoOmpOffload = false,
+                      bool DoOmpExplicitSIMDSplit = false);
 #else  // INTEL_COLLAB
                       bool EmitOnlyKernelsAsEntryPoints);
 #endif // INTEL_COLLAB

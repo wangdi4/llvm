@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,11 +13,11 @@
 // License.
 
 #include "plugin_manager.h"
+#include "BE_DynamicLib.h"
 #include "cl_env.h"
 #include "cl_synch_objects.h"
 #include "cl_utils.h"
 #include "plugin_interface.h"
-#include <BE_DynamicLib.h>
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"

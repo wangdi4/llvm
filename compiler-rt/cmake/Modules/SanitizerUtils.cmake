@@ -61,11 +61,11 @@ macro(add_sanitizer_rt_symbols name)
       SOURCES ${SANITIZER_GEN_DYNAMIC_LIST} ${ARG_EXTRA})
     get_compiler_rt_install_dir(${arch} install_dir)
     install(FILES $<TARGET_FILE:${target_name}>.syms
-            DESTINATION ${install_dir}
 # INTEL_CUSTOMIZATION
+            DESTINATION ${install_dir}
             COMPONENT sanitizer-rt-symbols
-# end INTEL_CUSTOMIZATION
            )
+# end INTEL_CUSTOMIZATION
     if(ARG_PARENT_TARGET)
       add_dependencies(${ARG_PARENT_TARGET} ${target_name}-symbols)
     endif()

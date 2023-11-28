@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 Intel Corporation
+// Copyright (c) 2006 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -32,11 +32,10 @@
 #include "cpu_config.h"
 #include "cpu_logger.h"
 #include "dispatcher_commands.h"
-#include "task_executor.h"
-#include <thread>
 #if defined(USE_ITT)
-#include <ocl_itt.h>
+#include "ocl_itt.h"
 #endif
+#include "task_executor.h"
 
 #ifdef __INCLUDE_MKL__
 #include <mkl_builtins.h>
@@ -44,6 +43,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <thread>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -304,11 +304,6 @@ cl_dev_err_code TaskDispatcher::init() {
   cl_ulong timeOut = 8000000ULL * m_uiNumThreads; // in nanoseconds
   SharedPtr<AffinitizeThreads> pAffinitizeThreads =
       AffinitizeThreads::Allocate(m_uiNumThreads, timeOut);
-  if (0 == pAffinitizeThreads) {
-    // Todo
-    assert(0);
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   SharedPtr<Intel::OpenCL::TaskExecutor::ITaskList> pTaskList =
       m_pRootDevice->CreateTaskList(CommandListCreationParam(

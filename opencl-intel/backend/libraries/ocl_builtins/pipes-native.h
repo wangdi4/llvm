@@ -16,8 +16,7 @@
 #define __INTEL_PIPES_NATIVE_H__
 
 // This header should be used in the RT to allocate OpenCL 2.0 Pipes.
-#include <CL/cl.h>
-
+#include "CL/cl.h"
 #include "pipes-defines.h"
 
 extern "C" {

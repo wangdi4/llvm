@@ -1,5 +1,5 @@
 //===- DDTests.cpp - Data dependence testing between two DDRefs -----------===//
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -932,13 +932,14 @@ void Dependences::dump(raw_ostream &OS) const {
       case DVKind::GT:
         OS << ">";
         break;
+      case DVKind::GE:
+        OS << ">=";
+        break;
       case DVKind::NE:
         OS << "<>";
         break;
       case DVKind::NONE:
         OS << "0";
-        break;
-      default:
         break;
       }
       if (II != Levels) {
@@ -3007,6 +3008,11 @@ bool DDTest::refineLinearizedMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
                                      const RegDDRef *SrcRegDDRef,
                                      const RegDDRef *DstRegDDRef) {
   if (SkipLinearizedRefsTest) {
+    return false;
+  }
+
+  // Do not refine non-innermost dimension.
+  if (!LCALoop || !LCALoop->isInnermost()) {
     return false;
   }
 
@@ -5776,12 +5782,13 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
   return std::make_unique<Dependences>(Result);
 }
 
-///  Create  DV for Backward Edge
-///  ForwardDV will be changed if it has a leading  (<>)
+// Splits \p ForwardDV (representing bidirectional DV) into a forward direction
+// DV and a backward direction DV. The splitting point is when we first
+// encounter a compound DV element like <=, >=, <> or *.
 ///    Called when both forward and backward edges are needed
-///           ( *  >  =)  returns  (*  <  =)
-///           ( =  *  =)  returns  (=  *  =)
-///           (<=  *  >)  returns  (<= *  <)
+///           ( *  >  =)  sets  Forward as (*  >  =) and Backward as (*  <  =)
+///           ( =  *  =)  sets  Forward and Backward as (=  *  =)
+///           (<=  *  >)  sets  Forward as (<=  *  >) and Backward as (=  <=  <)
 ///           Explanation:
 ///           (<=  * >)  is equivalent to
 /// --------------------
@@ -5798,28 +5805,70 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
 void DDTest::splitDVForForwardBackwardEdge(DirectionVector &ForwardDV,
                                            DirectionVector &BackwardDV,
-                                           unsigned MaxLevel) const {
+                                           unsigned MaxLevel,
+                                           bool SplittingForBiDirection) const {
 
-  unsigned SplitLevel = 1;
-
-  // Scan for leftmost * or <>
-
+  unsigned SplitLevel = 0;
+  bool BackwardSplitDVIsEqual = false;
+  bool ForwardSplitDVIsEqual = false;
+  // Scan for leftmost *, <>, <= or >=
   for (unsigned II = 1; II <= MaxLevel; ++II) {
-    // for (<> >)
-    // ForwardDV will be changed  as (< >)
-    // BackwardDV will be flipped as (< <)
-    if (ForwardDV[II - 1] == DVKind::NE) {
+    switch (ForwardDV[II - 1]) {
+    case DVKind::NE:
+      // for (<> >)
+      // ForwardDV will be changed  as (< >)
+      // BackwardDV will be flipped as (< <)
       BackwardDV[II - 1] = ForwardDV[II - 1] = DVKind::LT;
       SplitLevel = II;
       break;
-    }
 
-    BackwardDV[II - 1] = ForwardDV[II - 1];
+    case DVKind::LE:
+      // for (<= >)
+      // ForwardDV stays as (<= >)
+      // BackwardDV will be (= <)
+      BackwardDV[II - 1] = DVKind::EQ;
+      SplitLevel = II;
+      BackwardSplitDVIsEqual = true;
+      break;
 
-    if (ForwardDV[II - 1] == DVKind::ALL) {
+    case DVKind::GE:
+      // for (>= <)
+      // ForwardDV will be changed as (= <)
+      // BackwardDV will be flipped as (<= >)
+      ForwardDV[II - 1] = DVKind::EQ;
+      BackwardDV[II - 1] = DVKind::LE;
+      ForwardSplitDVIsEqual = true;
       SplitLevel = II;
       break;
+
+    case DVKind::ALL:
+      // TODO: We need to improve this. A * needs to be replaced with a <= in
+      // the forward and backward DVs. The problem is that doing so produces
+      // many failures. We need to revise the dependency algorithm.
+      BackwardDV[II - 1] = ForwardDV[II - 1];
+      SplitLevel = II;
+      break;
+
+    case DVKind::EQ:
+    case DVKind::NONE:
+      BackwardDV[II - 1] = ForwardDV[II - 1];
+      break;
+
+    default:
+      // TODO: SplittingForBiDirection is used to check if the split is being
+      // called due to bi-direction check. If the split is being called from
+      // reversing the forward DV, then we just copy. This needs to be revised
+      // since reversing may not need the splitting.
+      if (SplittingForBiDirection)
+        llvm_unreachable("Direction < or > found before a split point");
+      else
+        BackwardDV[II - 1] = ForwardDV[II - 1];
+
+      break;
     }
+
+    if (SplitLevel == II)
+      break;
   }
 
   for (unsigned II = SplitLevel + 1; II <= MaxLevel; ++II) {
@@ -5839,6 +5888,15 @@ void DDTest::splitDVForForwardBackwardEdge(DirectionVector &ForwardDV,
     default:
       BackwardDV[II - 1] = ForwardDV[II - 1];
       break;
+    }
+
+    // The valid DV's leftmost non-equal element should not be a '>'.
+    if (BackwardSplitDVIsEqual && BackwardDV[II - 1] != EQ) {
+      BackwardDV[II - 1] &= ~GT;
+      BackwardSplitDVIsEqual = false;
+    } else if (ForwardSplitDVIsEqual && ForwardDV[II - 1] != EQ) {
+      ForwardDV[II - 1] &= ~GT;
+      ForwardSplitDVIsEqual = false;
     }
   }
 }
@@ -6148,14 +6206,18 @@ void DDTest::setDVForPeelFirstAndReversed(DirectionVector &ForwardDV,
     ForwardDV[II - 1] = Result.getDirection(II);
   }
   ForwardDV[Levels - 1] = DVKind::EQ;
-  splitDVForForwardBackwardEdge(ForwardDV, BackwardDV, Levels);
+
+  // TODO: We need to revise if peeling first and reverse actually needs
+  // splitting. The flag SplittingForBiDirection (false), is used to skip the
+  // assertion check for < or > inside splitDVForForwardBackwardEdge.
+  splitDVForForwardBackwardEdge(ForwardDV, BackwardDV, Levels,
+                                false /* SplittingForBiDirection */);
   BackwardDV[Levels - 1] = DVKind::LT;
 }
 
 void DDTest::setDVForBiDirection(DirectionVector &ForwardDV,
                                  DirectionVector &BackwardDV,
-                                 const Dependences &Result, unsigned Levels,
-                                 unsigned LTGTLevel) {
+                                 const Dependences &Result, unsigned Levels) {
 
   // Both directions
   // Leftmost non-equal is a *
@@ -6166,13 +6228,8 @@ void DDTest::setDVForBiDirection(DirectionVector &ForwardDV,
     // Computed from Src -> Dst (Forward edge)
     ForwardDV[II - 1] = Result.getDirection(II);
   }
-  splitDVForForwardBackwardEdge(ForwardDV, BackwardDV, Levels);
-  if (LTGTLevel) {
-    // e.g. (= <> < =)
-    // Forward  edge DV: (= < < =)
-    // Backward edge DV: (= < > =)
-    ForwardDV[LTGTLevel - 1] = BackwardDV[LTGTLevel - 1] = DVKind::LT;
-  }
+  splitDVForForwardBackwardEdge(ForwardDV, BackwardDV, Levels,
+                                true /* SplittingForBiDirection */);
 }
 
 void DDTest::setDVForLoopIndependent(DirectionVector &ForwardDV,
@@ -6276,34 +6333,48 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   ForwardDistV.resize(Levels);
   BackwardDistV.resize(Levels);
 
-  ///  Bidirectional DV is needed when scanning from L to R, it encounters
-  ///  a * before hitting <.
-  ///  If * is preceeded by <. then no backward edge is needed.
+  ///  Bidirectional DV is needed when scanning from L to R, both < and > are
+  ///  found in compound form (*, <=, >=, <>) without encountering either of
+  ///  them alone.
+  ///
   ///  Exception:  when src == dst, 1 edge is enough for self output dep.
   ///  e.g.
   ///  (= = *   =)  Yes
   ///  (= = <=  *)  Yes
   ///  (= = <=  =)  no
   ///  (= = <   >)  no
+  ///  (= = <   *)  no
+  ///  (= = <=  >)  Yes
+  ///  (= = <=  >=) Yes
+  ///  (= = >=  <)  Yes
+  ///  (= = >=  <=) Yes
   ///  See more details in splitDVForForwardBackwardEdge
 
+  bool FoundLT = false;
+  bool FoundGT = false;
   bool BiDirection = false;
-  //  <> Level
-  unsigned LTGTLevel = 0;
   if (SrcDDRef != DstDDRef) {
     for (unsigned II = 1; II <= Levels; ++II) {
       DVKind Direction = Result->getDirection(II);
-      if (Direction == DVKind::LT) {
+
+      // We can break if < or > happens before any other case
+      if ((!FoundGT && Direction == DVKind::LT) ||
+          (!FoundLT && Direction == DVKind::GT))
         break;
-      }
-      if (Direction == (DVKind::LT | DVKind::GT)) {
-        BiDirection = true;
-        LTGTLevel = II;
-        break;
-      }
-      if (Direction == DVKind::ALL) {
-        BiDirection = true;
+
+      // Check for <, <=, <>, and *
+      if (Direction & DVKind::LT)
+        FoundLT = true;
+
+      // Check for >, >=, <>, and *
+      if (Direction & DVKind::GT)
+        FoundGT = true;
+
+      // Set BiDirection if we found valid DV for both forward and backward
+      // direction
+      if (FoundLT && FoundGT) {
         LLVM_DEBUG(dbgs() << "BiDirection needed!\n");
+        BiDirection = true;
         break;
       }
     }
@@ -6469,7 +6540,7 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
     DVInfo.FirstIterPeelingRemovesDep = true;
     setDVForPeelFirstAndReversed(ForwardDV, BackwardDV, *Result, Levels);
   } else if (BiDirection) {
-    setDVForBiDirection(ForwardDV, BackwardDV, *Result, Levels, LTGTLevel);
+    setDVForBiDirection(ForwardDV, BackwardDV, *Result, Levels);
   } else if (Result->isLoopIndependent()) {
     setDVForLoopIndependent(ForwardDV, BackwardDV, *Result, Levels, SrcNum,
                             DstNum);

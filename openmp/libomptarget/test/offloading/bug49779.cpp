@@ -1,9 +1,16 @@
 // RUN: %libomptarget-compilexx-generic && \
 // RUN:   env LIBOMPTARGET_STACK_SIZE=2048 %libomptarget-run-generic
+// RUN: %libomptarget-compileoptxx-generic && \
+// RUN:   env LIBOMPTARGET_STACK_SIZE=2048 %libomptarget-run-generic
 
+// We need malloc/global_alloc support
 // UNSUPPORTED: amdgcn-amd-amdhsa
 // UNSUPPORTED: amdgcn-amd-amdhsa-oldDriver
 
+#if INTEL_CUSTOMIZATION
+// Workaround for non-default GCC environment
+#include <cstdio>
+#endif // INTEL_CUSTOMIZATION
 #include <cassert>
 #include <iostream>
 

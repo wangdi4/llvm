@@ -1,6 +1,6 @@
 //===- SYCLEqualizer.cpp - DPC++ kernel equalizer --------------------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -289,16 +289,15 @@ private:
       if (PType && PType->getPointerAddressSpace() !=
                        CompilationUtils::ADDRESS_SPACE_GENERIC) {
         // Get type and value for create or get new builtin function
-        PointerType *NewType = PointerType::getWithSamePointeeType(
-            PType, CompilationUtils::ADDRESS_SPACE_GENERIC);
+        PointerType *NewType = PointerType::get(
+            PType->getContext(), CompilationUtils::ADDRESS_SPACE_GENERIC);
         Value *NewOp =
             Builder.CreateAddrSpaceCast(Arg, NewType, Twine("cast.data"));
         FuncArgValues.push_back(NewOp);
         FuncArgTys.push_back(NewType);
         // Get params reflection type for remangle builtin
         reflection::PointerType *OldParam =
-            reflection::dyn_cast<reflection::PointerType>(
-                SortFD.Parameters[Idx].get());
+            dyn_cast<reflection::PointerType>(SortFD.Parameters[Idx].get());
         reflection::RefParamType NewParam = new reflection::PointerType(
             OldParam->getPointee(), {reflection::ATTR_GENERIC});
         SortFD.Parameters[Idx] = NewParam;

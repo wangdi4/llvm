@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -205,23 +205,6 @@ bool VPOUtils::canBeRegisterized(Type *AllocaTy, const DataLayout &DL) {
 CallInst *VPOUtils::genMemcpy(Value *D, Value *S, uint64_t Size,
                               Value *NumElements, unsigned Align,
                               IRBuilder<> &MemcpyBuilder) {
-  Value *Dest = D;
-  Value *Src = S;
-#if !ENABLE_OPAQUEPOINTER
-  // The first two arguments of the memcpy expects the i8* operands.
-  // The instruction bitcast is introduced if the incoming src or dest
-  // operand in not in i8 type.
-  Type *NewDestTy = MemcpyBuilder.getInt8PtrTy(
-      cast<PointerType>(D->getType())->getAddressSpace());
-  if (D->getType() != NewDestTy)
-    Dest = MemcpyBuilder.CreatePointerCast(D, NewDestTy);
-
-  Type *NewSrcTy = MemcpyBuilder.getInt8PtrTy(
-      cast<PointerType>(S->getType())->getAddressSpace());
-  if (S->getType() != NewSrcTy)
-    Src = MemcpyBuilder.CreatePointerCast(S, NewSrcTy);
-#endif // ENABLE_OPAQUEPOINTER
-
   // For 32/64 bit architecture, the size and alignment should be
   // set accordingly.
   Function *F = MemcpyBuilder.GetInsertBlock()->getParent();
@@ -234,8 +217,8 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, uint64_t Size,
         SizeVal, MemcpyBuilder.CreateZExtOrTrunc(NumElements,
                                                  SizeVal->getType()));
 
-  return MemcpyBuilder.CreateMemCpy(Dest, MaybeAlign(Align), Src,
-                                    MaybeAlign(Align), SizeVal);
+  return MemcpyBuilder.CreateMemCpy(D, MaybeAlign(Align), S, MaybeAlign(Align),
+                                    SizeVal);
 }
 
 // Generates a memset call using MemsetBuilder.
@@ -243,21 +226,8 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, uint64_t Size,
 // value V represents the value to be set. The size of the memset is specified
 // as Size. The compiler will insert the typecast if the
 // type of pointer and value does not match with the type i8.
-CallInst *VPOUtils::genMemset(Value *P, Value *V, uint64_t Size,
-                              unsigned Align, IRBuilder<> &MemsetBuilder) {
-  Value *Ptr = P;
-
-#if !ENABLE_OPAQUEPOINTER
-  // The first argument of the memset expect the i8* operand.
-  // The instruction bitcast is introduced if the incoming pointer operand in
-  // not in i8 type.
-  if (P->getType() != Type::getInt8PtrTy(MemsetBuilder.getContext()))
-    Ptr = MemsetBuilder.CreatePointerCast(P, MemsetBuilder.getInt8PtrTy());
-
-  assert((V->getType() == Type::getInt8Ty(MemsetBuilder.getContext())) &&
-         "Unsupported type for value in genMemset");
-#endif // !ENABLE_OPAQUEPOINTER
-
+CallInst *VPOUtils::genMemset(Value *P, Value *V, uint64_t Size, unsigned Align,
+                              IRBuilder<> &MemsetBuilder) {
   // For 32/64 bit architecture, the size and alignment should be
   // set accordingly.
   Function *F = MemsetBuilder.GetInsertBlock()->getParent();
@@ -269,7 +239,7 @@ CallInst *VPOUtils::genMemset(Value *P, Value *V, uint64_t Size,
   if (AI && AI->isArrayAllocation())
     SizeVal = MemsetBuilder.CreateMul(SizeVal, AI->getArraySize());
 
-  return MemsetBuilder.CreateMemSet(Ptr, V, SizeVal, MaybeAlign(Align));
+  return MemsetBuilder.CreateMemSet(P, V, SizeVal, MaybeAlign(Align));
 }
 
 // Creates a clone of CI, adds OpBundlesToAdd to it, and returns it.
@@ -470,6 +440,53 @@ IntrinsicInst *VPOUtils::enclosingBeginDirective(Instruction *I,
   // - we reach the DT root.
   llvm_unreachable("Cannot get here.");
   return nullptr;
+}
+
+// Searches for the enclosing begin directive intrinsic starting from \p BB
+// using BFS search and returns the next enclosing OpenMP begin directive if it
+// is available, or nullptr if none.
+IntrinsicInst *VPOUtils::enclosingBeginDirective(BasicBlock *BB) {
+  SmallVector<BasicBlock *, 4> BFT;
+  SmallPtrSet<BasicBlock *, 4> Visited;
+  bool EntryBlockFound = false;
+  Visited.insert(BB);
+  BFT.push_back(BB);
+
+  while (!BFT.empty() && !EntryBlockFound) {
+    BasicBlock *Cur = BFT.pop_back_val();
+    if (Cur->isEntryBlock())
+      EntryBlockFound = true;
+    // Check if the current bblock contains the begin directive intrinsic
+    // instruction.
+    if (IntrinsicInst *II = VPOAnalysisUtils::getBeginDirective(Cur))
+      return II;
+    // visit all predecessors of the current bblock
+    for (BasicBlock *Pred : predecessors(Cur)) {
+      if (!Visited.contains(Pred)) {
+        BFT.push_back(Pred);
+        Visited.insert(Pred);
+      }
+    }
+  }
+  return nullptr;
+}
+
+// Return true if ClauseId is found in II, or false if not.
+bool VPOUtils::hasOpenMPClause(IntrinsicInst *II, int ClauseId) {
+  assert(II && "Begin directive intrinsic instruction is null.");
+  unsigned NumOB = II->getNumOperandBundles();
+  // Index i start from (NumOB -1) and runs till it becomes 1 (not
+  // 0) because we want to skip the first OperandBundle, which is
+  // the directive name.
+  for (unsigned i = NumOB - 1; i >= 1; i--) {
+    // BU is the i-th OperandBundle, which represents a clause
+    OperandBundleUse BU = II->getOperandBundleAt(i);
+    if (!VPOAnalysisUtils::isOpenMPClause(BU.getTagName()))
+      continue;
+    if (ClauseSpecifier(BU.getTagName()).getId() == ClauseId)
+      return true;
+  }
+  return false;
 }
 
 /// Find BlockAddress references in NewFunction that point to OldFunction,
@@ -806,8 +823,12 @@ static BasicBlock *getFirstBodyBBForLoop(Loop *L) {
 
   auto *LoopBodyBB = BI->getSuccessor(0);
   auto *ExitBB = BI->getSuccessor(1);
-  if (L->contains(ExitBB))
+  if (L->contains(ExitBB)) {
     std::swap(LoopBodyBB, ExitBB);
+    // Check for conditional branch in the rotated loop
+    if (L->contains(ExitBB))
+      return LpHeader;
+  }
   assert(LoopBodyBB && "Loop is not expected to be empty!");
 
   return LoopBodyBB;

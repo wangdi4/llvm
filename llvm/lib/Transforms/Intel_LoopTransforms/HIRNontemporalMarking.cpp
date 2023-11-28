@@ -70,24 +70,6 @@ static cl::opt<uint64_t> StoreFootprintThreshold(
 
 namespace {
 
-class HIRNontemporalMarkingLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-  HIRNontemporalMarkingLegacyPass() : HIRTransformPass{ID} {
-    initializeHIRNontemporalMarkingLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<HIRFrameworkWrapperPass>();
-    AU.addRequired<HIRDDAnalysisWrapperPass>();
-    AU.addRequired<HIRLoopLocalityWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-
 class HIRNontemporalMarking {
   HIRFramework &HIRF;
   HIRDDAnalysis &HDDA;
@@ -347,32 +329,6 @@ bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
     Loop->getParentRegion()->setGenCode(true);
   }
   return Converted;
-}
-
-char HIRNontemporalMarkingLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRNontemporalMarkingLegacyPass, DEBUG_TYPE,
-                      "HIR unaligned nontemporal marking pass", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(HIRNontemporalMarkingLegacyPass, DEBUG_TYPE,
-                    "HIR unaligned nontemporal marking pass", false, false)
-
-FunctionPass *llvm::createHIRNontemporalMarkingPass() {
-  return new HIRNontemporalMarkingLegacyPass{};
-}
-
-bool HIRNontemporalMarkingLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    return false;
-  }
-
-  HIRNontemporalMarking NTM(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                            getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                            getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
-                            getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F));
-  return NTM.run();
 }
 
 PreservedAnalyses HIRNontemporalMarkingPass::runImpl(

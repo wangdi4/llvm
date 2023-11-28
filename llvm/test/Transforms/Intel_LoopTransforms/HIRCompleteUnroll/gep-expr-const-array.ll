@@ -1,16 +1,31 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll" -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
 
-; Verify that the test compiles successfully.
+; Verify that the test compiles successfully and after unroll the loads of
+; (@operators)[0][i2].0 are simplified to the address of string globals.
+
+; CHECK: Dump Before
+
+; CHECK: + DO i1 = 0, 99, 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, 1, 1   <DO_LOOP>
+; CHECK: |   |   %ld = (@operators)[0][i2].0;
+; CHECK: |   |   %res = @strcmp(&((%ld)[0]),  &((%ref.ptr)[0]));
+; CHECK: |   |   %liveout.cmp = %res == 0;
+; CHECK: |   + END LOOP
+; CHECK: + END LOOP
 
 
-; CHECK:      + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:      |   %ld = (ptr)(@operators)[0];
-; CHECK:      |   %res = @strcmp(&((%ld)[0]),  &((%ref.ptr)[0]));
-; CHECK:      |   %liveout.cmp = %res == 0;
-; CHECK:      |   %ld = (ptr)(@operators)[1];
-; CHECK:      |   %res = @strcmp(&((%ld)[0]),  &((%ref.ptr)[0]));
-; CHECK:      |   %liveout.cmp = %res == 0;
-; CHECK:      + END LOOP
+; CHECK: Dump After
+
+; CHECK: modified
+
+; CHECK: + DO i1 = 0, 99, 1   <DO_LOOP>
+; CHECK: |   %ld = &((@.str.16.1422)[0]);
+; CHECK: |   %res = @strcmp(&((%ld)[0]),  &((%ref.ptr)[0]));
+; CHECK: |   %liveout.cmp = %res == 0;
+; CHECK: |   %ld = &((@.str.17.1423)[0]);
+; CHECK: |   %res = @strcmp(&((%ld)[0]),  &((%ref.ptr)[0]));
+; CHECK: |   %liveout.cmp = %res == 0;
+; CHECK: + END LOOP
 
 
 %struct.anon.1024 = type { ptr, i32, i32, i32 }

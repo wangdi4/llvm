@@ -1,6 +1,6 @@
 //==--- RemoveDuplicatedBarrier.h - RemoveDuplicatedBarrier pass - C++ -*---==//
 //
-// Copyright 2012-2022 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -30,14 +30,11 @@ namespace llvm {
 class RemoveDuplicatedBarrierPass
     : public PassInfoMixin<RemoveDuplicatedBarrierPass> {
 public:
-  RemoveDuplicatedBarrierPass(bool IsNativeDebug = false);
   bool runImpl(Module &M);
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
 private:
   BarrierUtils BarrierUtil;
-  /// Indicates whether under native debug mode.
-  bool IsNativeDBG;
 };
 } // namespace llvm
 

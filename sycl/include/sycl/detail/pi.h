@@ -144,9 +144,11 @@
 //         - piextWaitExternalSemaphore
 //         - piextSignalExternalSemaphore
 // 14.37 Added piextUSMImportExternalPointer and piextUSMReleaseImportedPointer.
+// 14.38 Change PI_MEM_ADVICE_* values to flags for use in bitwise operations.
+// 14.39 Added PI_EXT_INTEL_DEVICE_INFO_ESIMD_SUPPORT device info query.
 
 #define _PI_H_VERSION_MAJOR 14
-#define _PI_H_VERSION_MINOR 37
+#define _PI_H_VERSION_MINOR 39
 
 #define _PI_STRING_HELPER(a) #a
 #define _PI_CONCAT(a, b) _PI_STRING_HELPER(a.b)
@@ -408,6 +410,7 @@ typedef enum {
   PI_EXT_INTEL_DEVICE_INFO_MEM_CHANNEL_SUPPORT = 0x20008,
   // The number of max registers per block (device specific)
   PI_EXT_CODEPLAY_DEVICE_INFO_MAX_REGISTERS_PER_WORK_GROUP = 0x20009,
+  PI_EXT_INTEL_DEVICE_INFO_ESIMD_SUPPORT = 0x2000A,
 
   // Bindless images, mipmaps, interop
   PI_EXT_ONEAPI_DEVICE_INFO_BINDLESS_IMAGES_SUPPORT = 0x20100,
@@ -427,6 +430,7 @@ typedef enum {
   PI_EXT_ONEAPI_DEVICE_INFO_INTEROP_SEMAPHORE_IMPORT_SUPPORT = 0x2010E,
   PI_EXT_ONEAPI_DEVICE_INFO_INTEROP_SEMAPHORE_EXPORT_SUPPORT = 0x2010F,
 
+  PI_EXT_ONEAPI_DEVICE_INFO_MATRIX_COMBINATIONS = 0x20110,
 } _pi_device_info;
 
 typedef enum {
@@ -563,17 +567,17 @@ typedef enum {
 typedef enum {
   // Device-specific value opaque in PI API.
   PI_MEM_ADVICE_RESET = 0,
-  PI_MEM_ADVICE_CUDA_SET_READ_MOSTLY = 101,
-  PI_MEM_ADVICE_CUDA_UNSET_READ_MOSTLY = 102,
-  PI_MEM_ADVICE_CUDA_SET_PREFERRED_LOCATION = 103,
-  PI_MEM_ADVICE_CUDA_UNSET_PREFERRED_LOCATION = 104,
-  PI_MEM_ADVICE_CUDA_SET_ACCESSED_BY = 105,
-  PI_MEM_ADVICE_CUDA_UNSET_ACCESSED_BY = 106,
-  PI_MEM_ADVICE_CUDA_SET_PREFERRED_LOCATION_HOST = 107,
-  PI_MEM_ADVICE_CUDA_UNSET_PREFERRED_LOCATION_HOST = 108,
-  PI_MEM_ADVICE_CUDA_SET_ACCESSED_BY_HOST = 109,
-  PI_MEM_ADVICE_CUDA_UNSET_ACCESSED_BY_HOST = 110,
-  PI_MEM_ADVICE_UNKNOWN = 999,
+  PI_MEM_ADVICE_CUDA_SET_READ_MOSTLY = 1 << 0,
+  PI_MEM_ADVICE_CUDA_UNSET_READ_MOSTLY = 1 << 1,
+  PI_MEM_ADVICE_CUDA_SET_PREFERRED_LOCATION = 1 << 2,
+  PI_MEM_ADVICE_CUDA_UNSET_PREFERRED_LOCATION = 1 << 3,
+  PI_MEM_ADVICE_CUDA_SET_ACCESSED_BY = 1 << 4,
+  PI_MEM_ADVICE_CUDA_UNSET_ACCESSED_BY = 1 << 5,
+  PI_MEM_ADVICE_CUDA_SET_PREFERRED_LOCATION_HOST = 1 << 6,
+  PI_MEM_ADVICE_CUDA_UNSET_PREFERRED_LOCATION_HOST = 1 << 7,
+  PI_MEM_ADVICE_CUDA_SET_ACCESSED_BY_HOST = 1 << 8,
+  PI_MEM_ADVICE_CUDA_UNSET_ACCESSED_BY_HOST = 1 << 9,
+  PI_MEM_ADVICE_UNKNOWN = 0x7FFFFFFF,
 } _pi_mem_advice;
 
 typedef enum {
@@ -904,6 +908,7 @@ static const uint8_t PI_DEVICE_BINARY_OFFLOAD_KIND_SYCL = 4;
 /// PTX 64-bit image <-> "nvptx64", 64-bit NVIDIA PTX device
 #define __SYCL_PI_DEVICE_BINARY_TARGET_NVPTX64 "nvptx64"
 #define __SYCL_PI_DEVICE_BINARY_TARGET_AMDGCN "amdgcn"
+#define __SYCL_PI_DEVICE_BINARY_TARGET_NATIVE_CPU "native_cpu"
 
 /// Extension to denote native support of assert feature by an arbitrary device
 /// piDeviceGetInfo call should return this extension when the device supports
@@ -945,6 +950,8 @@ static const uint8_t PI_DEVICE_BINARY_OFFLOAD_KIND_SYCL = 4;
 #define __SYCL_PI_PROGRAM_METADATA_TAG_REQD_WORK_GROUP_SIZE                    \
   "@reqd_work_group_size"
 #define __SYCL_PI_PROGRAM_METADATA_GLOBAL_ID_MAPPING "@global_id_mapping"
+
+#define __SYCL_PI_PROGRAM_METADATA_TAG_NEED_FINALIZATION "Requires finalization"
 
 /// This struct is a record of the device binary information. If the Kind field
 /// denotes a portable binary type (SPIR-V or LLVM IR), the DeviceTargetSpec

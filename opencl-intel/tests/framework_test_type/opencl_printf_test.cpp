@@ -5,13 +5,16 @@
 // goal is only to verify that a printf call from the kernel is correctly
 // linked to the __opencl_printf builtin, and allows to print vectors.
 //
-#include "CL/cl.h"
 
 // Use the OpenCL C++ bindings, with exceptions enabled. For MSVC, disable
 // warning 4290 (C++ exception specifications ignored) that's emitted from
 // CL/opencl.hpp
 #define CL_HPP_ENABLE_EXCEPTIONS
 #define CL_HPP_TARGET_OPENCL_VERSION 200
+
+#include "CL/cl.h"
+#include "cl_utils.h"
+#include "test_utils.h"
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -21,9 +24,6 @@
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif // _MSC_VER
-
-#include "cl_utils.h"
-#include "test_utils.h"
 
 #include <cstdio>
 #include <cstdlib>

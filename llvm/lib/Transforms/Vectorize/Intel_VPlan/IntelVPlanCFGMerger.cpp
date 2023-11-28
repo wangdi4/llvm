@@ -1,6 +1,6 @@
 //===-- IntelVPlanCFGMerger.cpp -----------------------------------------===//
 //
-//   Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
+//   Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -15,13 +15,13 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanCFGMerger.h"
+#include "HIR/ScalarEvolutionHIR.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanExternals.h"
-#include "IntelVPlanScalarEvolution.h"
-#include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
+#include "LLVM/ScalarEvolutionLLVM.h"
 
 #define DEBUG_TYPE "VPlanCFGMerger"
 
@@ -846,6 +846,7 @@ void VPlanCFGMerger::insertVectorUBInst(VPVectorTripCountCalculation *VectorUB,
     Plan.getVPlanDA()->markUniform(*PushVF);
   }
   BB->addInstruction(VectorUB);
+  Plan.getVPlanDA()->markUniform(*VectorUB);
 
   if (!IsMain) {
     auto *PopVF = Builder.createNaryOp(
@@ -996,6 +997,7 @@ VPlanCFGMerger::emitDynamicPeelCount(VPlanDynamicPeeling &DP, VPValue *BasePtr,
       Builder.createNaryOp(Instruction::URem, Ty,
                            {QuotientTimesMultiplier, Divisor});
   VPValue *Ret = Builder.createIntCast(PeelCnt, OrigUB->getType());
+  Plan.getVPlanDA()->markUniform(*PeelCnt);
   Ret->setName("peel.count");
   Plan.getVPlanDA()->markUniform(*Ret);
   return Ret;
@@ -1088,11 +1090,12 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
   Builder.setInsertPoint(TestBB);
   VPlanPeelingVariant *PeelVariant = Plan.getPreferredPeeling(MainVF);
 
+  assert((dyn_cast<VPlanStaticPeeling>(PeelVariant) ||
+          dyn_cast<VPlanDynamicPeeling>(PeelVariant)) &&
+         "expected static or dynamic peeling");
   // Create the needed checks
   auto StaticPeel = dyn_cast<VPlanStaticPeeling>(PeelVariant);
   if (StaticPeel) {
-    // No check for static peel count
-    assert(StaticPeel->peelCount() && "unexpected zero peel count");
     PeelCount = Plan.getVPConstant(
         ConstantInt::get(OrigUB->getType(), StaticPeel->peelCount()));
     TestBB->setTerminator(P.FirstBB);
@@ -1173,6 +1176,7 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
       Builder.setInsertPoint(I->getParent(), std::next(I->getIterator()));
       VPConstant *One = Plan.getVPConstant(ConstantInt::get(Ty, 1));
       PeelCnt = Builder.createNaryOp(Instruction::Sub, Ty, {PeelCount, One});
+      Plan.getVPlanDA()->markUniform(*PeelCnt);
     }
   }
   cast<VPlanPeelAdapter>(Adapter)->setUpperBound(PeelCnt);
@@ -1847,7 +1851,7 @@ void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P, VPLoopDescrMap &LoopDescrs) {
 
   auto CopyLoop = [DestLI, SrcLI, this,
                    &LoopDescrs](VPLoop *L, VPLoop *ParentL) -> VPLoop * {
-    VPLoop *NewLoop = DestLI->AllocateLoop();
+    VPLoop *NewLoop = DestLI->AllocateLoop(L);
     if (ParentL)
       ParentL->addChildLoop(NewLoop);
     else

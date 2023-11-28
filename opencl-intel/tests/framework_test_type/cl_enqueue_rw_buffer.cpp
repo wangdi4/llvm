@@ -1,14 +1,16 @@
-#include <stdio.h>
+#define PROVISIONAL_MALLOC_SIZE 100
 
 #include "CL/cl.h"
+#include "FrameworkTest.h"
+#include "cl_provisional.h"
 #include "cl_types.h"
 
-#define PROVISIONAL_MALLOC_SIZE 100
-#include "cl_provisional.h"
-
+// Must include this header after "cl_provisional.h",
+// because the used macro PROV_INIT will be defined
+// if not include "gtest.h" before, which is included
+// by "TestsHelpClasses.h".
 #include "TestsHelpClasses.h"
-
-#include "FrameworkTest.h"
+#include <stdio.h>
 
 #define BUFFER_CL_ALLOC_SIZE (4 * 128)
 

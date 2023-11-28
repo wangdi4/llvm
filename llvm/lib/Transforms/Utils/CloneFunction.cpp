@@ -68,6 +68,7 @@ BasicBlock *llvm::CloneBasicBlock(const BasicBlock *BB, ValueToValueMapTy &VMap,
                                   ClonedCodeInfo *CodeInfo,
                                   DebugInfoFinder *DIFinder) {
   BasicBlock *NewBB = BasicBlock::Create(BB->getContext(), "", F);
+  NewBB->IsNewDbgInfoFormat = BB->IsNewDbgInfoFormat;
   if (BB->hasName())
     NewBB->setName(BB->getName() + NameSuffix);
 
@@ -139,6 +140,17 @@ static void cloneOptReportLoopMetadata(ValueToValueMapTy &VMap) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+// Report cloning to the inlining reports.
+static void InlineReportCloneFunctionInto(const Function *OldFunc,
+                                          Function *NewFunc,
+                                          ValueToValueMapTy &VMap) {
+  auto CCOldFunc = const_cast<Function *>(OldFunc);
+  getInlineReport()->initFunctionClosure(CCOldFunc);
+  getInlineReport()->cloneFunction(CCOldFunc, NewFunc, VMap);
+  getMDInlineReport()->cloneFunction(CCOldFunc, NewFunc, VMap);
+}
+#endif // INTEL_CUSTOMIZATION
 // Clone OldFunc into NewFunc, transforming the old arguments into references to
 // VMap values.
 //
@@ -203,8 +215,12 @@ void llvm::CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
 
   // Everything else beyond this point deals with function instructions,
   // so if we are dealing with a function declaration, we're done.
-  if (OldFunc->isDeclaration() || StopAfterCloningDeclaration) // INTEL
+#if INTEL_CUSTOMIZATION
+  if (OldFunc->isDeclaration() || StopAfterCloningDeclaration) {
+    InlineReportCloneFunctionInto(OldFunc, NewFunc, VMap);
     return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // When we remap instructions within the same module, we want to avoid
   // duplicating inlined DISubprograms, so record all subprograms we find as we
@@ -341,8 +357,12 @@ void llvm::CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
   // Only update !llvm.dbg.cu for DifferentModule (not CloneModule). In the
   // same module, the compile unit will already be listed (or not). When
   // cloning a module, CloneModule() will handle creating the named metadata.
-  if (Changes != CloneFunctionChangeType::DifferentModule)
+#if INTEL_CUSTOMIZATION
+  if (Changes != CloneFunctionChangeType::DifferentModule) {
+    InlineReportCloneFunctionInto(OldFunc, NewFunc, VMap);
     return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Update !llvm.dbg.cu with compile units added to the new module if this
   // function is being cloned in isolation.
@@ -366,6 +386,9 @@ void llvm::CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
     if (Visited.insert(MappedUnit).second)
       NMD->addOperand(MappedUnit);
   }
+#if INTEL_CUSTOMIZATION
+  InlineReportCloneFunctionInto(OldFunc, NewFunc, VMap);
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Return a copy of the specified function and add it to that function's
@@ -408,11 +431,6 @@ Function *llvm::CloneFunction(Function *F, ValueToValueMapTy &VMap,
   CloneFunctionInto(NewF, F, VMap, CloneFunctionChangeType::LocalChangesOnly,
                     Returns, "", CodeInfo, nullptr, nullptr, // INTEL
                     StopAfterCloningDeclaration);            // INTEL
-#if INTEL_CUSTOMIZATION
-  getInlineReport()->initFunctionClosure(F);
-  getInlineReport()->cloneFunction(F, NewF, VMap);
-  getMDInlineReport()->cloneFunction(F, NewF, VMap);
-#endif // INTEL_CUSTOMIZATION
   return NewF;
 }
 
@@ -545,6 +563,7 @@ void PruningFunctionCloner::CloneBlock(
   BasicBlock *NewBB;
   Twine NewName(BB->hasName() ? Twine(BB->getName()) + NameSuffix : "");
   BBEntry = NewBB = BasicBlock::Create(BB->getContext(), NewName, NewFunc);
+  NewBB->IsNewDbgInfoFormat = BB->IsNewDbgInfoFormat;
 
   // It is only legal to clone a function if a block address within that
   // function is never referenced outside of the function.  Given that, we

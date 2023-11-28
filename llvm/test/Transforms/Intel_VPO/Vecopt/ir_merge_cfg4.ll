@@ -3,7 +3,7 @@
 ;
 ; test for basic functionality of cfg merge, liveout pointer induction and float reduction.
 ;
-define float @expl_reduction_add(float* nocapture %a) {
+define float @expl_reduction_add(ptr nocapture %a) {
 ;
 ; CHECK-LABEL:  VPlan after CFG merge before CG:
 ; CHECK-NEXT:  VPlan IR for: expl_reduction_add:for.body.#{{[0-9]+}}
@@ -16,19 +16,19 @@ define float @expl_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:     [DA: Div] float [[VP_ADD7RED_INIT:%.*]] = reduction-init float -0.000000e+00
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     [DA: Div] float* [[VP_PTR_PHI_IND_INIT:%.*]] = induction-init{getelementptr} float* [[A0:%.*]] i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_PTR_PHI_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 1
+; CHECK-NEXT:     [DA: Div] ptr [[VP_PTR_PHI_IND_INIT:%.*]] = induction-init{getelementptr} ptr [[A0:%.*]] i64 4
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_PTR_PHI_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 4
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1000, UF = 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] float [[VP_ADD7:%.*]] = phi  [ float [[VP_ADD7RED_INIT]], [[BB1]] ],  [ float [[VP_ADD:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] float* [[VP_PTR_PHI:%.*]] = phi  [ float* [[VP_PTR_PHI_IND_INIT]], [[BB1]] ],  [ float* [[VP0:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] float* [[VP0]] = getelementptr inbounds float* [[VP_PTR_PHI]] i64 [[VP_PTR_PHI_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Div] float* [[VP_PTR:%.*]] = getelementptr inbounds float* [[VP_PTR_PHI]] i64 1
-; CHECK-NEXT:     [DA: Div] float [[VP_TMP:%.*]] = load float* [[VP_PTR]]
-; CHECK-NEXT:     [DA: Div] store float [[VP_ADD7]] float* [[VP_PTR]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_PTR_PHI:%.*]] = phi  [ ptr [[VP_PTR_PHI_IND_INIT]], [[BB1]] ],  [ ptr [[VP0:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] ptr [[VP0]] = getelementptr inbounds i8, ptr [[VP_PTR_PHI]] i64 [[VP_PTR_PHI_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_PTR:%.*]] = getelementptr inbounds float, ptr [[VP_PTR_PHI]] i64 1
+; CHECK-NEXT:     [DA: Div] float [[VP_TMP:%.*]] = load ptr [[VP_PTR]]
+; CHECK-NEXT:     [DA: Div] store float [[VP_ADD7]] ptr [[VP_PTR]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_ADD]] = fadd float [[VP_ADD7]] float [[VP_TMP]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
@@ -37,7 +37,7 @@ define float @expl_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni] float [[VP_ADD7RED_FINAL:%.*]] = reduction-final{fadd} float [[VP_ADD]] float [[X_PROMOTED0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uni] float* [[VP_PTR_PHI_IND_FINAL:%.*]] = induction-final{getelementptr} float* [[A0]] i64 1
+; CHECK-NEXT:     [DA: Uni] ptr [[VP_PTR_PHI_IND_FINAL:%.*]] = induction-final{getelementptr} ptr [[A0]] i64 4
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
@@ -45,14 +45,14 @@ define float @expl_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:     [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB4]]
-; CHECK-NEXT:     [DA: Uni] float* [[VP1:%.*]] = phi-merge  [ float* live-out0, [[BB4]] ]
+; CHECK-NEXT:     [DA: Uni] ptr [[VP1:%.*]] = phi-merge  [ ptr live-out0, [[BB4]] ]
 ; CHECK-NEXT:     [DA: Uni] float [[VP2:%.*]] = phi-merge  [ float live-out1, [[BB4]] ]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP3:%.*]] = phi-merge  [ i64 live-out2, [[BB4]] ]
 ; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0     [[PTR_LCSSA0:%.*]] = phi float* [ [[PTR0:%.*]], [[FOR_BODY0:%.*]] ] float* [[VP1]] -> float* [[PTR0]]
+; CHECK-NEXT:  Id: 0     [[PTR_LCSSA0:%.*]] = phi ptr [ [[PTR0:%.*]], [[FOR_BODY0:%.*]] ] ptr [[VP1]] -> ptr [[PTR0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1     [[ADD_LCSSA0:%.*]] = phi float [ [[ADD0:%.*]], [[FOR_BODY0]] ] float [[VP2]] -> float [[ADD0]]
 ; CHECK-EMPTY:
@@ -63,20 +63,20 @@ entry:
   br label %simd.start
 
 simd.start:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %x, float zeroinitializer, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %x, float zeroinitializer, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %entry.split
-  %x.promoted = load float, float* %x, align 4
+  %x.promoted = load float, ptr %x, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %DIR.QUAL.LIST.END.2
   %indvars.iv = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvars.iv.next, %for.body ]
   %add7 = phi float [ %x.promoted, %DIR.QUAL.LIST.END.2 ], [ %add, %for.body ]
-  %ptr.phi = phi float* [ %a, %DIR.QUAL.LIST.END.2 ], [ %ptr, %for.body ]
-  %ptr = getelementptr inbounds float, float* %ptr.phi, i64 1
-  %tmp = load float, float* %ptr, align 4
-  store float %add7, float* %ptr, align 4
+  %ptr.phi = phi ptr [ %a, %DIR.QUAL.LIST.END.2 ], [ %ptr, %for.body ]
+  %ptr = getelementptr inbounds float, ptr %ptr.phi, i64 1
+  %tmp = load float, ptr %ptr, align 4
+  store float %add7, ptr %ptr, align 4
   %add = fadd float %add7, %tmp
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
@@ -84,7 +84,7 @@ for.body:                                         ; preds = %for.body, %DIR.QUAL
 
 for.end:                                          ; preds = %for.body
   %add.lcssa = phi float [ %add, %for.body ]
-  %ptr.lcssa = phi float* [ %ptr, %for.body ]
+  %ptr.lcssa = phi ptr [ %ptr, %for.body ]
   br label %for.end1
 
 for.end1:                                         ; preds = %for.end

@@ -1,6 +1,6 @@
 //===- HIRLoopFusion.cpp - Implements Loop Fusion transformation ----------===//
 //
-// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -533,7 +533,7 @@ public:
   }
 
   void visit(HLSwitch *Switch) {
-    for (unsigned Case = 1, E = Switch->getNumCases(); Case < E; ++Case) {
+    for (unsigned Case = 1, E = Switch->getNumCases(); Case <= E; ++Case) {
       visitChildContainer(Switch, make_range(Switch->case_child_begin(Case),
                                              Switch->case_child_end(Case)));
     }
@@ -845,46 +845,4 @@ PreservedAnalyses HIRLoopFusionPass::runImpl(llvm::Function &F,
       .run();
 
   return PreservedAnalyses::all();
-}
-
-class HIRLoopFusionLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRLoopFusionLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRLoopFusionLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRLoopFusion(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                         getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                         getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-                         getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR())
-        .run();
-  }
-};
-
-char HIRLoopFusionLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopFusionLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRLoopFusionLegacyPass, OPT_SWITCH, OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIRLoopFusionPass() {
-  return new HIRLoopFusionLegacyPass();
 }

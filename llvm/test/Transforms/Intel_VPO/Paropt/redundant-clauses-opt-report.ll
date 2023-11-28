@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -instcombine -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-shared-privatization -vpo-paropt -intel-opt-report=low -intel-ir-optreport-emitter -S < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,instcombine,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-shared-privatization),vpo-paropt,function(intel-ir-optreport-emitter)' -intel-opt-report=low -S < %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -instcombine -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-shared-privatization -vpo-paropt -intel-opt-report=low -intel-ir-optreport-emitter -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,instcombine,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-shared-privatization),vpo-paropt,function(intel-ir-optreport-emitter)' -intel-opt-report=low -S < %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;
@@ -50,17 +50,17 @@
 
 ; CHECK:      Global optimization report for : __omp_offloading_10309_2fafac9__Z5test1_l3{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (3, 1)
-; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'A' is redundant
-; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'B' is redundant{{[[:space:]]}}
+; CHECK-NEXT:     remark #30003: OpenMP: FIRSTPRIVATE clause for variable 'A' is redundant
+; CHECK-NEXT:     remark #30003: OpenMP: FIRSTPRIVATE clause for variable 'B' is redundant{{[[:space:]]}}
 ; CHECK-NEXT:     OMP TEAMS BEGIN at test.c (3, 1)
-; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'A' has been changed to PRIVATE
-; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'B' has been changed to PRIVATE{{[[:space:]]}}
+; CHECK-NEXT:         remark #30004: OpenMP: SHARED clause for variable 'A' has been changed to PRIVATE
+; CHECK-NEXT:         remark #30004: OpenMP: SHARED clause for variable 'B' has been changed to PRIVATE{{[[:space:]]}}
 ; CHECK-NEXT:         OMP DISTRIBUTE BEGIN at test.c (4, 1)
-; CHECK-NEXT:             remark #25595: OpenMP: FIRSTPRIVATE clause for variable 'A' has been changed to PRIVATE{{[[:space:]]}}
+; CHECK-NEXT:             remark #30004: OpenMP: FIRSTPRIVATE clause for variable 'A' has been changed to PRIVATE{{[[:space:]]}}
 ; CHECK-NEXT:             OMP PARALLEL BEGIN at test.c (6, 1)
-; CHECK-NEXT:                 remark #25595: OpenMP: SHARED clause for variable 'B' has been changed to PRIVATE{{[[:space:]]}}
+; CHECK-NEXT:                 remark #30004: OpenMP: SHARED clause for variable 'B' has been changed to PRIVATE{{[[:space:]]}}
 ; CHECK-NEXT:                 OMP FOR BEGIN at test.c (7, 1)
-; CHECK-NEXT:                     remark #25595: OpenMP: FIRSTPRIVATE clause for variable 'B' has been changed to PRIVATE
+; CHECK-NEXT:                     remark #30004: OpenMP: FIRSTPRIVATE clause for variable 'B' has been changed to PRIVATE
 ; CHECK-NEXT:                 OMP FOR END
 ; CHECK-NEXT:             OMP PARALLEL END
 ; CHECK-NEXT:         OMP DISTRIBUTE END
@@ -69,33 +69,33 @@
 
 ; CHECK:      Global optimization report for : __omp_offloading_10309_2fafac9__Z5test2_l17{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (17, 1)
-; CHECK-NEXT:     remark #25596: OpenMP: MAP:TO clause for variable 'C' can be changed to FIRSTPRIVATE to reduce mapping overhead
-; CHECK-NEXT:     remark #25596: OpenMP: MAP:TOFROM clause for variable 'D' can be changed to FIRSTPRIVATE to reduce mapping overhead
-; CHECK-NEXT:     remark #25594: OpenMP: MAP:FROM clause for variable 'F' is redundant
-; CHECK-NEXT:     remark #25594: OpenMP: MAP:TOFROM clause for variable 'H' is redundant
-; CHECK-NEXT:     remark #25594: OpenMP: MAP:TO clause for variable 'G' is redundant
-; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'I' is redundant{{[[:space:]]}}
+; CHECK-NEXT:     remark #30005: OpenMP: MAP:TO clause for variable 'C' can be changed to FIRSTPRIVATE to reduce mapping overhead
+; CHECK-NEXT:     remark #30005: OpenMP: MAP:TOFROM clause for variable 'D' can be changed to FIRSTPRIVATE to reduce mapping overhead
+; CHECK-NEXT:     remark #30003: OpenMP: MAP:FROM clause for variable 'F' is redundant
+; CHECK-NEXT:     remark #30003: OpenMP: MAP:TOFROM clause for variable 'H' is redundant
+; CHECK-NEXT:     remark #30003: OpenMP: MAP:TO clause for variable 'G' is redundant
+; CHECK-NEXT:     remark #30003: OpenMP: FIRSTPRIVATE clause for variable 'I' is redundant{{[[:space:]]}}
 ; CHECK-NEXT:     OMP PARALLEL FOR BEGIN at test.c (21, 1)
-; CHECK-NEXT:         remark #25595: OpenMP: FIRSTPRIVATE clause for variable 'F' has been changed to PRIVATE
-; CHECK-NEXT:         remark #25595: OpenMP: LASTPRIVATE clause for variable 'F' has been changed to PRIVATE
-; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'H' has been changed to PRIVATE
-; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'I' has been changed to PRIVATE
+; CHECK-NEXT:         remark #30004: OpenMP: FIRSTPRIVATE clause for variable 'F' has been changed to PRIVATE
+; CHECK-NEXT:         remark #30004: OpenMP: LASTPRIVATE clause for variable 'F' has been changed to PRIVATE
+; CHECK-NEXT:         remark #30004: OpenMP: SHARED clause for variable 'H' has been changed to PRIVATE
+; CHECK-NEXT:         remark #30004: OpenMP: SHARED clause for variable 'I' has been changed to PRIVATE
 ; CHECK-NEXT:     OMP PARALLEL FOR END
 ; CHECK-NEXT: OMP TARGET END
 
 ; CHECK:      Global optimization report for : __omp_offloading_10309_2fafac9__Z5test3_l30{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (30, 1)
-; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'J' is redundant
-; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'K' is redundant{{[[:space:]]}}
+; CHECK-NEXT:     remark #30003: OpenMP: FIRSTPRIVATE clause for variable 'J' is redundant
+; CHECK-NEXT:     remark #30003: OpenMP: FIRSTPRIVATE clause for variable 'K' is redundant{{[[:space:]]}}
 ; CHECK-NEXT:     OMP TEAMS BEGIN at test.c (30, 1)
-; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'J' has been changed to PRIVATE
-; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'K' has been changed to PRIVATE{{[[:space:]]}}
+; CHECK-NEXT:         remark #30004: OpenMP: SHARED clause for variable 'J' has been changed to PRIVATE
+; CHECK-NEXT:         remark #30004: OpenMP: SHARED clause for variable 'K' has been changed to PRIVATE{{[[:space:]]}}
 ; CHECK-NEXT:         OMP DISTRIBUTE BEGIN at test.c (30, 1){{[[:space:]]}}
 ; CHECK-NEXT:             OMP PARALLEL FOR BEGIN at test.c (32, 1)
-; CHECK-NEXT:                 remark #25595: OpenMP: FIRSTPRIVATE clause for variable 'J' has been changed to PRIVATE
+; CHECK-NEXT:                 remark #30004: OpenMP: FIRSTPRIVATE clause for variable 'J' has been changed to PRIVATE
 ; CHECK-NEXT:             OMP PARALLEL FOR END{{[[:space:]]}}
 ; CHECK-NEXT:             OMP PARALLEL FOR BEGIN at test.c (34, 1)
-; CHECK-NEXT:                 remark #25595: OpenMP: FIRSTPRIVATE clause for variable 'K' has been changed to PRIVATE
+; CHECK-NEXT:                 remark #30004: OpenMP: FIRSTPRIVATE clause for variable 'K' has been changed to PRIVATE
 ; CHECK-NEXT:             OMP PARALLEL FOR END
 ; CHECK-NEXT:         OMP DISTRIBUTE END
 ; CHECK-NEXT:     OMP TEAMS END
@@ -103,26 +103,26 @@
 
 ; CHECK:      Global optimization report for : __omp_offloading_10309_2fafac9__Z5test3_l37{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (37, 1)
-; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'L' is redundant
-; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'M' is redundant{{[[:space:]]}}
+; CHECK-NEXT:     remark #30003: OpenMP: FIRSTPRIVATE clause for variable 'L' is redundant
+; CHECK-NEXT:     remark #30003: OpenMP: FIRSTPRIVATE clause for variable 'M' is redundant{{[[:space:]]}}
 ; CHECK-NEXT:     OMP TEAMS BEGIN at test.c (37, 1)
-; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'L' has been changed to PRIVATE
-; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'M' has been changed to PRIVATE{{[[:space:]]}}
+; CHECK-NEXT:         remark #30004: OpenMP: SHARED clause for variable 'L' has been changed to PRIVATE
+; CHECK-NEXT:         remark #30004: OpenMP: SHARED clause for variable 'M' has been changed to PRIVATE{{[[:space:]]}}
 ; CHECK-NEXT:         OMP DISTRIBUTE BEGIN at test.c (37, 1){{[[:space:]]}}
 ; CHECK-NEXT:             OMP PARALLEL FOR BEGIN at test.c (39, 1)
-; CHECK-NEXT:                 remark #25595: OpenMP: SHARED clause for variable 'L' has been changed to PRIVATE
+; CHECK-NEXT:                 remark #30004: OpenMP: SHARED clause for variable 'L' has been changed to PRIVATE
 ; CHECK-NEXT:             OMP PARALLEL FOR END{{[[:space:]]}}
 ; CHECK-NEXT:             OMP PARALLEL FOR BEGIN at test.c (41, 1)
-; CHECK-NEXT:                 remark #25595: OpenMP: SHARED clause for variable 'M' has been changed to PRIVATE
+; CHECK-NEXT:                 remark #30004: OpenMP: SHARED clause for variable 'M' has been changed to PRIVATE
 ; CHECK-NEXT:             OMP PARALLEL FOR END
 ; CHECK-NEXT:         OMP DISTRIBUTE END
 ; CHECK-NEXT:     OMP TEAMS END
 ; CHECK-NEXT: OMP TARGET END
 
-; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test1_l3({{.+}} !intel.optreport.rootnode !{{[0-9]+}}
-; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test2_l17({{.+}} !intel.optreport.rootnode !{{[0-9]+}}
-; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test3_l30({{.+}} !intel.optreport.rootnode !{{[0-9]+}}
-; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test3_l37({{.+}} !intel.optreport.rootnode !{{[0-9]+}}
+; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test1_l3({{.+}} !intel.optreport !{{[0-9]+}}
+; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test2_l17({{.+}} !intel.optreport !{{[0-9]+}}
+; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test3_l30({{.+}} !intel.optreport !{{[0-9]+}}
+; CHECK: define internal void @__omp_offloading_10309_2fafac9__Z5test3_l37({{.+}} !intel.optreport !{{[0-9]+}}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -1090,7 +1090,7 @@ attributes #2 = { nounwind }
 !llvm.module.flags = !{!6, !7, !8, !9, !10, !11}
 !llvm.ident = !{!12}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang based Intel(R) oneAPI DPC++/C++ Compiler 2023.1.0 (2023.x.0.YYYYMMDD)", isOptimized: false, flags: "-g -fopenmp-version=51 -fopenmp-targets=spir64 -Xclang -fopenmp-typed-clauses -Xclang -opaque-pointers -O0 -fiopenmp -Xclang -disable-llvm-passes -mllvm -pretty-print-directives -emit-llvm -S test.c -o cfe.ll", runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None)
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang based Intel(R) oneAPI DPC++/C++ Compiler 2023.1.0 (2023.x.0.YYYYMMDD)", isOptimized: false, flags: "-g -fopenmp-version=51 -fopenmp-targets=spir64 -Xclang -fopenmp-typed-clauses -O0 -fiopenmp -Xclang -disable-llvm-passes -mllvm -pretty-print-directives -emit-llvm -S test.c -o cfe.ll", runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None)
 !1 = !DIFile(filename: "test.c", directory: "/tmp")
 !2 = !{i32 0, i32 66313, i32 50002633, !"_Z5test2", i32 17, i32 1, i32 0}
 !3 = !{i32 0, i32 66313, i32 50002633, !"_Z5test3", i32 30, i32 2, i32 0}

@@ -277,7 +277,7 @@ std::string llvm::doSystemDiff(StringRef Before, StringRef After,
   static SmallVector<int> FD{-1, -1, -1};
   SmallVector<StringRef> SR{Before, After};
   static SmallVector<std::string> FileName{"", "", ""};
-  if (auto Err = prepareTempFiles(FD, SR, FileName))
+  if (prepareTempFiles(FD, SR, FileName))
     return "Unable to create temporary file.";
 
   static ErrorOr<std::string> DiffExe = sys::findProgramByName(DiffBinary);
@@ -303,7 +303,7 @@ std::string llvm::doSystemDiff(StringRef Before, StringRef After,
   else
     return "Unable to read result.";
 
-  if (auto Err = cleanUpTempFiles(FileName))
+  if (cleanUpTempFiles(FileName))
     return "Unable to remove temporary file.";
 
   return Diff;

@@ -146,10 +146,10 @@ void WRegionInfo::print(raw_ostream &OS) const {
 
   for (auto I = begin(), E = end(); I != E; ++I) {
 #if INTEL_CUSTOMIZATION
-  #if !INTEL_PRODUCT_RELEASE
+#if !INTEL_PRODUCT_RELEASE
     FOS << "\n";
     (*I)->print(FOS, 0);
-  #endif // !INTEL_PRODUCT_RELEASE
+#endif // !INTEL_PRODUCT_RELEASE
 #else
     FOS << "\n";
     (*I)->print(FOS, 0);

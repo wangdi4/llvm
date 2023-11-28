@@ -36,14 +36,13 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %dp.09 = phi double* [ getelementptr inbounds ([128 x double], [128 x double]* @darr, i64 0, i64 0), %entry ], [ %incdec.ptr, %for.body ]
-  %0 = bitcast double* %dp.09 to i32*
+  %dp.09 = phi ptr [ @darr, %entry ], [ %incdec.ptr, %for.body ]
+  %0 = trunc i64 %indvars.iv to i32
+  store i32 %0, ptr %dp.09, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [128 x i32], ptr @arr, i64 0, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %0, align 4, !tbaa !1
-  %arrayidx = getelementptr inbounds [128 x i32], [128 x i32]* @arr, i64 0, i64 %indvars.iv
-  %2 = trunc i64 %indvars.iv to i32
-  store i32 %2, i32* %arrayidx, align 4, !tbaa !5
-  %incdec.ptr = getelementptr inbounds double, double* %dp.09, i64 1
+  store i32 %1, ptr %arrayidx, align 4, !tbaa !5
+  %incdec.ptr = getelementptr inbounds double, ptr %dp.09, i64 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 128
   br i1 %exitcond, label %for.end, label %for.body

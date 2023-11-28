@@ -50,6 +50,7 @@ namespace X86Disassembler {
 #define THREEDNOW_MAP_SYM x86Disassembler3DNowOpcodes
 #define MAP5_SYM          x86DisassemblerMap5Opcodes
 #define MAP6_SYM          x86DisassemblerMap6Opcodes
+#define MAP7_SYM          x86DisassemblerMap7Opcodes
 
 #if INTEL_CUSTOMIZATION
 #define MAP8_SYM          x86DisassemblerMap8Opcodes
@@ -69,6 +70,7 @@ namespace X86Disassembler {
 #define THREEDNOW_MAP_STR "x86Disassembler3DNowOpcodes"
 #define MAP5_STR          "x86DisassemblerMap5Opcodes"
 #define MAP6_STR          "x86DisassemblerMap6Opcodes"
+#define MAP7_STR          "x86DisassemblerMap7Opcodes"
 
 #if INTEL_CUSTOMIZATION
 #define MAP8_STR          "x86DisassemblerMap8Opcodes"
@@ -95,17 +97,18 @@ enum attributeBits {
   ATTR_EVEXKZ = 0x1 << 11,
   ATTR_EVEXB  = 0x1 << 12,
 #if INTEL_CUSTOMIZATION
+  ATTR_EVEXNF = 0x1 << 13,
+  ATTR_REX2   = 0x1 << 14,
 #if INTEL_FEATURE_XISA_COMMON
   // FIXME: This will greatly increase the size of llvm-mc. Is there any way
   // we can avoid this?
-  ATTR_XUCCPD = 0x1 << 13,
-  ATTR_XUCCXS = 0x1 << 14,
-  ATTR_XUCCXD = 0x1 << 15,
-  ATTR_EVEXP10= 0x1 << 16,
-  ATTR_EVEXNF = 0x1 << 17,
-  ATTR_max    = 0x1 << 18,
+  ATTR_XUCCPD = 0x1 << 15,
+  ATTR_XUCCXS = 0x1 << 16,
+  ATTR_XUCCXD = 0x1 << 17,
+  ATTR_EVEXP10= 0x1 << 18,
+  ATTR_max    = 0x1 << 19,
 #else // INTEL_FEATURE_XISA_COMMON
-  ATTR_max    = 0x1 << 13,
+  ATTR_max    = 0x1 << 15,
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
 };
@@ -160,6 +163,7 @@ enum attributeBits {
   ENUM_ENTRY(IC_64BIT_REXW_OPSIZE,  8,  "The Dynamic Duo!  Prefer over all "   \
                                         "else because this changes most "      \
                                         "operands' meaning")                   \
+  ENUM_ENTRY(IC_64BIT_REX2,         2,  "requires a REX2 prefix")              \
   ENUM_ENTRY(IC_VEX,                1,  "requires a VEX prefix")               \
   ENUM_ENTRY(IC_VEX_XS,             2,  "requires VEX and the XS prefix")      \
   ENUM_ENTRY(IC_VEX_XD,             2,  "requires VEX and the XD prefix")      \
@@ -401,6 +405,7 @@ enum attributeBits {
   ENUM_ENTRY(IC_64BIT_REXW_OPSIZE,  8,  "The Dynamic Duo!  Prefer over all "   \
                                         "else because this changes most "      \
                                         "operands' meaning")                   \
+  ENUM_ENTRY(IC_64BIT_REX2,         2,  "requires a REX2 prefix")              \
   ENUM_ENTRY(IC_VEX,                1,  "requires a VEX prefix")               \
   ENUM_ENTRY(IC_VEX_XS,             2,  "requires VEX and the XS prefix")      \
   ENUM_ENTRY(IC_VEX_XD,             2,  "requires VEX and the XD prefix")      \
@@ -418,10 +423,13 @@ enum attributeBits {
   ENUM_ENTRY(IC_VEX_L_W_XD,         5,  "requires VEX, L, W and XD prefix")    \
   ENUM_ENTRY(IC_VEX_L_W_OPSIZE,     5,  "requires VEX, L, W and OpSize")       \
   ENUM_ENTRY(IC_EVEX,               1,  "requires an EVEX prefix")             \
+  ENUM_ENTRY(IC_EVEX_NF,            2,  "requires EVEX and NF prefix")         \
   ENUM_ENTRY(IC_EVEX_XS,            2,  "requires EVEX and the XS prefix")     \
   ENUM_ENTRY(IC_EVEX_XD,            2,  "requires EVEX and the XD prefix")     \
   ENUM_ENTRY(IC_EVEX_OPSIZE,        2,  "requires EVEX and the OpSize prefix") \
+  ENUM_ENTRY(IC_EVEX_OPSIZE_NF,     3,  "requires EVEX, NF and the OpSize prefix") \
   ENUM_ENTRY(IC_EVEX_W,             3,  "requires EVEX and the W prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_NF,          4,  "requires EVEX, W and NF prefix")      \
   ENUM_ENTRY(IC_EVEX_W_XS,          4,  "requires EVEX, W, and XS prefix")     \
   ENUM_ENTRY(IC_EVEX_W_XD,          4,  "requires EVEX, W, and XD prefix")     \
   ENUM_ENTRY(IC_EVEX_W_OPSIZE,      4,  "requires EVEX, W, and OpSize")        \
@@ -466,10 +474,13 @@ enum attributeBits {
   ENUM_ENTRY(IC_EVEX_L2_W_XD_K,     4,  "requires EVEX_K, L2, W and XD prefix")    \
   ENUM_ENTRY(IC_EVEX_L2_W_OPSIZE_K, 4,  "requires EVEX_K, L2, W and OpSize")     \
   ENUM_ENTRY(IC_EVEX_B,             1,  "requires an EVEX_B prefix")             \
+  ENUM_ENTRY(IC_EVEX_B_NF,          2,  "requires EVEX_NF and EVEX_B prefix")    \
   ENUM_ENTRY(IC_EVEX_XS_B,          2,  "requires EVEX_B and the XS prefix")     \
   ENUM_ENTRY(IC_EVEX_XD_B,          2,  "requires EVEX_B and the XD prefix")     \
   ENUM_ENTRY(IC_EVEX_OPSIZE_B,      2,  "requires EVEX_B and the OpSize prefix") \
+  ENUM_ENTRY(IC_EVEX_OPSIZE_B_NF,   3,  "requires EVEX_B, NF and the OpSize prefix") \
   ENUM_ENTRY(IC_EVEX_W_B,           3,  "requires EVEX_B and the W prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_B_NF,        4,  "requires EVEX_NF, EVEX_B and the W prefix")\
   ENUM_ENTRY(IC_EVEX_W_XS_B,        4,  "requires EVEX_B, W, and XS prefix")     \
   ENUM_ENTRY(IC_EVEX_W_XD_B,        4,  "requires EVEX_B, W, and XD prefix")     \
   ENUM_ENTRY(IC_EVEX_W_OPSIZE_B,    4,  "requires EVEX_B, W, and OpSize")        \
@@ -589,11 +600,13 @@ enum OpcodeType {
   XOPA_MAP      = 6,
   THREEDNOW_MAP = 7,
   MAP5          = 8,
-#if INTEL_CUSTOMIZATION
   MAP6          = 9,
+#if INTEL_CUSTOMIZATION
   MAP8          = 10,
   MAP4          = 11,
   MAP7          = 12
+#else
+  MAP7          = 10
 #endif // INTEL_CUSTOMIZATION
 };
 

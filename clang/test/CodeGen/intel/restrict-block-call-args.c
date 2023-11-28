@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
 
 void bar(int *p, int *q) {
   *p = *q;

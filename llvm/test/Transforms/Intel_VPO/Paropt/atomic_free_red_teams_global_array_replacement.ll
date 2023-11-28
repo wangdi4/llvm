@@ -1,8 +1,8 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-slm=false <%s | FileCheck -check-prefix=NOSLM %s
-; RUN: opt -opaque-pointers=1 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-slm=false <%s | FileCheck -check-prefix=NOSLM %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-slm=false <%s | FileCheck -check-prefix=NOSLM %s
+; RUN: opt -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-slm=false <%s | FileCheck -check-prefix=NOSLM %s
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-red-local-buf-size=0 <%s | FileCheck -check-prefix=SLM %s
-; RUN: opt -opaque-pointers=1 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-red-local-buf-size=0 <%s | FileCheck -check-prefix=SLM %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-red-local-buf-size=0 <%s | FileCheck -check-prefix=SLM %s
+; RUN: opt -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-red-local-buf-size=0 <%s | FileCheck -check-prefix=SLM %s
 
 ; Test src:
 ;

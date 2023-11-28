@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -194,7 +194,7 @@ public:
 /// approximation to a precise "captures before" analysis.
 class EarliestEscapeInfo final : public CaptureInfo {
   DominatorTree &DT;
-  const LoopInfo *LI; // INTEL
+  const LoopInfo *LI;
 
   /// Map from identified local object to an instruction before which it does
   /// not escape, or nullptr if it never escapes. The "earliest" instruction
@@ -206,18 +206,9 @@ class EarliestEscapeInfo final : public CaptureInfo {
   /// This is used for cache invalidation purposes.
   DenseMap<Instruction *, TinyPtrVector<const Value *>> Inst2Obj;
 
-  const SmallPtrSetImpl<const Value *> &EphValues;
-
 public:
-  EarliestEscapeInfo(DominatorTree &DT, const LoopInfo *LI,            // INTEL
-                     const SmallPtrSetImpl<const Value *> &EphValues)
-      : DT(DT), LI(LI), EphValues(EphValues) {}
-
-#if INTEL_CUSTOMIZATION
-  EarliestEscapeInfo(DominatorTree &DT,
-                     const SmallPtrSetImpl<const Value *> &EphValues)
-      : DT(DT), LI(nullptr), EphValues(EphValues) {}
-#endif // INTEL_CUSTOMIZATION
+  EarliestEscapeInfo(DominatorTree &DT, const LoopInfo *LI = nullptr)
+      : DT(DT), LI(LI) {}
 
   bool isNotCapturedBeforeOrAt(const Value *Object,
                                unsigned PtrCaptureMaxUses, // INTEL
@@ -268,7 +259,7 @@ class AAResults;
 /// where safe (due to the IR not changing), use a `BatchAAResults` wrapper.
 /// The information stored in an `AAQueryInfo` is currently limitted to the
 /// caches used by BasicAA, but can further be extended to fit other AA needs.
-/// INTEL:
+/// INTEL_CUSTOMIZATION
 /// We also use this class to note when a query requires "loopCarriedAlias"
 /// semantics as opposed to "alias" semantics. This should always be redundant
 /// with the knowledge that a query is being made via the "loopCarriedAlias"
@@ -276,6 +267,7 @@ class AAResults;
 /// between the "alias" and "loopCarriedAlias" implementations, checking the
 /// AAQI to determine which interface it's responding to. Currently only
 /// BasicAA uses the `NeedLoopCarried` flag.
+/// end INTEL_CUSTOMIZATION
 class AAQueryInfo {
 public:
   using LocPair = std::pair<AACacheLoc, AACacheLoc>;
@@ -297,7 +289,7 @@ public:
 
   CaptureInfo *CI;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Remember if this is a "loopCarriedAlias" query.
   const bool NeedLoopCarried = false;
   AAQueryInfo(AAResults &AAR, CaptureInfo *CI, bool LoopCarried)
@@ -597,14 +589,14 @@ public:
     return getMemoryEffects(F).onlyReadsMemory();
   }
 
- #if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
    /// getModRefInfoForMaskedScatter - Return information about whether a
    /// masked_scatter intrinsic call modifies or reads the specified memory
    /// location. This intrinsic modifies or reads \p Loc when one of its
    /// unmasked destinations aliases with \p Loc.
    ModRefInfo getModRefInfoForMaskedScatter(const IntrinsicInst *I,
                                             const MemoryLocation &Loc);
- #endif // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   /// Check whether or not an instruction may read or write the optionally
   /// specified memory location.
@@ -721,9 +713,10 @@ public:
   ModRefInfo getModRefInfo(const FenceInst *S, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const AtomicCmpXchgInst *CX,
-                           const MemoryLocation &Loc,
-                           AAQueryInfo &AAQI, // INTEL
-                           const std::optional<LocationSize> &Size = {}); // INTEL
+#if INTEL_CUSTOMIZATION
+                           const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                           const std::optional<LocationSize> &Size = {});
+#endif // INTEL_CUSTOMIZATION
   ModRefInfo getModRefInfo(const AtomicRMWInst *RMW, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI, // INTEL
                            const std::optional<LocationSize> &Size = {}); // INTEL
@@ -1116,6 +1109,19 @@ bool isEscapeSource(const Value *V);
 /// captured prior to the unwind. Otherwise it is not visible even if captured.
 bool isNotVisibleOnUnwind(const Value *Object,
                           bool &RequiresNoCaptureBeforeUnwind);
+
+/// Return true if the Object is writable, in the sense that any location based
+/// on this pointer that can be loaded can also be stored to without trapping.
+/// Additionally, at the point Object is declared, stores can be introduced
+/// without data races. At later points, this is only the case if the pointer
+/// can not escape to a different thread.
+///
+/// If ExplicitlyDereferenceableOnly is set to true, this property only holds
+/// for the part of Object that is explicitly marked as dereferenceable, e.g.
+/// using the dereferenceable(N) attribute. It does not necessarily hold for
+/// parts that are only known to be dereferenceable due to the presence of
+/// loads.
+bool isWritableObject(const Value *Object, bool &ExplicitlyDereferenceableOnly);
 
 /// A manager for alias analyses.
 ///

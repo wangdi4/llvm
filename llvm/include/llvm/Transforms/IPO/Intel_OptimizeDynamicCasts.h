@@ -1,7 +1,7 @@
 //===- Intel_OptimizeDynamicCasts.h - Optimize dynamic_cast calls  -------*- C++
 //-*-===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -28,7 +28,7 @@ private:
   typedef std::map<GlobalVariable *, bool> TypeInfoMap;
   TypeInfoMap TypeInfoAnalysis;
 
-  bool isTransformationApplicable(CallInst *, bool IsOpaque);
+  bool isTransformationApplicable(CallInst *);
 
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);

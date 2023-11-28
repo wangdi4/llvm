@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1186,6 +1186,5 @@ TLI_DEFINE_ALTMATHFUNC(Intrinsic::fpbuiltin_sqrt, Type::FloatTyID, FIXED(8), "__
 #endif
 #undef TLI_DEFINE_SVML_ALTMATHFUNCS
 #endif // INTEL_CUSTOMIZATION
-
 #undef TLI_DEFINE_ALTMATHFUNC
 #undef TLI_DEFINE_TEST_ALTMATHFUNCS

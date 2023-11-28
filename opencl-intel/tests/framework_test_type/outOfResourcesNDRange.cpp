@@ -1,15 +1,13 @@
-#include <stdio.h>
+#define PROVISIONAL_MALLOC_SIZE 100
 
 #include "CL/cl.h"
-#include "cl_types.h"
-
-#define PROVISIONAL_MALLOC_SIZE 100
+#include "FrameworkTest.h"
 #include "TestsHelpClasses.h"
 #include "cl_provisional.h"
 #include "cl_sys_defines.h"
+#include "cl_types.h"
 #include "common_utils.h"
-
-#include "FrameworkTest.h"
+#include <stdio.h>
 
 extern cl_device_type gDeviceType;
 

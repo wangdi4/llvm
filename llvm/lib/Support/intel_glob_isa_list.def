@@ -1,5 +1,5 @@
 //
-//     Copyright  (C) 2017-2023 Intel Corporation.
+//     Copyright  (C) 2017 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -745,6 +745,131 @@
         CPU_FEATURE_ADD_ISA_NAME("widekl")
         CPU_FEATURE_LIBIRC_NAME("WIDE-KL")
         CPU_FEATURE_ADD_MACRO_NAME("__WIDEKL__")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_hreset)
+        CPU_FEATURE_DOC("History Reset Instruction.")
+        CPU_FEATURE_BIT_POS(76)
+        CPU_FEATURE_ADD_ISA_NAME("hreset")
+        CPU_FEATURE_LIBIRC_NAME("HRESET")
+        CPU_FEATURE_ADD_MACRO_NAME("__HRESET___")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_uintr)
+        CPU_FEATURE_DOC("User Interprocessor Interrupt Instructions.")
+        CPU_FEATURE_BIT_POS(77)
+        CPU_FEATURE_ADD_ISA_NAME("uintr")
+        CPU_FEATURE_LIBIRC_NAME("UINTR")
+        CPU_FEATURE_ADD_MACRO_NAME("__UINTR___")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_prefetchi)
+        CPU_FEATURE_DOC("Prefetch Code Into Caches.")
+        CPU_FEATURE_BIT_POS(78)
+        CPU_FEATURE_ADD_ISA_NAME("prefetchi")
+        CPU_FEATURE_LIBIRC_NAME("PREFETCHI")
+        CPU_FEATURE_ADD_MACRO_NAME("__PREFETCHI___")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_avxvnniint8)
+        CPU_FEATURE_DOC("Vector Neural Network Instructions On Bytes."
+                         "VEX forms")
+        CPU_FEATURE_ADD_FEATURE(c_feature_avx2)
+        CPU_FEATURE_BIT_POS(79)
+        CPU_FEATURE_ADD_ISA_NAME("avxvnniint8")
+        CPU_FEATURE_LIBIRC_NAME("AVX_VNNI_INT8")
+        CPU_FEATURE_ADD_MACRO_NAME("__AVXVNNIINT8___")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_cmpccxadd)
+        CPU_FEATURE_DOC("Compare and Add if Condition is Met Instructions.")
+        CPU_FEATURE_BIT_POS(80)
+        CPU_FEATURE_ADD_ISA_NAME("cmpccxadd")
+        CPU_FEATURE_LIBIRC_NAME("CMPCCXADD")
+        CPU_FEATURE_ADD_MACRO_NAME("__CMPCCXADD___")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_avxifma)
+        CPU_FEATURE_DOC("vpmadd52huq and vpmadd52luq support. VEX form")
+        CPU_FEATURE_ADD_FEATURE(c_feature_avx2)
+        CPU_FEATURE_BIT_POS(81)
+        CPU_FEATURE_ADD_ISA_NAME("avxifma")
+        CPU_FEATURE_LIBIRC_NAME("AVX_IFMA")
+        CPU_FEATURE_ADD_MACRO_NAME("__AVXIFMA___")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_avxneconvert)
+        CPU_FEATURE_DOC("FP16/BF16 Conversion from/to FP32 instructions."
+                        "VEX form")
+        CPU_FEATURE_ADD_FEATURE(c_feature_avx2)
+        CPU_FEATURE_BIT_POS(82)
+        CPU_FEATURE_ADD_ISA_NAME("avxneconvert")
+        CPU_FEATURE_LIBIRC_NAME("AVX_NE_CONVERT")
+        CPU_FEATURE_ADD_MACRO_NAME("__AVXNECONVERT___")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_raoint)
+        CPU_FEATURE_DOC("Atomically Add Instructions.")
+        CPU_FEATURE_BIT_POS(83)
+        CPU_FEATURE_ADD_ISA_NAME("raoint")
+        CPU_FEATURE_LIBIRC_NAME("RAO_INT")
+        CPU_FEATURE_ADD_MACRO_NAME("__RAOINT___")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_amx_fp16)
+        CPU_FEATURE_DOC("AMX tile computational operations on FP16 data.")
+        CPU_FEATURE_ADD_FEATURE(c_feature_amx_tile)
+        CPU_FEATURE_BIT_POS(84)
+        CPU_FEATURE_ADD_ISA_NAME("amx-fp16")
+        CPU_FEATURE_LIBIRC_NAME("AMX-FP16")
+        CPU_FEATURE_ADD_MACRO_NAME("__AMXFP16__")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_amx_complex)
+        CPU_FEATURE_DOC("Matrix Multiplication of Complex Tiles Accumulated"
+                        "into Packed Single Precision Tile.")
+        CPU_FEATURE_ADD_FEATURE(c_feature_amx_tile)
+        CPU_FEATURE_BIT_POS(85)
+        CPU_FEATURE_ADD_ISA_NAME("amx-complex")
+        CPU_FEATURE_LIBIRC_NAME("AMX-COMPLEX")
+        CPU_FEATURE_ADD_MACRO_NAME("__AMXCOMPLEX__")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_sha512)
+        CPU_FEATURE_DOC("SHA512 Algorithm instructions.")
+        CPU_FEATURE_BIT_POS(86)
+        CPU_FEATURE_ADD_FEATURE(c_feature_avx2)
+        CPU_FEATURE_ADD_ISA_NAME("sha512")
+        CPU_FEATURE_LIBIRC_NAME("SHA512")
+        CPU_FEATURE_ADD_MACRO_NAME("__SHA512___")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_sm3)
+        CPU_FEATURE_DOC("SM3 Algorithm instructions.")
+        CPU_FEATURE_BIT_POS(87)
+        CPU_FEATURE_ADD_FEATURE(c_feature_avx1)
+        CPU_FEATURE_ADD_ISA_NAME("sm3")
+        CPU_FEATURE_LIBIRC_NAME("SM3")
+        CPU_FEATURE_ADD_MACRO_NAME("__SM3___")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_sm4)
+        CPU_FEATURE_DOC("SM4 Algorithm instructions.")
+        CPU_FEATURE_BIT_POS(88)
+        CPU_FEATURE_ADD_FEATURE(c_feature_avx2)
+        CPU_FEATURE_ADD_ISA_NAME("sm4")
+        CPU_FEATURE_LIBIRC_NAME("SM4")
+        CPU_FEATURE_ADD_MACRO_NAME("__SM4___")
+    CPU_FEATURE_END
+
+    CPU_FEATURE_BEGIN(c_feature_avxvnniint16)
+        CPU_FEATURE_DOC("Vector Neural Network Instructions On Shorts."
+                         "VEX forms")
+        CPU_FEATURE_ADD_FEATURE(c_feature_avx2)
+        CPU_FEATURE_BIT_POS(89)
+        CPU_FEATURE_ADD_ISA_NAME("avxvnniint16")
+        CPU_FEATURE_LIBIRC_NAME("AVX_VNNI_INT16")
+        CPU_FEATURE_ADD_MACRO_NAME("__AVXVNNIINT16___")
     CPU_FEATURE_END
 
 //

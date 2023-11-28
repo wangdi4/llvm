@@ -6,27 +6,37 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
+; HIR before vectorization:
+; BEGIN REGION { }
+;       %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.LASTPRIVATE:TYPED(&((%x)[0]), 0, 1) ]
+;
+;       + DO i1 = 0, 127, 1   <DO_LOOP> <simd>
+;       |   (%x)[0] = i1 + 1;
+;       + END LOOP
+;
+;       @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+; END REGION
 
 define i32 @main() {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK:          i32* [[VP_X:%.*]] = allocate-priv i32, OrigAlign = 4
+; CHECK:          ptr [[VP_X:%.*]] = allocate-priv i32, OrigAlign = 4
 ;
 ; CHECK:          i32 [[VP_XV:%.*]] = add i32 [[VP_IV:%.*]] i32 1
-; CHECK-NEXT:     store i32 [[VP_XV]] i32* [[VP_X]]
+; CHECK-NEXT:     store i32 [[VP_XV]] ptr [[VP_X]]
 ;
-; CHECK:          i32 [[VP_LOAD:%.*]] = load i32* [[VP_X]]
+; CHECK:          i32 [[VP_LOAD:%.*]] = load ptr [[VP_X]]
 ; CHECK-NEXT:     i32 [[VP_LOADED_PRIV_FINAL:%.*]] = private-final-uc-mem i32 [[VP_LOAD]]
-; CHECK-NEXT:     store i32 [[VP_LOADED_PRIV_FINAL]] i32* [[X0:%.*]]
+; CHECK-NEXT:     store i32 [[VP_LOADED_PRIV_FINAL]] ptr [[X0:%.*]]
 ;
 ; CHECK-LABEL: VPlan after emitting masked variant:
-; CHECK:          [DA: Div] i32* [[VP0:%.*]] = allocate-priv i32, OrigAlign = 4
+; CHECK:          [DA: Div] ptr [[VP0:%.*]] = allocate-priv i32, OrigAlign = 4
 ; CHECK:          [DA: Div] i32 [[VP_IV_1:%.*]] = phi  [ i32 [[VP1:%.*]], [[BB7:BB[0-9]+]] ],  [ i32 [[VP_IV_NEXT_1:%.*]], new_latch ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_NEW_IND:%.*]] = add i32 [[VP_IV_1]] i32 live-in0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = icmp ult i32 [[VP_IV_1]] i32 [[VP_NORM_UB:%.*]]
 ; CHECK-NEXT:     [DA: Div] br i1 [[VP6]], [[BB9:BB[0-9]+]], new_latch
 ;
 ; CHECK:            [DA: Div] i32 [[VP_XV_1:%.*]] = add i32 [[VP_NEW_IND]] i32 1
-; CHECK-NEXT:       [DA: Div] store i32 [[VP_XV_1]] i32* [[VP0]]
+; CHECK-NEXT:       [DA: Div] store i32 [[VP_XV_1]] ptr [[VP0]]
 ;
 ; CHECK:         new_latch:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_NEXT_1:%.*]] = add i32 [[VP_IV_1:.*]] i32 [[VP2:%.*]]
@@ -35,30 +45,29 @@ define i32 @main() {
 ;
 ; CHECK:         [[BB11:BB[0-9]+]]: # preds: new_latch
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP9:%.*]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i32 [[VP10:%.*]] = load i32* [[VP12:%.*]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP10:%.*]] = load ptr [[VP12:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP11:%.*]] = private-final-masked-mem i32 [[VP10]] i1 [[VP6]]
-; CHECK-NEXT:     [DA: Uni] store i32 [[VP11]] i32* [[X0]]
+; CHECK-NEXT:     [DA: Uni] store i32 [[VP11]] ptr [[X0]]
 ;
 ; CHECK-LABEL: VPlan after private finalization instructions transformation:
 ; CHECK:           [[BB11:BB[0-9]+]]: # preds: new_latch
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP9]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:       [DA: Div] i32 [[VP10]] = load i32* [[VP12]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP10]] = load ptr [[VP12]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP17:%.*]] = all-zero-check i1 [[VP6]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP17]], [[BB14:BB[0-9]+]], [[BB15:BB[0-9]+]]
 ;
 ; CHECK:             [[BB15]]: # preds: [[BB11]]
 ; CHECK-NEXT:         [DA: Uni] i32 [[VP11]] = private-final-masked-mem i32 [[VP10]] i1 [[VP6]]
-; CHECK-NEXT:         [DA: Uni] store i32 [[VP11]] i32* [[X0]]
+; CHECK-NEXT:         [DA: Uni] store i32 [[VP11]] ptr [[X0]]
 ; CHECK-NEXT:         [DA: Uni] br [[BB14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB14]]: # preds: [[BB15]], [[BB11]]
-; CHECK-NEXT:       [DA: Div] i8* [[VP0_BCAST:%.*]] = bitcast i32* [[VP0]]
-; CHECK-NEXT:       [DA: Div] call i64 4 i8* [[VP0_BCAST]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:       [DA: Div] call i64 4 ptr [[VP0]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:       [DA: Uni] br [[BB12:BB[0-9]+]]
 ;================ generated code
 ; CHECK:  define i32 @main() {
 ; CHECK:       VPlannedBB18:
-; CHECK-NEXT:    [[WIDE_LOAD190:%.*]] = load <16 x i32>, <16 x i32>* [[DOTVEC0:%.*]], align 1
+; CHECK-NEXT:    [[WIDE_LOAD190:%.*]] = load <16 x i32>, ptr [[DOTVEC0:%.*]], align 1
 ; CHECK-NEXT:    [[TMP16:%.*]] = bitcast <16 x i1> [[TMP9:%.*]] to i16
 ; CHECK-NEXT:    [[TMP17:%.*]] = icmp eq i16 [[TMP16]], 0
 ; CHECK-NEXT:    br i1 [[TMP17]], label [[VPLANNEDBB200:%.*]], label [[VPLANNEDBB210:%.*]]
@@ -68,35 +77,34 @@ define i32 @main() {
 ; CHECK-NEXT:    [[CTLZ0:%.*]] = call i16 @llvm.ctlz.i16(i16 [[TMP18]], i1 true)
 ; CHECK-NEXT:    [[TMP19:%.*]] = sub i16 15, [[CTLZ0]]
 ; CHECK-NEXT:    [[PRIV_EXTRACT0:%.*]] = extractelement <16 x i32> [[WIDE_LOAD190:%.*]], i16 [[TMP19]]
-; CHECK-NEXT:    store i32 [[PRIV_EXTRACT0]], i32* [[X0]], align 1
+; CHECK-NEXT:    store i32 [[PRIV_EXTRACT0]], ptr [[X0]], align 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB200]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB20:
-; CHECK-NEXT:    [[TMP20:%.*]] = bitcast i32* [[DOTVEC0:%.*]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 64, i8* [[TMP20]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 64, ptr [[DOTVEC0:%.*]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB220:%.*]]
 ;
 ; HIR-LABEL:  VPlan after insertion of VPEntities instructions
-; HIR:          i32 [[VP_LOAD:%.*]] = load i32* [[VP_X:%.*]]
+; HIR:          i32 [[VP_LOAD:%.*]] = load ptr [[VP_X:%.*]]
 ; HIR-NEXT:     i32 [[VP_LOADED_PRIV_FINAL:%.*]] = private-final-uc-mem i32 [[VP_LOAD]]
-; HIR-NEXT:     store i32 [[VP_LOADED_PRIV_FINAL]] i32* [[X0:%.*]]
+; HIR-NEXT:     store i32 [[VP_LOADED_PRIV_FINAL]] ptr [[X0:%.*]]
 ;
 ; HIR:       VPlan after emitting masked variant
 ; HIR-NEXT:  VPlan IR for: main:HIR.#{{[0-9]+}}.cloned.masked
-; HIR:          [DA: Div] i32* [[VP5:%.*]] = allocate-priv i32, OrigAlign = 4
-; HIR:            [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[VP5]]
-; HIR:            [DA: Div] store i32 [[VP11:%.*]] i32* [[VP_SUBSCRIPT_2]]
-; HIR:          [DA: Div] i32 [[VP15:%.*]] = load i32* [[VP5]]
+; HIR:          [DA: Div] ptr [[VP5:%.*]] = allocate-priv i32, OrigAlign = 4
+; HIR:            [DA: Div] ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[VP5]]
+; HIR:            [DA: Div] store i32 [[VP11:%.*]] ptr [[VP_SUBSCRIPT_2]]
+; HIR:          [DA: Div] i32 [[VP15:%.*]] = load ptr [[VP5]]
 ; HIR-NEXT:     [DA: Uni] i32 [[VP16:%.*]] = private-final-masked-mem i32 [[VP15]] i1 [[VP10:%.*]]
-; HIR-NEXT:     [DA: Uni] store i32 [[VP16]] i32* [[X0]]
+; HIR-NEXT:     [DA: Uni] store i32 [[VP16]] ptr [[X0]]
 ;
 ; HIR:       VPlan after private finalization instructions transformation
-; HIR:            [DA: Div] i32* [[VP_X]] = allocate-priv i32, OrigAlign = 4
-; HIR:            [DA: Div] i32 [[VP_LOAD]] = load i32* [[VP_X]]
+; HIR:            [DA: Div] ptr [[VP_X]] = allocate-priv i32, OrigAlign = 4
+; HIR:            [DA: Div] i32 [[VP_LOAD]] = load ptr [[VP_X]]
 ; HIR-NEXT:       [DA: Uni] i32 [[VP_LOADED_PRIV_FINAL]] = private-final-uc-mem i32 [[VP_LOAD]]
-; HIR-NEXT:       [DA: Uni] store i32 [[VP_LOADED_PRIV_FINAL]] i32* [[X0]]
+; HIR-NEXT:       [DA: Uni] store i32 [[VP_LOADED_PRIV_FINAL]] ptr [[X0]]
 ;
-; HIR:            [DA: Div] i32* [[VP5]] = allocate-priv i32, OrigAlign = 4
+; HIR:            [DA: Div] ptr [[VP5]] = allocate-priv i32, OrigAlign = 4
 ;
 ; HIR:           [[BB7:BB[0-9]+]]: # preds: [[BB6:BB[0-9]+]], new_latch
 ; HIR-NEXT:       [DA: Div] i32 [[VP8:%.*]] = phi  [ i32 [[VP6:%.*]], [[BB6]] ],  [ i32 [[VP9:%.*]], new_latch ]
@@ -105,8 +113,8 @@ define i32 @main() {
 ;
 ; HIR:            [DA: Div] i1 [[VP20:%.*]] = block-predicate i1 [[VP10]]
 ; HIR-NEXT:       [DA: Div] i32 [[VP11]] = add i32 [[VP_NEW_IND]] i32 1
-; HIR-NEXT:       [DA: Div] i32* [[VP12:%.*]] = subscript inbounds i32* [[VP5]]
-; HIR-NEXT:       [DA: Div] store i32 [[VP11]] i32* [[VP12]]
+; HIR-NEXT:       [DA: Div] ptr [[VP12:%.*]] = subscript inbounds ptr [[VP5]]
+; HIR-NEXT:       [DA: Div] store i32 [[VP11]] ptr [[VP12]]
 ; HIR-NEXT:       [DA: Uni] br new_latch
 ;
 ; HIR:           new_latch:
@@ -117,13 +125,13 @@ define i32 @main() {
 ;
 ; HIR:           [[BB9]]: # preds: new_latch
 ; HIR-NEXT:       [DA: Uni] i32 [[VP15:%.*]] = induction-final{add} i32 0 i32 1
-; HIR-NEXT:       [DA: Div] i32 [[VP16:%.*]] = load i32* [[VP5]]
+; HIR-NEXT:       [DA: Div] i32 [[VP16:%.*]] = load ptr [[VP5]]
 ; HIR-NEXT:       [DA: Uni] i1 [[VP21:%.*]] = all-zero-check i1 [[VP10]]
 ; HIR-NEXT:       [DA: Uni] br i1 [[VP21]], [[BB12:BB[0-9]+]], [[BB13:BB[0-9]+]]
 ; 
 ; HIR:             [[BB13]]: # preds: [[BB9]]
 ; HIR-NEXT:         [DA: Uni] i32 [[VP17:%.*]] = private-final-masked-mem i32 [[VP16]] i1 [[VP10]]
-; HIR-NEXT:         [DA: Uni] store i32 [[VP17]] i32* [[X0]]
+; HIR-NEXT:         [DA: Uni] store i32 [[VP17]] ptr [[X0]]
 ; HIR-NEXT:         [DA: Uni] br [[BB12]]
 ;
 ; HIR-LABEL: Function: main
@@ -133,7 +141,7 @@ define i32 @main() {
 ; HIR-NEXT:        [[EXTRACTED_PRIV0:%.*]] = extractelement [[DOTVEC20]],  15
 ; HIR-NEXT:        ([[X0]])[0] = [[EXTRACTED_PRIV0]]
 ;
-; HIR:             + DO i1 = 0, [[LOOP_UB0:%.*]], 16   <DO_LOOP> <vector-remainder> <nounroll> <novectorize>
+; HIR:             + DO i1 = 0, [[LOOP_UB0:%.*]], 16   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 1>
 ; HIR-NEXT:        |   [[DOTVEC120:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> <u [[DOTVEC100:%.*]];
 ; HIR-NEXT:        |   (<16 x i32>*)([[PRIV_MEM80:%.*]])[0] = i1 + [[PHI_TEMP0:%.*]] + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 1, Mask = @{[[DOTVEC120]]}
 ; HIR-NEXT:        |   [[DOTVEC130:%.*]] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> + 16 <u [[DOTVEC100]]
@@ -164,7 +172,7 @@ entry:
   br label %preheader
 
 preheader:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %x, i32 0, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %x, i32 0, i32 1) ]
   br label %header
 header:
   %iv = phi i32 [ 0, %preheader ], [ %iv.next, %latch ]
@@ -173,7 +181,7 @@ header:
 
 latch:
   %xv = add nsw i32 %iv, 1
-  store i32 %xv, i32* %x, align 4
+  store i32 %xv, ptr %x, align 4
   %bottom_test = icmp eq i32 %iv.next, 128
   br i1 %bottom_test, label %loopexit, label %header
 
@@ -185,7 +193,7 @@ endloop:
   br label %exit
 
 exit:
-  %r = load i32, i32* %x, align 4
+  %r = load i32, ptr %x, align 4
   ret i32 %r
 }
 

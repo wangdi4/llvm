@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2018-2023 Intel Corporation.
+// Copyright 2018 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -48,8 +48,8 @@ extern Intel::OpenCL::PluginManager g_pluginManager;
 enum LINK_OPT_ID {
   OPT_LINK_INVALID = 0, // This is not an option ID.
 #define PREFIX(NAME, VALUE)
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
-               HELPTEXT, METAVAR, VALUES)                                      \
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS,         \
+               VISIBILITY, PARAM, HELPTEXT, METAVAR, VALUES)                   \
   OPT_LINK_##ID,
 #include "OpenCLLinkOptions.inc"
   OPT_LINK_LAST_OPTION
@@ -61,16 +61,17 @@ enum LINK_OPT_ID {
   static constexpr StringLiteral NAME##_init[] = VALUE;                        \
   static constexpr ArrayRef<StringLiteral> NAME(NAME##_init,                   \
                                                 std::size(NAME##_init) - 1);
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
-               HELPTEXT, METAVAR, VALUES)
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS,         \
+               VISIBILITY, PARAM, HELPTEXT, METAVAR, VALUES)
 #include "OpenCLLinkOptions.inc"
 #undef OPTION
 #undef PREFIX
 
+using namespace llvm::opt;
 static constexpr opt::OptTable::Info ClangOptionsInfoTable[] = {
 #define PREFIX(NAME, VALUE)
-#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
-               HELPTEXT, METAVAR, VALUES)                                      \
+#define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS,         \
+               VISIBILITY, PARAM, HELPTEXT, METAVAR, VALUES)                   \
   {PREFIX,                                                                     \
    NAME,                                                                       \
    HELPTEXT,                                                                   \
@@ -79,6 +80,7 @@ static constexpr opt::OptTable::Info ClangOptionsInfoTable[] = {
    opt::Option::KIND##Class,                                                   \
    PARAM,                                                                      \
    FLAGS,                                                                      \
+   VISIBILITY,                                                                 \
    OPT_LINK_##GROUP,                                                           \
    OPT_LINK_##ALIAS,                                                           \
    ALIASARGS,                                                                  \
@@ -204,10 +206,7 @@ static bool isSameType(Type *A, Type *B, std::string &Message) {
     return true;
   auto *PtrTyA = dyn_cast<PointerType>(A);
   auto *PtrTyB = dyn_cast<PointerType>(B);
-  if (PtrTyA && PtrTyB &&
-      (PtrTyA->isOpaque() ||
-       isSameType(PtrTyA->getNonOpaquePointerElementType(),
-                  PtrTyB->getNonOpaquePointerElementType(), Message))) {
+  if (PtrTyA && PtrTyB) {
     if (PtrTyA->getAddressSpace() != PtrTyB->getAddressSpace()) {
       Message = "incompatible address space";
       return false;

@@ -1,7 +1,6 @@
-; RUN: opt %s -passes=sycl-kernel-indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -passes=sycl-kernel-indirect-call-lowering -S | FileCheck %s
+; RUN: not opt %s -passes=sycl-kernel-indirect-call-lowering -S -disable-output 2>&1 | FileCheck %s
 
-; CHECK: "vector-variant-failure"="failed to find a masked vector variant for an indirect call"
+; CHECK: error: Function '_ZTSN2cl4sycl6detail19__pf_kernel_wrapperIZZ4mainENK3$_0clERNS0_7handlerEE1KEE': failed to find a masked vector variant for an indirect call
 
 %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFiiiENS1_8int_listIJLi4ELi8EEEEJFNS1_8unmaskedENS1_7varyingES7_EEEE.cl::sycl::INTEL::function_ref_tuned" = type { %"struct._ZTSSt5arrayIPFiiiELm2EE.std::array" }
 %"struct._ZTSSt5arrayIPFiiiELm2EE.std::array" = type { [2 x ptr] }
@@ -144,5 +143,3 @@ attributes #1 = { nounwind "vector-variants"="_ZGVdN4vv__$U0,_ZGVdN8vv__$U0" }
 
 !0 = !{!"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"long*", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFiiiENS1_8int_listIJLi4ELi8EEEEJFNS1_8unmaskedENS1_7varyingES7_EEEE.cl::sycl::INTEL::function_ref_tuned", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"long*", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"}
 !1 = !{ptr null, ptr null, ptr null, ptr null, ptr null, ptr addrspace(1) null, ptr null, ptr null, ptr null, ptr addrspace(1) null, ptr null, ptr null, ptr null}
-
-; DEBUGIFY-NOT: WARNING

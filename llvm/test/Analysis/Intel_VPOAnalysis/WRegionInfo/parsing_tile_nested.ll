@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug -S %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -debug -S %s 2>&1 | FileCheck %s
 ;
 ; INTEL_CUSTOMIZATION
 ; Test src:
@@ -36,22 +36,21 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: noinline nounwind optnone uwtable
-define void @test_() #0 {
+define void @test_() {
 alloca_0:
-  %"$io_ctx" = alloca [8 x i64], align 8, !llfort.type_idx !1
-  %"test_$J" = alloca i32, align 8, !llfort.type_idx !2
-  %"test_$I" = alloca i32, align 8, !llfort.type_idx !3
-  %omp.pdo.start1 = alloca i32, align 4, !llfort.type_idx !4
+  %"$io_ctx" = alloca [8 x i64], align 8
+  %"test_$J" = alloca i32, align 8
+  %"test_$I" = alloca i32, align 8
+  %omp.pdo.start1 = alloca i32, align 4
   store i32 1, ptr %omp.pdo.start1, align 4
-  %omp.pdo.end2 = alloca i32, align 4, !llfort.type_idx !4
+  %omp.pdo.end2 = alloca i32, align 4
   store i32 100, ptr %omp.pdo.end2, align 4
-  %omp.pdo.step3 = alloca i32, align 4, !llfort.type_idx !4
+  %omp.pdo.step3 = alloca i32, align 4
   store i32 1, ptr %omp.pdo.step3, align 4
-  %omp.pdo.norm.iv4 = alloca i32, align 4, !llfort.type_idx !4
-  %omp.pdo.norm.lb5 = alloca i32, align 4, !llfort.type_idx !4
+  %omp.pdo.norm.iv4 = alloca i32, align 4
+  %omp.pdo.norm.lb5 = alloca i32, align 4
   store i32 0, ptr %omp.pdo.norm.lb5, align 4
-  %omp.pdo.norm.ub6 = alloca i32, align 4, !llfort.type_idx !4
+  %omp.pdo.norm.ub6 = alloca i32, align 4
   %omp.pdo.end_fetch.1 = load i32, ptr %omp.pdo.end2, align 4
   %omp.pdo.start_fetch.2 = load i32, ptr %omp.pdo.start1, align 4
   %sub.1 = sub nsw i32 %omp.pdo.end_fetch.1, %omp.pdo.start_fetch.2
@@ -73,16 +72,16 @@ omp.pdo.body4:                                    ; preds = %omp.pdo.cond3
   %omp.pdo.start_fetch.9 = load i32, ptr %omp.pdo.start1, align 4
   %add.1 = add nsw i32 %mul.1, %omp.pdo.start_fetch.9
   store i32 %add.1, ptr %"test_$I", align 8
-  %omp.pdo.start = alloca i32, align 4, !llfort.type_idx !4
+  %omp.pdo.start = alloca i32, align 4
   store i32 1, ptr %omp.pdo.start, align 4
-  %omp.pdo.end = alloca i32, align 4, !llfort.type_idx !4
+  %omp.pdo.end = alloca i32, align 4
   store i32 48, ptr %omp.pdo.end, align 4
-  %omp.pdo.step = alloca i32, align 4, !llfort.type_idx !4
+  %omp.pdo.step = alloca i32, align 4
   store i32 1, ptr %omp.pdo.step, align 4
-  %omp.pdo.norm.iv = alloca i32, align 4, !llfort.type_idx !4
-  %omp.pdo.norm.lb = alloca i32, align 4, !llfort.type_idx !4
+  %omp.pdo.norm.iv = alloca i32, align 4
+  %omp.pdo.norm.lb = alloca i32, align 4
   store i32 0, ptr %omp.pdo.norm.lb, align 4
-  %omp.pdo.norm.ub = alloca i32, align 4, !llfort.type_idx !4
+  %omp.pdo.norm.ub = alloca i32, align 4
   %omp.pdo.end_fetch.10 = load i32, ptr %omp.pdo.end, align 4
   %omp.pdo.start_fetch.11 = load i32, ptr %omp.pdo.start, align 4
   %sub.2 = sub nsw i32 %omp.pdo.end_fetch.10, %omp.pdo.start_fetch.11
@@ -104,7 +103,7 @@ omp.pdo.body10:                                   ; preds = %omp.pdo.cond9
   %omp.pdo.start_fetch.18 = load i32, ptr %omp.pdo.start, align 4
   %add.2 = add nsw i32 %mul.2, %omp.pdo.start_fetch.18
   store i32 %add.2, ptr %"test_$J", align 8
-  call void @bar_.t0p.t0p(ptr %"test_$I", ptr %"test_$J"), !llfort.type_idx !5
+  call void @bar_.t0p.t0p(ptr %"test_$I", ptr %"test_$J")
   %omp.pdo.norm.iv_fetch.19 = load i32, ptr %omp.pdo.norm.iv, align 4
   %add.3 = add nsw i32 %omp.pdo.norm.iv_fetch.19, 1
   store i32 %add.3, ptr %omp.pdo.norm.iv, align 4
@@ -142,31 +141,14 @@ omp.pdo.epilog5:                                  ; preds = %omp.pdo.cond3
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: noinline nounwind optnone uwtable
-define internal void @bar_.t0p.t0p(ptr %arg0, ptr %arg1) #2 {
+define internal void @bar_.t0p.t0p(ptr %arg0, ptr %arg1) {
 wrap_start20:
   call void (...) @bar_(ptr %arg0, ptr %arg1)
   ret void
 }
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
+declare void @llvm.directive.region.exit(token)
 
 declare void @bar_(...)
-
-attributes #0 = { noinline nounwind optnone uwtable "frame-pointer"="all" "intel-lang"="fortran" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
-attributes #1 = { nounwind }
-attributes #2 = { noinline nounwind optnone uwtable "frame-pointer"="all" "intel-lang"="fortran" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
-
-!omp_offload.info = !{}
-!llvm.module.flags = !{!0}
-
-!0 = !{i32 7, !"openmp", i32 50}
-!1 = !{i64 18}
-!2 = !{i64 23}
-!3 = !{i64 24}
-!4 = !{i64 2}
-!5 = !{i64 26}

@@ -31,15 +31,15 @@
 ; CHECK: FUNCTION assumedshape_arrs_ DOES NOT HAVE LOCAL LINKAGE
 ; CHECK:   LOCAL DV FOUND:   %"assumedshape_arrs_$ARRAY_ADD" = alloca %"QNCA_a0$float*$rank3$", align 8
 ; CHECK:     RANK: 3
-; CHECK:     TYPE: <UNKNOWN ELEMENT TYPE>
+; CHECK:     TYPE:  <UNKNOWN ELEMENT TYPE>
 ; CHECK:     ANALYSIS RESULT: NOT VALID
 ; CHECK:   LOCAL DV FOUND:   %"assumedshape_arrs_$ARRAY_TARGET" = alloca %"QNCA_a0$float*$rank3$", align 8
 ; CHECK:     RANK: 3
-; CHECK:     TYPE: <UNKNOWN ELEMENT TYPE>
+; CHECK:     TYPE:  <UNKNOWN ELEMENT TYPE>
 ; CHECK:     ANALYSIS RESULT: NOT VALID
 ; CHECK:   LOCAL DV FOUND:   %"assumedshape_arrs_$ARRAY_SOURCE" = alloca %"QNCA_a0$float*$rank3$", align 8
 ; CHECK:     RANK: 3
-; CHECK:     TYPE: <UNKNOWN ELEMENT TYPE>
+; CHECK:     TYPE:  <UNKNOWN ELEMENT TYPE>
 ; CHECK:     ANALYSIS RESULT: NOT VALID
 
 ; ifx -c -O3 -fiopenmp -xCORE-AVX512 -fpp -traceback -flto -align array64byte -what -V simple.F90 -mllmv -dope-vector-local-const-prop
@@ -441,3 +441,6 @@ attributes #2 = { nofree "intel-lang"="fortran" }
 attributes #3 = { nounwind readnone speculatable }
 attributes #4 = { argmemonly nofree nounwind willreturn writeonly }
 attributes #5 = { nounwind }
+
+!ifx.types.dv = !{!0}
+!0 = !{%"QNCA_a0$float*$rank3$" zeroinitializer, float 0.000000e+00}

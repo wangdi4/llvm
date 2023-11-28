@@ -7,9 +7,9 @@
 ; store before the outer loops which form perfect loopnest.
 
 ; CHECK: BEGIN REGION { }
-; CHECK: (i32*)(%Tmp1)[0] = 5;
+; CHECK: (%Tmp1)[0][0] = 5;
 ; CHECK: (%Tmp1)[0][1] = 5;
-; CHECK: (i32*)(%Tmp2)[0] = 50;
+; CHECK: (%Tmp2)[0][0] = 50;
 ; CHECK: (%Tmp2)[0][1] = 100;
 
 ; CHECK: + DO i1 = 0, 249, 1   <DO_LOOP>

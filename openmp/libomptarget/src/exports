@@ -28,27 +28,9 @@ VERS1.0 {
     __tgt_target_kernel_nowait;
     __tgt_target_nowait_query;
     __tgt_target_kernel_replay;
+    __tgt_activate_record_replay;
     __tgt_mapper_num_components;
     __tgt_push_mapper_component;
-# INTEL_COLLAB
-    __tgt_is_device_available;
-    __tgt_get_device_name;
-    __tgt_get_device_rtl_name;
-    __tgt_create_interop_obj;
-    __tgt_release_interop_obj;
-    __tgt_get_interop_property;
-    __tgt_set_interop_property;
-    __tgt_offload_proxy_task_complete_ooo;
-# INTEL_CUSTOMIZATION
-    __tgt_push_code_location;
-# end INTEL_CUSTOMIZATION
-    __tgt_get_num_devices;
-    __tgt_get_target_memory_info;
-    __tgt_add_build_options;
-    __tgt_create_interop;
-    __tgt_release_interop;
-    __tgt_use_interop;
-# end INTEL_COLLAB
     __kmpc_push_target_tripcount;
     __kmpc_push_target_tripcount_mapper;
     omp_get_mapped_ptr;
@@ -62,20 +44,51 @@ VERS1.0 {
     omp_target_memcpy_rect;
     omp_target_memcpy_async;
     omp_target_memcpy_rect_async;
+    omp_target_memset;
+    omp_target_memset_async;
     omp_target_associate_ptr;
     omp_target_disassociate_ptr;
-# INTEL_COLLAB
+    llvm_omp_target_alloc_host;
+    llvm_omp_target_alloc_shared;
+    llvm_omp_target_alloc_device;
+    llvm_omp_target_free_host;
+    llvm_omp_target_free_shared;
+    llvm_omp_target_free_device;
+    llvm_omp_target_dynamic_shared_alloc;
+    llvm_omp_target_lock_mem;
+    llvm_omp_target_unlock_mem;
+    __tgt_set_info_flag;
+    __tgt_print_device_info;
+    omp_get_interop_ptr;
+    omp_get_interop_str;
+    omp_get_interop_int;
+    omp_get_interop_name;
+    omp_get_interop_type_desc;
+    __tgt_interop_init;
+    __tgt_interop_use;
+    __tgt_interop_destroy;
+    ompt_libomptarget_connect;
+# INTEL_CUSTOMIZATION
+    __tgt_is_device_available;
+    __tgt_get_device_name;
+    __tgt_get_device_rtl_name;
+    __tgt_create_interop_obj;
+    __tgt_release_interop_obj;
+    __tgt_get_interop_property;
+    __tgt_set_interop_property;
+    __tgt_offload_proxy_task_complete_ooo;
+    __tgt_push_code_location;
+    __tgt_get_num_devices;
+    __tgt_get_target_memory_info;
+    __tgt_create_interop;
+    __tgt_release_interop;
+    __tgt_use_interop;
     omp_target_is_accessible;
     omp_target_alloc_device;
     omp_target_alloc_host;
     omp_target_alloc_shared;
     omp_target_get_context;
     omp_get_num_interop_properties;
-    omp_get_interop_int;
-    omp_get_interop_ptr;
-    omp_get_interop_str;
-    omp_get_interop_name;
-    omp_get_interop_type_desc;
     omp_get_interop_rc_desc;
     omp_set_sub_device;
     omp_unset_sub_device;
@@ -96,34 +109,17 @@ VERS1.0 {
     ompx_target_aligned_alloc_shared_with_hint;
     ompx_target_prefetch_shared_mem;
     ompx_get_device_from_ptr;
-# end INTEL_COLLAB
-    llvm_omp_target_alloc_host;
-    llvm_omp_target_alloc_shared;
-    llvm_omp_target_alloc_device;
-    llvm_omp_target_free_host;
-    llvm_omp_target_free_shared;
-    llvm_omp_target_free_device;
-    llvm_omp_target_dynamic_shared_alloc;
-    llvm_omp_target_lock_mem;
-    llvm_omp_target_unlock_mem;
-    __tgt_set_info_flag;
-    __tgt_print_device_info;
-    omp_get_interop_ptr;
-    omp_get_interop_str;
-    omp_get_interop_int;
-    omp_get_interop_name;
-    omp_get_interop_type_desc;
-    __tgt_interop_init;
-    __tgt_interop_use;
-    __tgt_interop_destroy;
-# INTEL_CUSTOMIZATION
     __tgt_get_interop_obj;
     __tgt_target_sync;
     __tgt_register_ptask_services;
     __tgt_task_completed;
     __tgt_interop_use_async;
+    ompt_oneapi_set_data;
+    ompt_oneapi_get_data;
+    __tgt_get_mem_resources;
+    __tgt_omp_alloc;
+    __tgt_omp_free;
 # end INTEL_CUSTOMIZATION
-    ompt_libomptarget_connect;
   local:
     *;
 };

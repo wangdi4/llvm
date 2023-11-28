@@ -20,11 +20,11 @@ DIR.OMP.SIMD.119:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.119
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %"hello_$I.linear.iv", i32 0, i32 1, i32 1), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.PRIVATE:TYPED"([256 x float]* %"hello_$X.priv", float zeroinitializer, i32 256) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %"hello_$I.linear.iv", i32 0, i32 1, i32 1), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.PRIVATE:TYPED"(ptr %"hello_$X.priv", float zeroinitializer, i32 256) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %"(float*)hello_$X$" = getelementptr inbounds [256 x float], [256 x float]* %"hello_$X.priv", i64 0, i64 0
+  %"(ptr)hello_$X$" = getelementptr inbounds [256 x float], ptr %"hello_$X.priv", i64 0, i64 0
   br label %omp.pdo.body8
 
 omp.pdo.body8:                                    ; preds = %DIR.OMP.SIMD.2, %omp.pdo.body8
@@ -33,8 +33,8 @@ omp.pdo.body8:                                    ; preds = %DIR.OMP.SIMD.2, %om
   %add.1 = add nsw i32 %int_sext, 1
   %"(float)hello_$I_fetch.10$" = sitofp i32 %add.1 to float
   %int_sext3 = sext i32 %add.1 to i64
-  %"hello_$X[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"(float*)hello_$X$", i64 %int_sext3)
-  store float %"(float)hello_$I_fetch.10$", float* %"hello_$X[]", align 1
+  %"hello_$X[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"(ptr)hello_$X$", i64 %int_sext3)
+  store float %"(float)hello_$I_fetch.10$", ptr %"hello_$X[]", align 1
   %add.2 = add nuw nsw i64 %omp.pdo.norm.iv.local.016, 1
   %exitcond.not = icmp eq i64 %add.2, 256
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.220, label %omp.pdo.body8
@@ -47,12 +47,12 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.22
   ret void
 }
 
-declare i32 @for_set_fpe_(i32* nocapture readonly)
+declare i32 @for_set_fpe_(ptr nocapture readonly)
 
-declare i32 @for_set_reentrancy(i32* nocapture readonly)
+declare i32 @for_set_reentrancy(ptr nocapture readonly)
 
 declare token @llvm.directive.region.entry()
 
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64)
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64)
 
 declare void @llvm.directive.region.exit(token)

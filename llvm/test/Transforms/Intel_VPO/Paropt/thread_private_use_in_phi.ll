@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-tpv -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='vpo-paropt-tpv' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-tpv -S %s | FileCheck %s
+; RUN: opt -passes='vpo-paropt-tpv' -S %s | FileCheck %s
 
 ; Make sure that vpo-paropt-tpv creates the local version of `@global` in the beginning
 ; of the routine, and uses it in both uses in the function, including one in a PHI.

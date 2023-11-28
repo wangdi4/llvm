@@ -91,11 +91,11 @@ DenseMap<int, StringRef> WRNCancelName = {
     {WRNCancelKind::WRNCancelTaskgroup,"TASKGROUP"}};
 
 DenseMap<int, StringRef> WRNProcBindName = {
-    {WRNProcBindKind::WRNProcBindAbsent, "UNSPECIFIED"},
-    {WRNProcBindKind::WRNProcBindTrue,   "TRUE"},
-    {WRNProcBindKind::WRNProcBindMaster, "MASTER"},
-    {WRNProcBindKind::WRNProcBindClose,  "CLOSE"},
-    {WRNProcBindKind::WRNProcBindSpread, "SPREAD"}};
+    {WRNProcBindKind::WRNProcBindAbsent,  "UNSPECIFIED"},
+    {WRNProcBindKind::WRNProcBindTrue,    "TRUE"},
+    {WRNProcBindKind::WRNProcBindPrimary, "PRIMARY"},
+    {WRNProcBindKind::WRNProcBindClose,   "CLOSE"},
+    {WRNProcBindKind::WRNProcBindSpread,  "SPREAD"}};
 
 DenseMap<int, StringRef> WRNLoopBindName = {
     {WRNLoopBindKind::WRNLoopBindAbsent, "UNSPECIFIED"},
@@ -166,6 +166,7 @@ template<>Clause<AlignedItem>     ::Clause():ClauseID(QUAL_OMP_ALIGNED){}
 template<>Clause<NontemporalItem> ::Clause():ClauseID(QUAL_OMP_NONTEMPORAL){}
 template<>Clause<FlushItem>       ::Clause():ClauseID(QUAL_OMP_FLUSH){}
 template<>Clause<SizesItem>       ::Clause():ClauseID(QUAL_OMP_SIZES){}
+template<>Clause<StridesItem>     ::Clause():ClauseID(QUAL_OMP_STRIDES){}
 template<>Clause<LiveinItem>      ::Clause():ClauseID(QUAL_OMP_LIVEIN){}
 template<>Clause<AllocateItem>    ::Clause():ClauseID(QUAL_OMP_ALLOCATE){}
 template<>Clause<DataItem>        ::Clause():ClauseID(QUAL_OMP_DATA){}

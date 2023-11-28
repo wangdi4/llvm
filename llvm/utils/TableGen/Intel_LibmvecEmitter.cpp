@@ -1,5 +1,5 @@
 //
-//      Copyright (c) 2016-2017 Intel Corporation.
+//      Copyright (c) 2016 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -25,6 +25,7 @@
 #include "llvm/TableGen/Record.h"
 #include "llvm/TableGen/TableGenBackend.h"
 #include <map>
+#include <sstream>
 #include <vector>
 
 using namespace llvm;
@@ -128,29 +129,31 @@ void LibmvecVariantsEmitter::emitLibmvecVariants(raw_ostream &OS) {
     for (unsigned VL = 4; VL <= 16; VL *= 2) {
       std::vector<char> IsaClasses = VLToISAMapFloat[VL];
       for (unsigned j = 0; j < IsaClasses.size(); j++) {
+        std::stringstream VABIPrefix;
+        VABIPrefix << "\"" << "_ZGV" << IsaClasses[j] << "N" << VL << ParmSignatureStr << "\"";
         // math library call to non-masked variant.
         OS << "{\"" << LibmvecVariantNameStr << "f" << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "N" << VL << ParmSignatureStr
            << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
-           << ", false},\n";
+           << ", false, " << VABIPrefix.str() << "},\n";
 
         // math library call to masked variant.
         OS << "{\"" << LibmvecVariantNameStr << "f" << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "M" << VL << ParmSignatureStr
            << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
-           << ", true},\n";
+           << ", true, " << VABIPrefix.str() << "},\n";
 
         // llvm intrinsic to non-masked variant.
         OS << "{\"" << "llvm." << LibmvecVariantNameStr << ".f32" << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "N" << VL << ParmSignatureStr
            << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
-           << ", false},\n";
+           << ", false, " << VABIPrefix.str()  << "},\n";
 
         // llvm intrinsic to masked variant.
         OS << "{\"" << "llvm." << LibmvecVariantNameStr << ".f32" << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "M" << VL << ParmSignatureStr
            << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
-           << ", true},\n";
+           << ", true, " << VABIPrefix.str() << "},\n";
       }
     }
 
@@ -158,29 +161,31 @@ void LibmvecVariantsEmitter::emitLibmvecVariants(raw_ostream &OS) {
     for (unsigned VL = 2; VL <= 8; VL *= 2) {
       std::vector<char> IsaClasses = VLToISAMapDouble[VL];
       for (unsigned j = 0; j < IsaClasses.size(); j++) {
+        std::stringstream VABIPrefix;
+        VABIPrefix << "\"" << "_ZGV" << IsaClasses[j] << "N" << VL << ParmSignatureStr << "\"";
         // math library call to non-masked variant.
         OS << "{\"" << LibmvecVariantNameStr << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "N" << VL << ParmSignatureStr
            << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
-           << ", false},\n";
+           << ", false, " << VABIPrefix.str() << "},\n";
 
         // math library call to masked variant.
         OS << "{\"" << LibmvecVariantNameStr << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "M" << VL << ParmSignatureStr
            << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
-           << ", true},\n";
+           << ", true, " << VABIPrefix.str() << "},\n";
 
         // llvm intrinsic to non-masked variant.
         OS << "{\"" << "llvm." << LibmvecVariantNameStr << ".f64" << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "N" << VL << ParmSignatureStr
            << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
-           << ", false},\n";
+           << ", false, " << VABIPrefix.str() << "},\n";
 
         // llvm intrinsic to masked variant.
         OS << "{\"" << "llvm." << LibmvecVariantNameStr << ".f64" << "\", ";
         OS << "\"" << "_ZGV" << IsaClasses[j] << "M" << VL << ParmSignatureStr
            << "_" << LibmvecVariantNameStr << "\", " << "FIXED(" << VL << ")"
-           << ", true},\n";
+           << ", true, " << VABIPrefix.str() << "},\n";
       }
     }
   }

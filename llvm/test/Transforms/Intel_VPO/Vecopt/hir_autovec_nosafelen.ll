@@ -14,10 +14,10 @@
 ; <15>               + END LOOP
 ; <0>          END REGION
 ;
-; CHECK:      8:3 (%lp1)[i1 + %n1] --> (%lp1)[i1] FLOW (*) (?)
-; CHECK-NEXT: 	DV is not refinable - unsafe to vectorize
-; CHECK-NEXT: 8:5 (%lp1)[i1 + %n1] --> (%lp1)[i1] OUTPUT (*) (?)
-; CHECK-NEXT: 	DV is not refinable - unsafe to vectorize
+; CHECK:      (%lp1)[i1 + %n1] --> (%lp1)[i1] FLOW (*) (?)
+; CHECK-NEXT: 	is unsafe to vectorize
+; CHECK:      (%lp1)[i1 + %n1] --> (%lp1)[i1] OUTPUT (*) (?)
+; CHECK-NEXT: 	is unsafe to vectorize
 ;
 ; CHECK:                BEGIN REGION { }
 ; CHECK-NEXT:                 + DO i1 = 0, 1023, 1   <DO_LOOP>

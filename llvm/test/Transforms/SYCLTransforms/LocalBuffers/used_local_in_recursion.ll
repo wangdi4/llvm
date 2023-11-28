@@ -43,7 +43,7 @@ exit:
 !0 = !{i1 true}
 !1 = !{ptr @foo}
 !2 = !{!"int*", !"int*", !"char*", !"float*"}
-!3 = !{i32 addrspace(1)* null, i32 addrspace(1)* null, i8 addrspace(1)* null, float addrspace(1)* null}
+!3 = !{ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; CHECK:           define void @foo(ptr addrspace(1) %ApInt, ptr addrspace(1) %BpInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat,
 ; CHECK-NEXT:   entry:

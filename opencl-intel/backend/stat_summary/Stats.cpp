@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2014-2018 Intel Corporation.
+// Copyright 2014 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,7 +13,6 @@
 // License.
 
 #include "Stats.h"
-
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Path.h"
 
@@ -21,7 +20,6 @@ const std::string &WorkloadInfo::getWorkloadID(const std::string &location,
                                                const std::string &name) {
 
   std::string *id = new std::string();
-  assert(id && "No space for new workload ID");
 
   id->assign(std::string(
       llvm::sys::path::parent_path(llvm::StringRef(location.c_str()))));

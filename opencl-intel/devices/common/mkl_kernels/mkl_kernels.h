@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include <builtin_kernels.h>
-#include <cl_dynamic_lib.h>
-#include <cl_types.h>
+#include "builtin_kernels.h"
+#include "cl_dynamic_lib.h"
+#include "cl_types.h"
 
 #include <mkl_cblas.h>
 #include <mkl_types.h>

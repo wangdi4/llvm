@@ -32,7 +32,7 @@ to pipes.
 
 == Notice
 
-Copyright (c) 2022-2023 Intel Corporation.  All rights reserved.
+Copyright (c) 2022 Intel Corporation.  All rights reserved.
 
 == Status
 

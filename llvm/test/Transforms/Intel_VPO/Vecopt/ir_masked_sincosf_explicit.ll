@@ -21,16 +21,16 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-512: [[RESULT:%.*]] = call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf16_mask({ <[[VL]] x float>, <[[VL]] x float> } undef, <[[VL]] x i1> {{.*}}, <[[VL]] x float> {{.*}})
 ; CHECK: [[RESULT_SIN:%.*]] = extractvalue { <[[VL]] x float>, <[[VL]] x float> } [[RESULT]], 0
 ; CHECK: [[RESULT_COS:%.*]] = extractvalue { <[[VL]] x float>, <[[VL]] x float> } [[RESULT]], 1
-; CHECK: call void @llvm.masked.store.v[[VL]]f32.p0v[[VL]]f32(<[[VL]] x float> [[RESULT_SIN]], <[[VL]] x float>* {{.*}}, i32 4, <[[VL]] x i1> {{.*}})
-; CHECK: call void @llvm.masked.store.v[[VL]]f32.p0v[[VL]]f32(<[[VL]] x float> [[RESULT_COS]], <[[VL]] x float>* {{.*}}, i32 4, <[[VL]] x i1> {{.*}})
-define dso_local void @unit_strided(float* nocapture readonly %input, float* nocapture readonly %b, float* %vsin, float* %vcos) local_unnamed_addr #0 {
+; CHECK: call void @llvm.masked.store.v[[VL]]f32.p0(<[[VL]] x float> [[RESULT_SIN]], ptr {{.*}}, i32 4, <[[VL]] x i1> {{.*}})
+; CHECK: call void @llvm.masked.store.v[[VL]]f32.p0(<[[VL]] x float> [[RESULT_COS]], ptr {{.*}}, i32 4, <[[VL]] x i1> {{.*}})
+define dso_local void @unit_strided(ptr nocapture readonly %input, ptr nocapture readonly %b, ptr %vsin, ptr %vcos) local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* @N, align 4, !tbaa !2
+  %0 = load i32, ptr @N, align 4, !tbaa !2
   %cmp = icmp sgt i32 %0, 0
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -39,17 +39,17 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.body.continue, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.body.continue ]
-  %arrayidx = getelementptr inbounds float, float* %b, i64 %indvars.iv
-  %2 = load float, float* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds float, ptr %b, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx, align 4, !tbaa !6
   %cmp6 = fcmp ogt float %2, 3.000000e+00
   br i1 %cmp6, label %if.then, label %omp.body.continue
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx8 = getelementptr inbounds float, float* %input, i64 %indvars.iv
-  %3 = load float, float* %arrayidx8, align 4, !tbaa !6
-  %arrayidx10 = getelementptr inbounds float, float* %vsin, i64 %indvars.iv
-  %arrayidx12 = getelementptr inbounds float, float* %vcos, i64 %indvars.iv
-  tail call void @sincosf(float %3, float* nonnull %arrayidx10, float* nonnull %arrayidx12) #2
+  %arrayidx8 = getelementptr inbounds float, ptr %input, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx8, align 4, !tbaa !6
+  %arrayidx10 = getelementptr inbounds float, ptr %vsin, i64 %indvars.iv
+  %arrayidx12 = getelementptr inbounds float, ptr %vcos, i64 %indvars.iv
+  tail call void @sincosf(float %3, ptr nonnull %arrayidx10, ptr nonnull %arrayidx12) #2
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body, %if.then
@@ -78,16 +78,16 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 ; CHECK-512: [[RESULT:%.*]] = call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf16_mask({ <[[VL]] x float>, <[[VL]] x float> } undef, <[[VL]] x i1> {{.*}}, <[[VL]] x float> {{.*}})
 ; CHECK: [[RESULT_SIN:%.*]] = extractvalue { <[[VL]] x float>, <[[VL]] x float> } [[RESULT]], 0
 ; CHECK: [[RESULT_COS:%.*]] = extractvalue { <[[VL]] x float>, <[[VL]] x float> } [[RESULT]], 1
-; CHECK: call void @llvm.masked.scatter.v[[VL]]f32.v[[VL]]p0f32(<[[VL]] x float> [[RESULT_SIN]], <[[VL]] x float*> {{.*}}, i32 4, <[[VL]] x i1> {{.*}})
-; CHECK: call void @llvm.masked.scatter.v[[VL]]f32.v[[VL]]p0f32(<[[VL]] x float> [[RESULT_COS]], <[[VL]] x float*> {{.*}}, i32 4, <[[VL]] x i1> {{.*}})
-define dso_local void @non_unit_strided(float* nocapture readonly %input, float* nocapture readonly %b, float* %vsin, float* %vcos) local_unnamed_addr #0 {
+; CHECK: call void @llvm.masked.scatter.v[[VL]]f32.v[[VL]]p0(<[[VL]] x float> [[RESULT_SIN]], <[[VL]] x ptr> {{.*}}, i32 4, <[[VL]] x i1> {{.*}})
+; CHECK: call void @llvm.masked.scatter.v[[VL]]f32.v[[VL]]p0(<[[VL]] x float> [[RESULT_COS]], <[[VL]] x ptr> {{.*}}, i32 4, <[[VL]] x i1> {{.*}})
+define dso_local void @non_unit_strided(ptr nocapture readonly %input, ptr nocapture readonly %b, ptr %vsin, ptr %vcos) local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* @N, align 4, !tbaa !2
+  %0 = load i32, ptr @N, align 4, !tbaa !2
   %cmp = icmp sgt i32 %0, 0
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -96,19 +96,19 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.body.continue, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.body.continue ]
-  %arrayidx = getelementptr inbounds float, float* %b, i64 %indvars.iv
-  %2 = load float, float* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds float, ptr %b, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx, align 4, !tbaa !6
   %cmp6 = fcmp fast ogt float %2, 3.000000e+00
   br i1 %cmp6, label %if.then, label %omp.body.continue
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx8 = getelementptr inbounds float, float* %input, i64 %indvars.iv
-  %3 = load float, float* %arrayidx8, align 4, !tbaa !6
+  %arrayidx8 = getelementptr inbounds float, ptr %input, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx8, align 4, !tbaa !6
   %4 = shl nuw nsw i64 %indvars.iv, 1
-  %arrayidx11 = getelementptr inbounds float, float* %vsin, i64 %4
+  %arrayidx11 = getelementptr inbounds float, ptr %vsin, i64 %4
   %5 = mul nuw nsw i64 %indvars.iv, 3
-  %arrayidx14 = getelementptr inbounds float, float* %vcos, i64 %5
-  tail call void @sincosf(float %3, float* %arrayidx11, float* %arrayidx14) #1
+  %arrayidx14 = getelementptr inbounds float, ptr %vcos, i64 %5
+  tail call void @sincosf(float %3, ptr %arrayidx11, ptr %arrayidx14) #1
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body, %if.then
@@ -125,7 +125,7 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 }
 
 ; Function Attrs: nofree nounwind
-declare dso_local void @sincosf(float, float*, float*) local_unnamed_addr #1
+declare dso_local void @sincosf(float, ptr, ptr) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()

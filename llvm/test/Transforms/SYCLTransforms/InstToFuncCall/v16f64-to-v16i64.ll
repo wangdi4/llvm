@@ -14,4 +14,4 @@ define void @sample_test(<16 x double> %x, ptr %y) nounwind !kernel_arg_base_typ
 ; DEBUGIFY-NOT: WARNING
 
 !0 = !{!"double16", !"long16*"}
-!1 = !{<16 x double> zeroinitializer, <16 x i64>* null}
+!1 = !{<16 x double> zeroinitializer, ptr null}

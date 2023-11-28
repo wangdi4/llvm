@@ -7,14 +7,13 @@ target triple = "x86_64-unknown-linux-gnu"
 declare i32 @foo(i32)
 
 ; This used to crash by generating broken SSA.
-define void @test_predicated_index_operand(i32 *%p, i64 %n) {
-; CHECK:  define void @test_predicated_index_operand(i32* [[P0:%.*]], i64 [[N0:%.*]]) {
+define void @test_predicated_index_operand(ptr %p, i64 %n) {
+; CHECK:  define void @test_predicated_index_operand(ptr [[P0:%.*]], i64 [[N0:%.*]]) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP23:%.*]], [[VPLANNEDBB80:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP22:%.*]], [[VPLANNEDBB80]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[P0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, ptr [[P0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, ptr [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 1
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], zeroinitializer
@@ -30,7 +29,7 @@ define void @test_predicated_index_operand(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @foo(i32 [[WIDE_LOAD_EXTRACT_0_0]])
 ; CHECK-NEXT:    br label [[TMP8]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  8:
+; CHECK-NEXT:  7:
 ; CHECK-NEXT:    [[TMP9:%.*]] = phi i32 [ undef, [[VPLANNEDBB40]] ], [ [[TMP7]], [[PRED_CALL_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
@@ -43,7 +42,7 @@ define void @test_predicated_index_operand(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP11:%.*]] = call i32 @foo(i32 [[WIDE_LOAD_EXTRACT_1_0]])
 ; CHECK-NEXT:    br label [[TMP12]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  12:
+; CHECK-NEXT:  11:
 ; CHECK-NEXT:    [[TMP13:%.*]] = phi i32 [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP11]], [[PRED_CALL_IF150]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE160:%.*]]
 ; CHECK-EMPTY:
@@ -56,7 +55,7 @@ define void @test_predicated_index_operand(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP15:%.*]] = insertelement <4 x i32> zeroinitializer, i32 [[WIDE_LOAD_EXTRACT_0_0]], i32 [[TMP9]]
 ; CHECK-NEXT:    br label [[TMP16]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  16:
+; CHECK-NEXT:  15:
 ; CHECK-NEXT:    [[TMP17:%.*]] = phi <4 x i32> [ undef, [[PRED_CALL_CONTINUE160]] ], [ [[TMP15]], [[PRED_INSERTELEMENT_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
@@ -69,7 +68,7 @@ define void @test_predicated_index_operand(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP19:%.*]] = insertelement <4 x i32> zeroinitializer, i32 [[WIDE_LOAD_EXTRACT_1_0]], i32 [[TMP13]]
 ; CHECK-NEXT:    br label [[TMP20]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  20:
+; CHECK-NEXT:  19:
 ; CHECK-NEXT:    [[TMP21:%.*]] = phi <4 x i32> [ undef, [[PRED_INSERTELEMENT_CONTINUE0]] ], [ [[TMP19]], [[PRED_INSERTELEMENT_IF170]] ]
 ; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE180:%.*]]
 ; CHECK-EMPTY:
@@ -92,8 +91,8 @@ entry:
 
 header:
   %iv = phi i64 [ %iv.next, %latch ], [ 0, %entry ]
-  %gep = getelementptr inbounds i32, i32 *%p, i64 %iv
-  %ld = load i32, i32* %gep
+  %gep = getelementptr inbounds i32, ptr %p, i64 %iv
+  %ld = load i32, ptr %gep
   %cond = icmp eq i32 %ld, 0
   br i1 %cond, label %latch, label %masked
 
@@ -112,14 +111,13 @@ loopexit:
   ret void
 }
 
-define void @test_predicated_value_operand(i32 *%p, i64 %n) {
-; CHECK:  define void @test_predicated_value_operand(i32* [[P0:%.*]], i64 [[N0:%.*]]) {
+define void @test_predicated_value_operand(ptr %p, i64 %n) {
+; CHECK:  define void @test_predicated_value_operand(ptr [[P0:%.*]], i64 [[N0:%.*]]) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP25:%.*]], [[VPLANNEDBB80:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP24:%.*]], [[VPLANNEDBB80]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[P0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, ptr [[P0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, ptr [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 1
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], zeroinitializer
@@ -135,7 +133,7 @@ define void @test_predicated_value_operand(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @foo(i32 [[WIDE_LOAD_EXTRACT_0_0]])
 ; CHECK-NEXT:    br label [[TMP8]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  8:
+; CHECK-NEXT:  7:
 ; CHECK-NEXT:    [[TMP9:%.*]] = phi i32 [ undef, [[VPLANNEDBB40]] ], [ [[TMP7]], [[PRED_CALL_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
@@ -149,7 +147,7 @@ define void @test_predicated_value_operand(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP12:%.*]] = call i32 @foo(i32 [[WIDE_LOAD_EXTRACT_1_0]])
 ; CHECK-NEXT:    br label [[TMP13]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  13:
+; CHECK-NEXT:  12:
 ; CHECK-NEXT:    [[TMP14:%.*]] = phi i32 [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP12]], [[PRED_CALL_IF150]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE160:%.*]]
 ; CHECK-EMPTY:
@@ -163,7 +161,7 @@ define void @test_predicated_value_operand(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP17:%.*]] = insertelement <4 x i32> zeroinitializer, i32 [[TMP9]], i32 [[WIDE_LOAD_EXTRACT_0_0]]
 ; CHECK-NEXT:    br label [[TMP18]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  18:
+; CHECK-NEXT:  17:
 ; CHECK-NEXT:    [[TMP19:%.*]] = phi <4 x i32> [ undef, [[PRED_CALL_CONTINUE160]] ], [ [[TMP17]], [[PRED_INSERTELEMENT_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
@@ -176,7 +174,7 @@ define void @test_predicated_value_operand(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP21:%.*]] = insertelement <4 x i32> zeroinitializer, i32 [[TMP14]], i32 [[WIDE_LOAD_EXTRACT_1_0]]
 ; CHECK-NEXT:    br label [[TMP22]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  22:
+; CHECK-NEXT:  21:
 ; CHECK-NEXT:    [[TMP23:%.*]] = phi <4 x i32> [ undef, [[PRED_INSERTELEMENT_CONTINUE0]] ], [ [[TMP21]], [[PRED_INSERTELEMENT_IF170]] ]
 ; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE180:%.*]]
 ; CHECK-EMPTY:
@@ -199,8 +197,8 @@ entry:
 
 header:
   %iv = phi i64 [ %iv.next, %latch ], [ 0, %entry ]
-  %gep = getelementptr inbounds i32, i32 *%p, i64 %iv
-  %ld = load i32, i32* %gep
+  %gep = getelementptr inbounds i32, ptr %p, i64 %iv
+  %ld = load i32, ptr %gep
   %cond = icmp eq i32 %ld, 0
   br i1 %cond, label %latch, label %masked
 

@@ -1,6 +1,6 @@
 //===----- HIRRecognizeParLoop.h - Recognizes Parallel loops --------------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -50,35 +50,6 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
   cl::desc("Disable " OPT_DESC " pass"));
 
 namespace {
-
-// The old-style optimization pass
-class HIRRecognizeParLoop : public HIRTransformPass {
-
-public:
-  static char ID;
-  HIRRecognizeParLoop() : HIRTransformPass(ID) {
-    initializeHIRRecognizeParLoopPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRParVecAnalysisWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-} // namespace
-
-char HIRRecognizeParLoop::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRRecognizeParLoop, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRParVecAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRRecognizeParLoop, OPT_SWITCH, OPT_DESC, false, false)
-
-namespace {
 /// Actual implementation shared by the old- and new-style passes
 class HIRRecognizeParLoopImpl {
 public:
@@ -112,27 +83,12 @@ private:
 };
 } // namespace
 
-FunctionPass *llvm::createHIRRecognizeParLoopPass() {
-  return new HIRRecognizeParLoop();
-}
-
-bool HIRRecognizeParLoop::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    LLVM_DEBUG(dbgs() << OPT_DESC << " Disabled \n");
-    return false;
-  }
-  HIRRecognizeParLoopImpl Impl;
-  return Impl.run(getAnalysis<HIRFrameworkWrapperPass>().getHIR());
-}
-
 PreservedAnalyses HIRRecognizeParLoopPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   HIRRecognizeParLoopImpl Impl;
   Impl.run(HIRF);
   return PreservedAnalyses::all();
 }
-
-void HIRRecognizeParLoop::releaseMemory() {}
 
 // Given the source:
 //   void loop1(int *ip, int n) {

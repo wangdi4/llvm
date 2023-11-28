@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility %s -opaque-pointers -emit-llvm -o - -verify | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility %s -emit-llvm -o - -verify | FileCheck %s
 // expected-no-diagnostics
 
 signed int a, b, aa, bb;

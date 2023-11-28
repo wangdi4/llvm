@@ -21,15 +21,15 @@
 #ifndef __ClangCompilerTestTypeFixture__
 #define __ClangCompilerTestTypeFixture__
 
+#include "CL/cl.h"
+#include "FrontendDriver.h"
+#include "clang_device_info.h"
+#include "frontend_api.h"
 #include "gtest_wrapper.h"
-#include <CL/cl.h>
-#include <FrontendDriver.h>
-#include <clang_device_info.h>
-#include <frontend_api.h>
 
-#include <llvm/Bitcode/BitcodeReader.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
+#include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 
 #include <cstdint>
 

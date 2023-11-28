@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -184,8 +184,8 @@ protected:
                     const TargetLibraryInfo *TLI, const DataLayout *DL,
                     VPlanVLSAnalysis *VLSAin,
                     const loopopt::DDGraph *DDG = nullptr)
-    : Plan(Plan), VF(VF), UF(UF), TLI(TLI), DL(DL), TTI(*TTIin), VLSA(VLSAin),
-      DDG(DDG), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
+      : Plan(Plan), VF(VF), UF(UF), TLI(TLI), DL(DL), TTI(*TTIin), VLSA(VLSAin),
+        DDG(DDG), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), *TTIin, VF) {
 
     // CallVecDecisions analysis invocation.
     VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlanVector *>(Plan));
@@ -246,6 +246,14 @@ private:
   VPInstructionCost getIntrinsicInstrCost(
     Intrinsic::ID ID, const VPCallInstruction *VPCall, unsigned VF);
 
+  // Get non-intrinsic call cost.
+  VPInstructionCost getOtherCallCost(const VPCallInstruction *VPCall,
+                                     unsigned VF);
+
+  // Calculate cost of parameters and return value serialization.
+  // Parameters are unpacked, and return value is packed into vector.
+  VPInstructionCost getParamSerializationCost(const CallBase &CB, unsigned VF);
+
   // Determine cost adjustment for a memref with specific Alignment.
   VPInstructionCost getNonMaskedMemOpCostAdj(
     unsigned Opcode, Type *Src, Align Alignment) const;
@@ -305,12 +313,13 @@ public:
     this->Base::initForVPlan();
   }
   void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-             Scope *S, raw_ostream *OS = nullptr) const {
+             VPInstructionCost &OvhCost, Scope *S,
+             raw_ostream *OS = nullptr) const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     VPInstructionCost RefCost = Cost;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    H.apply(TTICost, Cost, S, OS);
+    H.apply(TTICost, Cost, OvhCost, S, OS);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     H.printCostChange(RefCost, Cost, S, OS);
@@ -320,7 +329,7 @@ public:
     // return it immediately.
     if (!Cost.isValid())
       return;
-    this->Base::apply(TTICost, Cost, S, OS);
+    this->Base::apply(TTICost, Cost, OvhCost, S, OS);
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Note that ScopeTy and Scope are different types.
@@ -340,7 +349,8 @@ public:
   HeuristicsList(VPlanTTICostModel *CM) {}
   // There is no heuristics to apply, thus just be transparent.
   void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
-             Scope *S, raw_ostream *OS = nullptr) const {}
+             VPInstructionCost &OvhCost, Scope *S,
+             raw_ostream *OS = nullptr) const {}
   void initForVPlan() {}
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // No heuristics to emit dump.
@@ -414,12 +424,14 @@ private:
   // The method applies the heuristics from input heuristics list modifing
   // the input Cost and returns adjusted cost.
   template <typename HeuristicsListTy, typename ScopeTy>
-  VPInstructionCost
-  applyHeuristics(HeuristicsListTy &HeuristicsList, ScopeTy *Scope,
-                  const VPInstructionCost &Cost, raw_ostream *OS = nullptr) {
+  VPlanCostPair applyHeuristics(HeuristicsListTy &HeuristicsList,
+                                ScopeTy *Scope, const VPInstructionCost &Cost,
+                                const VPInstructionCost OvhCost,
+                                raw_ostream *OS = nullptr) {
     VPInstructionCost RetCost = Cost;
-    HeuristicsList.apply(Cost, RetCost, Scope, OS);
-    return RetCost;
+    VPInstructionCost RetOvhCost = OvhCost;
+    HeuristicsList.apply(Cost, RetCost, RetOvhCost, Scope, OS);
+    return std::make_pair(RetCost, RetOvhCost);
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -444,8 +456,9 @@ private:
              else
                VPInst->printWithoutAnalyses(*OS););
 
-    VPInstructionCost AdjCost = applyHeuristics(HeuristicsListVPInst, VPInst,
-                                                TTICost, OS);
+    VPInstructionCost AdjCost;
+    std::tie(AdjCost, std::ignore) = applyHeuristics(
+        HeuristicsListVPInst, VPInst, TTICost, VPInstructionCost(0), OS);
 
     CM_DEBUG(OS, dumpAllHeuristics(*OS, VPInst);
              if (TTICost != AdjCost)
@@ -476,8 +489,10 @@ private:
     CM_DEBUG(OS, *OS << VPBB->getName() << ": base cost: "
                      << BaseCost << '\n';);
 
-    VPInstructionCost AdjCost = applyHeuristics(HeuristicsListVPBlock, VPBB,
-                                               BaseCost, OS);
+    VPInstructionCost AdjCost;
+    std::tie(AdjCost, std::ignore) = applyHeuristics(
+        HeuristicsListVPBlock, VPBB, BaseCost, VPInstructionCost(0), OS);
+
     CM_DEBUG(OS, dumpAllHeuristics(*OS, VPBB);
              if(BaseCost != AdjCost)
                *OS << " Adjusted Cost for BasicBlock: " <<
@@ -571,9 +586,9 @@ public:
                     VPlanPeelingVariant *PeelingVariant = nullptr,
                     raw_ostream *OS = nullptr, StringRef RangeName = "") final {
     // Assume no peeling if it is not specified.
-    SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
+    SaveAndRestore<VPlanPeelingVariant *> RestoreOnExit(
         DefaultPeelingVariant,
-        PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
+        PeelingVariant ? PeelingVariant : &VPlanNoPeeling::LoopObject);
 
     VPInstructionCost Cost = getRangeCost(sese_depth_first(Begin, End), OS);
     CM_DEBUG(OS,
@@ -593,7 +608,7 @@ public:
     // Assume no peeling if it is not specified.
     SaveAndRestore<VPlanPeelingVariant *> RestoreOnExit(
         DefaultPeelingVariant,
-        PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
+        PeelingVariant ? PeelingVariant : &VPlanNoPeeling::LoopObject);
 
     // Initialize heuristics VPlan level data for each VPlan level getCost
     // call.
@@ -612,8 +627,9 @@ public:
 
     CM_DEBUG(OS, *OS << "Base Cost: " << BaseCost << '\n';);
 
-    VPInstructionCost TotCost = applyHeuristics(HeuristicsListVPlan, Plan,
-                                                BaseCost, OS);
+    VPInstructionCost TotCost, OvhCost;
+    std::tie(TotCost, OvhCost) = applyHeuristics(
+        HeuristicsListVPlan, Plan, BaseCost, VPInstructionCost(0), OS);
 
     CM_DEBUG(OS, dumpAllHeuristics(*OS, Plan);
              if (BaseCost != TotCost)
@@ -630,7 +646,7 @@ public:
     if (UF > 1 && TotCost.isValid())
       TotCost *= UF;
 
-    return std::make_pair(TotCost, PostExitCost + PreHdrCost);
+    return std::make_pair(TotCost, PostExitCost + PreHdrCost + OvhCost);
   }
 
   /// This method is proxy to implementation in TTI cost model, which returns

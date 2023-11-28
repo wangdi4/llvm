@@ -1,4 +1,4 @@
-; RUN: opt -sycl-kernel-enable-tls-globals -passes='sycl-kernel-add-tls-globals,sycl-kernel-patch-callback-args' -S %s | FileCheck %s
+; RUN: opt -passes='sycl-kernel-add-tls-globals,sycl-kernel-patch-callback-args' -S %s | FileCheck %s
 ; Check thread-local storage globals mode in PatchCallbackArgs pass
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -10,12 +10,12 @@ entry:
   %call = call ptr @__get_device_command_manager() #2
   %call1 = call ptr @__get_block_to_kernel_mapper() #2
   %call2 = call ptr @__get_runtime_handle() #2
-; CHECK: %0 = load ptr, ptr @pWorkDim
+; CHECK: %0 = load ptr, ptr @__pWorkDim
 ; CHECK-NEXT: %1 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], ptr, ptr, [3 x i64], [2 x [3 x i64]], [3 x i64] }, ptr %0, i32 0, i32 5
 ; CHECK-NEXT: %RuntimeInterface = load ptr, ptr %1
 ; CHECK-NEXT: %2 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], ptr, ptr, [3 x i64], [2 x [3 x i64]], [3 x i64] }, ptr %0, i32 0, i32 6
 ; CHECK-NEXT: %Block2KernelMapper = load ptr, ptr %2
-; CHECK-NEXT: %3 = load ptr, ptr @RuntimeHandle
+; CHECK-NEXT: %3 = load ptr, ptr @__RuntimeHandle
   ret void
 }
 

@@ -1,5 +1,23 @@
 //===- SourceCoverageView.cpp - Code coverage view for source code --------===//
 //
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -76,13 +94,23 @@ std::unique_ptr<CoveragePrinter>
 CoveragePrinter::create(const CoverageViewOptions &Opts) {
   switch (Opts.Format) {
   case CoverageViewOptions::OutputFormat::Text:
+    if (Opts.ShowDirectoryCoverage)
+      return std::make_unique<CoveragePrinterTextDirectory>(Opts);
     return std::make_unique<CoveragePrinterText>(Opts);
   case CoverageViewOptions::OutputFormat::HTML:
+    if (Opts.ShowDirectoryCoverage)
+      return std::make_unique<CoveragePrinterHTMLDirectory>(Opts);
     return std::make_unique<CoveragePrinterHTML>(Opts);
   case CoverageViewOptions::OutputFormat::Lcov:
     // Unreachable because CodeCoverage.cpp should terminate with an error
     // before we get here.
     llvm_unreachable("Lcov format is not supported!");
+#if INTEL_CUSTOMIZATION
+  case CoverageViewOptions::OutputFormat::XML:
+    // Unreachable because CodeCoverage.cpp should terminate with an error
+    // before we get here.
+    llvm_unreachable("XML format is not supported!");
+#endif // INTEL_CUSTOMIZATION
   }
   llvm_unreachable("Unknown coverage output format!");
 }
@@ -151,6 +179,12 @@ SourceCoverageView::create(StringRef SourceName, const MemoryBuffer &File,
     // Unreachable because CodeCoverage.cpp should terminate with an error
     // before we get here.
     llvm_unreachable("Lcov format is not supported!");
+#if INTEL_CUSTOMIZATION
+  case CoverageViewOptions::OutputFormat::XML:
+    // Unreachable because CodeCoverage.cpp should terminate with an error
+    // before we get here.
+    llvm_unreachable("XML format is not supported!");
+#endif // INTEL_CUSTOMIZATION
   }
   llvm_unreachable("Unknown coverage output format!");
 }

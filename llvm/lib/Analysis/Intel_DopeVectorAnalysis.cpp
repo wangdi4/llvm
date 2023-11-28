@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorAnalysis.cpp ----------------------- -*------===//
 //
-// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -30,9 +30,8 @@ using namespace llvm;
 #if INTEL_FEATURE_SW_ADVANCED
 // If true then we are going to relax some conditions to enable a more
 // aggressive DVCP.
-static cl::opt<bool> EnableAgressiveDVCPOpt("intel-dvcp-aggressive",
-                                              cl::init(true),
-                                              cl::ReallyHidden);
+static cl::opt<bool> EnableAggressiveDVCPOpt("intel-dvcp-aggressive",
+                                             cl::init(true), cl::ReallyHidden);
 
 static cl::opt<bool> CheckOutOfBoundsOK("dva-check-dtrans-outofboundsok",
                                         cl::init(true),
@@ -44,10 +43,8 @@ namespace llvm {
 namespace dvanalysis {
 
 extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
-                             uint32_t *ArrayRank,
-                             Type **ElementType) {
+                             uint32_t *ArrayRank) {
   const unsigned int DVFieldCount = 7;
-  const unsigned int PerDimensionCount = 3;
   uint32_t ArRank = 0;
 
   // Helper to check that all types contained in the structure in the range
@@ -74,7 +71,7 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
   if (!FirstType->isPointerTy())
     return false;
 
-  // All fields are "long" type?
+  // All fields are pointer-sized type?
   llvm::Type *LongType =
       Type::getIntNTy(Ty->getContext(), DL.getPointerSizeInBits());
   if (!ContainedTypesMatch(StTy, LongType, 1U, ContainedCount - 1))
@@ -98,22 +95,12 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
     return false;
 
   *ArrayRank = ArRank;
-
-  // TODO: Collecting the type for the pointer address is only available
-  // for typed pointers. This needs to be updated for opaque pointers, if the
-  // information is required.
-  if (ElementType) {
-    *ElementType = nullptr;
-    if (Ty->getContext().supportsTypedPointers())
-      *ElementType = FirstType->getNonOpaquePointerElementType();
-  }
-
   return true;
 }
 
 extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL) {
   uint32_t ArrayRank = 0;
-  return isDopeVectorType(Ty, DL, &ArrayRank, nullptr);
+  return isDopeVectorType(Ty, DL, &ArrayRank);
 }
 
 extern bool isUplevelVarType(Type *Ty) {
@@ -193,8 +180,7 @@ static bool isFieldInUplevelTypeVar(Value *V) {
   return isUplevelVarType(GEP->getSourceElementType());
 }
 
-std::optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
-                                         unsigned int OpNum) {
+std::optional<uint64_t> getConstGEPIndex(GEPOperator &GEP, unsigned int OpNum) {
   auto FieldIndex = dyn_cast<ConstantInt>(GEP.getOperand(OpNum));
   if (FieldIndex)
     return std::optional<uint64_t>(FieldIndex->getLimitedValue());
@@ -1024,7 +1010,74 @@ bool DopeVectorAnalyzer::getAllValuesHoldingFieldValue(
   return true;
 }
 
-void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
+bool DopeVectorFieldUse::analyzeLoadStoreOrSubscriptWithDims(
+    Value *V, Value *Pointer, bool IsNotForDVCP, bool SubsOnly,
+    uint64_t DimIndex) {
+  if (!V)
+    return false;
+  // Each GEPOperator ahould appear as the base in the GUV. If we see one
+  // here, it means it was encountered as a user of another GEPOperator.
+  // Skip the processing of this GEPOperator, because it will appear as
+  // the base in another element of the GUV. Returning 'true' allows the
+  // processing of the original GEPOperator base to continue without
+  // giving up.
+  if (isa<GEPOperator>(V))
+    return true;
+  if (!SubsOnly && analyzeLoadOrStoreInstruction(V, Pointer, IsNotForDVCP))
+    return true;
+  auto SBI = dyn_cast<SubscriptInst>(V);
+  if (!SBI)
+    return false;
+  if (SBI->getRank() != 0)
+    return false;
+  auto CI1 = dyn_cast<ConstantInt>(SBI->getLowerBound());
+  if (!CI1 || !CI1->isZero())
+    return false;
+  auto CI2 = dyn_cast<ConstantInt>(SBI->getStride());
+  const DataLayout &DL = SBI->getModule()->getDataLayout();
+  uint64_t PerDimensionStride = PerDimensionCount * DL.getPointerSize();
+  if (!CI2 || CI2->getZExtValue() != PerDimensionStride)
+    return false;
+  if (SBI->getPointerOperand() != Pointer)
+    return false;
+  auto CI4 = dyn_cast<ConstantInt>(SBI->getIndex());
+  if (!CI4)
+    return false;
+  uint64_t SBIV = CI4->getZExtValue();
+  // In the caller, we are walking through a chain of SubscriptInsts
+  // with different 'DimIndex' values. Give up here without ending
+  // the search by returning 'true', if there is not an index match.
+  if (SBIV != DimIndex)
+    return true;
+  for (User *U : SBI->users())
+    if (!analyzeLoadOrStoreInstruction(U, SBI, IsNotForDVCP))
+      return false;
+  return true;
+}
+
+void DopeVectorFieldUse::analyzeUsesWithDims(uint64_t DimIndex) {
+  if (IsBottom)
+    return;
+
+  if (FieldAddr.empty())
+    return;
+
+  for (auto *FAddr : FieldAddr) {
+    bool IsNotForDVCP = NotForDVCPFieldAddr.contains(FAddr);
+    bool SubsOnly = SubsOnlyFieldAddr.contains(FAddr);
+    for (auto *U : FAddr->users()) {
+      if (!analyzeLoadStoreOrSubscriptWithDims(U, FAddr, IsNotForDVCP, SubsOnly,
+                                               DimIndex)) {
+        IsBottom = true;
+        break;
+      }
+    }
+  }
+}
+
+void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV,
+                                 bool AfterInstCombine) {
+  SmallVector<DVQuad, 4> GUV;
   LLVM_DEBUG(dbgs() << "\nChecking "
                     << (ForCreation ? "construction" : "use")
                     << " of dope vector: " << *DVObject << "\n");
@@ -1032,90 +1085,152 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
   // Assume valid, until proven otherwise.
   IsValid = true;
 
-  GetElementPtrInst *PerDimensionBase = nullptr;
-  GetElementPtrInst *ExtentBase = nullptr;
-  GetElementPtrInst *StrideBase = nullptr;
-  GetElementPtrInst *LowerBoundBase = nullptr;
+  GEPOperator *PerDimensionBase = nullptr;
+  GEPOperator *ExtentBase = nullptr;
+  GEPOperator *StrideBase = nullptr;
+  GEPOperator *LowerBoundBase = nullptr;
 
   CallBase *AllocSiteFound = nullptr;
   bool PtrAddressInitFound = false;
+  if (AfterInstCombine) {
+    LowerBoundAddr.resize(Rank);
+    ExtentAddr.resize(Rank);
+    StrideAddr.resize(Rank);
+    for (unsigned I = 0, E = Rank; I != E; ++I) {
+      LowerBoundAddr[I].setAllowMultipleFieldAddresses();
+      ExtentAddr[I].setAllowMultipleFieldAddresses();
+      StrideAddr[I].setAllowMultipleFieldAddresses();
+    }
+  }
   for (auto *DVUser : DVObject->users()) {
     LLVM_DEBUG(dbgs() << "  DV user: " << *DVUser << "\n");
-    if (auto *GEP = dyn_cast<GetElementPtrInst>(DVUser)) {
+    if (auto *GEP = dyn_cast<GEPOperator>(DVUser)) {
       // Find which of the fields this GEP is the address of.
       // Note: We expect the field addresses to only be seen at most one
       // time for each field, otherwise we do not support it.
-      DopeVectorFieldType DVFieldType =
-          identifyDopeVectorField(*(cast<GEPOperator>(GEP)));
-      switch (DVFieldType) {
-      default:
-        setInvalid();
-        return;
-
-      case DopeVectorFieldType::DV_ArrayPtr:
-        PtrAddr.addFieldAddr(GEP);
-        break;
-      case DopeVectorFieldType::DV_ElementSize:
-        ElementSizeAddr.addFieldAddr(GEP);
-        break;
-      case DopeVectorFieldType::DV_Codim:
-        CodimAddr.addFieldAddr(GEP);
-        break;
-      case DopeVectorFieldType::DV_Flags:
-        FlagsAddr.addFieldAddr(GEP);
-        break;
-      case DopeVectorFieldType::DV_Dimensions:
-        DimensionsAddr.addFieldAddr(GEP);
-        break;
-      case DV_Reserved:
-        ReservedAddr.addFieldAddr(GEP);
-        break;
-
-        // The following fields require additional forward looking analysis to
-        // get to the actual address-of objects.
-      case DopeVectorFieldType::DV_PerDimensionArray:
-        if (PerDimensionBase) {
+      if (!identifyDopeVectorFieldTypes(*GEP, GUV, /*DopeVectorIndex=*/0,
+                                        AfterInstCombine, Rank))
+        continue;
+      for (unsigned I = 0, E = GUV.size(); I != E; ++I) {
+        auto GEP = std::get<0>(GUV[I]);
+        auto DimIndex = std::get<1>(GUV[I]);
+        auto DVFieldType = std::get<2>(GUV[I]);
+        auto SubsOnly = std::get<3>(GUV[I]);
+        switch (DVFieldType) {
+        default:
           setInvalid();
           return;
-        }
-        PerDimensionBase = GEP;
-        break;
-      case DopeVectorFieldType::DV_LowerBoundBase:
-        if (LowerBoundBase) {
-          setInvalid();
-          return;
-        }
-        LowerBoundBase = GEP;
-        break;
-      case DopeVectorFieldType::DV_ExtentBase:
-        if (ExtentBase) {
-          setInvalid();
-          return;
-        }
-        ExtentBase = GEP;
-        break;
 
-      case DopeVectorFieldType::DV_StrideBase:
-        if (StrideBase) {
-          setInvalid();
-          return;
-        }
-        StrideBase = GEP;
-        break;
-      }
-    } else if (auto *CI = dyn_cast<CallBase>(DVUser)) {
+        case DopeVectorFieldType::DV_ArrayPtr:
+          PtrAddr.addFieldAddr(GEP);
+          if (AfterInstCombine)
+            for (User *U : GEP->users())
+              if (auto CI = dyn_cast<CallBase>(U))
+                if (isCallToAllocFunction(CI, GetTLI)) {
+                  if (AllocSiteFound) {
+                    LLVM_DEBUG(dbgs() << "Multiple allocations for dope vector "
+                                      << "object\n"
+                                      << *DVUser << "\n");
+                    setInvalid();
+                    return;
+                  }
+                  AllocSiteFound = CI;
+                }
+          break;
+        case DopeVectorFieldType::DV_ElementSize:
+          ElementSizeAddr.addFieldAddr(GEP);
+          break;
+        case DopeVectorFieldType::DV_Codim:
+          CodimAddr.addFieldAddr(GEP);
+          break;
+        case DopeVectorFieldType::DV_Flags:
+          FlagsAddr.addFieldAddr(GEP);
+          break;
+        case DopeVectorFieldType::DV_Dimensions:
+          DimensionsAddr.addFieldAddr(GEP);
+          break;
+        case DV_Reserved:
+          ReservedAddr.addFieldAddr(GEP);
+          break;
 
-      if (!CI->getContext().supportsTypedPointers()) {
-        if (isCallToAllocFunction(CI, GetTLI)) {
-          if (AllocSiteFound) {
-            LLVM_DEBUG(dbgs() << "Multiple allocations for dope vector "
-                              << "object\n" << *DVUser << "\n");
+          // The following fields require additional forward looking analysis to
+          // get to the actual address-of objects.
+        case DopeVectorFieldType::DV_PerDimensionArray:
+          if (PerDimensionBase) {
             setInvalid();
             return;
           }
-          AllocSiteFound = CI;
-          continue;
+          PerDimensionBase = GEP;
+          break;
+        case DopeVectorFieldType::DV_LowerBoundBase:
+          if (AfterInstCombine) {
+            DopeVectorFieldUse &LowerBoundField = LowerBoundAddr[DimIndex];
+            LowerBoundField.addFieldAddr(GEP, /*IsNotForDVCP=*/false, SubsOnly);
+            if (LowerBoundField.getIsBottom()) {
+              setInvalid();
+              return;
+            }
+            if (DimIndex == 0)
+              LowerBoundBase = GEP;
+          } else {
+            if (LowerBoundBase) {
+              setInvalid();
+              return;
+            }
+            LowerBoundBase = GEP;
+          }
+          break;
+        case DopeVectorFieldType::DV_ExtentBase:
+          if (AfterInstCombine) {
+            DopeVectorFieldUse &ExtentField = ExtentAddr[DimIndex];
+            ExtentField.addFieldAddr(GEP, /*IsNotForDVCP=*/false, SubsOnly);
+            if (ExtentField.getIsBottom()) {
+              setInvalid();
+              return;
+            }
+            if (DimIndex == 0)
+              ExtentBase = GEP;
+          } else {
+            if (ExtentBase) {
+              setInvalid();
+              return;
+            }
+            ExtentBase = GEP;
+          }
+          break;
+
+        case DopeVectorFieldType::DV_StrideBase:
+          if (AfterInstCombine) {
+            DopeVectorFieldUse &StrideField = StrideAddr[DimIndex];
+            StrideField.addFieldAddr(GEP, /*IsNotForDVCP=*/false, SubsOnly);
+            if (StrideField.getIsBottom()) {
+              setInvalid();
+              return;
+            }
+            if (DimIndex == 0)
+              StrideBase = GEP;
+          } else {
+            if (StrideBase) {
+              setInvalid();
+              return;
+            }
+            StrideBase = GEP;
+          }
+          break;
         }
+      }
+    } else if (auto *CI = dyn_cast<CallBase>(DVUser)) {
+
+      if (isCallToAllocFunction(CI, GetTLI)) {
+        if (AllocSiteFound) {
+          LLVM_DEBUG(dbgs() << "Multiple allocations for dope vector "
+                            << "object\n"
+                            << *DVUser << "\n");
+          setInvalid();
+          return;
+        }
+        AllocSiteFound = CI;
+        continue;
       }
 
       if (IsLocalDV) {
@@ -1144,8 +1259,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
       // Save the function for later analysis.
       FuncsWithDVParam.insert({F, *ArgPos});
     } else if (auto *LI = dyn_cast<LoadInst>(DVUser)) {
-      if (LI->getContext().supportsTypedPointers() ||
-          !PtrAddr.analyzeLoadOrStoreInstruction(LI, DVObject, false)) {
+      if (!PtrAddr.analyzeLoadOrStoreInstruction(LI, DVObject, false)) {
         LLVM_DEBUG(dbgs() << "Unsupported dope vector passed to load\n"
                           << *LI << "\n");
         setInvalid();
@@ -1171,8 +1285,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
           }
         }
       }
-      if (SI->getContext().supportsTypedPointers() || 
-          !PtrAddr.analyzeLoadOrStoreInstruction(SI, DVObject, false)) {
+      if (!PtrAddr.analyzeLoadOrStoreInstruction(SI, DVObject, false)) {
         LLVM_DEBUG(dbgs() << "Unsupported dope vector passed to store\n"
                           << *SI << "\n");
         setInvalid();
@@ -1234,7 +1347,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
       return;
     }
 
-    std::pair<GetElementPtrInst *, FindResult> Result;
+    std::pair<GEPOperator *, FindResult> Result;
     Result = findPerDimensionArrayFieldGEP(*PerDimensionBase, DVR_Extent);
     if (Result.second == FR_Valid)
       ExtentBase = Result.first;
@@ -1296,48 +1409,69 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
   // LowerBounds fields, reserve space for all of them, then collect all the
   // loads/stores that use those fields.
   if (ExtentBase || StrideBase || LowerBoundBase) {
-    ExtentAddr.resize(Rank);
-    StrideAddr.resize(Rank);
-    LowerBoundAddr.resize(Rank);
+    if (!AfterInstCombine) {
+      ExtentAddr.resize(Rank);
+      StrideAddr.resize(Rank);
+      LowerBoundAddr.resize(Rank);
+    }
     for (unsigned Dim = 0; Dim < Rank; ++Dim) {
       if (ExtentBase) {
-        Value *Ptr = findPerDimensionArrayFieldPtr(*ExtentBase, Dim);
-        if (Ptr) {
+        if (AfterInstCombine) {
           DopeVectorFieldUse &ExtentField = ExtentAddr[Dim];
-          ExtentField.addFieldAddr(Ptr);
-          ExtentField.analyzeUses();
-          if (ExtentField.getIsBottom()) {
-            setInvalid();
-            return;
+          ExtentField.analyzeUsesWithDims(Dim);
+        } else {
+          Value *Ptr = findPerDimensionArrayFieldPtr(*ExtentBase, Dim);
+          if (Ptr) {
+            DopeVectorFieldUse &ExtentField = ExtentAddr[Dim];
+            ExtentField.addFieldAddr(Ptr);
+            ExtentField.analyzeUses();
+            if (ExtentField.getIsBottom()) {
+              setInvalid();
+              return;
+            }
           }
         }
       }
       if (StrideBase) {
-        Value *Ptr = findPerDimensionArrayFieldPtr(*StrideBase, Dim);
-        if (Ptr) {
+        if (AfterInstCombine) {
           DopeVectorFieldUse &StrideField = StrideAddr[Dim];
-          StrideField.addFieldAddr(Ptr);
-          StrideField.analyzeUses();
-          if (StrideField.getIsBottom()) {
-            setInvalid();
-            return;
+          StrideField.analyzeUsesWithDims(Dim);
+        } else {
+          Value *Ptr = findPerDimensionArrayFieldPtr(*StrideBase, Dim);
+          if (Ptr) {
+            DopeVectorFieldUse &StrideField = StrideAddr[Dim];
+            StrideField.addFieldAddr(Ptr);
+            StrideField.analyzeUses();
+            if (StrideField.getIsBottom()) {
+              setInvalid();
+              return;
+            }
           }
         }
       }
       if (LowerBoundBase) {
-        Value *Ptr = findPerDimensionArrayFieldPtr(*LowerBoundBase, Dim);
-        if (Ptr) {
-          DopeVectorFieldUse &LBField = LowerBoundAddr[Dim];
-          LBField.addFieldAddr(Ptr);
-          LBField.analyzeUses();
-          if (LBField.getIsBottom()) {
-            setInvalid();
-            return;
+        if (AfterInstCombine) {
+          DopeVectorFieldUse &LowerBoundField = LowerBoundAddr[Dim];
+          LowerBoundField.analyzeUsesWithDims(Dim);
+        } else {
+          Value *Ptr = findPerDimensionArrayFieldPtr(*LowerBoundBase, Dim);
+          if (Ptr) {
+            DopeVectorFieldUse &LBField = LowerBoundAddr[Dim];
+            LBField.addFieldAddr(Ptr);
+            LBField.analyzeUses();
+            if (LBField.getIsBottom()) {
+              setInvalid();
+              return;
+            }
           }
         }
       }
+    }
+  }
 
-      // For dope vector creation, we expect to find writes for all the fields
+  // For dope vector creation, we expect to find writes for all the fields
+  if (ExtentBase || StrideBase || LowerBoundBase) {
+    for (unsigned Dim = 0; Dim < Rank; ++Dim) {
       if (ForCreation) {
         if (!ExtentAddr[Dim].hasFieldAddr() ||
             !StrideAddr[Dim].hasFieldAddr() ||
@@ -1399,21 +1533,44 @@ void DopeVectorAnalyzer::print(raw_ostream &OS) const {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-DopeVectorFieldType
-DopeVectorAnalyzer::identifyDopeVectorField(const GEPOperator &GEP,
-                                            uint64_t DopeVectorIndex) {
-  assert(GEP.getSourceElementType()->isStructTy() && "Expected struct type");
+bool DopeVectorAnalyzer::identifyDopeVectorFieldTypes(
+    GEPOperator &GEP, SmallVectorImpl<DVQuad> &GUV, uint64_t DopeVectorIndex,
+    bool CheckNestedGEPsAndSubs, unsigned Rank) {
 
+  // Add a DVQuad to GUV.
+  auto PushToGUV = [](SmallVectorImpl<DVQuad> &GUV, unsigned Index,
+                      GEPOperator *GEP, unsigned DimIndex,
+                      bool SubsOnly) -> bool {
+    switch (Index) {
+    default:
+      return false;
+    case 0:
+      GUV.push_back(
+          {GEP, DimIndex, DopeVectorFieldType::DV_ExtentBase, SubsOnly});
+      return true;
+    case 1:
+      GUV.push_back(
+          {GEP, DimIndex, DopeVectorFieldType::DV_StrideBase, SubsOnly});
+      return true;
+    case 2:
+      GUV.push_back(
+          {GEP, DimIndex, DopeVectorFieldType::DV_LowerBoundBase, SubsOnly});
+      return true;
+    }
+  };
+
+  assert(GEP.getSourceElementType()->isStructTy() && "Expected struct type");
+  GUV.clear();
   // Array index should always be zero.
   auto ArrayIdx = getConstGEPIndex(GEP, 1);
   if (!ArrayIdx || *ArrayIdx != 0)
-    return DopeVectorFieldType::DV_Invalid;
+    return false;
 
   // If the dope vector index specified by the user is 1 then return
   // DopeVectorFieldType::DV_Invalid. Index 0 is reserved for the array
   // index and it's value should be 0.
   if (DopeVectorIndex == 1)
-    return DopeVectorFieldType::DV_Invalid;
+    return false;
 
   // If DopeVectorIndex is greater than 0, then we need to compute the offset
   // of the rest of indices that access the fields of the dope vector.
@@ -1423,13 +1580,13 @@ DopeVectorAnalyzer::identifyDopeVectorField(const GEPOperator &GEP,
 
   unsigned NumIndices = GEP.getNumIndices();
   if (NumIndices < 2 + DopeVectorOffSet || NumIndices > 4 + DopeVectorOffSet)
-    return DopeVectorFieldType::DV_Invalid;
+    return false;
 
   // The address for the first 6 fields of the dope vector are accessed
   // directly with a GEP of the form:
   //     %field4 = getelementptr
-  //               { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] },
-  //               { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }*
+  //               { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] },
+  //               { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }*
   //               %"var$08", i64 0, i32 4
   if (NumIndices == 2 + DopeVectorOffSet) {
     auto FieldIdx = getConstGEPIndex(GEP, 2 + DopeVectorOffSet);
@@ -1438,22 +1595,22 @@ DopeVectorAnalyzer::identifyDopeVectorField(const GEPOperator &GEP,
     assert(FieldIdx
         <= static_cast<uint64_t>(DopeVectorFieldType::DV_PerDimensionArray) &&
         "expected dope vector to have a maximum of 7 fields");
-    return static_cast<DopeVectorFieldType>(*FieldIdx);
+    GUV.push_back(
+        {&GEP, 0, static_cast<DopeVectorFieldType>(*FieldIdx), false});
+    return true;
   }
 
   // The per-dimension array elements may be accessed using either of the
   // following forms:
   //   %16 = getelementptr
-  //         { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] },
-  //         { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %2,
-  //         i64 0, i32 6, i64 0
+  //         { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] },
+  //         ptr %2, i64 0, i32 6, i64 0
   //
   // or:
   //
-  //   %14 = getelementptr { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64,
-  //   i64 }] },
-  //         { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %3,
-  //         i64 0, i32 6, i64 0, i32 1
+  //   %14 = getelementptr
+  //         { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] },
+  //         ptr %3, i64 0, i32 6, i64 0, i32 1
   //
   // For the first form, another GEP will follow to get the index from the
   // per-array dimension. For the second form, the field may be passed
@@ -1461,7 +1618,7 @@ DopeVectorAnalyzer::identifyDopeVectorField(const GEPOperator &GEP,
   if (NumIndices == 3 + DopeVectorOffSet) {
     auto FieldIdx = getConstGEPIndex(GEP, 2 + DopeVectorOffSet);
     if (FieldIdx != static_cast<uint64_t>(DV_PerDimensionArray))
-      return DopeVectorFieldType::DV_Invalid;
+      return false;
 
     // We only expect the GEP to use 0 for last index which corresponds to the
     // per-dimension array base, and then be followed by another GEP to get
@@ -1469,34 +1626,65 @@ DopeVectorAnalyzer::identifyDopeVectorField(const GEPOperator &GEP,
     auto SubIdx = getConstGEPIndex(GEP, 3 + DopeVectorOffSet);
     assert(SubIdx && "Field index should always be constant for struct type");
     if (*SubIdx != 0)
-      return DopeVectorFieldType::DV_Invalid;
-    return DopeVectorFieldType::DV_PerDimensionArray;
+      return false;
+    GUV.push_back({&GEP, 0, DopeVectorFieldType::DV_PerDimensionArray, false});
+    return true;
   }
 
-  assert(NumIndices == 4 + DopeVectorOffSet && "Only expected case 4 to be left");
+  assert(NumIndices == 4 + DopeVectorOffSet &&
+         "Only expected case 4 to be left");
 
   // The second form of access directly gets the address of the Lower Bound,
   // Stride or Extent field of the first array element.
   auto SubIdx = getConstGEPIndex(GEP, 4 + DopeVectorOffSet);
   assert(SubIdx && "Field index should always be constant for struct type");
-  switch (*SubIdx) {
-  default:
-    return DopeVectorFieldType::DV_Invalid;
-  case 0:
-    return DopeVectorFieldType::DV_ExtentBase;
-  case 1:
-    return DopeVectorFieldType::DV_StrideBase;
-  case 2:
-    return DopeVectorFieldType::DV_LowerBoundBase;
+  auto DimIndexOptional = getConstGEPIndex(GEP, 3 + DopeVectorOffSet);
+  unsigned DimIndex = *DimIndexOptional;
+  assert(DimIndexOptional &&
+         "Dim index should always be constant for struct type");
+  if (CheckNestedGEPsAndSubs && !DimIndex) {
+    // Check for Pattern 2 (See Intel_DopevectorAnalysis.h for example)
+    for (User *U : GEP.users())
+      if (auto GEPO = dyn_cast<GEPOperator>(U)) {
+        if (!GEPO->hasAllConstantIndices())
+          return false;
+        auto Idx1 = getConstGEPIndex(*GEPO, 1);
+        if (!Idx1 || *Idx1 != 0)
+          return false;
+        auto Idx2 = getConstGEPIndex(*GEPO, 2);
+        if (!Idx2)
+          return false;
+        for (unsigned I = 0, E = Rank; I != E; ++I)
+          if (!PushToGUV(GUV, *Idx2, GEPO, I, false))
+            return false;
+      }
+    // Check for Pattern 1 (See Intel_DopevectorAnalysis.h for example)
+    for (User *U : GEP.users())
+      if (auto Sub = dyn_cast<SubscriptInst>(U)) {
+        for (unsigned I = 0, E = Rank; I != E; ++I)
+          if (!PushToGUV(GUV, *SubIdx, &GEP, I, I != DimIndex))
+            return false;
+        break;
+      }
   }
-  return DopeVectorFieldType::DV_Invalid;
+  return PushToGUV(GUV, *SubIdx, &GEP, DimIndex, false);
 }
 
-std::pair<GetElementPtrInst *, DopeVectorAnalyzer::FindResult>
-DopeVectorAnalyzer::findPerDimensionArrayFieldGEP(GetElementPtrInst &GEP,
-                              DopeVectorRankFields RankFieldType) {
-  std::pair<GetElementPtrInst *, FindResult> InvalidResult = {nullptr,
-                                                              FR_Invalid};
+DopeVectorFieldType
+DopeVectorAnalyzer::identifyDopeVectorField(GEPOperator &GEP,
+                                            uint64_t DopeVectorIndex) {
+  SmallVector<DVQuad, 4> GUV;
+  if (!identifyDopeVectorFieldTypes(GEP, GUV, DopeVectorIndex))
+    return DopeVectorFieldType::DV_Invalid;
+  assert(GUV.size() == 1 && "Expecting single result");
+  assert(get<0>(GUV[0]) == &GEP && "Expecting input GEP");
+  return get<2>(GUV[0]);
+}
+
+std::pair<GEPOperator *, DopeVectorAnalyzer::FindResult>
+DopeVectorAnalyzer::findPerDimensionArrayFieldGEP(
+    GEPOperator &GEP, DopeVectorRankFields RankFieldType) {
+  std::pair<GEPOperator *, FindResult> InvalidResult = {nullptr, FR_Invalid};
   unsigned int FieldNum;
   switch (RankFieldType) {
   case DVR_Extent:
@@ -1512,18 +1700,18 @@ DopeVectorAnalyzer::findPerDimensionArrayFieldGEP(GetElementPtrInst &GEP,
 
   // Find the GEP that corresponds to the per-dimension element wanted. There
   // should only be one, if there are more, we do not support it.
-  GetElementPtrInst *FieldGEP = nullptr;
+  GEPOperator *FieldGEP = nullptr;
   for (auto *U : GEP.users()) {
-    if (auto *GEPU = dyn_cast<GetElementPtrInst>(U)) {
+    if (auto *GEPU = dyn_cast<GEPOperator>(U)) {
       if (GEPU->getNumIndices() != 2)
         return InvalidResult;
 
-      auto ArIdx = getConstGEPIndex(*(cast<GEPOperator>(GEPU)), 1);
+      auto ArIdx = getConstGEPIndex(*GEPU, 1);
       if (!ArIdx || *ArIdx != 0)
         return InvalidResult;
 
       // Check that there is only one instance of field being searched for.
-      auto FieldIdx = getConstGEPIndex(*(cast<GEPOperator>(GEPU)), 2);
+      auto FieldIdx = getConstGEPIndex(*GEPU, 2);
       assert(FieldIdx && "Field index of struct must be constant");
       if (*FieldIdx == FieldNum) {
         if (FieldGEP)
@@ -1543,9 +1731,8 @@ DopeVectorAnalyzer::findPerDimensionArrayFieldGEP(GetElementPtrInst &GEP,
   return {FieldGEP, FR_Valid};
 }
 
-Value *
-DopeVectorAnalyzer::findPerDimensionArrayFieldPtr(GetElementPtrInst &FieldGEP,
-                                                  unsigned Dimension) {
+Value *DopeVectorAnalyzer::findPerDimensionArrayFieldPtr(GEPOperator &FieldGEP,
+                                                         unsigned Dimension) {
   // Find the address element
   Instruction *Addr = nullptr;
   for (auto *U : FieldGEP.users()) {
@@ -2370,29 +2557,19 @@ bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
     Type *SElementType = nullptr;
     Type *DElementType = nullptr;
 
-    bool Opaque = !BC->getType()->getContext().supportsTypedPointers();
-
     auto STy = BC->getSrcTy();
     if (!STy->isPointerTy())
       return false;
-    auto SPTy = (Opaque) ? inferPtrElementType(*(BC->getOperand(0)))
-                         : STy->getNonOpaquePointerElementType();
-    if (!SPTy || !isDopeVectorType(SPTy, DL, &SArrayRank, &SElementType))
+    auto SPTy = inferPtrElementType(*(BC->getOperand(0)));
+    if (!SPTy || !isDopeVectorType(SPTy, DL, &SArrayRank))
       return false;
 
     auto DTy = BC->getDestTy();
     if (!DTy->isPointerTy())
       return false;
-    auto DPTy = (Opaque) ? inferPtrElementType(*BC)
-                         : DTy->getNonOpaquePointerElementType();
-    if (!DPTy || !isDopeVectorType(DPTy, DL, &DArrayRank, &DElementType))
+    auto DPTy = inferPtrElementType(*BC);
+    if (!DPTy || !isDopeVectorType(DPTy, DL, &DArrayRank))
       return false;
-
-    // If typed pointers are enabled then SElementType and DElementType
-    // shouldn't be nullptr.
-    if (DPTy->getContext().supportsTypedPointers())
-      assert((SElementType && DElementType) &&
-             "Pointer address not collected when typed pointers are enabled");
 
     return SArrayRank == DArrayRank && SElementType == DElementType;
   };
@@ -2411,35 +2588,30 @@ bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
                         SetVector<Value *> &ValueChecked) -> bool {
     // GEP should be accessing dope vector fields
     if (auto *GEP = dyn_cast<GEPOperator>(U)) {
-      if (V->getType()->getContext().supportsTypedPointers()) {
-        if (!CollectAccessFromGEP(GEP, 0, GetTLI))
-          return false;
-      } else {
-        if (GEP->hasAllZeroIndices()) {
-          // It can be a call to allocate/deallocate function in opaque
-          // pointers case.
-          bool HasAnotherUse = false;
-          for (User *UU : GEP->users()) {
-            if (auto Call = dyn_cast<CallBase>(UU)) {
-              if (isCallToAllocFunction(Call, GetTLI)) {
-                if (!AllowCheckForAllocSite)
-                  return false;
-                NestedDV->addAllocSite(Call);
-              } else {
-                HasAnotherUse = true;
-              }
+      if (GEP->hasAllZeroIndices()) {
+        // It can be a call to allocate/deallocate function in opaque
+        // pointers case.
+        bool HasAnotherUse = false;
+        for (User *UU : GEP->users()) {
+          if (auto Call = dyn_cast<CallBase>(UU)) {
+            if (isCallToAllocFunction(Call, GetTLI)) {
+              if (!AllowCheckForAllocSite)
+                return false;
+              NestedDV->addAllocSite(Call);
             } else {
               HasAnotherUse = true;
             }
+          } else {
+            HasAnotherUse = true;
           }
-          if (HasAnotherUse) {
-            if (!CollectAccessFromGEP(GEP, 0, GetTLI))
-              return false;
-          }
-          return true;
-        } else if (!CollectAccessFromGEP(GEP, 0, GetTLI)) {
-          return false;
         }
+        if (HasAnotherUse) {
+          if (!CollectAccessFromGEP(GEP, 0, GetTLI))
+            return false;
+        }
+        return true;
+      } else if (!CollectAccessFromGEP(GEP, 0, GetTLI)) {
+        return false;
       }
     } else if (auto *BC = dyn_cast<BitCastOperator>(U)) {
       // BitCast should be only used for allocating data
@@ -2458,13 +2630,11 @@ bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
     } else if (CallBase *Call = dyn_cast<CallBase>(U)) {
       // It can be a call to allocate/deallocate function in opaque
       // pointers case.
-      if (!V->getType()->getContext().supportsTypedPointers()) {
-        if (isCallToAllocFunction(Call, GetTLI)) {
-          if (!AllowCheckForAllocSite)
-            return false;
-          NestedDV->addAllocSite(Call);
-          return true;
-        }
+      if (isCallToAllocFunction(Call, GetTLI)) {
+        if (!AllowCheckForAllocSite)
+          return false;
+        NestedDV->addAllocSite(Call);
+        return true;
       }
       // Other calls should only load data
       if (!CollectAccessFromCall(Call, V, GetTLI, DL, NestedDV, ForDVCP,
@@ -2718,21 +2888,14 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         return NullPair;
 
       // NOTE: This may need to be updated for opaque pointers.
-      if (SrcTy->getContext().supportsTypedPointers())
-        SrcTy = SrcTy->getNonOpaquePointerElementType();
-      else
-        SrcTy = inferPtrElementType(*(BC->getOperand(0)));
+      SrcTy = inferPtrElementType(*(BC->getOperand(0)));
       if (!SrcTy->isStructTy() || SrcTy->getStructNumElements() == 0)
         return NullPair;
 
       Type *ZeroType = SrcTy->getStructElementType(0);
-      if (SrcTy->getContext().supportsTypedPointers())
-        DestTy = DestTy->getNonOpaquePointerElementType();
-      else
-        DestTy = inferPtrElementType(*BC);
+      DestTy = inferPtrElementType(*BC);
 
-      if (ZeroType == DestTy ||
-          (!SrcTy->getContext().supportsTypedPointers() && DestTy->isPointerTy()))
+      if (ZeroType == DestTy || DestTy->isPointerTy())
         RetType = DestTy;
     } else if (auto GEP = dyn_cast<GetElementPtrInst>(Val)) {
       // If it is a GEP, then all indices are constants
@@ -3060,45 +3223,6 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     if (!U->hasOneUser())
       return nullptr;
     U = U->user_back();
-    if (auto BC = dyn_cast<BitCastInst>(U)) {
-      uint32_t SArrayRank;
-      Type *SElementType = nullptr;
-      Type *STy = BC->getSrcTy();
-      if (!STy->isPointerTy())
-        return nullptr;
-      // Will need to be updated for opaque pointers.
-      Type *SPETy = STy->getNonOpaquePointerElementType();
-      if (!isDopeVectorType(SPETy, DL, &SArrayRank, &SElementType))
-        return nullptr;
-
-      // NOTE: This needs to be updated when opaque pointers support is
-      // enabled. SElementType and DElementType need to be collected when
-      // typed pointers are enabled.
-      if (SPETy->getContext().supportsTypedPointers())
-        assert(SElementType &&
-               "Pointer address not collected for source pointer");
-
-      uint32_t DArrayRank;
-      Type *DElementType = nullptr;
-      Type *DTy = BC->getDestTy();
-      if (!DTy->isPointerTy())
-        return nullptr;
-      Type *DPETy = DTy->getNonOpaquePointerElementType();
-      if (!isDopeVectorType(DPETy, DL, &DArrayRank, &DElementType))
-        return nullptr;
-
-      // NOTE: This needs to be updated when opaque pointers support is
-      // enabled.
-      if (DPETy->getContext().supportsTypedPointers())
-        assert(DElementType &&
-               "Pointer address not collected for destination pointer");
-
-      if (SArrayRank != DArrayRank || SElementType != DElementType)
-        return nullptr;
-      if (!BC->hasOneUser())
-        return nullptr;
-      U = U->user_back();
-    }
     auto LI = dyn_cast<LoadInst>(U);
     if (!LI)
       return nullptr;
@@ -3553,10 +3677,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
       if (!SrcTy->isPointerTy())
         return false;
 
-      bool Opaque = !BC->getType()->getContext().supportsTypedPointers();
-      auto *Ty = (Opaque) ? inferPtrElementType(*(BC->getOperand(0)))
-                          : SrcTy->getNonOpaquePointerElementType();
-
+      auto *Ty = inferPtrElementType(*(BC->getOperand(0)));
       if (!Ty)
         return false;
 
@@ -3930,28 +4051,23 @@ extern bool FindDVTypeName(const StringRef &Name,
   return true;
 }
 
-// The function parses Fortran QNCA encoded dope vector types when the type
-// is a struct type. With opaque pointers the pointer to data has no type and
-// the type of element is inferred from QNCA type name.
-// For example: %"QNCA_a0$%PHYSICS_TYPES$.btPHYSICS_STATE*$rank1$" will return
-// the type "%PHYSICS_TYPES$.btPHYSICS_STATE".
-static std::unique_ptr<std::tuple<Type*, unsigned>>
-parseQNCAStructDopeVectorElementType(const StructType* Ty) {
-  if (!Ty)
-    return nullptr;
-  unsigned SIdx = 0;
-  unsigned Size = 0;
-  bool IsPointer = false; 
-  const StringRef &Name = Ty->getStructName();
-  if (!FindDVTypeName(Name, SIdx, Size, IsPointer))
-    return nullptr; 
-  const auto ETName = Name.substr(SIdx, Size);
-  Type *ETy = StructType::getTypeByName(Ty->getContext(), ETName);
-  if (!ETy)
-    return nullptr;
-  unsigned PtrLevel = (!IsPointer)? 0u : 1u;
-  auto Res = std::make_unique<std::tuple<Type*, unsigned>>(ETy, PtrLevel);
-  return std::move(Res);
+// Infer the type of what 'GV' points to by looking at
+// the inferred types of LoadInsts dereferencing it.
+// Return 'nullptr' if the types encountered are not
+// consistent.
+Type *findDVGlobalType(GlobalVariable *GV) {
+  Type *TyResult = nullptr;
+  for (User *U : GV->users())
+    if (auto LI = dyn_cast<LoadInst>(U))
+      if (LI->getPointerOperand() == GV) {
+        Type *TyLocal = inferPtrElementType(*LI);
+        if (!TyLocal)
+          return nullptr;
+        if (TyResult && TyResult != TyLocal)
+          return nullptr;
+        TyResult = TyLocal;
+      }
+  return TyResult;
 }
 
 // Return true if the pointer address of the current global dope vector is a
@@ -3963,40 +4079,15 @@ bool GlobalDopeVector::isCandidateForNestedDopeVectors(const DataLayout &DL) {
 
   StructType *DVStruct = GlobalDVInfo->getLLVMStructType();
   assert(DVStruct && "Analyzing dope vector without the proper structure");
-
-  if (!Glob->getType()->getContext().supportsTypedPointers()) {
-    auto PR = parseQNCAStructDopeVectorElementType(DVStruct);
-    if (!PR)
-      return false;
-
-    Type *Ty;
-    unsigned Level;
-    std::tie(Ty, Level) = *PR;
-
-    PointerType *PtrAddr = dyn_cast<PointerType>(DVStruct->getElementType(0));
-    if (!PtrAddr)
-      return false;
-
-    StructType *StrTy = dyn_cast<StructType>(Ty);
-    if (!StrTy)
-      return false;
-
-    if (isDopeVectorType(StrTy, DL))
-      return true;
-
-    for (unsigned I = 0, E = StrTy->getNumElements(); I < E; I++)
-      if (isDopeVectorType(StrTy->getElementType(I), DL))
-        return true;
+  Type *Ty = findDVGlobalType(Glob);
+  if (!Ty)
     return false;
-  }
 
   PointerType *PtrAddr = dyn_cast<PointerType>(DVStruct->getElementType(0));
   if (!PtrAddr)
     return false;
 
-  // TODO: This needs to be updated to handle opaque pointers.
-  StructType *StrTy =
-      dyn_cast<StructType>(PtrAddr->getNonOpaquePointerElementType());
+  StructType *StrTy = dyn_cast<StructType>(Ty);
   if (!StrTy)
     return false;
 
@@ -4006,7 +4097,6 @@ bool GlobalDopeVector::isCandidateForNestedDopeVectors(const DataLayout &DL) {
   for (unsigned I = 0, E = StrTy->getNumElements(); I < E; I++)
     if (isDopeVectorType(StrTy->getElementType(I), DL))
       return true;
-
   return false;
 }
 
@@ -4204,10 +4294,9 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
   // Aggressive DVCP is turned on by default, collect the option from opt if
   // it is turned off.
   if (EnableAggressiveDVCP)
-    EnableAggressiveDVCP = EnableAgressiveDVCPOpt;
+    EnableAggressiveDVCP = EnableAggressiveDVCPOpt;
 #endif // INTEL_FEATURE_SW_ADVANCED
 
-  bool isOpaquePtr = !Glob->getParent()->getContext().supportsTypedPointers();
   for (auto &Use : Glob->uses()) {
     auto *U = Use.getUser();
     if (auto *BC = dyn_cast<BitCastOperator>(U)) {
@@ -4227,36 +4316,32 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
     } else if (auto *CB = dyn_cast<CallBase>(U)) {
       // This is needed in the opaque pointer case because we cannot
       // find the DV allocate function through bitcasts.
-      if (isOpaquePtr) {
-        if (isCallToAllocFunction(CB, GetTLI)) {
-          if (GlobalDVInfo->hasAllocSite()) {
-            getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
-            break;
-          }
-          GlobalDVInfo->addAllocSite(CB);
-          continue;
+      if (isCallToAllocFunction(CB, GetTLI)) {
+        if (GlobalDVInfo->hasAllocSite()) {
+          getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
+          break;
         }
+        GlobalDVInfo->addAllocSite(CB);
+        continue;
       }
     } else if (isa<LoadInst>(U) || isa<StoreInst>(U)) {
       // This is needed in the opaque pointer case because
       // GEP(X,0,0) instructions may be dead code eliminated.
-      if (isOpaquePtr) {
-        auto *DVField = GlobalDVInfo->getDopeVectorField(DV_ArrayPtr);
-        if (DVField && !DVField->getIsBottom()) {
-          DVField->addFieldAddr(Glob);
-          bool isNotForDVCP = DVField->isAddrNotForDVCP(Glob);
-          DVField->analyzeLoadOrStoreInstruction(U, Glob, isNotForDVCP);
-          if (isa<LoadInst>(U)) {
-            for (auto &UU : U->uses()) {
-              auto CB = dyn_cast<CallBase>(UU.getUser());
-              if (CB && isCallToDeallocFunction(CB, GetTLI) &&
-                  CB->getArgOperandNo(&UU) == 0)
-                GlobalDVInfo->addDeAllocSite(CB);
-            }
+      auto *DVField = GlobalDVInfo->getDopeVectorField(DV_ArrayPtr);
+      if (DVField && !DVField->getIsBottom()) {
+        DVField->addFieldAddr(Glob);
+        bool isNotForDVCP = DVField->isAddrNotForDVCP(Glob);
+        DVField->analyzeLoadOrStoreInstruction(U, Glob, isNotForDVCP);
+        if (isa<LoadInst>(U)) {
+          for (auto &UU : U->uses()) {
+            auto CB = dyn_cast<CallBase>(UU.getUser());
+            if (CB && isCallToDeallocFunction(CB, GetTLI) &&
+                CB->getArgOperandNo(&UU) == 0)
+              GlobalDVInfo->addDeAllocSite(CB);
           }
-          if (!DVField->getIsBottom())
-            continue;
         }
+        if (!DVField->getIsBottom())
+          continue;
       }
     }
     // Any other use is invalid

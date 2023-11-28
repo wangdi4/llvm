@@ -8,7 +8,7 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test_store(i64* nocapture %ary, i32 %c) {
+define void @test_store(ptr nocapture %ary, i32 %c) {
 ; CHECK-LABEL:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: none
@@ -26,10 +26,10 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_PTR:%.*]] = getelementptr inbounds i64* [[ARY0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_PTR:%.*]] = getelementptr inbounds i64, ptr [[ARY0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_CC:%.*]] = sext i32 [[C0:%.*]] to i64 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_ADD:%.*]] = add i64 [[VP_CC]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_ADD]] i64* [[VP_PTR]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_ADD]] ptr [[VP_PTR]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
@@ -63,10 +63,10 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP3:%.*]] = block-predicate i1 [[VP2]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_PTR_1:%.*]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_NEW_IND]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_PTR_1:%.*]] = getelementptr inbounds i64, ptr [[ARY0]] i64 [[VP_NEW_IND]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_CC_1:%.*]] = sext i32 [[C0]] to i64 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_ADD_1:%.*]] = add i64 [[VP_CC_1]] i64 [[VP_NEW_IND]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_ADD_1]] i64* [[VP_PTR_1]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_ADD_1]] ptr [[VP_PTR_1]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br new_latch (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    new_latch: # preds: [[BB8]]
@@ -94,7 +94,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB6]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
-; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP7:%.*]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
@@ -110,10 +110,10 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB2]] ]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_PTR]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_PTR]] = getelementptr inbounds i64, ptr [[ARY0]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_CC]] = sext i32 [[C0]] to i64
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_ADD]] = add i64 [[VP_CC]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:       [DA: Div] store i64 [[VP_ADD]] i64* [[VP_PTR]]
+; CHECK-NEXT:       [DA: Div] store i64 [[VP_ADD]] ptr [[VP_PTR]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3]]
@@ -150,7 +150,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB6]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
-; CHECK-NEXT:     [DA: Div] i64 [[VP7]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP7]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK]] = icmp eq i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0]], [[BB0]]
 ; CHECK-EMPTY:
@@ -166,10 +166,10 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB2]] ]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_PTR]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_PTR]] = getelementptr inbounds i64, ptr [[ARY0]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_CC]] = sext i32 [[C0]] to i64
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_ADD]] = add i64 [[VP_CC]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:       [DA: Div] store i64 [[VP_ADD]] i64* [[VP_PTR]]
+; CHECK-NEXT:       [DA: Div] store i64 [[VP_ADD]] ptr [[VP_PTR]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3]]
@@ -208,10 +208,10 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: [[BB7]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP3]] = block-predicate i1 [[VP2]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_PTR_1]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_NEW_IND]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_PTR_1]] = getelementptr inbounds i64, ptr [[ARY0]] i64 [[VP_NEW_IND]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_CC_1]] = sext i32 [[C0]] to i64
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_ADD_1]] = add i64 [[VP_CC_1]] i64 [[VP_NEW_IND]]
-; CHECK-NEXT:       [DA: Div] store i64 [[VP_ADD_1]] i64* [[VP_PTR_1]]
+; CHECK-NEXT:       [DA: Div] store i64 [[VP_ADD_1]] ptr [[VP_PTR_1]]
 ; CHECK-NEXT:       [DA: Uni] br new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      new_latch: # preds: [[BB8]]
@@ -242,10 +242,10 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptr = getelementptr inbounds i64, i64* %ary, i64 %indvars.iv
+  %ptr = getelementptr inbounds i64, ptr %ary, i64 %indvars.iv
   %cc = sext i32 %c to i64
   %add = add i64 %cc, %indvars.iv
-  store i64 %add, i64* %ptr, align 8
+  store i64 %add, ptr %ptr, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp ult i64 %indvars.iv.next, 1024
   br i1 %cmp, label %for.body, label %for.end

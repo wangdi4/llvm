@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2022 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,11 +13,9 @@
 // License.
 
 #include "CommonOCLBuilder.h"
-
+#include "clang_device_info.h"
 #include "ocl_string_exception.h"
 #include "opencl_clang.h"
-
-#include <clang_device_info.h>
 #include <string>
 
 using namespace Intel::OpenCL::FECompilerAPI;

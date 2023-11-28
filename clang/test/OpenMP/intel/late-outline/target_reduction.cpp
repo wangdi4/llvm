@@ -45,9 +45,9 @@ void foo()
 
 // CHECK: define {{.*}}zoo{{.*}}#[[CONTAINS]]
 
-// CHECK: define {{.*}}MyTC2Ev{{.*}}#[[DECLARE_TARGET:[0-9]+]]
+// CHECK: define {{.*}}MyTC2Ev{{.*}}#[[DECLARE_TARGET_MUSTPROGRESS:[0-9]+]]
 //
-// CHECK: define {{.*}}zoo1{{.*}}#[[DECLARE_TARGET_MUSTPROGRESS:[0-9]+]]
+// CHECK: define {{.*}}zoo1{{.*}}#[[DECLARE_TARGET_MUSTPROGRESS]]
 
 // CHECK: define {{.*}}Comp{{.*}}#[[DECLARE_TARGET_MUSTPROGRESS]]
 
@@ -62,7 +62,6 @@ void foo()
 // CHECK: define internal void @.omp_initializer.{{.*}}#[[DECLARE_TARGET1]]
 
 // CHECK: attributes #[[CONTAINS]] = {{.*}}"contains-openmp-target"="true"
-// CHECK: attributes #[[DECLARE_TARGET]] = {{.*}}"openmp-target-declare"="true"
 // CHECK: attributes #[[DECLARE_TARGET_MUSTPROGRESS]] = {{.*}}"openmp-target-declare"="true"
 // CHECK: attributes #[[DECLARE_TARGET1]] = {{.*}}"openmp-target-declare"="true"
 #pragma omp declare target

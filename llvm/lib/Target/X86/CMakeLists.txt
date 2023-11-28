@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2022 Intel Corporation
+# Modifications, Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -58,22 +58,19 @@ set(sources
   Intel_X86PreISelIntrinsicLowering.cpp
   Intel_X86StackRealign.cpp
   Intel_X86HeteroArchOpt.cpp
-# INTEL_FEATURE_ISA_APX_F
+  Intel_X86TransformToLibmSinCosCall.cpp
   Intel_X86ConditionalCompares.cpp
-# end INTEL_FEATURE_ISA_APX_F
 # end INTEL_CUSTOMIZATION
   X86ArgumentStackSlotRebase.cpp
   X86AsmPrinter.cpp
   X86AvoidTrailingCall.cpp
   X86CallFrameOptimization.cpp
   X86CallingConv.cpp
-  X86CallLowering.cpp
   X86CmovConversion.cpp
   X86DomainReassignment.cpp
   X86DiscriminateMemOps.cpp
   X86LowerTileCopy.cpp
   X86LowerAMXType.cpp
-  X86PreAMXConfig.cpp
   X86LowerAMXIntrinsics.cpp
   X86TileConfig.cpp
   X86FastPreTileConfig.cpp
@@ -91,9 +88,9 @@ set(sources
   X86FlagsCopyLowering.cpp
   X86FloatingPoint.cpp
   X86FrameLowering.cpp
-  X86InstructionSelector.cpp
   X86ISelDAGToDAG.cpp
   X86ISelLowering.cpp
+  X86ISelLoweringCall.cpp
   X86IndirectBranchTracking.cpp
   X86IndirectThunks.cpp
   X86InterleavedAccess.cpp
@@ -103,7 +100,6 @@ set(sources
   X86InstrFoldTables.cpp
   X86InstrInfo.cpp
   X86EvexToVex.cpp
-  X86LegalizerInfo.cpp
   X86LoadValueInjectionLoadHardening.cpp
   X86LoadValueInjectionRetHardening.cpp
   X86MCInstLower.cpp
@@ -112,7 +108,6 @@ set(sources
   X86OptimizeLEAs.cpp
   X86PadShortFunction.cpp
   X86PartialReduction.cpp
-  X86RegisterBankInfo.cpp
   X86RegisterInfo.cpp
   X86ReturnThunks.cpp
   X86SelectionDAGInfo.cpp
@@ -126,6 +121,10 @@ set(sources
   X86VZeroUpper.cpp
   X86WinEHState.cpp
   X86InsertWait.cpp
+  GISel/X86CallLowering.cpp
+  GISel/X86InstructionSelector.cpp
+  GISel/X86LegalizerInfo.cpp
+  GISel/X86RegisterBankInfo.cpp
   )
 
 add_llvm_target(X86CodeGen ${sources}

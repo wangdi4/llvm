@@ -32,25 +32,16 @@
 
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS512                                                  \
-  __attribute__((__always_inline__, __nodebug__, __target__("avx512fp16"),     \
-                 __min_vector_width__(512)))
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx512fp16,evex512"), __min_vector_width__(512)))
 #define __DEFAULT_FN_ATTRS256                                                  \
-  __attribute__((__always_inline__, __nodebug__, __target__("avx512fp16"),     \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx512fp16,no-evex512"),                          \
                  __min_vector_width__(256)))
 #define __DEFAULT_FN_ATTRS128                                                  \
-  __attribute__((__always_inline__, __nodebug__, __target__("avx512fp16"),     \
+  __attribute__((__always_inline__, __nodebug__,                               \
+                 __target__("avx512fp16,no-evex512"),                          \
                  __min_vector_width__(128)))
-
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX256P */
-#if defined(__AVX256P__)
-#define __DEFAULT_FN_ATTRS256                                                  \
-  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(256)))
-#define __DEFAULT_FN_ATTRS128                                                  \
-  __attribute__((__always_inline__, __nodebug__, __min_vector_width__(128)))
-#endif
-/* end INTEL_FEATURE_ISA_AVX256P */
-/* end INTEL_CUSTOMIZATION */
 
 static __inline__ _Float16 __DEFAULT_FN_ATTRS512 _mm512_cvtsh_h(__m512h __a) {
   return __a[0];
@@ -845,7 +836,6 @@ static __inline__ __m128h __DEFAULT_FN_ATTRS128 _mm_maskz_max_sh(__mmask8 __U,
   ((__mmask8)__builtin_ia32_cmpsh_mask(                                        \
       (__v8hf)(__m128h)(X), (__v8hf)(__m128h)(Y), (int)(P), (__mmask8)(M),     \
       _MM_FROUND_CUR_DIRECTION))
-
 // loads with vmovsh:
 static __inline__ __m128h __DEFAULT_FN_ATTRS128 _mm_load_sh(void const *__dp) {
   struct __mm_load_sh_struct {

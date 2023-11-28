@@ -26,6 +26,7 @@ import sys
 import tempfile
 
 from UpdateTestChecks import common
+from UpdateTestChecks import intel_update_markup # INTEL
 from UpdateTestChecks import intel_default_options # INTEL
 
 SUBST = {
@@ -560,6 +561,8 @@ def main():
         common.debug("Writing %d lines to %s..." % (len(output_lines), ti.path))
         with open(ti.path, "wb") as f:
             f.writelines(["{}\n".format(l).encode("utf-8") for l in output_lines])
+
+        intel_update_markup.update(ti.path) # INTEL
 
     return 0
 

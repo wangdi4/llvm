@@ -8,8 +8,8 @@
 ;    size_t i = get_global_id(0);
 ;    data = p[i];
 ; }
-; RUN: opt -passes=sycl-kernel-barrier -enable-native-debug=true %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-barrier -enable-native-debug=true %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-barrier %s -S | FileCheck %s
 ;
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -22,10 +22,10 @@ entry:
 ; CHECK: %data.addr = alloca ptr
 
 ; CHECK-LABEL: SyncBB1:
-; CHECK: [[Offset_data:%SB_LocalId_Offset[0-9]+]] = add nuw i64 %SBIndex{{[0-9]+}}, 32
+; CHECK: [[Offset_data:%SB_LocalId_Offset[0-9]+]] = add nuw i64 %SBIndex, 32
 ; CHECK-NEXT: [[Ptr_data:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset_data]]
 ; CHECK-NEXT: store ptr [[Ptr_data]], ptr %data.addr
-; CHECK: [[Offset_i:%SB_LocalId_Offset[0-9]+]] = add nuw i64 %SBIndex{{[0-9]+}}, 64
+; CHECK: [[Offset_i:%SB_LocalId_Offset[0-9]+]] = add nuw i64 %SBIndex, 64
 ; CHECK-NEXT: [[Ptr_i:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset_i]]
 ; CHECK-NEXT: store ptr [[Ptr_i]], ptr %i.addr
 

@@ -1,11 +1,11 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+// RUN: %clang_cc1 -Wno-vla -triple x86_64-unknown-linux-gnu \
 // RUN:  -emit-llvm-bc -disable-llvm-passes -fcxx-exceptions \
 // RUN:  -fopenmp -fopenmp-targets=spir64 -fexceptions \
 // RUN:  -fopenmp-late-outline -fintel-compatibility -std=c++14 \
 // RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-// RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+// RUN: %clang_cc1 -Wno-vla -triple spir64 \
 // RUN:  -emit-llvm -disable-llvm-passes -fcxx-exceptions \
 // RUN:  -fopenmp -fopenmp-targets=spir64 -fexceptions \
 // RUN:  -fopenmp-late-outline -fintel-compatibility -std=c++14 \

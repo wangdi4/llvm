@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,43 +14,35 @@
 
 #include "OpenCLCPUBackendRunner.h"
 #include "BackendOptions.h"
+#include "BinaryDataReader.h"
+#include "BinaryDataWriter.h"
+#include "BlockLiteral.h"
+#include "Buffer.h"
+#include "BufferContainerList.h"
+#include "DataVersion.h"
+#include "ExplicitArgument.h"
+#include "ExplicitBlockLiteralArgument.h"
+#include "ExplicitGlobalMemArgument.h"
 #include "OpenCLArgsBuffer.h"
 #include "OpenCLBackendWrapper.h"
 #include "OpenCLProgramConfiguration.h"
 #include "OpenCLRunConfiguration.h"
-
 #include "Performance.h"
 #include "SATestException.h"
-
-#include "BinaryDataReader.h"
-#include "BinaryDataWriter.h"
-#include "BufferContainerList.h"
 #include "XMLDataReader.h"
 #include "XMLDataWriter.h"
 #include "cpu_dev_limits.h"
-
-#include "DataVersion.h"
-
+#include "mem_utils.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <string.h>
 #include <vector>
 
-#include "Buffer.h"
-#include "mem_utils.h"
-
-#include "BlockLiteral.h"
-#include "ExplicitArgument.h"
-#include "ExplicitBlockLiteralArgument.h"
-#include "ExplicitGlobalMemArgument.h"
-#include "cpu_dev_limits.h"
-
+// debug macro
 #define DEBUG_TYPE "OpenCLCPUBackendRunner"
-#include <llvm/Support/raw_ostream.h>
-// debug macros
-#include <llvm/Support/Debug.h>
-
-#include <string.h>
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;

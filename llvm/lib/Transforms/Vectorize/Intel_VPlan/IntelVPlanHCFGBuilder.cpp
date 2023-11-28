@@ -1,6 +1,6 @@
 //===-- IntelVPlanHCFGBuilder.cpp -----------------------------------------===//
 //
-//   Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -16,7 +16,6 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanHCFGBuilder.h"
-#include "IntelLoopVectorizationLegality.h"
 #include "IntelVPLoopAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
@@ -26,6 +25,7 @@
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVerifier.h"
+#include "LLVM/LegalityLLVM.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -52,9 +52,9 @@ bool VPlanPrintLegality = false;
 
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                                    const WRNVecLoopNode *WRL, VPlanVector *Plan,
-                                   VPOVectorizationLegality *Legal,
-                                   AssumptionCache &AC, const DominatorTree &DT,
-                                   ScalarEvolution *SE, BlockFrequencyInfo *BFI)
+                                   LegalityLLVM *Legal, AssumptionCache &AC,
+                                   const DominatorTree &DT, ScalarEvolution *SE,
+                                   BlockFrequencyInfo *BFI)
     : TheLoop(Lp), LI(LI), BFI(BFI), WRLp(WRL), Plan(Plan), Legal(Legal),
       SE(SE), DT(DT), AC(AC) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
@@ -118,6 +118,10 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     assert(Lp &&
            "VPLoopLatch does not correspond to Latch, massaging happened?");
     assert(SE && "SCEV has not been calculated.");
+
+    VPL->setUnderlyingLoop(Lp);
+    if (Lp)
+      VPL->setDebugLoc(Lp->getStartLoc());
 
     using TripCountTy = TripCountInfo::TripCountTy;
     // Check if we know the TC exactly.
@@ -235,15 +239,15 @@ static void assertIsSingleElementAlloca(Value *CurValue) {
 // Base class for VPLoopEntity conversion functors.
 class VPEntityConverterBase {
 public:
-  using InductionList = VPOVectorizationLegality::InductionList;
-  using LinearListTy = VPOVectorizationLegality::LinearListTy;
-  using ReductionList = VPOVectorizationLegality::ReductionList;
-  using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
-  using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
-  using UDRList = VPOVectorizationLegality::UDRList;
-  using PrivDescrTy = VPOVectorizationLegality::PrivDescrTy;
-  using PrivDescrNonPODTy = VPOVectorizationLegality::PrivDescrNonPODTy;
-  using PrivDescrF90DVTy = VPOVectorizationLegality::PrivDescrF90DVTy;
+  using InductionList = LegalityLLVM::InductionList;
+  using LinearListTy = LegalityLLVM::LinearListTy;
+  using ReductionList = LegalityLLVM::ReductionList;
+  using ExplicitReductionList = LegalityLLVM::ExplicitReductionList;
+  using InMemoryReductionList = LegalityLLVM::InMemoryReductionList;
+  using UDRList = LegalityLLVM::UDRList;
+  using PrivDescrTy = LegalityLLVM::PrivDescrTy;
+  using PrivDescrNonPODTy = LegalityLLVM::PrivDescrNonPODTy;
+  using PrivDescrF90DVTy = LegalityLLVM::PrivDescrF90DVTy;
 
   VPEntityConverterBase(PlainCFGBuilder &Bld) : Builder(Bld) {}
 
@@ -420,14 +424,15 @@ public:
   void operator()(ReductionDescr &Descriptor,
                   const UDRList::value_type &CurValue) {
     Descriptor.clear();
-    assertIsSingleElementAlloca(CurValue->getRef()->stripPointerCasts());
-    VPValue *StartVal =
-        Builder.getOrCreateVPOperand(CurValue->getRef()->stripPointerCasts());
+    auto *OrigV = CurValue->getRef();
+    VPValue *StartVal = Builder.getOrCreateVPOperand(OrigV);
     Descriptor.setStart(StartVal);
     Descriptor.setKind(CurValue->getKind());
-    auto *AI = cast<AllocaInst>(CurValue->getRef()->stripPointerCasts());
-    collectMemoryAliases(Descriptor, AI);
-    Descriptor.setRecType(AI->getAllocatedType());
+    // TODO: If OrigV is not alloca, we can potentially have a different value
+    // using the same base pointer that is used in the loop instead.
+    // collectMemoryAliases should be updated to account for such possibilities.
+    collectMemoryAliases(Descriptor, OrigV);
+    Descriptor.setRecType(CurValue->getType());
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(StartVal);
     Descriptor.setCombiner(CurValue->getCombiner());
@@ -561,7 +566,7 @@ public:
         const DataLayout &DL =
             cast<Instruction>(V)->getModule()->getDataLayout();
         StepTy = DL.getIntPtrType(IndTy);
-        if (IndTy->isOpaquePointerTy())
+        if (IndTy->isPointerTy())
           StepInt = DL.getTypeAllocSize(IndPointeeTy).getFixedValue() * StepInt;
       }
       Descriptor.setStep(
@@ -573,7 +578,7 @@ public:
         const DataLayout &DL =
             cast<Instruction>(V)->getModule()->getDataLayout();
         Descriptor.setStepType(Step->getType());
-        if (IndTy->isOpaquePointerTy())
+        if (IndTy->isPointerTy())
           Descriptor.setStepMultiplier(
               DL.getTypeAllocSize(IndPointeeTy).getFixedValue());
       }
@@ -696,8 +701,7 @@ using PrivatesConverter  = VPLoopEntitiesConverter<PrivateDescr, Loop, Loop2VPLo
 
 /// Convert incoming loop entities to the VPlan format.
 void PlainCFGBuilder::convertEntityDescriptors(
-    VPOVectorizationLegality *Legal,
-    ScalarEvolution *SE,
+    LegalityLLVM *Legal, ScalarEvolution *SE,
     VPlanHCFGBuilder::VPLoopEntityConverterList &Cvts) {
   auto RedCvt = std::make_unique<ReductionConverter>(Plan);
   auto IndCvt = std::make_unique<InductionConverter>(Plan);

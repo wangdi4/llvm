@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2023 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,22 +15,18 @@
 #ifndef OpenCLStamp_H
 #define OpenCLStamp_H
 
-#include <fstream>
-#include <iostream>
-
-#include "NEATVER.h"
-#include "RefALUVER.h"
-
-#include "llvm/Support/DataTypes.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/raw_ostream.h"
-
+#include "Exception.h"
 #include "IRunConfiguration.h"
+#include "NEATVER.h"
 #include "OpenCLProgram.h"
 #include "OpenCLProgramConfiguration.h"
 #include "OpenCLRunConfiguration.h"
-
-#include "Exception.h"
+#include "RefALUVER.h"
+#include "llvm/Support/DataTypes.h"
+#include "llvm/Support/MD5.h"
+#include "llvm/Support/raw_ostream.h"
+#include <fstream>
+#include <iostream>
 
 namespace Validation {
 

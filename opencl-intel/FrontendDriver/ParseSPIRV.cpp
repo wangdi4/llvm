@@ -19,18 +19,19 @@
 #include "clang_device_info.h"
 #include "opencl_clang.h" //IOCLFEBinaryResult
 
+#include "LLVMSPIRVLib.h"                    // llvm::ReadSPIRV
+#include "LLVMSPIRVOpts.h"                   // SPIRV::TranslatorOpts
 #include "SPIRV/libSPIRV/spirv_internal.hpp" // spv::MagicNumber, spv::Version
-#include <LLVMSPIRVLib.h>                    // llvm::ReadSPIRV
-#include <LLVMSPIRVOpts.h>                   // SPIRV::TranslatorOpts
-#include <llvm/Bitcode/BitcodeWriter.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Verifier.h>
-#include <llvm/Support/SwapByteOrder.h>
+#include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/Support/SwapByteOrder.h"
 
 #include <memory>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 
 using namespace Intel::OpenCL::ClangFE;
 
@@ -121,6 +122,33 @@ bool ClangFECompilerParseSPIRVTask::readSPIRVHeader(std::string &error) {
 }
 
 bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
+  // print specific module name instead of number
+  static std::unordered_map<int, std::string> Spvmodule2string = {
+      {spv::CapabilityFPGAMemoryAttributesINTEL, "FPGAMemoryAttributes"},
+      {spv::CapabilityFPGALoopControlsINTEL, "FPGALoopControls"},
+      {spv::CapabilityFPGARegINTEL, "FPGAReg"},
+      {spv::CapabilityBlockingPipesINTEL, "BlockingPipes"},
+      {spv::CapabilityKernelAttributesINTEL, "KernelAttributes"},
+      {spv::CapabilityFPGAKernelAttributesINTEL, "FPGAKernelAttributes"},
+      {spv::CapabilityArbitraryPrecisionFixedPointINTEL,
+       "ArbitraryPrecisionFixedPoint"},
+      {spv::CapabilityArbitraryPrecisionFloatingPointINTEL,
+       "ArbitraryPrecisionFloatingPoint"},
+      {spv::CapabilityFPGAMemoryAccessesINTEL, "FPGAMemoryAccesses"},
+      {spv::CapabilityIOPipesINTEL, "IOPipes"},
+      {spv::CapabilityUSMStorageClassesINTEL, "USMStorageClasses"},
+      {spv::CapabilityFPGABufferLocationINTEL, "FPGABufferLocation"},
+      {spv::CapabilityFPGAClusterAttributesINTEL, "FPGAClusterAttributes"},
+      {spv::CapabilityLoopFuseINTEL, "LoopFuse"},
+      {spv::CapabilityFPGADSPControlINTEL, "FPGADSPControl"},
+      {spv::CapabilityFPGAInvocationPipeliningAttributesINTEL,
+       "FPGAInvocationPipeliningAttributes"},
+      {spv::CapabilityFPGAArgumentInterfacesINTEL, "FPGAArgumentInterfaces"},
+      {spv::CapabilityFPGAKernelAttributesv2INTEL, "FPGAKernelAttributesv2"},
+      {spv::CapabilityFPGALatencyControlINTEL, "FPGALatencyControl"},
+      {spv::internal::CapabilityFPArithmeticFenceINTEL, "FPArithmeticFence"},
+      {spv::internal::CapabilityTaskSequenceINTEL, "TaskSequence"}};
+
   std::stringstream errStr;
   // Require SPIR-V version 1.1.
   // We do not fully support 1.1, yet want to use some of the features.
@@ -233,6 +261,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityAtomicFloat64AddEXT:
       // SPV_INTEL_tensor_float32_conversion / SPV_INTEL_tensor_float32_rounding
     case spv::internal::CapabilityTensorFloat32RoundingINTEL:
+      // SPV_INTEL_fp_max_error
+    case spv::CapabilityFPMaxErrorINTEL:
       break;
     case spv::CapabilityInt64Atomics:
       if (m_sDeviceInfo.bIsFPGAEmu) {
@@ -259,10 +289,12 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityFPGAInvocationPipeliningAttributesINTEL:
     case spv::CapabilityFPGAArgumentInterfacesINTEL:
     case spv::CapabilityFPGAKernelAttributesv2INTEL:
+    case spv::CapabilityFPGALatencyControlINTEL:
     case spv::internal::CapabilityFPArithmeticFenceINTEL:
     case spv::internal::CapabilityTaskSequenceINTEL: // INTEL
       if (!m_sDeviceInfo.bIsFPGAEmu) {
-        errStr << capability << " is only supported on FPGA emulator";
+        errStr << Spvmodule2string[capability]
+               << " is only supported on FPGA emulator";
         error = errStr.str();
         return false;
       }
@@ -330,11 +362,6 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
 
   // parse SPIR-V
   std::unique_ptr<llvm::LLVMContext> context(new llvm::LLVMContext());
-#ifdef SPIRV_ENABLE_OPAQUE_POINTERS
-  context->setOpaquePointers(true);
-#else
-  context->setOpaquePointers(false);
-#endif
   llvm::Module *pModule = nullptr;
   std::stringstream inputStream(
       std::string(static_cast<const char *>(m_pProgDesc->pSPIRVContainer),

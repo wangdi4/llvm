@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -85,10 +85,12 @@ private:
   const bool OnlyMandatory;
   const ThinOrFullLTOPhase LTOPhase;
 
-  // INTEL The inline report
-  InlineReport *Report; // INTEL
-  InlineReportBuilder *MDReport; // INTEL
-  bool IsAlwaysInline; // INTEL
+#if INTEL_CUSTOMIZATION
+  // The inline report
+  InlineReport *Report;
+  InlineReportBuilder *MDReport;
+  bool IsAlwaysInline;
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Module pass, wrapping the inliner pass. This works in conjunction with the

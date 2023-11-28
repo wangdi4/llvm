@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %S = type { i64 }
 
-define void @test1(%S *%p) {
+define void @test1(ptr %p) {
 ; CHECK-LABEL:  VPlan after VPlan-to-VPlan VLS transformation:
 ; CHECK-NEXT:  VPlan IR for: test1:header
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -26,12 +26,12 @@ define void @test1(%S *%p) {
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IDX0:%.*]] = mul i64 [[VP_IV]] i64 2
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IDX1:%.*]] = add i64 [[VP_IDX0]] i64 1
-; CHECK-NEXT:     [DA: Div] %S* [[VP_P0:%.*]] = getelementptr inbounds %S* [[P0:%.*]] i64 [[VP_IDX0]]
-; CHECK-NEXT:     [DA: Div] %S* [[VP_P1:%.*]] = getelementptr inbounds %S* [[P0]] i64 [[VP_IDX1]]
-; CHECK-NEXT:     [DA: Div] [[S0:%.*]] = type { i64 } [[VP_LD0:%.*]] = load %S* [[VP_P0]]
-; CHECK-NEXT:     [DA: Div] [[S0]] = type { i64 } [[VP_LD1:%.*]] = load %S* [[VP_P1]]
-; CHECK-NEXT:     [DA: Div] store [[S0]] = type { i64 } [[VP_LD0]] %S* [[VP_P1]]
-; CHECK-NEXT:     [DA: Div] store [[S0]] = type { i64 } [[VP_LD1]] %S* [[VP_P0]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_P0:%.*]] = getelementptr inbounds [[S0:%.*]], ptr [[P0:%.*]] i64 [[VP_IDX0]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_P1:%.*]] = getelementptr inbounds [[S0]], ptr [[P0]] i64 [[VP_IDX1]]
+; CHECK-NEXT:     [DA: Div] [[S0]] = type { i64 } [[VP_LD0:%.*]] = load ptr [[VP_P0]]
+; CHECK-NEXT:     [DA: Div] [[S0]] = type { i64 } [[VP_LD1:%.*]] = load ptr [[VP_P1]]
+; CHECK-NEXT:     [DA: Div] store [[S0]] = type { i64 } [[VP_LD0]] ptr [[VP_P1]]
+; CHECK-NEXT:     [DA: Div] store [[S0]] = type { i64 } [[VP_LD1]] ptr [[VP_P0]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
@@ -61,14 +61,14 @@ header:
   %idx0 = mul i64 %iv, 2
   %idx1 = add i64 %idx0, 1
 
-  %p0 = getelementptr inbounds %S, %S* %p, i64 %idx0
-  %p1 = getelementptr inbounds %S, %S* %p, i64 %idx1
+  %p0 = getelementptr inbounds %S, ptr %p, i64 %idx0
+  %p1 = getelementptr inbounds %S, ptr %p, i64 %idx1
 
-  %ld0 = load %S, %S *%p0
-  %ld1 = load %S, %S *%p1
+  %ld0 = load %S, ptr %p0
+  %ld1 = load %S, ptr %p1
 
-  store %S %ld0, %S *%p1
-  store %S %ld1, %S *%p0
+  store %S %ld0, ptr %p1
+  store %S %ld1, ptr %p0
 
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 128

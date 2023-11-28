@@ -4,7 +4,7 @@
 
 declare i64 @llvm.vplan.laneid()
 
-define dso_local void @foo(i64* nocapture %a, i64* nocapture %b, i64 %x, i64 %y) local_unnamed_addr {
+define dso_local void @foo(ptr nocapture %a, ptr nocapture %b, i64 %x, i64 %y) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after all-zero bypass for VPlan Function vectorization:
 ; CHECK-NEXT:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -20,8 +20,8 @@ define dso_local void @foo(i64* nocapture %a, i64* nocapture %b, i64 %x, i64 %y)
 ; CHECK-NEXT:      [[BB1]]: # preds: all.zero.bypass.begin9
 ; CHECK-NEXT:       [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_CMP]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ADD:%.*]] = add i64 [[Y0]] i64 [[X0]]
-; CHECK-NEXT:       [DA: Uni] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 7
-; CHECK-NEXT:       [DA: Uni] store i64 [[VP_ADD]] i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       [DA: Uni] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[A0:%.*]] i64 7
+; CHECK-NEXT:       [DA: Uni] store i64 [[VP_ADD]] ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]]
@@ -44,8 +44,8 @@ define dso_local void @foo(i64* nocapture %a, i64* nocapture %b, i64 %x, i64 %y)
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: all.zero.bypass.begin13
 ; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP]]
-; CHECK-NEXT:       [DA: Uni] i64* [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds i64* [[B0:%.*]] i64 [[VP_J]]
-; CHECK-NEXT:       [DA: Uni] store i64 [[VP_SUB]] i64* [[VP_ARRAYIDX4]]
+; CHECK-NEXT:       [DA: Uni] ptr [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds i64, ptr [[B0:%.*]] i64 [[VP_J]]
+; CHECK-NEXT:       [DA: Uni] store i64 [[VP_SUB]] ptr [[VP_ARRAYIDX4]]
 ; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end15
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.end15: # preds: [[BB5]], all.zero.bypass.begin13
@@ -82,8 +82,8 @@ entry:
 
 if.then:                                          ; preds = %entry
   %add = add nsw i64 %y, %x
-  %arrayidx = getelementptr inbounds i64, i64* %a, i64 7
-  store i64 %add, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %a, i64 7
+  store i64 %add, ptr %arrayidx, align 8
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
@@ -94,8 +94,8 @@ for.body:                                         ; preds = %for.inc, %if.end
   br i1 %cmp, label %if.then3, label %for.inc
 
 if.then3:                                         ; preds = %for.body
-  %arrayidx4 = getelementptr inbounds i64, i64* %b, i64 %j
-  store i64 %sub, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds i64, ptr %b, i64 %j
+  store i64 %sub, ptr %arrayidx4, align 8
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then3, %for.body

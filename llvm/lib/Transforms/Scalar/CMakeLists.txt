@@ -39,6 +39,7 @@ add_llvm_component_library(LLVMScalarOpts
   InductiveRangeCheckElimination.cpp
   IndVarSimplify.cpp
   InferAddressSpaces.cpp
+  InferAlignment.cpp
   InstSimplifyPass.cpp
 # INTEL_CUSTOMIZATION
   Intel_DopeVectorHoist.cpp
@@ -52,6 +53,7 @@ add_llvm_component_library(LLVMScalarOpts
   Intel_LoopAttrs.cpp
   Intel_LoopOptMarker.cpp
   Intel_OptReportEmitter.cpp
+  Intel_LocalArrayTranspose.cpp
   Intel_LowerSubscriptIntrinsic.cpp
 # INTEL_FEATURE_SW_ADVANCED
   Intel_NontemporalStore.cpp

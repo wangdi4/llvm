@@ -36,6 +36,11 @@
 #include "CGCXXABI.h"
 #include "clang/AST/StmtOpenMP.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif // INTEL_CUSTOMIZATION
+
 namespace clang {
 
 class OMPCaptureNoInitAttr;
@@ -66,6 +71,19 @@ class OpenMPLateOutliner {
   StringRef BundleString;
   SmallVector<llvm::Value*, 8> BundleValues;
   void clearBundleTemps() { BundleString = ""; BundleValues.clear(); }
+
+#if INTEL_CUSTOMIZATION
+  /// An OptReportOptions instance to control adding opt-report remarks.
+  ///
+  /// This isn't ideal since we can't use the immutable analysis in the frontend
+  /// like we normally would in optimization passes, but it does get
+  /// automatically initialized based on the user's command-line options which
+  /// is the most important part.
+  const llvm::OptReportOptions OROptions{false};
+
+  /// Opt-report metadata that should be attached to this directive.
+  llvm::OptReport DirectiveOptReport;
+#endif // INTEL_CUSTOMIZATION
 
   struct DirectiveIntrinsicSet final {
     OpenMPDirectiveKind DKind;
@@ -401,6 +419,7 @@ class OpenMPLateOutliner {
   void emitOMPExclusiveClause(const OMPExclusiveClause *);
   void emitOMPUsesAllocatorsClause(const OMPUsesAllocatorsClause *);
   void emitOMPAffinityClause(const OMPAffinityClause *);
+  void emitOMPXAttributeClause(const OMPXAttributeClause *);
   void emitOMPDoacrossClause(const OMPDoacrossClause *);
   void emitOMPSizesClause(const OMPSizesClause *);
   void emitOMPUseDeviceAddrClause(const OMPUseDeviceAddrClause *);
@@ -410,7 +429,9 @@ class OpenMPLateOutliner {
   void emitOMPNovariantsClause(const OMPNovariantsClause *);
   void emitOMPNocontextClause(const OMPNocontextClause *);
   void emitOMPXDynCGroupMemClause(const OMPXDynCGroupMemClause *);
+  void emitOMPXBareClause(const OMPXBareClause *);
 #if INTEL_CUSTOMIZATION
+  void emitOMPXRegisterAllocModeClause(const OMPXRegisterAllocModeClause *);
   void emitOMPOmpxAssertClause(const OMPOmpxAssertClause *);
 #if INTEL_FEATURE_CSA
   void emitOMPDataflowClause(const OMPDataflowClause *);
@@ -478,14 +499,12 @@ class OpenMPLateOutliner {
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
   llvm::DenseMap<const VarDecl *, Address> LocalDeclMaps;
 #if INTEL_CUSTOMIZATION
-  llvm::MapVector<const VarDecl *, std::string> OptRepFPMapInfos;
+  llvm::MapVector<const VarDecl *, PresumedLoc> OptRepFPMapLocs;
 #endif  // INTEL_CUSTOMIZATION
 
   std::vector<std::pair<llvm::WeakTrackingVH, llvm::Type *>> DefinedValues;
   std::vector<std::pair<llvm::WeakTrackingVH, llvm::Type *>> ReferencedValues;
   llvm::DenseSet<llvm::Value *> HandledValues;
-
-  bool UseTypedClauses = false;
 
 public:
   static const VarDecl *getExplicitVarDecl(const Expr *E);
@@ -519,7 +538,7 @@ public:
         QualType PtrTy = CGF.getContext().getPointerType(
             MT.second->getType().getNonReferenceType());
         A = CGF.EmitLoadOfPointer(
-            CGF.Builder.CreateElementBitCast(A, CGF.ConvertTypeForMem(PtrTy)),
+            A.withElementType(CGF.ConvertTypeForMem(PtrTy)),
             PtrTy->castAs<PointerType>());
       }
       QualType PTy = MT.second->getType();
@@ -543,7 +562,13 @@ public:
     PrivateScope.Privatize();
   }
 #if INTEL_CUSTOMIZATION
-  void emitRemark(std::string Str);
+  llvm::OptReport getOrCreateOptReport();
+  void emitImplicitMapRemark(const ValueDecl *Var,
+                             ImplicitParamDecl *CXXABIThisDecl,
+                             OpenMPMapClauseKind MapType,
+                             bool IsCaptureByLambda, SourceLocation Loc);
+  void emitImplicitFirstPrivateRemark(const ValueDecl *Var, PresumedLoc PLoc);
+  void emitOMPUnrollDirective();
 #endif // INTEL_CUSTOMIZATION
   bool isImplicitTask(OpenMPDirectiveKind K);
   bool isImplicitTaskgroup(OpenMPDirectiveKind K);
@@ -695,6 +720,9 @@ public:
     auto Kind = S.getDirectiveKind();
     if (Kind == llvm::omp::OMPD_atomic || Kind == llvm::omp::OMPD_critical ||
         Kind == llvm::omp::OMPD_section || Kind == llvm::omp::OMPD_master ||
+#if INTEL_CUSTOMIZATION
+        Kind == llvm::omp::OMPD_unroll ||
+#endif // INTEL_CUSTOMIZATION
         Kind == llvm::omp::OMPD_masked)
       return false;
     return true;

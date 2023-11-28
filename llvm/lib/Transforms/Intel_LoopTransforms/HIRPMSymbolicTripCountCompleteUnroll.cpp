@@ -1,7 +1,7 @@
 //==--- HIRPMSymbolicTripCountCompleteUnroll.cpp --*-C++-*-----------------===//
 // Implements HIR Loop Early Pattern Match Pass.
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1953,55 +1953,4 @@ PreservedAnalyses HIRPMSymbolicTripCountCompleteUnrollPass::runImpl(
 
 #endif //INTEL_FEATURE_SW_ADVANCED
   return PreservedAnalyses::all();
-}
-
-class HIRPMSymbolicTripCountCompleteUnrollLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRPMSymbolicTripCountCompleteUnrollLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRPMSymbolicTripCountCompleteUnrollLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      LLVM_DEBUG(dbgs() << "HIR Loop Pattern Match Early Skipped\n");
-      return false;
-    }
-
-    bool Result = false;
-#if INTEL_FEATURE_SW_ADVANCED
-    Result = HIRPMSymbolicTripCountCompleteUnroll(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-               getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
-               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
-        .run();
-#endif //INTEL_FEATURE_SW_ADVANCED
-    return Result;
-  }
-};
-
-char HIRPMSymbolicTripCountCompleteUnrollLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(
-    HIRPMSymbolicTripCountCompleteUnrollLegacyPass,
-    "hir-pm-symbolic-tripcount-completeunroll",
-    "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRPMSymbolicTripCountCompleteUnrollLegacyPass,
-                    "hir-pm-symbolic-tripcount-completeunroll",
-                    "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass",
-                    false, false)
-
-FunctionPass *llvm::createHIRPMSymbolicTripCountCompleteUnrollLegacyPass() {
-  return new HIRPMSymbolicTripCountCompleteUnrollLegacyPass();
 }

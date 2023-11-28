@@ -882,7 +882,7 @@ public:
                             const StringRef LockNameSuffix);
 
   /// Emits a call to __kmpc_push_proc_bind(LOC, TID, i32 policy), where
-  /// policy is: 2 for MASTER - 3 for CLOSE - 4 for SPREAD.
+  /// policy is: 2 for PRIMARY - 3 for CLOSE - 4 for SPREAD.
   static CallInst *genKmpcPushProcBindCall(WRegionNode *W, StructType *IdentTy,
                                            Value *TidPtr,
                                            Instruction *InsertPt);
@@ -1901,6 +1901,24 @@ public:
                                         Value *SharedGep, Instruction *InsertPt,
                                         bool UseTbb);
 
+  /// Generate a call to `__kmpc_taskred_modifier_init`. Prototype:
+  /// \code
+  ///   i8* @__kmpc_taskred_modifier_init(%ident_t*, i32, i32, i32, i8*)
+  /// \endcode
+  static CallInst *
+  genKmpcTaskRedModifierInit(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
+                             int ParmNum, Value *RedRecord,
+                             Instruction *InsertPt, bool UseTbb);
+
+  /// Generate a call to '__kmpc_task_reduction_modifier_fini'. Prototype:
+  /// \code
+  ///   void @__kmpc_task_reduction_modifier_fini((%ident_t*, i32 , i32)
+  /// \endcode
+  static CallInst *genKmpcTaskRedModifierFini(WRegionNode *W,
+                                              StructType *IdentTy,
+                                              Value *TidPtr,
+                                              Instruction *InsertPt);
+
   /// Generate a call to `__kmpc_taskred_init`. Prototype:
   /// \code
   ///   i8* @__kmpc_taskred_init(i32, i32, i8*)
@@ -2652,16 +2670,10 @@ public:
   static bool isAtomicFreeReductionLocalEnabled();
   static bool isAtomicFreeReductionGlobalEnabled();
 
-  /// TODO: OPAQUEPOINTER: delete once typed pointers are no longer supported.
-  /// Generate proper array-to-scalar bitcast for \p ReductionVar of \p RedI
-  /// being an array section but not satisfying
-  /// ReductionItem::getIsArraySection() due to having offset == 0. Insert the
-  /// new bitcast right after \p ReductionVar if it's an instruction dominated
-  /// by \p W 's entry directive, or right after \p W 's entry directive
-  /// otherwise.
-  static Value *genZeroOffsetArrsecReductionItemCastIfNeeded(
-      const ReductionItem *RedI, const WRegionNode *W, Value *ReductionVar,
-      DominatorTree *DT);
+  /// Get the original loop lower bound of W.
+  /// W should have LoopInfo.
+  /// See more details in the function definition.
+  static LoadInst *getLoadFromLB(WRegionNode *W, unsigned LoopDepthIndex);
 };
 
 } // namespace vpo

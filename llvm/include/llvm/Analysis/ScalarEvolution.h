@@ -345,7 +345,7 @@ public:
   /// If Signed is a function that takes an n-bit tuple and maps to the
   /// integer domain as the tuples value interpreted as twos complement,
   /// and Unsigned a function that takes an n-bit tuple and maps to the
-  /// integer domain as as the base two value of input tuple, then a + b
+  /// integer domain as the base two value of input tuple, then a + b
   /// has IncrementNUSW iff:
   ///
   /// 0 <= Unsigned(a) + Signed(b) < 2^n
@@ -525,7 +525,8 @@ public:
   /// return true. For pointer types, this is the pointer-sized integer type.
   Type *getEffectiveSCEVType(Type *Ty) const;
 
-#if INTEL_CUSTOMIZATION // HIR parsing
+#if INTEL_CUSTOMIZATION
+  // HIR parsing
   /// Lists types of HIR metadata.
   enum HIRLiveKind {
     LiveIn,
@@ -543,7 +544,7 @@ public:
   /// Returns true if the SCEV is a scAddRecExpr or it contains
   /// scAddRecExpr belonging to \p Lp.
   bool containsLoopAddRecurrence(const SCEV *SC, const Loop *Lp) const;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   // Returns a wider type among {Ty1, Ty2}.
   Type *getWiderType(Type *Ty1, Type *Ty2) const;
 
@@ -561,7 +562,7 @@ public:
   ///     loop { v2 = load @global2; }
   /// }
   /// No SCEV with operand V1, and v2 can exist in this program.
-  bool instructionCouldExistWitthOperands(const SCEV *A, const SCEV *B);
+  bool instructionCouldExistWithOperands(const SCEV *A, const SCEV *B);
 
   /// Return true if the SCEV is a scAddRecExpr or it contains
   /// scAddRecExpr. The result will be cached in HasRecMap.
@@ -831,9 +832,11 @@ public:
   /// simplified backedge taken count expression to the caller.
 #endif // INTEL_CUSTOMIZATION
   bool isLoopEntryGuardedByCond(const Loop *L, ICmpInst::Predicate Pred,
-                                const SCEV *LHS, const SCEV *RHS, // INTEL
-                                ICmpInst *PredContext = nullptr,  // INTEL
-                                const SCEV **ExprToSimplify = nullptr); // INTEL
+#if INTEL_CUSTOMIZATION
+                                const SCEV *LHS, const SCEV *RHS,
+                                ICmpInst *PredContext = nullptr,
+                                const SCEV **ExprToSimplify = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   /// Test whether entry to the basic block is protected by a conditional
   /// between LHS and RHS.
@@ -896,7 +899,7 @@ public:
   /// Try to bound a range for a loop-varying, but non-affine, SCEV representing
   /// a PHI by finding bounds on how much it can grow each loop iteration.
   ConstantRange getRangeBoundedByLoop(const PHINode &Phi);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   /// Returns the upper bound of the loop trip count as a normal unsigned
   /// value.
   /// Returns 0 if the trip count is unknown or not constant.
@@ -926,7 +929,7 @@ public:
                                         const BasicBlock *ExitingBlock);
 
   /// The terms "backedge taken count" and "exit count" are used
-  /// interchangeably to refer to the number of times the backedge of a loop 
+  /// interchangeably to refer to the number of times the backedge of a loop
   /// has executed before the loop is exited.
   enum ExitCountKind {
     /// An expression exactly describing the number of times the backedge has
@@ -939,7 +942,7 @@ public:
   };
 
   /// Return the number of times the backedge executes before the given exit
-  /// would be taken; if not exactly computable, return SCEVCouldNotCompute. 
+  /// would be taken; if not exactly computable, return SCEVCouldNotCompute.
   /// For a single exit loop, this value is equivelent to the result of
   /// getBackedgeTakenCount.  The loop is guaranteed to exit (via *some* exit)
   /// before the backedge is executed (ExitCount + 1) times.  Note that there
@@ -1383,6 +1386,12 @@ public:
   /// to be infinite, it must also be undefined.
   bool loopIsFiniteByAssumption(const Loop *L);
 
+  /// Return the set of Values that, if poison, will definitively result in S
+  /// being poison as well. The returned set may be incomplete, i.e. there can
+  /// be additional Values that also result in S being poison.
+  void getPoisonGeneratingValues(SmallPtrSetImpl<const Value *> &Result,
+                                 const SCEV *S);
+
   class FoldID {
     const SCEV *Op = nullptr;
     const Type *Ty = nullptr;
@@ -1518,12 +1527,15 @@ public: // INTEL
   /// Return the Value set from which the SCEV expr is generated.
   ArrayRef<Value *> getSCEVValues(const SCEV *S);
 
+#if INTEL_CUSTOMIZATION
   /// External interface for checkValidity. Returns false iff the SCEV has
   /// been deleted: there are SCEVUnknowns in the ops, and the value is null.
   bool isValid(const SCEV *S) const {
     return checkValidity(S);
   }
-protected: // INTEL
+
+protected:
+#endif // INTEL_CUSTOMIZATION
   /// Private helper method for the getConstantMultiple method.
   APInt getConstantMultipleImpl(const SCEV *S);
 
@@ -1975,9 +1987,11 @@ protected: // INTEL
   /// SCEV predicates in order to return an exact answer.
   ExitLimit howManyLessThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                              bool isSigned, bool ControlsOnlyExit,
-                             bool AllowPredicates = false,  // INTEL
-                             bool IVMaxValIsUB = false,     // INTEL
-                             ICmpInst *ExitCond = nullptr); // INTEL
+#if INTEL_CUSTOMIZATION
+                             bool AllowPredicates = false,
+                             bool IVMaxValIsUB = false,
+                             ICmpInst *ExitCond = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   ExitLimit howManyGreaterThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                                 bool isSigned, bool IsSubExpr,
@@ -1996,9 +2010,11 @@ protected: // INTEL
   /// everywhere. LHS and FoundLHS may have different type width.
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
                      const Value *FoundCondValue, bool Inverse,
-                     const Instruction *Context = nullptr,   // INTEL
-                     const ICmpInst *PredContext = nullptr,  // INTEL
-                     const SCEV **ExprToSimplify = nullptr); // INTEL
+#if INTEL_CUSTOMIZATION
+                     const Instruction *Context = nullptr,
+                     const ICmpInst *PredContext = nullptr,
+                     const SCEV **ExprToSimplify = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the given FoundCondValue value evaluates to true in given
@@ -2008,9 +2024,11 @@ protected: // INTEL
                                   const SCEV *RHS,
                                   ICmpInst::Predicate FoundPred,
                                   const SCEV *FoundLHS, const SCEV *FoundRHS,
-                                  const Instruction *CtxI,        // INTEL
-                                  const ICmpInst *PredContext,       // INTEL
-                                  const ICmpInst *FoundPredContext); // INTEL
+#if INTEL_CUSTOMIZATION
+                                  const Instruction *CtxI,
+                                  const ICmpInst *PredContext,
+                                  const ICmpInst *FoundPredContext);
+#endif // INTEL_CUSTOMIZATION
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by FoundPred, FoundLHS, FoundRHS is
@@ -2019,10 +2037,12 @@ protected: // INTEL
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
                      ICmpInst::Predicate FoundPred, const SCEV *FoundLHS,
                      const SCEV *FoundRHS,
-                     const Instruction *Context = nullptr,        // INTEL
-                     const ICmpInst *PredContext = nullptr,       // INTEL
-                     const ICmpInst *FoundPredContext = nullptr,  // INTEL
-                     const SCEV **ExprToSimplify = nullptr);      // INTEL
+#if INTEL_CUSTOMIZATION
+                     const Instruction *Context = nullptr,
+                     const ICmpInst *PredContext = nullptr,
+                     const ICmpInst *FoundPredContext = nullptr,
+                     const SCEV **ExprToSimplify = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
@@ -2059,7 +2079,9 @@ protected: // INTEL
   /// true.  Utility function used by isImpliedCondOperands.  Tries to get
   /// cases like "X `sgt` 0 => X - 1 `sgt` -1".
   bool isImpliedCondOperandsViaRanges(ICmpInst::Predicate Pred, const SCEV *LHS,
-                                      const SCEV *RHS, const SCEV *FoundLHS,
+                                      const SCEV *RHS,
+                                      ICmpInst::Predicate FoundPred,
+                                      const SCEV *FoundLHS,
                                       const SCEV *FoundRHS);
 
   /// Return true if the condition denoted by \p LHS \p Pred \p RHS is implied
@@ -2157,7 +2179,7 @@ protected: // INTEL
   /// the caller. This only works in immutable IR mode.
   bool hasWrapSafeOperands(const BinaryOperator *BinOp,
                            SCEV::NoWrapFlags &Flags) const;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   /// Try to match the Expr as "(L + R)<Flags>".
   bool splitBinaryAdd(const SCEV *Expr, const SCEV *&L, const SCEV *&R,

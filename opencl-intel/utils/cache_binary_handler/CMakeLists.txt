@@ -23,6 +23,8 @@ add_opencl_library(
   ${CL_API_HEADERS}
   ${OCL_SOURCE_DIR}/utils/CLElfLib
   ${OCL_SOURCE_DIR}/cl_api
+  COMPONENTS
+  CLElfLib
   INSTALL_PATH
   ${OUTPUT_ARCH_SUFF})
 

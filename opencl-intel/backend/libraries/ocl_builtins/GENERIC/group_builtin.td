@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006 Intel Corporation
 // Group Built-In Functions
 // Generic
 
@@ -380,72 +380,6 @@ OclBuiltinImpl work_group_any_finalize_helper_int8 =  OclBuiltinImpl<work_group_
 OclBuiltinImpl work_group_any_finalize_helper_int16 = OclBuiltinImpl<work_group_any_finalize_helper,   [v16i32],  0, work_group_finalize_function_op16, [["$FUNC","work_group_any_util"]]>;
 OclBuiltinImpl work_group_any_finalize_helper_int32 = OclBuiltinImpl<work_group_any_finalize_helper,   [v32i32],  0, work_group_finalize_function_op32, [["$FUNC","work_group_any_util"]]>;
 OclBuiltinImpl work_group_any_finalize_helper_int64 = OclBuiltinImpl<work_group_any_finalize_helper,   [v64i32],  0, work_group_finalize_function_op64, [["$FUNC","work_group_any_util"]]>;
-
-OclBuiltinImpl work_group_reduce_bitwise_and_finalize_helper_gen4 =
-      OclBuiltinImpl<work_group_reduce_bitwise_and_finalize_helper, work_group_vector_types_all_integer4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_bitwise_and_util"]]>;
-OclBuiltinImpl work_group_reduce_bitwise_and_finalize_helper_gen8 =
-      OclBuiltinImpl<work_group_reduce_bitwise_and_finalize_helper, work_group_vector_types_all_integer8,    0, work_group_finalize_function_op8, [["$FUNC","work_group_bitwise_and_util"]]>;
-OclBuiltinImpl work_group_reduce_bitwise_and_finalize_helper_gen16 =
-      OclBuiltinImpl<work_group_reduce_bitwise_and_finalize_helper, work_group_vector_types_all_integer16,   0, work_group_finalize_function_op16, [["$FUNC","work_group_bitwise_and_util"]]>;
-OclBuiltinImpl work_group_reduce_bitwise_and_finalize_helper_gen32 =
-      OclBuiltinImpl<work_group_reduce_bitwise_and_finalize_helper, work_group_vector_types_all_integer32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_bitwise_and_util"]]>;
-OclBuiltinImpl work_group_reduce_bitwise_and_finalize_helper_gen64 =
-      OclBuiltinImpl<work_group_reduce_bitwise_and_finalize_helper, work_group_vector_types_all_integer64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_bitwise_and_util"]]>;
-
-OclBuiltinImpl work_group_reduce_bitwise_or_finalize_helper_gen4 =
-      OclBuiltinImpl<work_group_reduce_bitwise_or_finalize_helper, work_group_vector_types_all_integer4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_bitwise_or_util"]]>;
-OclBuiltinImpl work_group_reduce_bitwise_or_finalize_helper_gen8 =
-      OclBuiltinImpl<work_group_reduce_bitwise_or_finalize_helper, work_group_vector_types_all_integer8,    0, work_group_finalize_function_op8, [["$FUNC","work_group_bitwise_or_util"]]>;
-OclBuiltinImpl work_group_reduce_bitwise_or_finalize_helper_gen16 =
-      OclBuiltinImpl<work_group_reduce_bitwise_or_finalize_helper, work_group_vector_types_all_integer16,   0, work_group_finalize_function_op16, [["$FUNC","work_group_bitwise_or_util"]]>;
-OclBuiltinImpl work_group_reduce_bitwise_or_finalize_helper_gen32 =
-      OclBuiltinImpl<work_group_reduce_bitwise_or_finalize_helper, work_group_vector_types_all_integer32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_bitwise_or_util"]]>;
-OclBuiltinImpl work_group_reduce_bitwise_or_finalize_helper_gen64 =
-      OclBuiltinImpl<work_group_reduce_bitwise_or_finalize_helper, work_group_vector_types_all_integer64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_bitwise_or_util"]]>;
-
-OclBuiltinImpl work_group_reduce_bitwise_xor_finalize_helper_gen4 =
-      OclBuiltinImpl<work_group_reduce_bitwise_xor_finalize_helper, work_group_vector_types_all_integer4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_bitwise_xor_util"]]>;
-OclBuiltinImpl work_group_reduce_bitwise_xor_finalize_helper_gen8 =
-      OclBuiltinImpl<work_group_reduce_bitwise_xor_finalize_helper, work_group_vector_types_all_integer8,    0, work_group_finalize_function_op8, [["$FUNC","work_group_bitwise_xor_util"]]>;
-OclBuiltinImpl work_group_reduce_bitwise_xor_finalize_helper_gen16 =
-      OclBuiltinImpl<work_group_reduce_bitwise_xor_finalize_helper, work_group_vector_types_all_integer16,   0, work_group_finalize_function_op16, [["$FUNC","work_group_bitwise_xor_util"]]>;
-OclBuiltinImpl work_group_reduce_bitwise_xor_finalize_helper_gen32 =
-      OclBuiltinImpl<work_group_reduce_bitwise_xor_finalize_helper, work_group_vector_types_all_integer32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_bitwise_xor_util"]]>;
-OclBuiltinImpl work_group_reduce_bitwise_xor_finalize_helper_gen64 =
-      OclBuiltinImpl<work_group_reduce_bitwise_xor_finalize_helper, work_group_vector_types_all_integer64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_bitwise_xor_util"]]>;
-
-OclBuiltinImpl work_group_reduce_logical_and_finalize_helper_gen4 =
-      OclBuiltinImpl<work_group_reduce_logical_and_finalize_helper, [v4i32],    0, work_group_finalize_function_op4, [["$FUNC","work_group_logical_and_util"]]>;
-OclBuiltinImpl work_group_reduce_logical_and_finalize_helper_gen8 =
-      OclBuiltinImpl<work_group_reduce_logical_and_finalize_helper, [v8i32],    0, work_group_finalize_function_op8, [["$FUNC","work_group_logical_and_util"]]>;
-OclBuiltinImpl work_group_reduce_logical_and_finalize_helper_gen16 =
-      OclBuiltinImpl<work_group_reduce_logical_and_finalize_helper, [v16i32],   0, work_group_finalize_function_op16, [["$FUNC","work_group_logical_and_util"]]>;
-OclBuiltinImpl work_group_reduce_logical_and_finalize_helper_gen32 =
-      OclBuiltinImpl<work_group_reduce_logical_and_finalize_helper, [v32i32],   0, work_group_finalize_function_op32, [["$FUNC","work_group_logical_and_util"]]>;
-OclBuiltinImpl work_group_reduce_logical_and_finalize_helper_gen64 =
-      OclBuiltinImpl<work_group_reduce_logical_and_finalize_helper, [v64i32],   0, work_group_finalize_function_op64, [["$FUNC","work_group_logical_and_util"]]>;
-
-OclBuiltinImpl work_group_reduce_logical_or_finalize_helper_gen4 =
-      OclBuiltinImpl<work_group_reduce_logical_or_finalize_helper, [v4i32],    0, work_group_finalize_function_op4, [["$FUNC","work_group_logical_or_util"]]>;
-OclBuiltinImpl work_group_reduce_logical_or_finalize_helper_gen8 =
-      OclBuiltinImpl<work_group_reduce_logical_or_finalize_helper, [v8i32],    0, work_group_finalize_function_op8, [["$FUNC","work_group_logical_or_util"]]>;
-OclBuiltinImpl work_group_reduce_logical_or_finalize_helper_gen16 =
-      OclBuiltinImpl<work_group_reduce_logical_or_finalize_helper, [v16i32],   0, work_group_finalize_function_op16, [["$FUNC","work_group_logical_or_util"]]>;
-OclBuiltinImpl work_group_reduce_logical_or_finalize_helper_gen32 =
-      OclBuiltinImpl<work_group_reduce_logical_or_finalize_helper, [v32i32],   0, work_group_finalize_function_op32, [["$FUNC","work_group_logical_or_util"]]>;
-OclBuiltinImpl work_group_reduce_logical_or_finalize_helper_gen64 =
-      OclBuiltinImpl<work_group_reduce_logical_or_finalize_helper, [v64i32],   0, work_group_finalize_function_op64, [["$FUNC","work_group_logical_or_util"]]>;
-
-OclBuiltinImpl work_group_reduce_logical_xor_finalize_helper_gen4 =
-      OclBuiltinImpl<work_group_reduce_logical_xor_finalize_helper, [v4i32],    0, work_group_finalize_function_op4, [["$FUNC","work_group_logical_xor_util"]]>;
-OclBuiltinImpl work_group_reduce_logical_xor_finalize_helper_gen8 =
-      OclBuiltinImpl<work_group_reduce_logical_xor_finalize_helper, [v8i32],    0, work_group_finalize_function_op8, [["$FUNC","work_group_logical_xor_util"]]>;
-OclBuiltinImpl work_group_reduce_logical_xor_finalize_helper_gen16 =
-      OclBuiltinImpl<work_group_reduce_logical_xor_finalize_helper, [v16i32],   0, work_group_finalize_function_op16, [["$FUNC","work_group_logical_xor_util"]]>;
-OclBuiltinImpl work_group_reduce_logical_xor_finalize_helper_gen32 =
-      OclBuiltinImpl<work_group_reduce_logical_xor_finalize_helper, [v32i32],   0, work_group_finalize_function_op32, [["$FUNC","work_group_logical_xor_util"]]>;
-OclBuiltinImpl work_group_reduce_logical_xor_finalize_helper_gen64 =
-      OclBuiltinImpl<work_group_reduce_logical_xor_finalize_helper, [v64i32],   0, work_group_finalize_function_op64, [["$FUNC","work_group_logical_xor_util"]]>;
 
 // Definitions of finalization functions with a dummy mask.
 OclBuiltinImpl work_group_all_finalize_helper_mask_int4 =  OclBuiltinImpl<work_group_all_finalize_helper_mask, [v4i32],   0, work_group_finalize_function_op4, [["$FUNC","work_group_all_util"]]>;

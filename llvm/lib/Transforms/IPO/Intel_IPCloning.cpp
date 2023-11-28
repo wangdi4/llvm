@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_IPCloning.cpp - IP Cloning -*------===//
 //
-// Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -173,6 +173,10 @@ static cl::opt<bool>
     EnableManyRecCallsPredicateOpt("ip-manyreccalls-predicateopt",
                                    cl::init(true), cl::ReallyHidden);
 
+static cl::opt<bool> EnableClonedFunctionArgsMerge("ip-cloned-func-arg-merge",
+                                                   cl::init(true),
+                                                   cl::ReallyHidden);
+
 // Minimum number of loops in kernel on which predicate opt is performed
 static cl::opt<unsigned>
     PredicateOptMinLoops("ip-manyreccalls-predicateopt-min-loops", cl::init(5),
@@ -195,6 +199,23 @@ static cl::opt<bool>
 static cl::opt<unsigned> IPSpeCloningMinLoops("ip-spec-cloning-min-loops",
                                               cl::init(30), cl::ReallyHidden);
 
+// While AbstractCallSite solely offers a querying interface, it's essential for
+// us to possess the capability to alter a call site and substitute the called
+// function. The ModifiableAbstractCallSite introduces the method
+// "setCalledOperand," which facilitates the replacement of the called function.
+struct ModifiableAbstractCallSite : public AbstractCallSite {
+  ModifiableAbstractCallSite(const Use *U) : AbstractCallSite(U) {}
+  void setCalledOperand(Function *F) {
+    if (isDirectCall())
+      getInstruction()->setCalledOperand(F);
+    else
+      getInstruction()->setArgOperand(getCallArgOperandNoForCallee(), F);
+    if (auto CB = dyn_cast<CallBase>(getInstruction())) {
+      getInlineReport()->setCalledFunction(CB, F);
+      getMDInlineReport()->setCalledFunction(CB, F);
+    }
+  }
+};
 
 // It is a mapping between formals of current function that is being processed
 // for cloning and set of possible constant values that can reach from
@@ -223,7 +244,7 @@ SmallDenseMap<unsigned, std::vector<std::pair<unsigned, Value *>>>
 SmallDenseMap<unsigned, Function *> ArgSetIndexClonedFunctionMap;
 
 // List of call-sites that need to be processed for cloning
-std::vector<CallInst *> CurrCallList;
+std::vector<ModifiableAbstractCallSite> CurrCallList;
 
 // List of all cloned functions
 std::set<Function *> ClonedFunctionList;
@@ -253,6 +274,81 @@ SmallDenseMap<Value *, Value *> SpecialConstPropagatedValueMap;
 // and GEP Instruction that is used to compute address of arrays. It
 // basically helps to get NumIndices during transformation.
 SmallDenseMap<Value *, GetElementPtrInst *> SpecialConstGEPMap;
+
+// It is a collection of global variables that exhibit potential
+// suitability for cloning, when they are passed to a function
+// as actual arguments.
+MapVector<GlobalVariable *, bool> GlobalArrayConstants;
+
+// This represents a correspondence between CallBase instances and
+// AbstractCallSites. This mapping is crucial because while ACS is constructed
+// from a function's USE within a CallBase, it may not function correctly if
+// another USE within the same CallBase is utilized for ACS construction.
+// Nonetheless, there's a requirement to obtain an ACS from any arbitrary USE
+// within a CallBase, as seen in situations like traversing the uses of
+// GlobalVariables. In such scenarios, this mapping helps to get the accurate
+// ACS.
+MapVector<CallBase *, std::unique_ptr<AbstractCallSite>> CBToACS;
+
+// The function build CBToACS mapping for a module.
+static void collectAbstractCallSites(Module &M) {
+  for (auto &F : M.functions()) {
+    for (auto &U : F.uses()) {
+      auto CB = dyn_cast<CallBase>(U.getUser());
+      if (!CB)
+        continue;
+      auto ACSPtr = std::make_unique<AbstractCallSite>(&U);
+      if (!*ACSPtr)
+        continue;
+      CBToACS[CB] = std::move(ACSPtr);
+    }
+  }
+}
+
+// This function serves as a helper to obtain an AbstractCallSite
+// from a given Value. If the function is able to find the corresponding
+// AbstractCallSite for a given Value, it returns a pointer to the ACS,
+// or otherwise returns a nullptr.
+static AbstractCallSite *getAbstractCallSite(Value *V) {
+  auto CB = dyn_cast<CallBase>(V);
+  if (!CB)
+    return nullptr;
+  auto IT = CBToACS.find(CB);
+  if (IT == CBToACS.end())
+    return nullptr;
+  return IT->second.get();
+}
+
+// This function assesses whether the provided Value corresponds to a constant
+// integer array that is initialized to zero and declared as a global variable.
+// The global variables that match these criteria are subsequently stored in the
+// GlobalArrayConstants map for future reference.
+static bool isGlobalConstZeroInitializedArray(Value *V) {
+  auto GV = dyn_cast<GlobalVariable>(V);
+  if (!GV)
+    return false;
+  auto IT = GlobalArrayConstants.find(GV);
+  if (IT != GlobalArrayConstants.end())
+    return IT->second;
+
+  auto checkCriteria = [](GlobalVariable *GV) {
+    if (!GV || !GV->hasDefinitiveInitializer() || !GV->isConstant())
+      return false;
+
+    auto AT = dyn_cast<ArrayType>(GV->getInitializer()->getType());
+    if (!AT)
+      return false;
+    if (!AT->getElementType()->isIntegerTy())
+      return false;
+
+    if (!isa<ConstantAggregateZero>(GV->getInitializer()))
+      return false;
+
+    return true;
+  };
+
+  return GlobalArrayConstants[GV] = checkCriteria(GV);
+}
 
 /// Wrapper functions for creating clones and operating on callsites that
 /// also update the classic inlining report.
@@ -320,12 +416,14 @@ static bool isConstantArgWorthyForFuncPtrsClone(Value *Arg) {
 // Returns true if 'Arg' is considered as constant for
 // cloning based on GenericClone.
 static bool isConstantArgWorthyForGenericClone(Value *Arg) {
-  Value *FnArg = Arg->stripPointerCasts();
-  Function *Fn = dyn_cast<Function>(FnArg);
+  auto FnArg = Arg->stripPointerCasts();
 
   // Returns false if it is address of a function
-  if (Fn != nullptr)
+  if (isa<Function>(FnArg))
     return false;
+
+  if (isGlobalConstZeroInitializedArray(FnArg))
+    return true;
 
   // For now, allow only INT constants. Later, we may allow
   // isa<ConstantPointerNull>(FnArg), isa<ConstantFP>(FnArg) etc.
@@ -744,7 +842,7 @@ static bool isSpecializationCloningSpecialConst(Value *V, PHINode *Arg) {
 // if it is not possible to collect all possible argument-sets.
 //
 static void
-collectArgsSetsForSpecialization(Function &F, CallInst &CI,
+collectArgsSetsForSpecialization(Function &F, ModifiableAbstractCallSite &ACS,
                                  SmallPtrSet<Value *, 8> &PhiValues) {
 
   std::vector<std::vector<std::pair<unsigned, Value *>>> CallArgumentsSets;
@@ -759,24 +857,24 @@ collectArgsSetsForSpecialization(Function &F, CallInst &CI,
     return;
   }
 
+  auto *CI = cast<CallInst>(ACS.getInstruction());
+
   // Collect argument sets for PHINodes in PhiValues that are passed
   // as arguments at CI.
   BasicBlock *BB = PHI_I->getParent();
   for (BasicBlock *PredBB : predecessors(BB)) {
-    unsigned Position = 0;
     bool Inexact = false;
     ConstantArgs.clear();
-    auto CAI1 = CI.arg_begin();
-    for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end(); AI != E;
-         ++AI, ++CAI1, ++Position) {
+    for (unsigned I = 0; I < F.arg_size(); I++) {
+      auto *CAI1 = ACS.getCallArgOperand(I);
 
-      if (!PhiValues.count(*CAI1))
+      if (!PhiValues.count(CAI1))
         continue;
 
-      auto PHI = cast<PHINode>(*CAI1);
+      auto PHI = cast<PHINode>(CAI1);
       Value *C = PHI->getIncomingValueForBlock(PredBB);
       if (isa<Constant>(C) || isSpecializationCloningSpecialConst(C, PHI)) {
-        ConstantArgs.push_back(std::make_pair(Position, C));
+        ConstantArgs.push_back({I, C});
       } else {
         Inexact = true;
         break;
@@ -796,8 +894,8 @@ collectArgsSetsForSpecialization(Function &F, CallInst &CI,
       if (!Duplicate)
         CallArgumentsSets.push_back(ConstantArgs);
     } else {
-      if (!InexactArgsSetsCallList.count(&CI))
-        InexactArgsSetsCallList.insert(&CI);
+      if (!InexactArgsSetsCallList.count(CI))
+        InexactArgsSetsCallList.insert(CI);
     }
   }
 
@@ -812,16 +910,16 @@ collectArgsSetsForSpecialization(Function &F, CallInst &CI,
   }
 
   // Map CallArgumentsSets to CI here.
-  auto &ACallArgs = AllCallsArgumentsSets[&CI];
+  auto &ACallArgs = AllCallsArgumentsSets[CI];
   std::copy(CallArgumentsSets.begin(), CallArgumentsSets.end(),
             std::back_inserter(ACallArgs));
 
-  CurrCallList.push_back(&CI);
+  CurrCallList.push_back(ACS);
 
   // Dump arg sets
   LLVM_DEBUG({
     dbgs() << "    Args sets collected \n";
-    if (InexactArgsSetsCallList.count(&CI)) {
+    if (InexactArgsSetsCallList.count(CI)) {
       dbgs() << "    Inexact args sets found \n";
     }
     for (unsigned index = 0; index < CallArgumentsSets.size(); index++) {
@@ -838,14 +936,20 @@ collectArgsSetsForSpecialization(Function &F, CallInst &CI,
 // Analyze CallInst 'CI' of 'F' and collect argument sets for
 // specialization cloning if possible.
 //
-static bool analyzeCallForSpecialization(Function &F, CallInst &CI,
+static bool analyzeCallForSpecialization(Function &F,
+                                         ModifiableAbstractCallSite &ACS,
                                          LoopInfo **LI) {
-  SmallPtrSet<Value *, 8> PhiValues;
+  // Current implementations of collectPHIsForSpecialization
+  // and applyHeuristicsForSpecialization do not support callbacks
+  if (ACS.isCallbackCall())
+    return false;
 
+  SmallPtrSet<Value *, 8> PhiValues;
+  auto *CI = cast<CallInst>(ACS.getInstruction());
   // Collect PHINodes that are passed as arguments for cloning
   // if possible.
   PhiValues.clear();
-  if (!collectPHIsForSpecialization(F, CI, PhiValues))
+  if (!collectPHIsForSpecialization(F, *CI, PhiValues))
     return false;
 
   // Using Loop based heuristics here and remove
@@ -854,11 +958,11 @@ static bool analyzeCallForSpecialization(Function &F, CallInst &CI,
   if (!*LI)
     *LI = new LoopInfo(DominatorTree(const_cast<Function &>(F)));
 
-  if (!applyHeuristicsForSpecialization(F, CI, PhiValues, *LI))
+  if (!applyHeuristicsForSpecialization(F, *CI, PhiValues, *LI))
     return false;
 
   // Collect argument sets for specialization.
-  collectArgsSetsForSpecialization(F, CI, PhiValues);
+  collectArgsSetsForSpecialization(F, ACS, PhiValues);
   return true;
 }
 
@@ -871,13 +975,12 @@ static void analyzeCallSitesForSpecializationCloning(Function &F) {
     LLVM_DEBUG(dbgs() << "   Specialization cloning disabled \n");
     return;
   }
-  for (User *UR : F.users()) {
-    if (!isa<CallInst>(UR))
+  for (auto &U : F.uses()) {
+    ModifiableAbstractCallSite ACS(&U);
+    if (!ACS || !ACS.isCallee(&U) || !isa<CallInst>(ACS.getInstruction()) ||
+        ACS.getNumArgOperands() < F.arg_size())
       continue;
-    auto CI = cast<CallInst>(UR);
-    if (CI->getCalledFunction() != &F)
-      continue;
-    analyzeCallForSpecialization(F, *CI, &LI);
+    analyzeCallForSpecialization(F, ACS, &LI);
   }
   // All CallSites of 'F' are analyzed. Delete if
   // LoopInfo is computed.
@@ -896,25 +999,28 @@ static bool analyzeAllCallsOfFunction(Function &F, IPCloneKind CloneType) {
     analyzeCallSitesForSpecializationCloning(F);
     return false;
   }
-  for (User *UR : F.users()) {
-    // Ignore if use of function is not a call
-    if (!isa<CallInst>(UR)) {
-      FunctionAddressTaken = true;
-      continue;
-    }
-    auto CI = cast<CallInst>(UR);
-    Function *Callee = CI->getCalledFunction();
-    if (Callee != &F) {
+
+  for (Use &U : F.uses()) {
+    ModifiableAbstractCallSite ACS(&U);
+
+    // Ignore if use of function is not a call or when the count of formal
+    // arguments is less than the count of actual arguments. It's acceptable
+    // when the actual arguments are greater than or equal to the formal
+    // arguments, but the reverse is considered incorrect. This erroneous
+    // situation should be avoided in the code. To prevent compiler errors in
+    // such cases, we must filter out these incorrect scenarios.
+    if (!ACS || !ACS.isCallee(&U) || !isa<CallInst>(ACS.getInstruction()) ||
+        ACS.getNumArgOperands() < F.arg_size()) {
       FunctionAddressTaken = true;
       continue;
     }
 
     // Collect constant values for each formal
-    CurrCallList.push_back(CI);
-    auto CAI = CI->arg_begin();
-    for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end(); AI != E;
-         ++AI, ++CAI) {
-      collectConstantArgument(&*AI, *CAI, CloneType);
+    CurrCallList.push_back(ACS);
+    for (auto &A : F.args()) {
+      auto *AA = ACS.getCallArgOperand(A);
+      if (AA)
+        collectConstantArgument(&A, AA, CloneType);
     }
   }
   return FunctionAddressTaken;
@@ -2092,27 +2198,23 @@ static void createRecProgressionClones(Function &F, unsigned ArgPos,
 // 'ConstantArgsSet'
 //
 static void createConstantArgumentsSet(
-    CallInst &CI, Function &F,
+    ModifiableAbstractCallSite &ACS,
     std::vector<std::pair<unsigned, Value *>> &ConstantArgsSet) {
-
-  unsigned position = 0;
-  auto CAI = CI.arg_begin();
-  for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end(); AI != E;
-       ++AI, ++CAI, position++) {
-
+  Function *F = ACS.getCalledFunction();
+  for (unsigned APos = 0; APos < F->arg_size(); APos++) {
     // Ignore formals that are not selected by heuristics to reduce
     // code size, compile-time etc
-    if (!WorthyFormalsForCloning.count(&*AI))
+    auto FormalA = F->getArg(APos);
+    if (!WorthyFormalsForCloning.count(FormalA))
       continue;
 
-    Value *ActualV = *CAI;
+    auto ActualV = ACS.getCallArgOperand(APos);
     auto &ValList = ActualConstantValues[ActualV];
     if (ValList.size() == 0)
       continue;
 
-
     Constant *C = *ValList.begin();
-    ConstantArgsSet.push_back(std::make_pair(position, C));
+    ConstantArgsSet.push_back({APos, C});
   }
 }
 
@@ -2314,12 +2416,11 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
 // argument sets exceeds "IPFunctionCloningLimit".
 //
 static bool collectAllConstantArgumentsSets(Function &F) {
-
   std::vector<std::pair<unsigned, Value *>> ConstantArgs;
-  for (unsigned i = 0, e = CurrCallList.size(); i != e; ++i) {
-    CallInst *CI = CurrCallList[i];
+  for (auto &ACS : CurrCallList) {
+    CallInst *CI = cast<CallInst>(ACS.getInstruction());
     ConstantArgs.clear();
-    createConstantArgumentsSet(*CI, F, ConstantArgs);
+    createConstantArgumentsSet(ACS, ConstantArgs);
     if (ConstantArgs.size() == 0)
       continue;
     unsigned index = getConstantArgumentsSetIndex(ConstantArgs);
@@ -2532,7 +2633,7 @@ private:
 void CallbackCloner::createCompleteArgSets() {
   auto &CIASIMap = CallInstArgumentSetIndexMap;
   for (unsigned I = 0, IE = CurrCallList.size(); I != IE; ++I) {
-    CallInst *CI = CurrCallList[I];
+    CallInst *CI = cast<CallInst>(CurrCallList[I].getInstruction());
     auto CIIt = CIASIMap.find(CI);
     if (CIIt == CIASIMap.end())
       continue;
@@ -2788,15 +2889,304 @@ void CallbackCloner::cloneCallbackFunctions() {
 
 // End of code for class CallbackCloner
 
+// The function operates using a freshly cloned function, and when dealing with
+// arguments, it identifies cases where zero-initialized, read-only global
+// arrays are employed, subsequently substituting all usages of elements from
+// these arrays with zeros.
+static void updateGlobalArraysUses(AbstractCallSite &ACS) {
+  if (!ACS)
+    return;
+
+  Function *F = ACS.getCalledFunction();
+  if (!F)
+    return;
+
+  SmallSetVector<LoadInst *, 32> LoadsToReplace;
+  for (auto &FormalA : F->args()) {
+    auto *ActualA = ACS.getCallArgOperand(FormalA);
+    if (!ActualA)
+      continue;
+
+    auto GV = dyn_cast<GlobalVariable>(ActualA);
+    if (!GV)
+      continue;
+
+    if (!isGlobalConstZeroInitializedArray(GV))
+      continue;
+
+    SmallSetVector<Use *, 32> WL;
+    for (auto &U : FormalA.uses())
+      WL.insert(&U);
+
+    for (unsigned I = 0; I < WL.size(); I++) {
+      auto *CUse = WL[I];
+      auto *CUser = CUse->getUser();
+      if (auto LI = dyn_cast<LoadInst>(CUser)) {
+        if (LI->getPointerOperand() == CUse->get())
+          LoadsToReplace.insert(LI);
+      } else if (isa<GEPOperator>(CUser)) {
+        for (auto &U : CUser->uses())
+          WL.insert(&U);
+      }
+    }
+  }
+
+  for (auto *LI : LoadsToReplace) {
+    auto Zero = Constant::getNullValue(LI->getType());
+    LI->replaceAllUsesWith(Zero);
+  }
+}
+
+using SameArgSet = SmallVector<unsigned, 8>;
+using SameArgSetCollection = SmallVector<SameArgSet, 8>;
+// The function gathers formal argument sets from a function.
+// These gathered sets specifically include formal arguments that accept
+// identical actual arguments, allowing for potential merging.
+// In this context, "merging" refers to the ability to replace any formal
+// argument within a detected set with another.
+//
+// Example:
+// If a function "foo" has the following body:
+// int foo(int a, int* p, int *q) {
+//  return a + p[0] + q[1];
+// }
+//
+// And it is called in the manner:
+//
+// int A[] = {0, 1};
+// int B[] = {2, 3};
+// int r1 = foo(1, A, A);
+// int r2 = foo(0, B, B);
+//
+// We want function foo to be transformed into:
+// int foo(int a, int* p, int *q) {
+//  return a + p[0] + p[1];
+//                    ^^^^
+// }
+// So it uses "p" instead of "q" inside the function.
+static SameArgSetCollection getSameArgSets(Function *F) {
+  LLVM_DEBUG({
+    dbgs() << "[IP_CLONING][ARG merge]: Analysing Function(";
+    F->printAsOperand(dbgs());
+    dbgs() << ")\n";
+  });
+
+  SameArgSetCollection Result;
+  constexpr size_t NARGS = 64;
+  SmallVector<std::bitset<NARGS>> CurrSets;
+  bool FirstIter = true;
+  for (auto &U : F->uses()) {
+    AbstractCallSite ACS(&U);
+    if (!ACS)
+      return std::move(Result);
+
+    SmallDenseMap<Value *, std::bitset<NARGS>> TmpArgSetMap;
+    for (auto &FormalA : F->args()) {
+      if (FormalA.getArgNo() >= NARGS)
+        continue;
+      auto *ActualA = ACS.getCallArgOperand(FormalA);
+      if (!ActualA)
+        continue;
+      TmpArgSetMap[ActualA][FormalA.getArgNo()] = 1;
+    }
+    if (FirstIter) {
+      FirstIter = false;
+      for (const auto &[ActualA, ArgSet] : TmpArgSetMap)
+        CurrSets.push_back(ArgSet);
+      continue;
+    }
+
+    for (auto &S : CurrSets) {
+      size_t MaxCount = 0;
+      std::bitset<NARGS> MaxResultSet;
+      for (const auto &[ActualA, ArgSet] : TmpArgSetMap) {
+        auto RSet = S & ArgSet;
+        size_t Cnt = RSet.count();
+        if (Cnt > MaxCount) {
+          MaxCount = Cnt;
+          MaxResultSet = RSet;
+        }
+      }
+      S = MaxResultSet;
+    }
+  }
+
+  for (auto &S : CurrSets) {
+    if (S.count() < 2)
+      continue;
+    Result.emplace_back();
+    for (size_t I = 0; I < S.size(); I++)
+      if (S.test(I))
+        Result.back().push_back(I);
+  }
+
+  LLVM_DEBUG({
+    if (Result.empty())
+      dbgs() << "[IP_CLONING][ARG merge]: No mergeable arguments detected.\n";
+    else
+      dbgs() << "[IP_CLONING][ARG merge]: Detected " << Result.size()
+             << " mergeable argument sets.\n";
+
+    for (unsigned I = 0; I < Result.size(); I++) {
+      dbgs() << "  [" << I + 1 << "]: ";
+      for (auto ArgNo : Result[I]) {
+        dbgs() << ArgNo << " ";
+      }
+      dbgs() << "\n";
+    }
+  });
+  return std::move(Result);
+}
+
+// Auxilary function to define if attribute refers to memory
+// access type for a function parameter.
+static bool isMemAccessAttr(Attribute::AttrKind AKind) {
+  return AKind == Attribute::ReadNone || AKind == Attribute::ReadOnly ||
+         AKind == Attribute::WriteOnly;
+}
+
+static bool isMemAccessAttr(Attribute A) {
+  return A.isEnumAttribute() && isMemAccessAttr(A.getKindAsEnum());
+}
+
+// The function categorizes a function's parameter attributes into two groups:
+// memory access type and all other attributes. The non-memory attributes are
+// placed in the initial slot of the resulting tuple, while the memory access
+// type is placed in the second slot.
+static std::tuple<AttrBuilder, std::optional<Attribute::AttrKind>>
+splitAttributes(Function *F, unsigned ArgNo) {
+  const auto &Attrs = F->getAttributes();
+  auto &Ctx = F->getContext();
+  AttrBuilder AB(Ctx);
+  std::optional<Attribute::AttrKind> MemAccessTypeAttr;
+  for (const auto &A : Attrs.getParamAttrs(ArgNo)) {
+    if (isMemAccessAttr(A)) {
+      MemAccessTypeAttr = A.getKindAsEnum();
+      continue;
+    }
+    AB.addAttribute(A);
+  }
+
+  // If memory access type attributes are absent for a formal function
+  // argument, and that argument is a pointer, we designate the result as
+  // Attribute::None. This serves as a signal for the subsequent merge logic
+  // to recognize this specific situation.
+  if (!MemAccessTypeAttr && F->getArg(ArgNo)->getType()->isPointerTy())
+    MemAccessTypeAttr = Attribute::None;
+
+  return {std::move(AB), std::move(MemAccessTypeAttr)};
+}
+
+// The table of memory access attributes merge rules.
+// A / O     | None | ReadNone  | ReadOnly  | WriteOnly
+// ----------+------+-----------+-----------+----------
+// None      | None | None      | None      | None
+// ReadNone  | None | ReadNone  | ReadOnly  | WriteOnly
+// ReadOnly  | None | ReadOnly  | ReadOnly  | None
+// WriteOnly | None | WriteOnly | None      | WriteOnly
+
+// The function merges memory access attributes and stores result in
+// the first parameter.
+static void updateMemAccessAttr(Attribute::AttrKind &A, Attribute::AttrKind O) {
+  if (A == O || A == Attribute::None || O == Attribute::ReadNone)
+    return;
+  if (A == Attribute::ReadNone)
+    A = O;
+  else
+    A = Attribute::None;
+}
+
+static void updateMemAccessAttr(std::optional<Attribute::AttrKind> &A,
+                                const std::optional<Attribute::AttrKind> O) {
+  if (A == O || !O)
+    return;
+  if (!A)
+    A = O;
+  else
+    updateMemAccessAttr(A.value(), O.value());
+}
+
+// The function evaluates whether it's possible to merge the attributes of
+// the parameters. If this assessment is successful, it provides the merged
+// memory access attribute as the second element in the resulting tuple, while
+// the result of the validity check is shown as the first element in the tuple.
+// To put it simply, the feasibility check assesses whether the attributes,
+// excluding memory access attributes, match across all entries in "SAS"
+// parameter.
+static std::tuple<bool, std::optional<Attribute::AttrKind>>
+getMergedAttributeSet(Function *F, const SameArgSet &SAS) {
+  if (SAS.empty())
+    return {false, std::nullopt};
+  unsigned BaseArgNo = SAS.front();
+  auto [AB, MemAccessTypeAttr] = splitAttributes(F, BaseArgNo);
+  auto ArgTy = F->getArg(BaseArgNo)->getType();
+  for (unsigned ArgNo : SAS) {
+    if (ArgNo == BaseArgNo)
+      continue;
+    if (ArgTy != F->getArg(ArgNo)->getType())
+      return {false, std::nullopt};
+    auto [TAB, TMemAccessTypeAttr] = splitAttributes(F, ArgNo);
+    if (AB != TAB)
+      return {false, std::nullopt};
+    updateMemAccessAttr(MemAccessTypeAttr, TMemAccessTypeAttr);
+  }
+  return {true, MemAccessTypeAttr};
+}
+
+// The function alters the usage of formal function parameters by substituting
+// them with one chosen from the recognized set of interchangeable parameters.
+static void mergeArgs() {
+
+  for (auto *F : ClonedFunctionList) {
+    auto SameArgsSetCollection = getSameArgSets(F);
+    for (auto &AS : SameArgsSetCollection) {
+      auto [Mergeable, MemAttr] = getMergedAttributeSet(F, AS);
+      if (!Mergeable)
+        continue;
+      // Pick the first arg as base
+      unsigned BaseArgNo = AS.front();
+      auto *BaseArg = F->getArg(BaseArgNo);
+      if (MemAttr) {
+        BaseArg->removeAttr(Attribute::ReadNone);
+        BaseArg->removeAttr(Attribute::ReadOnly);
+        BaseArg->removeAttr(Attribute::WriteOnly);
+        if (MemAttr != Attribute::None)
+          BaseArg->addAttr(MemAttr.value());
+        LLVM_DEBUG({
+          dbgs() << "[IP_CLONING][ARG merge]: Set attribute for (";
+          BaseArg->printAsOperand(dbgs());
+          dbgs() << ") to " << Attribute::getNameFromAttrKind(MemAttr.value());
+          dbgs() << "\n";
+        });
+      }
+      // Replace all other args with the base
+      for (unsigned ArgNo : AS) {
+        if (ArgNo == BaseArgNo)
+          continue;
+        auto Arg = F->getArg(ArgNo);
+        Arg->replaceAllUsesWith(BaseArg);
+        LLVM_DEBUG({
+          dbgs() << "[IP_CLONING][ARG merge]: Function(";
+          F->printAsOperand(dbgs());
+          dbgs() << ") - ARG(";
+          Arg->printAsOperand(dbgs());
+          dbgs() << ") replaced with ";
+          BaseArg->printAsOperand(dbgs());
+          dbgs() << "\n";
+        });
+      }
+    }
+  }
+}
+
 // It does actual cloning and fixes recursion calls if possible. If
 // 'AttemptCallbackCloning' is 'true', attempt to also clone the callback
 // functions which obtain constant arguments through the cloning of the
 // primary source function.
 //
 static void cloneFunction(bool AttemptCallbackCloning) {
-
   std::unique_ptr<CallbackCloner> CBCloner;
-  Function *SrcFn = CurrCallList[0]->getCalledFunction();
+  Function *SrcFn = CurrCallList[0].getCalledFunction();
   if (AttemptCallbackCloning) {
     CBCloner = std::make_unique<CallbackCloner>(*SrcFn);
     CBCloner->createCompleteArgSets();
@@ -2804,8 +3194,8 @@ static void cloneFunction(bool AttemptCallbackCloning) {
   }
 
   for (unsigned I = 0, E = CurrCallList.size(); I != E; ++I) {
-    ValueToValueMapTy VMap;
-    CallInst *CI = CurrCallList[I];
+    auto &ACS = CurrCallList[I];
+    CallInst *CI = cast<CallInst>(ACS.getInstruction());
 
     // Skip callsite if  no constant argument set is collected.
     auto MapIt = CallInstArgumentSetIndexMap.find(CI);
@@ -2815,9 +3205,9 @@ static void cloneFunction(bool AttemptCallbackCloning) {
     // Get cloned function for constant argument set if it is already there
     unsigned index = MapIt->second;
     Function *NewFn = ArgSetIndexClonedFunctionMap[index];
-
     // Create new clone if it is not there for constant argument set
     if (NewFn == nullptr) {
+      ValueToValueMapTy VMap;
       NewFn = IPCloneFunction(SrcFn, VMap);
       if (CBCloner)
         CBCloner->remapCBVec(index, VMap);
@@ -2826,10 +3216,12 @@ static void cloneFunction(bool AttemptCallbackCloning) {
       NumIPCloned++;
     }
 
-    setCalledFunction(CI, NewFn);
+    ACS.setCalledOperand(NewFn);
+    LLVM_DEBUG(dbgs() << " Cloned call:   " << *CI << "\n");
+
     NumIPCallsCloned++;
     eliminateRecursionIfPossible(NewFn, SrcFn, index);
-    LLVM_DEBUG(dbgs() << " Cloned call:   " << *CI << "\n");
+    updateGlobalArraysUses(ACS);
   }
 
   if (CBCloner)
@@ -3115,7 +3507,7 @@ static void cloneSpecializationFunction(void) {
     NewClonedCalls.clear();
     NewCondStmtBBs.clear();
     NewCondStmts.clear();
-    CallInst *CI = CurrCallList[I];
+    CallInst *CI = cast<CallInst>(CurrCallList[I].getInstruction());
     LLVM_DEBUG(dbgs() << "\n Call-Site (Spec): " << *CI << "\n\n");
     auto &CallArgsSets = AllCallsArgumentsSets[CI];
 
@@ -4597,8 +4989,6 @@ Function *Splitter::makeNewFxnWithExtraArg(Type *ArgTy, Argument **Arg,
   // defined above for use with the classic inlining report.
   CloneFunctionInto(NewF, F, VMap, CloneFunctionChangeType::LocalChangesOnly,
                     Rets);
-  getInlineReport()->cloneFunction(F, NewF, VMap);
-  getMDInlineReport()->cloneFunction(F, NewF, VMap);
   Argument *ArgLast = nullptr;
   for (auto &ArgNew : NewF->args())
     ArgLast = &ArgNew;
@@ -4740,7 +5130,7 @@ void Splitter::splitFunction() {
   retargetReturns();
   LLVMContext &C = F->getContext();
   Type *NewTy1 = llvm::Type::getInt32Ty(C);
-  Type *NewPTy1 = llvm::Type::getInt32PtrTy(C);
+  Type *NewPTy1 = llvm::PointerType::getUnqual(C);
   Argument *ArgLast1 = nullptr;
   PHINode *SplitValue1 = nullptr;
   BasicBlock *BBSplit1 = nullptr;
@@ -8360,6 +8750,8 @@ static bool analysisCallsCloneFunctions(
       dbgs() << ": (Before inlining)\n";
   });
 
+  collectAbstractCallSites(M);
+
   ClonedFunctionList.clear();
 
   for (Function &F : M) {
@@ -8539,6 +8931,9 @@ static bool analysisCallsCloneFunctions(
     });
     cloneFunction(AttemptCallbackCloning);
   }
+
+  if (AfterInl && EnableClonedFunctionArgsMerge)
+    mergeArgs();
 
   LLVM_DEBUG(dbgs() << " Total clones:  " << NumIPCloned << "\n");
 

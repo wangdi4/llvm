@@ -1,6 +1,6 @@
 //===----- HIRCompleteUnroll.h - Implements complete unroll ---------------===//
 //
-// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -51,13 +51,13 @@ struct UnrollThresholds {
 class HIRCompleteUnroll {
 public:
   HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
-                    const TargetTransformInfo &TTI, HIRLoopStatistics &HLS,
+                    const TargetTransformInfo &TTI,
+                    const TargetLibraryInfo &TLI, HIRLoopStatistics &HLS,
                     HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &HSRA,
 #if INTEL_FEATURE_SW_DTRANS
                     DTransImmutableInfo *DTII,
 #endif // INTEL_FEATURE_SW_DTRANS
-                    unsigned OptLevel, bool IsPreVec,
-                    bool PragmaOnlyUnroll);
+                    unsigned OptLevel, bool IsPreVec, bool PragmaOnlyUnroll);
 
   bool run();
 
@@ -73,6 +73,7 @@ private:
   HIRFramework &HIRF;
   DominatorTree &DT;
   const TargetTransformInfo &TTI;
+  const TargetLibraryInfo &TLI;
   HIRLoopStatistics &HLS;
   HIRDDAnalysis &DDA;
   HIRSafeReductionAnalysis &HSRA;

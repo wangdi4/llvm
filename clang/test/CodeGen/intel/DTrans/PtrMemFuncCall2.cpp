@@ -1,6 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -no-opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,PTR
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm -opaque-pointers %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple x86_64-linux-gnu -emit-dtrans-info -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,OPQ
 class a {};
 class b {
   typedef void (a::*c)(short, int);
@@ -13,11 +12,8 @@ class b {
 };
 void b::d() { (void)e; }
 
-// PTR: define dso_local void @_ZN1b1dEv(%class._ZTS1b.b* {{[^,]*}}"intel_dtrans_func_index"="1" %this){{.+}}!intel.dtrans.func.type ![[B_D:[0-9]+]]
 // OPQ: define dso_local void @_ZN1b1dEv(ptr {{[^,]*}}"intel_dtrans_func_index"="1" %this){{.+}}!intel.dtrans.func.type ![[B_D:[0-9]+]]
-// PTR: alloca %class._ZTS1b.b*, align 8, !intel_dtrans_type ![[B_PTR:[0-9]+]]
 // OPQ: alloca ptr, align 8, !intel_dtrans_type ![[B_PTR:[0-9]+]]
-// PTR:  call void %{{.+}}(%class._ZTS1a.a* {{[^,]*}} %this.adjusted, i16 noundef signext 0, i32 noundef 0), !intel_dtrans_type ![[PMF:[0-9]+]]
 // OPQ:  call void %{{.+}}(ptr {{[^,]*}}, i16 noundef signext 0, i32 noundef 0), !intel_dtrans_type ![[PMF:[0-9]+]]
 
 // CHECK: !intel.dtrans.types = !{![[B:[0-9]+]], ![[A:[0-9]+]]}

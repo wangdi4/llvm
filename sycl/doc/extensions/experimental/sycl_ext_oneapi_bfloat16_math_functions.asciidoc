@@ -22,7 +22,7 @@
 
 == Notice
 
-Copyright © 2022-2023 Intel Corporation. All rights reserved.
+Copyright © 2022 Intel Corporation. All rights reserved.
 
 Khronos® is a registered trademark and SYCL™ and SPIR™ are trademarks of
 The Khronos Group Inc. OpenCL™ is a trademark of Apple Inc. used by permission

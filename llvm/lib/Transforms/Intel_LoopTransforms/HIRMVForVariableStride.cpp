@@ -1,6 +1,6 @@
 //===- HIRMVForVariableStride.cpp - Multiversion for variable Stride -==//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -677,40 +677,4 @@ PreservedAnalyses HIRMVForVariableStridePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   ModifiedHIR = HIRMVForVariableStride(HIRF).run();
   return PreservedAnalyses::all();
-}
-
-class HIRMVForVariableStrideLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRMVForVariableStrideLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRMVForVariableStrideLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRMVForVariableStride(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR())
-        .run();
-  }
-};
-
-char HIRMVForVariableStrideLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRMVForVariableStrideLegacyPass, OPT_SWITCH, OPT_DESCR,
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRMVForVariableStrideLegacyPass, OPT_SWITCH, OPT_DESCR,
-                    false, false)
-
-FunctionPass *llvm::createHIRMVForVariableStridePass() {
-  return new HIRMVForVariableStrideLegacyPass();
 }

@@ -49,9 +49,9 @@ bb1:
   br label %bb2
 
 bb2:
-  %tok0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(double* %sum) ]
-  store i32 0, i32* %outeriv, align 4
-  store double 0.000000e+00, double* %sum, align 8
+  %tok0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sum, double zeroinitializer, i32 1) ]
+  store i32 0, ptr %outeriv, align 4
+  store double 0.000000e+00, ptr %sum, align 8
   br label %bb3
 
 bb3:
@@ -61,7 +61,7 @@ bb3:
   br i1 %test0, label %bb7, label %bb4
 
 bb4:
-  store i32 0, i32* %inneriv, align 4
+  store i32 0, ptr %inneriv, align 4
   br label %bb5
 
 bb5:
@@ -84,7 +84,7 @@ bb7:
 
 bb8:
   %sum.lcssa = phi double [ %sum.outer, %bb7 ]
-  store double %sum.lcssa, double* %sum, align 8
+  store double %sum.lcssa, ptr %sum, align 8
   br label %bb9
 
 bb9:

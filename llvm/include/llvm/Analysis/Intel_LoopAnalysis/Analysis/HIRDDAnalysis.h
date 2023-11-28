@@ -1,6 +1,6 @@
 //===---- HIRDDAnalysis.h - Provides Data Dependence Analysis --*-- C++--*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -87,6 +87,11 @@ public:
   LLVM_DUMP_METHOD
   void print(raw_ostream &OS) const {
     if (!isIndependent()) {
+      // Refined Dependence must be either independent or refined. Do nothing
+      // here.
+      if (!isRefined())
+        return;
+
       DV.print(OS, false);
       OS << " ";
       DistV.print(OS);
@@ -239,10 +244,6 @@ public:
   /// loops in the region such as HIRParVecAnalysis. The cached DDEdges can get
   /// invalidated by getGraphImpl() resulting in invalid memory access.
   void resetInvalidGraphs(const HLRegion *Region);
-
-  /// \brief Caller has DDG and the level it needs to refine. Should check
-  /// isRefinable before calling refineDV
-  bool isRefinableDepAtLevel(const DDEdge *Edge, unsigned Level) const;
 
   /// \brief Refine DV by calling demand driven DD.
   /// e.g. If we are testing for vectorization for outer loop level 4

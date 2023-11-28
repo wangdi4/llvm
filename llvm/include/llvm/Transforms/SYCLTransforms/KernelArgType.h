@@ -111,6 +111,14 @@ struct PACKED UniformKernelArgs {
   const void *NonUniformJITEntryPoint; // Filled by the BE
 };
 
+// In order to maintain backward compatibility with pre-compiled kernel binary
+// from previous releases. If a new item need to be added to
+// NonUniformKernelArgs, it should be inserted at the end of the struct.
+struct PACKED NonUniformKernelArgs {
+  size_t GroupId[MAX_WORK_DIM];
+  void *HeapForPrivateLocal;
+};
+
 #ifdef _WIN32
 #pragma pack(pop)
 #endif

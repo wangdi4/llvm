@@ -11,14 +11,14 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 
-define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture readonly %ub) local_unnamed_addr {
+define dso_local void @foo(i64 %N, ptr nocapture readonly %lb, ptr nocapture readonly %ub) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[LB0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = load i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i64* [[UB0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = load i64* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[LB0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = load ptr [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i64, ptr [[UB0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = load ptr [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp slt i64 [[VP0]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Div] br i1 [[VP_TOPTEST]], [[BB1:BB[0-9]+]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -32,10 +32,10 @@ define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture r
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_SHL:%.*]] = shl i64 [[VP_IV]] i64 3
-; CHECK-NEXT:         [DA: Div] i64* [[VP_ARRAYIDX6:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @A i64 0 i64 [[VP_IV]] i64 [[VP_LANE]]
-; CHECK-NEXT:         [DA: Div] store i64 [[VP_SHL]] i64* [[VP_ARRAYIDX6]]
+; CHECK-NEXT:         [DA: Div] ptr [[VP_ARRAYIDX6:%.*]] = getelementptr inbounds [100 x [100 x i64]], ptr @A i64 0 i64 [[VP_IV]] i64 [[VP_LANE]]
+; CHECK-NEXT:         [DA: Div] store i64 [[VP_SHL]] ptr [[VP_ARRAYIDX6]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
-; CHECK-NEXT:         [DA: Div] i64 [[VP2:%.*]] = load i64* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:         [DA: Div] i64 [[VP2:%.*]] = load ptr [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:         [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp slt i64 [[VP_IV_NEXT]] i64 [[VP2]]
 ; CHECK-NEXT:         [DA: Uni] br [[BB4]]
 ; CHECK-EMPTY:
@@ -53,10 +53,10 @@ define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture r
 ;
 entry:
   %lane = call i64 @llvm.vplan.laneid()
-  %arrayidx = getelementptr inbounds i64, i64* %lb, i64 %lane
-  %0 = load i64, i64* %arrayidx, align 8
-  %arrayidx2 = getelementptr inbounds i64, i64* %ub, i64 %lane
-  %1 = load i64, i64* %arrayidx2, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lb, i64 %lane
+  %0 = load i64, ptr %arrayidx, align 8
+  %arrayidx2 = getelementptr inbounds i64, ptr %ub, i64 %lane
+  %1 = load i64, ptr %arrayidx2, align 8
   %toptest = icmp slt i64 %0, %1
   br i1 %toptest, label %preheader, label %exit
 
@@ -66,10 +66,10 @@ preheader:
 header:
   %iv = phi i64 [ %iv.next, %header ], [ %0, %preheader ]
   %shl = shl i64 %iv, 3
-  %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %iv, i64 %lane
-  store i64 %shl, i64* %arrayidx6, align 8
+  %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], ptr @A, i64 0, i64 %iv, i64 %lane
+  store i64 %shl, ptr %arrayidx6, align 8
   %iv.next = add nsw i64 %iv, 1
-  %2 = load i64, i64* %arrayidx2, align 8
+  %2 = load i64, ptr %arrayidx2, align 8
   %continue.cond = icmp slt i64 %iv.next, %2
   br i1 %continue.cond, label %header, label %loop.exit
 

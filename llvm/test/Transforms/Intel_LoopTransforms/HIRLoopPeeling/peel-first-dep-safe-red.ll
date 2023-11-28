@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-peeling" -disable-output -debug-only=hir-loop-peeling 2>&1 < %s  | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-peeling" -disable-output -debug-only=hir-loop-peeling 2>&1 < %s  | FileCheck %s
 
 ; Verify that we can ignore safe reductions in loop peeling candidates.
 
@@ -27,12 +27,12 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %t = phi i32 [ 0, %entry ], [ %t.add, %for.body ]
-  %0 = load i32, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 0), align 16
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4
+  %0 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @A, i64 0, i64 0), align 16
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %1, %0
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  store i32 %add, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  store i32 %add, ptr %arrayidx2, align 4
   %t.add = add nsw i32 %t, %1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100

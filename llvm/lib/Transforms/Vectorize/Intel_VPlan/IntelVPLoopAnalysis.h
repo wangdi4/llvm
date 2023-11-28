@@ -1,5 +1,5 @@
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -25,6 +25,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/IVDescriptors.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include <map>
 
 using namespace llvm;
@@ -38,7 +39,6 @@ namespace vpo {
 
 class VPValue;
 class VPlanVector;
-class IntelVPlanUtils;
 class VPLoop;
 class VPlan;
 class VPValue;
@@ -55,6 +55,26 @@ class VPDominatorTree;
 class VPCompressExpandInit;
 class VPCompressExpandFinal;
 
+struct UnderlyingInstruction
+    : public PointerUnion<const loopopt::HLDDNode *, const Instruction *> {
+  using Base = PointerUnion<const loopopt::HLDDNode *, const Instruction *>;
+  const UnderlyingInstruction *operator->() const { return this; }
+  UnderlyingInstruction() : PointerUnion() {}
+  UnderlyingInstruction(std::nullptr_t) : UnderlyingInstruction() {}
+  UnderlyingInstruction(const loopopt::HLDDNode *H) { Base::operator=(H); }
+  UnderlyingInstruction(const Instruction *D) { Base::operator=(D); }
+  UnderlyingInstruction(const Base &U) : Base(U) {}
+
+  operator const loopopt::HLDDNode *() const {
+    return get<const loopopt::HLDDNode *>();
+  }
+  operator const Instruction *() const { return get<const Instruction *>(); }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const;
+#endif
+};
+
 /// Base class for loop entities
 class VPLoopEntity {
 public:
@@ -65,8 +85,7 @@ public:
   // Instruction *>. The Instruction in this pair is underlying instruction that
   // creates the alias in underlying IR, VPInstruction is its VPlan equivalent.
   using VPEntityAliasesTy =
-      MapVector<VPValue *, std::pair<VPInstruction *, const Instruction *>>;
-
+      MapVector<VPValue *, std::pair<VPInstruction *, UnderlyingInstruction>>;
   enum {
     Reduction,
     IndexReduction,
@@ -180,8 +199,8 @@ public:
         getRecurrenceKind());
   }
 
-  bool isSelectCmp() const {
-    return RecurrenceDescriptorData::isSelectCmpRecurrenceKind(
+  bool isAnyOf() const {
+    return RecurrenceDescriptorData::isAnyOfRecurrenceKind(
         getRecurrenceKind());
   }
 
@@ -847,7 +866,7 @@ public:
 
   /// Return compress/expand idiom descriptor by \p VPVal.
   const VPCompressExpandIdiom *getCompressExpandIdiom(const VPValue *VPVal) const {
-    return find(ComressExpandIdiomMap, VPVal);
+    return find(CompressExpandIdiomMap, VPVal);
   }
 
   /// Get descriptor for an entity's memory.
@@ -886,14 +905,16 @@ public:
   using VPReductionList = SmallVector<std::unique_ptr<VPReduction>, 4>;
   using VPInductionList = SmallVector<std::unique_ptr<VPInduction>, 4>;
   using VPPrivatesList = SmallVector<std::unique_ptr<VPPrivate>, 4>;
-  using VPComressExpandIdiomList = SmallVector<std::unique_ptr<VPCompressExpandIdiom>, 4>;
+  using VPCompressExpandIdiomList =
+      SmallVector<std::unique_ptr<VPCompressExpandIdiom>, 4>;
 
   /// Mapping of VPValues to entities. Created after entities lists are formed
   /// to ensure correct masking.
   using VPReductionMap = DenseMap<const VPValue *, const VPReduction *>;
   using VPInductionMap = DenseMap<const VPValue *, const VPInduction *>;
   using VPPrivateMap = DenseMap<const VPValue *, const VPPrivate *>;
-  using VPComressExpandIdiomMap = DenseMap<const VPValue *, const VPCompressExpandIdiom *>;
+  using VPCompressExpandIdiomMap =
+      DenseMap<const VPValue *, const VPCompressExpandIdiom *>;
 
   // Return the iterator-range to the list of privates loop-entities.
   inline decltype(auto) vpprivates() const {
@@ -915,8 +936,8 @@ public:
   // Return the iterator-range to the list of compress/expand idiom
   // loop-entities.
   inline decltype(auto) vpceidioms() const {
-    return map_range(make_range(ComressExpandIdiomList.begin(),
-                                ComressExpandIdiomList.end()),
+    return map_range(make_range(CompressExpandIdiomList.begin(),
+                                CompressExpandIdiomList.end()),
                      getRawPointer<VPCompressExpandIdiom>);
   }
 
@@ -1037,7 +1058,7 @@ public:
     else if (auto Priv = dyn_cast<VPPrivate>(E))
       linkValue(PrivateMap, Priv, Val);
     else if (auto CEIdiom = dyn_cast<VPCompressExpandIdiom>(E))
-      linkValue(ComressExpandIdiomMap, CEIdiom, Val);
+      linkValue(CompressExpandIdiomMap, CEIdiom, Val);
     else
       llvm_unreachable("Unknown loop entity");
   }
@@ -1053,12 +1074,12 @@ private:
   VPReductionList ReductionList;
   VPInductionList InductionList;
   VPPrivatesList PrivatesList;
-  VPComressExpandIdiomList ComressExpandIdiomList;
+  VPCompressExpandIdiomList CompressExpandIdiomList;
 
   VPReductionMap ReductionMap;
   VPInductionMap InductionMap;
   VPPrivateMap PrivateMap;
-  VPComressExpandIdiomMap ComressExpandIdiomMap;
+  VPCompressExpandIdiomMap CompressExpandIdiomMap;
 
   // Mapping of VPLoopEntity to VPLoopEntityMemoryDescriptor.
   using MemDescrTy =
@@ -1309,12 +1330,11 @@ private:
 
   static void insertEntityMemoryAliases(
       VPLoopEntity *Entity, VPBasicBlock *Preheader,
-      SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs,
-      VPBuilder &Builder);
+      SmallSet<UnderlyingInstruction, 4> &AddedAliasInstrs, VPBuilder &Builder);
 
   static void replaceUsesOfExtDefWithMemoryAliases(
       VPLoopEntity *Entity, VPBasicBlock *Preheader, VPLoop &Loop,
-      SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs);
+      SmallSet<UnderlyingInstruction, 4> &AddedAliasInstrs);
 };
 
 class VPEntityImportDescr {
@@ -1361,7 +1381,8 @@ public:
   }
   void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
 
-  void addMemAlias(VPValue *Alias, VPInstruction *VPI, const Instruction *I) {
+  template <class Instr>
+  void addMemAlias(VPValue *Alias, VPInstruction *VPI, const Instr *I) {
     MemAliases[Alias] = std::make_pair(VPI, I);
   }
 

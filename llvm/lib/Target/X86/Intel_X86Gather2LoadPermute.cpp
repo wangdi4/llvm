@@ -1,6 +1,6 @@
 //====-- Intel_X86Gather2LoadPermute.cpp ----------------====
 //
-//      Copyright (c) 2019-2020 Intel Corporation.
+//      Copyright (c) 2019 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION

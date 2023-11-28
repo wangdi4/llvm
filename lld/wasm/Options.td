@@ -208,7 +208,10 @@ def growable_table: FF<"growable-table">,
   HelpText<"Remove maximum size from function table, allowing table to grow">;
 
 def global_base: JJ<"global-base=">,
-  HelpText<"Where to start to place global data">;
+  HelpText<"Memory offset at which to place global data (Defaults to 1024)">;
+
+defm keep_section: Eq<"keep-section",
+     "Preserve a section even when --strip-all is given. This is useful for compiler drivers such as clang or emcc that, for example, depend on the features section for post-link processing. Can be specified multiple times to keep multiple sections">;
 
 def import_memory: FF<"import-memory">,
   HelpText<"Import the module's memory from the default module of \"env\" with the name \"memory\".">;
@@ -223,6 +226,8 @@ def export_memory_with_name: JJ<"export-memory=">,
 
 def shared_memory: FF<"shared-memory">,
   HelpText<"Use shared linear memory">;
+
+defm soname: Eq<"soname", "Set the module name in the generated name section">;
 
 def import_table: FF<"import-table">,
   HelpText<"Import function table from the environment">;
@@ -239,6 +244,9 @@ def no_entry: FF<"no-entry">,
 def stack_first: FF<"stack-first">,
   HelpText<"Place stack at start of linear memory rather than after data">;
 
+def table_base: JJ<"table-base=">,
+  HelpText<"Table offset at which to place address taken functions (Defaults to 1)">;
+
 defm whole_archive: B<"whole-archive",
     "Force load of all members in a static library",
     "Do not force load of all members in a static library (default)">;
@@ -252,7 +260,7 @@ defm check_features: BB<"check-features",
 def features: CommaJoined<["--", "-"], "features=">,
   HelpText<"Comma-separated used features, inferred from input objects by default.">;
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Option for debugging the memory freeing process when
 // shutting down LLD
 def intel_debug_mem: F<"intel-debug=mem">;
@@ -260,8 +268,7 @@ def intel_debug_mem: F<"intel-debug=mem">;
 // Option for keeping the information related to LLVM in
 // case LLD is embedded in the compiler
 def intel_embedded_linker: F<"intel-embedded-linker">;
-// END INTEL_CUSTOMIZATION
-
+#endif // INTEL_CUSTOMIZATION
 def extra_features: CommaJoined<["--", "-"], "extra-features=">,
   HelpText<"Comma-separated list of features to add to the default set of features inferred from input objects.">;
 
@@ -303,9 +310,7 @@ def thinlto_jobs: JJ<"thinlto-jobs=">,
   HelpText<"Number of ThinLTO jobs. Default to --threads=">;
 #if INTEL_CUSTOMIZATION
 defm lto_legacy_pass_manager: BB<"lto-legacy-pass-manager", "Use legacy pass manager", "Use new pass manager">;
-#endif INTEL_CUSTOMIZATION
-=======
->>>>>>> ae5efe97618355e7552b0cb3c6790f3d8e8f8554
+#endif // INTEL_CUSTOMIZATION
 
 // Experimental PIC mode.
 def experimental_pic: FF<"experimental-pic">,

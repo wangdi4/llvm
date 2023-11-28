@@ -8,7 +8,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
+define dso_local i32 @_Z4funciPf(i64 %n, ptr %a) local_unnamed_addr #0 {
 ; HIR-LABEL:  HIRLegality Descriptor Lists
 ; HIR:       HIRLegality PrivatesList:
 ; HIR:       HIRLegality PrivatesNonPODList:
@@ -30,56 +30,56 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; HIR-DAG:     [[VP0:%.*]] = {%r.red}
 ; HIR-DAG:     [[VP1:%.*]] = {%n + -1}
 ; HIR-DAG:     [[VP2:%.*]] = {%a}
-; HIR-DAG:     [[VPn:%.*]] = {%k.linear.iv}
+; HIR-DAG:     [[VP3:%.*]] = {%k.linear.iv}
 ; HIR-NEXT:  External Defs End:
 ; HIR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; HIR-NEXT:     br [[BB1:BB[0-9]+]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB1]]: # preds: [[BB0]]
-; HIR-NEXT:     i32* [[VP_R_RED:%.*]] = allocate-priv i32, OrigAlign = 4
-; HIR-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP1]] i64 1
-; HIR-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[R_RED0]]
+; HIR-NEXT:     ptr [[VP_R_RED:%.*]] = allocate-priv i32, OrigAlign = 4
+; HIR-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP1]] i64 1
+; HIR-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[R_RED0]]
 ; HIR-NEXT:     i32 [[VP_R_REDRED_INIT:%.*]] = reduction-init i32 0 i32 [[VP_LOAD]]
-; HIR-NEXT:     store i32 [[VP_R_REDRED_INIT]] i32* [[VP_R_RED]]
+; HIR-NEXT:     store i32 [[VP_R_REDRED_INIT]] ptr [[VP_R_RED]]
 ; HIR-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; HIR-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; HIR-NEXT:     br [[BB2:BB[0-9]+]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; HIR-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB3]] ]
-; HIR-NEXT:     i32* [[VP_SUBSCRIPT_R_RED:%.*]] = subscript inbounds i32* [[VP_R_RED]]
-; HIR-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_R_RED]]
-; HIR-NEXT:     float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP4]]
-; HIR-NEXT:     i32 [[VP_CALL:%.*]] = call float* [[VP_SUBSCRIPT]] i32 (float*)* @_Z4predPf
-; HIR-NEXT:     i1 [[VP6:%.*]] = icmp ne i32 [[VP_CALL]] i32 0
-; HIR-NEXT:     br i1 [[VP6]], [[BB4:BB[0-9]+]], [[BB3]]
+; HIR-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB3]] ]
+; HIR-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[VP_R_RED]]
+; HIR-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; HIR-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP5]]
+; HIR-NEXT:     i32 [[VP_CALL:%.*]] = call ptr [[VP_SUBSCRIPT_1]] ptr @_Z4predPf
+; HIR-NEXT:     i1 [[VP7:%.*]] = icmp ne i32 [[VP_CALL]] i32 0
+; HIR-NEXT:     br i1 [[VP7]], [[BB4:BB[0-9]+]], [[BB3]]
 ; HIR-EMPTY:
 ; HIR-NEXT:      [[BB4]]: # preds: [[BB2]]
-; HIR-NEXT:       i32 [[VP7:%.*]] = trunc i64 [[VP4]] to i32
-; HIR-NEXT:       i32 [[VP8:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP7]]
-; HIR-NEXT:       float [[VP9:%.*]] = sitofp i32 [[VP8]] to float
-; HIR-NEXT:       float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[A0]] i64 [[VP4]]
-; HIR-NEXT:       float [[VP_LOAD_2:%.*]] = load float* [[VP_SUBSCRIPT_1]]
-; HIR-NEXT:       float [[VP10:%.*]] = fadd float [[VP_LOAD_2]] float [[VP9]]
-; HIR-NEXT:       i32 [[VP11:%.*]] = fptosi float [[VP10]] to i32
-; HIR-NEXT:       i32* [[VP_SUBSCRIPT_R_RED:%.*]] = subscript inbounds i32* [[VP_R_RED]]
-; HIR-NEXT:       store i32 [[VP11]] i32* [[VP_SUBSCRIPT_R_RED]]
+; HIR-NEXT:       i32 [[VP8:%.*]] = trunc i64 [[VP5]] to i32
+; HIR-NEXT:       i32 [[VP9:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP8]]
+; HIR-NEXT:       float [[VP10:%.*]] = sitofp i32 [[VP9]] to float
+; HIR-NEXT:       ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP5]]
+; HIR-NEXT:       float [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
+; HIR-NEXT:       float [[VP11:%.*]] = fadd float [[VP_LOAD_2]] float [[VP10]]
+; HIR-NEXT:       i32 [[VP12:%.*]] = fptosi float [[VP11]] to i32
+; HIR-NEXT:       ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[VP_R_RED]]
+; HIR-NEXT:       store i32 [[VP12]] ptr [[VP_SUBSCRIPT_3]]
 ; HIR-NEXT:       br [[BB3]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
-; HIR-NEXT:     i32* [[VP_SUBSCRIPT_R_RED:%.*]] = subscript inbounds i32* [[VP_R_RED]]
-; HIR-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_R_RED]]
-; HIR-NEXT:     i32 [[VP12:%.*]] = add i32 [[VP_LOAD_3]] i32 1
-; HIR-NEXT:     i32* [[VP_SUBSCRIPT_R_RED:%.*]] = subscript inbounds i32* [[VP_R_RED]]
-; HIR-NEXT:     store i32 [[VP12]] i32* [[VP_SUBSCRIPT_R_RED]]
-; HIR-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]]
-; HIR-NEXT:     i1 [[VP13:%.*]] = icmp slt i64 [[VP5]] i64 [[VP3]]
-; HIR-NEXT:     br i1 [[VP13]], [[BB2]], [[BB5:BB[0-9]+]]
+; HIR-NEXT:     ptr [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds ptr [[VP_R_RED]]
+; HIR-NEXT:     i32 [[VP_LOAD_3:%.*]] = load ptr [[VP_SUBSCRIPT_4]]
+; HIR-NEXT:     i32 [[VP13:%.*]] = add i32 [[VP_LOAD_3]] i32 1
+; HIR-NEXT:     ptr [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds ptr [[VP_R_RED]]
+; HIR-NEXT:     store i32 [[VP13]] ptr [[VP_SUBSCRIPT_5]]
+; HIR-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
+; HIR-NEXT:     i1 [[VP14:%.*]] = icmp slt i64 [[VP6]] i64 [[VP4]]
+; HIR-NEXT:     br i1 [[VP14]], [[BB2]], [[BB5:BB[0-9]+]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB5]]: # preds: [[BB3]]
-; HIR-NEXT:     i32 [[VP_LOAD_4:%.*]] = load i32* [[VP_R_RED]]
+; HIR-NEXT:     i32 [[VP_LOAD_4:%.*]] = load ptr [[VP_R_RED]]
 ; HIR-NEXT:     i32 [[VP_R_REDRED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_LOAD_4]]
-; HIR-NEXT:     store i32 [[VP_R_REDRED_FINAL]] i32* [[R_RED0]]
+; HIR-NEXT:     store i32 [[VP_R_REDRED_FINAL]] ptr [[R_RED0]]
 ; HIR-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; HIR-NEXT:     br [[BB6:BB[0-9]+]]
 ; HIR-EMPTY:
@@ -91,9 +91,9 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
-; CHECK-NEXT:   (+) Start: i32* [[R_RED0:%.*]]
-; CHECK-NEXT:    Linked values: i32* [[VP_R_RED:%.*]], i32 [[VP_R_REDRED_INIT:%.*]], void [[VP_STORE:%.*]], i32 [[VP_R_REDRED_FINAL:%.*]],
-; CHECK-NEXT:   Memory: i32* [[R_RED0]]
+; CHECK-NEXT:    (+) Start: ptr [[R_RED0:%.*]]
+; CHECK-NEXT:    Linked values: ptr [[VP_R_RED:%.*]], i32 [[VP_R_REDRED_INIT:%.*]], void [[VP_STORE:%.*]], i32 [[VP_R_REDRED_FINAL:%.*]],
+; CHECK-NEXT:   Memory: ptr [[R_RED0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
@@ -106,48 +106,46 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     i32* [[VP_R_RED]] = allocate-priv i32, OrigAlign = 4
-; CHECK-NEXT:     i8* [[VP_R_RED_BCAST:%.*]] = bitcast i32* [[VP_R_RED]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_R_RED_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[R_RED0]]
+; CHECK-NEXT:     ptr [[VP_R_RED]] = allocate-priv i32, OrigAlign = 4
+; CHECK-NEXT:     call i64 4 ptr [[VP_R_RED]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[R_RED0]]
 ; CHECK-NEXT:     i32 [[VP_R_REDRED_INIT]] = reduction-init i32 0 i32 [[VP_LOAD]]
-; CHECK-NEXT:     store i32 [[VP_R_REDRED_INIT]] i32* [[VP_R_RED]]
+; CHECK-NEXT:     store i32 [[VP_R_REDRED_INIT]] ptr [[VP_R_RED]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB3]] ]
-; CHECK-NEXT:     i32 [[VP1:%.*]] = load i32* [[VP_R_RED]]
+; CHECK-NEXT:     i32 [[VP1:%.*]] = load ptr [[VP_R_RED]]
 ; CHECK-NEXT:     i32 [[VP2:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
 ; CHECK-NEXT:     i32 [[VP_ADD5:%.*]] = add i32 [[VP1]] i32 [[VP2]]
-; CHECK-NEXT:     float* [[VP_ADD_PTR:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     i32 [[VP_CALL:%.*]] = call float* [[VP_ADD_PTR]] i32 (float*)* @_Z4predPf
+; CHECK-NEXT:     ptr [[VP_ADD_PTR:%.*]] = getelementptr inbounds float, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP_CALL:%.*]] = call ptr [[VP_ADD_PTR]] ptr @_Z4predPf
 ; CHECK-NEXT:     i1 [[VP_TOBOOL_NOT:%.*]] = icmp eq i32 [[VP_CALL]] i32 0
 ; CHECK-NEXT:     br i1 [[VP_TOBOOL_NOT]], [[BB3]], [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
-; CHECK-NEXT:       float [[VP3:%.*]] = load float* [[VP_ADD_PTR]]
+; CHECK-NEXT:       float [[VP3:%.*]] = load ptr [[VP_ADD_PTR]]
 ; CHECK-NEXT:       float [[VP_CONV:%.*]] = sitofp i32 [[VP_ADD5]] to float
 ; CHECK-NEXT:       float [[VP_ADD6:%.*]] = fadd float [[VP3]] float [[VP_CONV]]
 ; CHECK-NEXT:       i32 [[VP_CONV7:%.*]] = fptosi float [[VP_ADD6]] to i32
-; CHECK-NEXT:       store i32 [[VP_CONV7]] i32* [[VP_R_RED]]
+; CHECK-NEXT:       store i32 [[VP_CONV7]] ptr [[VP_R_RED]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]], [[BB4]]
-; CHECK-NEXT:     i32 [[VP0]] = load i32* [[VP_R_RED]]
+; CHECK-NEXT:     i32 [[VP0]] = load ptr [[VP_R_RED]]
 ; CHECK-NEXT:     i32 [[VP_INC]] = add i32 [[VP0]] i32 1
-; CHECK-NEXT:     store i32 [[VP_INC]] i32* [[VP_R_RED]]
+; CHECK-NEXT:     store i32 [[VP_INC]] ptr [[VP_R_RED]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND_NOT:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0:%.*]]
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND_NOT]], [[BB5:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_R_RED]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_R_RED]]
 ; CHECK-NEXT:     i32 [[VP_R_REDRED_FINAL]] = reduction-final{u_add} i32 [[VP_LOAD_1]]
-; CHECK-NEXT:     store i32 [[VP_R_REDRED_FINAL]] i32* [[R_RED0]]
-; CHECK-NEXT:     i8* [[VP_R_RED_BCAST1:%.*]] = bitcast i32* [[VP_R_RED]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_R_RED_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
+; CHECK-NEXT:     store i32 [[VP_R_REDRED_FINAL]] ptr [[R_RED0]]
+; CHECK-NEXT:     call i64 4 ptr [[VP_R_RED]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     i32 [[VP_INC_PRIV_FINAL]] = private-final-uc i32 [[VP_INC]]
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
@@ -161,11 +159,11 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 entry:
   %r.red = alloca i32, align 4
   %k.linear.iv = alloca i32, align 4
-  store i32 0, i32* %r.red, align 4
+  store i32 0, ptr %r.red, align 4
   br label %DIR.OMP.SIMD.129
 
 DIR.OMP.SIMD.129:                                 ; preds = %DIR.OMP.SIMD.1
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %r.red, i32 0, i32 1),  "QUAL.OMP.LINEAR:IV.TYPED"(i32* %k.linear.iv, i32 0, i32 1, i32 1) ]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %r.red, i32 0, i32 1),  "QUAL.OMP.LINEAR:IV.TYPED"(ptr %k.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.129
@@ -173,26 +171,26 @@ DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.129
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %if.end
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %if.end ]
-  %1 = load i32, i32* %r.red, align 4
+  %1 = load i32, ptr %r.red, align 4
   %2 = trunc i64 %indvars.iv to i32
   %add5 = add nsw i32 %1, %2
-  %add.ptr = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  %call = call i32 @_Z4predPf(float* %add.ptr) #1
+  %add.ptr = getelementptr inbounds float, ptr %a, i64 %indvars.iv
+  %call = call i32 @_Z4predPf(ptr %add.ptr) #1
   %tobool.not = icmp eq i32 %call, 0
   br i1 %tobool.not, label %if.end, label %if.then
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %3 = load float, float* %add.ptr, align 4
+  %3 = load float, ptr %add.ptr, align 4
   %conv = sitofp i32 %add5 to float
   %add6 = fadd fast float %3, %conv
   %conv7 = fptosi float %add6 to i32
-  store i32 %conv7, i32* %r.red, align 4
+  store i32 %conv7, ptr %r.red, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %omp.inner.for.body
-  %4 = load i32, i32* %r.red, align 4
+  %4 = load i32, ptr %r.red, align 4
   %inc = add nsw i32 %4, 1
-  store i32 %inc, i32* %r.red, align 4
+  store i32 %inc, ptr %r.red, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %n
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
@@ -211,4 +209,4 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
-declare dso_local i32 @_Z4predPf(float*) local_unnamed_addr
+declare dso_local i32 @_Z4predPf(ptr) local_unnamed_addr

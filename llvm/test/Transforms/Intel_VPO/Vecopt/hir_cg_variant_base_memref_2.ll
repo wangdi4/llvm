@@ -19,7 +19,7 @@
 
 
 ; VPRED:             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; VPRED-NEXT:        |   %.vec = (<4 x i32*>*)(%arr)[i1];
+; VPRED-NEXT:        |   %.vec = (<4 x ptr>*)(%arr)[i1];
 ; VPRED-NEXT:        |   %.vec1 = (<4 x i32>*)(%.vec)[0];
 ; VPRED-NEXT:        |   %.vec2 = %.vec1  +  %phi.temp;
 ; VPRED-NEXT:        |   %phi.temp = %.vec2;
@@ -29,16 +29,16 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @foo2(i32** nocapture readonly %arr) local_unnamed_addr {
+define dso_local i32 @foo2(ptr nocapture readonly %arr) local_unnamed_addr {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %sum.011 = phi i32 [ 0, %entry ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds i32*, i32** %arr, i64 %indvars.iv
-  %0 = load i32*, i32** %arrayidx, align 8
-  %1 = load i32, i32* %0, align 4
+  %arrayidx = getelementptr inbounds ptr, ptr %arr, i64 %indvars.iv
+  %0 = load ptr, ptr %arrayidx, align 8
+  %1 = load i32, ptr %0, align 4
   %add = add nsw i32 %1, %sum.011
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024

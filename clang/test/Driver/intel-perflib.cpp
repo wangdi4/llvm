@@ -172,8 +172,8 @@
 // CHECK-TBB-LIN-SYCL-SAME: "-DPSTL_USE_PARALLEL_POLICIES=0" "-D_GLIBCXX_USE_TBB_PAR_BACKEND=0"
 // CHECK-TBB-LIN: "-DPSTL_USE_PARALLEL_POLICIES=0" "-D_GLIBCXX_USE_TBB_PAR_BACKEND=0"
 // CHECK-TBB: "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include"
-// CHECK-TBB-LIN: ld{{.*}} "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}gcc4.8" {{.*}} "-ltbb"
-// CHECK-TBB-WIN: link{{.*}} "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}vc14"
+// CHECK-TBB-LIN: ld{{.*}} "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{.*}}" {{.*}} "-ltbb"
+// CHECK-TBB-WIN: link{{.*}} "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{.*}}"
 
 // DAAL tests
 // Copy the libs created above from MKL
@@ -219,11 +219,11 @@
 // CHECK-DAAL-SYCL: llvm-spirv{{.*}}
 // CHECK-DAAL-SYCL: clang-offload-wrapper{{.*}}
 // CHECK-DAAL-SYCL: llc{{.*}}
-// CHECK-DAAL-LIN: ld{{.*}} "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}gcc4.8" "-L{{.*}}dal{{/|\\\\}}lib{{/|\\\\}}intel64"
+// CHECK-DAAL-LIN: ld{{.*}} "-L{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{.*}}" "-L{{.*}}dal{{/|\\\\}}lib{{/|\\\\}}intel64"
 // CHECK-DAAL-LIN-PARALLEL: "--start-group" "-lonedal_core" "-lonedal_thread" "--end-group" "-ltbb"
 // CHECK-DAAL-LIN-SYCL: "--start-group" "-lonedal_sycl" "-lonedal_core" "-lonedal_thread" "--end-group" "-ltbb"
 // CHECK-DAAL-LIN-SEQUENTIAL-NOT: "-lonedal_sequential"
-// CHECK-DAAL-WIN: "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}vc14" "-libpath:{{.*}}dal{{/|\\\\}}lib{{/|\\\\}}intel64"
+// CHECK-DAAL-WIN: "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{.*}}" "-libpath:{{.*}}dal{{/|\\\\}}lib{{/|\\\\}}intel64"
 
 // Check phases for -qmkl and objects
 // RUN: touch %t.o

@@ -1,5 +1,7 @@
 ; RUN: SATest -BUILD -pass-manager-type=lto -llvm-option=-debug-pass-manager -config=%S/pipeline_lto_O0.tst.cfg 2>&1 | FileCheck %s
 ; RUN: SATest -BUILD -llvm-option=-debug-pass-manager -config=%S/pipeline_lto_O0.tst.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -llvm-option=-debug-pass=Structure -config=%S/pipeline_lto_O0.tst.cfg 2>&1 | FileCheck %s --check-prefix=CHECK-CG
+
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled
 
@@ -18,14 +20,14 @@
 ; CHECK:      Running pass: ExternalizeGlobalVariablesPass
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
-; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: LinearIdResolverPass
+; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK:      Running pass: SGRemapWICallPass
 ; CHECK:      Running pass: BuiltinCallToInstPass
 
 ; CHECK:      Running pass: DetectRecursionPass
-; CHECK-NEXT: Running pass: DuplicateCalledKernels
+; CHECK:      Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK:      Running pass: InstToFuncCallPass
@@ -37,17 +39,20 @@
 
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK:      Running pass: PreventDivCrashesPass
+; CHECK-NEXT: Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SYCLKernelWGLoopCreatorPass
 ; CHECK:      Running pass: IndirectCallLowering ;INTEL
 ; CHECK:      Skipping pass UnifyFunctionExitNodesPass
 
 ; CHECK:      Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: BarrierInFunction
-; CHECK:      Running pass: RemoveDuplicatedBarrierPass
-; CHECK-NEXT: Running pass: SGBuiltinPass
+; CHECK:      Running pass: SGBuiltinPass
 ; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
+; CHECK-NEXT: Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SGValueWidenPass
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Running pass: SGLoopConstructPass
@@ -56,7 +61,6 @@
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: SplitBBonBarrier
 ; CHECK-NEXT: Running pass: KernelBarrier
-; CHECK:      Running analysis: DataPerBarrierAnalysis
 ; CHECK:      Running analysis: DataPerValueAnalysis
 ; CHECK:      Running analysis: WIRelatedValueAnalysis
 
@@ -72,9 +76,10 @@
 ; CHECK:      Running pass: BuiltinCallToInstPass
 ; CHECK:      Running pass: AlwaysInlinerPass
 ; CHECK-NEXT: Running pass: PatchCallbackArgsPass
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK:      Running pass: PrepareKernelArgsPass
+; CHECK-NEXT: Running pass: PrepareKernelArgsPass
 
 ; CHECK:      Running pass: CleanupWrappedKernelPass
 
 ; CHECK: Test program was successfully built.
+
+; CHECK-CG-NOT: Type-Based Alias Analysis

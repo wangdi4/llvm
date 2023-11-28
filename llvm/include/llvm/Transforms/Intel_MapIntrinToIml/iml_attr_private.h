@@ -1,4 +1,4 @@
-//      Copyright  (C) 2010-2016 Intel Corporation.
+//      Copyright  (C) 2010 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION

@@ -1,6 +1,7 @@
 ; RUN: opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This test verifies that the DTrans delete pass correctly updates the offsets
 ; used in byte-flattened GEPs after field deletion within a cloned function.
@@ -13,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !6 {
   ; Allocate a structure.
-  %p = call ptr @malloc(i64 16)
+  %p = call ptr @malloc(i64 24)
 
   ; Call a function to do something.
   %val = call i32 @doSomething(ptr %p)
@@ -27,8 +28,8 @@ define i32 @doSomething(ptr "intel_dtrans_func_index"="1" %p_test) !intel.dtrans
 
   ; Get pointers to each field
   %p8_A = getelementptr i8, ptr %p_test, i64 0
-  %p8_B = getelementptr i8, ptr %p_test, i64 4
-  %p8_C = getelementptr i8, ptr %p_test, i64 12
+  %p8_B = getelementptr i8, ptr %p_test, i64 8
+  %p8_C = getelementptr i8, ptr %p_test, i64 16
 
   ; read and write A and C
   store i32 1, ptr %p_test
@@ -45,7 +46,7 @@ define i32 @doSomething(ptr "intel_dtrans_func_index"="1" %p_test) !intel.dtrans
 ; CHECK-LABEL: define i32 @doSomething
 
 ; CHECK: %p8_A = getelementptr i8, ptr %p_test, i64 0
-; CHECK-NOT: %p8_B = getelementptr i8, ptr %p_test, i64 4
+; CHECK-NOT: %p8_B = getelementptr i8, ptr %p_test, i64 8
 ; CHECK: %p8_C = getelementptr i8, ptr %p_test, i64 4
 
 ; CHECK-NOT: store i64 3, ptr %p8_B

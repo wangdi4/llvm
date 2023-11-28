@@ -1,13 +1,9 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
-// RUN:  -fopenmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s \
-// RUN:  | FileCheck %s
-
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
-// RUN:  -fopenmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s \
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+// RUN:  -triple x86_64-unknown-linux-gnu %s \
 // RUN:  -fopenmp-version=52 | FileCheck -check-prefixes CHECK,OMP52 %s
 
 // Checking on "regular" loops

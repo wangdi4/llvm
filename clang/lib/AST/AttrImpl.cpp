@@ -312,7 +312,6 @@ void OMPDeclareVariantAttr::printPrettyPragma(
       (*I)->printPretty(OS, nullptr, Policy);
     }
   };
-
   if (adjustArgsNothing_size()) {
     OS << " adjust_args(nothing:";
     PrintExprs(adjustArgsNothing_begin(), adjustArgsNothing_end());

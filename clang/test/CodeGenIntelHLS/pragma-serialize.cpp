@@ -1,12 +1,12 @@
-//RUN: %clang_cc1 -fhls -O0 -triple x86_64-unknown-linux-gnu -opaque-pointers \
+//RUN: %clang_cc1 -fhls -O0 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-pch -o %t.pch %s
-//RUN: %clang_cc1 -fhls -O0 -triple x86_64-unknown-linux-gnu -opaque-pointers \
+//RUN: %clang_cc1 -fhls -O0 -triple x86_64-unknown-linux-gnu \
 //RUN:  -fdelayed-template-parsing -emit-pch -o %t.del.pch %s
 
-//RUN: %clang_cc1 -DMAIN_FILE -fhls -O0 -triple x86_64-unknown-linux-gnu -opaque-pointers \
+//RUN: %clang_cc1 -DMAIN_FILE -fhls -O0 -triple x86_64-unknown-linux-gnu \
 //RUN:  -include-pch %t.pch -emit-llvm -o - %s  | FileCheck %s
 
-//RUN: %clang_cc1 -DMAIN_FILE -fhls -O0 -triple x86_64-unknown-linux-gnu -opaque-pointers \
+//RUN: %clang_cc1 -DMAIN_FILE -fhls -O0 -triple x86_64-unknown-linux-gnu \
 //RUN:  -fdelayed-template-parsing -include-pch %t.del.pch -emit-llvm -o - %s  | FileCheck %s
 
 #ifndef MAIN_FILE

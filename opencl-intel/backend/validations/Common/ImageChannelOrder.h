@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,12 +15,11 @@
 #ifndef __IMAGE_CHANNEL_ORDER_H__
 #define __IMAGE_CHANNEL_ORDER_H__
 
+#include "Exception.h"
 #include <cassert>
 #include <cstddef> // for std::size_t
 #include <map>
 #include <string>
-
-#include "Exception.h"
 
 namespace Validation {
 /// Structure describing type of elements in Buffer

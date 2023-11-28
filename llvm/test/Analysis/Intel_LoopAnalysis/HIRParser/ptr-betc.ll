@@ -1,8 +1,8 @@
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 
 ; Check parsing output for the loop verifying that the loop upper which has a pointer type is parsed correctly.
-; CHECK: DO i1 = 0, -1 * umin((-3 + ptrtoint.i8*.i32(%add.ptr.pn.i)), ptrtoint.i8*.i32(%endptr)) + ptrtoint.i8*.i32(%add.ptr.pn.i) + -3, 1
+; CHECK: DO i1 = 0, -1 * umin((-3 + ptrtoint.ptr.i32(%add.ptr.pn.i)), ptrtoint.ptr.i32(%endptr)) + ptrtoint.ptr.i32(%add.ptr.pn.i) + -3, 1
 ; CHECK-NEXT: END LOOP
 
 
@@ -12,7 +12,7 @@ target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
 ; Function Attrs: nounwind
-define void @Perl_pp_unpack(i8* %endptr) {
+define void @Perl_pp_unpack(ptr %endptr) {
 entry:
   br i1 undef, label %cond.end19, label %cond.false
 
@@ -867,24 +867,24 @@ if.end.i:                                         ; preds = %cond.false13.i, %co
   br label %while.cond.i
 
 while.cond.i:                                     ; preds = %while.cond.i, %if.end.i
-  %add.ptr.pn.i = phi i8* [ undef, %if.end.i ], [ %t.0.i, %while.cond.i ]
-  %t.0.i = getelementptr inbounds i8, i8* %add.ptr.pn.i, i32 -1
+  %add.ptr.pn.i = phi ptr [ undef, %if.end.i ], [ %t.0.i, %while.cond.i ]
+  %t.0.i = getelementptr inbounds i8, ptr %add.ptr.pn.i, i32 -1
   br i1 undef, label %while.cond.i, label %while.cond19.preheader.i
 
 while.cond19.preheader.i:                         ; preds = %while.cond.i
   br i1 undef, label %while.body20.i.preheader, label %mul128.exit
 
 while.body20.i.preheader:                         ; preds = %while.cond19.preheader.i
-  %incdec.ptr24.i2606 = getelementptr inbounds i8, i8* %add.ptr.pn.i, i32 -2
+  %incdec.ptr24.i2606 = getelementptr inbounds i8, ptr %add.ptr.pn.i, i32 -2
   br i1 undef, label %while.body20.while.body20_crit_edge.i.preheader, label %mul128.exit
 
 while.body20.while.body20_crit_edge.i.preheader:  ; preds = %while.body20.i.preheader
   br label %while.body20.while.body20_crit_edge.i
 
 while.body20.while.body20_crit_edge.i:            ; preds = %while.body20.while.body20_crit_edge.i, %while.body20.while.body20_crit_edge.i.preheader
-  %incdec.ptr24.i2609 = phi i8* [ %incdec.ptr24.i, %while.body20.while.body20_crit_edge.i ], [ %incdec.ptr24.i2606, %while.body20.while.body20_crit_edge.i.preheader ]
-  %incdec.ptr24.i = getelementptr inbounds i8, i8* %incdec.ptr24.i2609, i32 -1
-  %cmp.i = icmp ugt i8* %incdec.ptr24.i, %endptr
+  %incdec.ptr24.i2609 = phi ptr [ %incdec.ptr24.i, %while.body20.while.body20_crit_edge.i ], [ %incdec.ptr24.i2606, %while.body20.while.body20_crit_edge.i.preheader ]
+  %incdec.ptr24.i = getelementptr inbounds i8, ptr %incdec.ptr24.i2609, i32 -1
+  %cmp.i = icmp ugt ptr %incdec.ptr24.i, %endptr
   br i1 %cmp.i, label %while.body20.while.body20_crit_edge.i, label %mul128.exit.loopexit
 
 mul128.exit.loopexit:                             ; preds = %while.body20.while.body20_crit_edge.i

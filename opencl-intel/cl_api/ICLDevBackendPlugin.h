@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -19,7 +19,6 @@
 #include "ICLDevBackendKernel.h"
 #include "ICLDevBackendOptions.h"
 #include "ICLDevBackendProgram.h"
-#include "LLVM\Function.h"
 #include "cl_device_api.h"
 
 namespace Intel {

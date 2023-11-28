@@ -353,7 +353,7 @@ std::optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
 
 std::optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
                                                  const Module *M) {
-#endif
+#endif // INTEL_CUSTOMIZATION
   const StringRef OriginalName = MangledName;
   // Assume there is no custom name <redirection>, and therefore the
   // vector name consists of
@@ -411,7 +411,7 @@ std::optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
   // A valid mangled name can have an empty set of parameters (see VFABI docs).
   if (Parameters.empty())
     return std::nullopt;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Check for the <scalarname> and the optional <redirection>, which
   // are separated from the prefix with "_"
@@ -476,7 +476,7 @@ std::optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
 #if INTEL_CUSTOMIZATION
     assert(M && "Can't demangle scalable variant name without a valid module!");
     const Function *F = M->getFunction(VectorName);
-#endif
+#endif // INTEL_CUSTOMIZATION
     // The declaration of the function must be present in the module
     // to be able to retrieve its signature.
     if (!F)
@@ -499,7 +499,7 @@ std::optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
       Shape, std::string(ScalarName), std::string(VectorName), ISA,
       std::string(OriginalName)
   });
-#endif
+#endif // INTEL_CUSTOMIZATION
 }
 
 VFParamKind VFABI::getVFParamKindFromString(const StringRef Token) {

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -191,6 +191,12 @@ static cl::opt<bool> ForceRunLTOPartialInline(
 static cl::opt<bool> ForceEnableSpecialCasesPartialInline(
     "force-enable-special-cases-partial-inline", cl::init(false), cl::Hidden,
     cl::desc("Force partial inliner to handle special cases"));
+
+static cl::opt<unsigned>
+    HugeCaseCountForSwitch("partial-inline-huge-case-count", cl::init(12),
+                           cl::Hidden,
+                           cl::desc("Switch construct with this many cases is "
+                                    "considered huge in partial inlining"));
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -212,7 +218,7 @@ struct FunctionOutliningInfo {
   // The dominating block of the region to be outlined.
   BasicBlock *NonReturnBlock = nullptr;
 
-  // The set of blocks in Entries that that are predecessors to ReturnBlock
+  // The set of blocks in Entries that are predecessors to ReturnBlock
   SmallVector<BasicBlock *, 4> ReturnBlockPreds;
 };
 
@@ -245,8 +251,8 @@ struct PartialInlinerImpl {
       ProfileSummaryInfo &ProfSI,
       function_ref<BlockFrequencyInfo &(Function &)> GBFI, // INTEL
       InliningLoopInfoCache *InlLoopIC,                    // INTEL
-      bool RunLTOPartialInline, bool EnableSpecialCases,
-      WholeProgramInfo &WPInfo)   // INTEL
+      bool RunLTOPartialInline, bool EnableSpecialCases,   // INTEL
+      WholeProgramInfo &WPInfo)                            // INTEL
       : GetAssumptionCache(GetAC), LookupAssumptionCache(LookupAC),
         GetTTI(GTTI), GetBFI(GBFI), GetTLI(GTLI), ILIC(InlLoopIC), // INTEL
         PSI(ProfSI), RunLTOPartialInline(RunLTOPartialInline),     // INTEL
@@ -892,7 +898,7 @@ bool PartialInlinerImpl::shouldPartialInline(
   const DataLayout &DL = Caller->getParent()->getDataLayout();
 
   // The savings of eliminating the call:
-  int NonWeightedSavings = getCallsiteCost(CB, DL);
+  int NonWeightedSavings = getCallsiteCost(CalleeTTI, CB, DL);
   BlockFrequency NormWeightedSavings(NonWeightedSavings);
 
   // Weighted saving is smaller than weighted cost, return false
@@ -948,9 +954,9 @@ PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB,
       break;
     }
 
+#if INTEL_CUSTOMIZATION
     IntrinsicInst *IntrInst = dyn_cast<IntrinsicInst>(&I);
     if (IntrInst) {
-#if INTEL_CUSTOMIZATION
       if (I.isLifetimeStartOrEnd())
         continue;
       if (isa<FakeloadInst>(IntrInst))
@@ -966,8 +972,8 @@ PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB,
       // when extracted.
       if (IntrInst->getIntrinsicID() == Intrinsic::assume)
         continue;
-#endif // INTEL_CUSTOMIZATION
     }
+#endif // INTEL_CUSTOMIZATION
 
     if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
       Intrinsic::ID IID = II->getIntrinsicID();
@@ -985,12 +991,12 @@ PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB,
     }
 
     if (CallInst *CI = dyn_cast<CallInst>(&I)) {
-      InlineCost += getCallsiteCost(*CI, DL);
+      InlineCost += getCallsiteCost(*TTI, *CI, DL);
       continue;
     }
 
     if (InvokeInst *II = dyn_cast<InvokeInst>(&I)) {
-      InlineCost += getCallsiteCost(*II, DL);
+      InlineCost += getCallsiteCost(*TTI, *II, DL);
       continue;
     }
 
@@ -1205,7 +1211,7 @@ void PartialInlinerImpl::FunctionCloner::normalizeReturnBlock() const {
   ClonedOI->ReturnBlock = ClonedOI->ReturnBlock->splitBasicBlock(
       ClonedOI->ReturnBlock->getFirstNonPHI()->getIterator());
   BasicBlock::iterator I = PreReturn->begin();
-  Instruction *Ins = &ClonedOI->ReturnBlock->front();
+  BasicBlock::iterator Ins = ClonedOI->ReturnBlock->begin();
   SmallVector<Instruction *, 4> DeadPhis;
   while (I != PreReturn->end()) {
     PHINode *OldPhi = dyn_cast<PHINode>(I);
@@ -1213,9 +1219,10 @@ void PartialInlinerImpl::FunctionCloner::normalizeReturnBlock() const {
       break;
 
     PHINode *RetPhi =
-        PHINode::Create(OldPhi->getType(), NumPredsFromEntries + 1, "", Ins);
+        PHINode::Create(OldPhi->getType(), NumPredsFromEntries + 1, "");
+    RetPhi->insertBefore(Ins);
     OldPhi->replaceAllUsesWith(RetPhi);
-    Ins = ClonedOI->ReturnBlock->getFirstNonPHI();
+    Ins = ClonedOI->ReturnBlock->getFirstNonPHIIt();
 
     RetPhi->addIncoming(&*I, PreReturn);
     for (BasicBlock *E : ClonedOI->ReturnBlockPreds) {
@@ -1392,8 +1399,8 @@ PartialInlinerImpl::FunctionCloner::~FunctionCloner() {
   getInlineReport()->replaceAllUsesWith(ClonedFunc, OrigFunc); // INTEL
   getMDInlineReport()->replaceAllUsesWith(ClonedFunc, OrigFunc); // INTEL
   ClonedFunc->replaceAllUsesWith(OrigFunc);
-  getInlineReport()->removeFunctionReference(*ClonedFunc);
-  getMDInlineReport()->removeFunctionReference(*ClonedFunc);
+  getInlineReport()->removeFunctionReference(*ClonedFunc);   // INTEL
+  getMDInlineReport()->removeFunctionReference(*ClonedFunc); // INTEL
   ClonedFunc->eraseFromParent();
   if (!IsFunctionInlined) {
     // Remove each function that was speculatively created if there is no
@@ -1504,12 +1511,55 @@ static bool SpecialEarlySwitch(Function *F) {
   auto RI = dyn_cast<ReturnInst>(*PHIN->user_begin());
   return RI;
 }
+
+// CMPLRLLVM-48721: Returns true if F met the following conditions to enable
+// partial inlining for it:
+// * The entry block is terminated by a conditional branch on a boolean global
+// variable.
+// * One of the successors of the entry block is a switch with a large number of
+// cases, the other successor is just a return.
+// * Has variadic arguments.
+// * Is called by a leaf function of a long consecutive call chain.
+static bool SpecialEarlySwitchForLargeSwitch(Function *F) {
+  if (!F->isVarArg())
+    return false;
+  auto EntryCondBranch =
+      dyn_cast<BranchInst>(F->getEntryBlock().getTerminator());
+  if (!EntryCondBranch || !EntryCondBranch->isConditional())
+    return false;
+  auto LI = dyn_cast<LoadInst>(EntryCondBranch->getCondition());
+  if (!LI || !LI->hasOneUse())
+    return false;
+  auto GV = dyn_cast<GlobalValue>(LI->getPointerOperand());
+  if (!GV)
+    return false;
+  BasicBlock *BTS = EntryCondBranch->getSuccessor(0);
+  auto Switch = dyn_cast<SwitchInst>(BTS->getTerminator());
+  if (!Switch || Switch->getNumCases() < HugeCaseCountForSwitch)
+    return false;
+  BasicBlock *BFS = EntryCondBranch->getSuccessor(1);
+  if (!isa<ReturnInst>(BFS->getTerminator()))
+    return false;
+
+  bool CalledByLCCCLeafFunction = false;
+  for (User *U : F->users()) {
+    auto CI = dyn_cast<CallInst>(U);
+    if (!CI || CI->getCalledFunction() != F)
+      continue;
+    if (CI->hasFnAttr("lccc-call-in-leaf")) {
+      CalledByLCCCLeafFunction = true;
+      break;
+    }
+  }
+  return CalledByLCCCLeafFunction;
+}
 #endif // INTEL_CUSTOMIZATION
 
 std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function &F) {
 
 #if INTEL_CUSTOMIZATION
-  if (!(EnableSpecialCases && SpecialEarlySwitch(&F))) {
+  if (!((EnableSpecialCases && SpecialEarlySwitch(&F)) ||
+        SpecialEarlySwitchForLargeSwitch(&F))) {
 #if INTEL_FEATURE_SW_DTRANS
     // Only do LTO partial inlining for functions that are targets of
     // virtual calls

@@ -1,6 +1,6 @@
 //===- HIRLastValueComputation.cpp - Implements LastValueComputation class -===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -39,6 +39,10 @@ using namespace llvm::loopopt::lastvaluecomputation;
 static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
+
+static cl::opt<bool> DisablePassForMultiExitLoops(
+    "disable-" OPT_SWITCH "-multi-exit-loop", cl::init(false), cl::Hidden,
+    cl::desc("Disable " OPT_DESC " pass for multi-exit loops"));
 
 static cl::opt<unsigned> NumOperationsThreshold(
     OPT_SWITCH "-num-operations-threshold", cl::init(4), cl::Hidden,
@@ -441,6 +445,12 @@ bool HIRLastValueComputation::run() {
       continue;
     }
 
+    // For explicit early-exit loops we want to disable this optimization as
+    // liveout instructions get inlined into the exit block which is tricky to
+    // handle in downstream vectorizer.
+    if (DisablePassForMultiExitLoops && Lp->isDoMultiExit())
+      continue;
+
     Result = doLastValueComputation(Lp) || Result;
   }
 
@@ -452,43 +462,4 @@ PreservedAnalyses HIRLastValueComputationPass::runImpl(
   ModifiedHIR =
       HIRLastValueComputation(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
-}
-
-class HIRLastValueComputationLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRLastValueComputationLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRLastValueComputationLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRLastValueComputation(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
-        .run();
-  }
-};
-
-char HIRLastValueComputationLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLastValueComputationLegacyPass, OPT_SWITCH, OPT_DESC,
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRLastValueComputationLegacyPass, OPT_SWITCH, OPT_DESC,
-                    false, false)
-
-FunctionPass *llvm::createHIRLastValueComputationPass() {
-  return new HIRLastValueComputationLegacyPass();
 }

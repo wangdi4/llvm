@@ -93,3 +93,27 @@ def bf16_matrix_layout_transform_colmajor_to_rowmajor_impl : OclBuiltinImpl<matr
     }
   }
   }]>;
+
+def float_matrix_layout_transform_colmajor_to_rowmajor_impl : OclBuiltinImpl<matrix_layout_transform_colmajor_to_rowmajor, [v1f32], 0, [{
+  // $Arg2VarName x $Arg3VarName are real(aka rowmajor) matrix's row and col
+  // $Arg3VarName x  $Arg2VarName, stride = $Arg4VarName=> $Arg2VarName x $Arg3VarName
+  // [k,n] =>[n,k]
+  // K*$Arg4VarName/4 + n => n*$Arg3VarName + k
+  for (int k = 0; k < $Arg3VarName; ++k) {
+    for (int n = 0; n < $Arg2VarName; ++n) {
+      $Arg1VarName[n*$Arg3VarName + k] = $Arg0VarName[k*$Arg4VarName/4 + n];
+    }
+  }
+  }]>;
+
+def float_matrix_layout_transform_rowmajor_to_colmajor_impl : OclBuiltinImpl<matrix_layout_transform_rowmajor_to_colmajor, [v1f32], 0, [{
+  // $Arg2VarName x $Arg3VarName are real(aka rowmajor) matrix's row and col
+  // $Arg2VarName x $Arg3VarName => $Arg3VarName x  $Arg2VarName, stride = $Arg4VarName
+  // [k,n] =>[n,k]
+  // K*$Arg3VarName + n => n*$Arg4VarName/4 + k
+  for (int k = 0; k < $Arg2VarName; ++k) {
+    for (int n = 0; n < $Arg3VarName; ++n) {
+      $Arg1VarName[n * $Arg4VarName/4 + k] = $Arg0VarName[k * $Arg3VarName + n];
+    }
+  }
+  }]>;

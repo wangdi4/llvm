@@ -1,6 +1,6 @@
 //===--- IRRegion.h - Section of LLVM IR representing HLRegion --*- C++ -*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -138,6 +138,12 @@ public:
 
   /// Returns list of outermost loops of the region.
   ArrayRef<const Loop *> getOutermostLoops() const { return OutermostLps; }
+
+  /// Returns the first outermost loop of the region. Returns null if no such
+  /// loop exists.
+  const Loop *getFirstOutermostLoop() const {
+    return OutermostLps.empty() ? nullptr : OutermostLps.front();
+  }
 
   /// Returns true if region was formed for loop materialization.
   bool isLoopMaterializationCandidate() const {

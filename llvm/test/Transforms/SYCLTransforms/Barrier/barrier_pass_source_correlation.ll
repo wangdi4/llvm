@@ -1,7 +1,7 @@
 ; This test checks the source correlation of the load and store instructions created by the Barrier pass. These instructions have a zero-source correlation because-
 ; 1) They are not directly related to user's code (artifact of the runtime chosen)
 ; 2) Assigning any source correlation to these instruction causes incorrect stepping behavior 
-; RUN: opt -passes=sycl-kernel-barrier -enable-native-debug=true %s -S -enable-debugify  | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier %s -S -enable-debugify  | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -9,9 +9,9 @@ target triple = "x86_64-pc-linux"
 ; Function Attrs: convergent noinline norecurse nounwind
 define dso_local void @test(ptr addrspace(1) %p) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !kernel_has_sub_groups !9 !kernel_execution_length !10 !no_barrier_path !9 !kernel_has_global_sync !9 {
 entry:
-; CHECK: %SBIndex{{[0-9]+}} = load i64, ptr %pCurrSBIndex, align 8, !dbg [[LOCATION_METADATA:![0-9]+]]
-; CHECK: [[SB_LocalId_Offset4:%.*]] = add nuw i64 %SBIndex{{[0-9]+}}, 64, !dbg [[LOCATION_METADATA]] 
-; CHECK: [[GEP:%.*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LocalId_Offset4]], !dbg [[LOCATION_METADATA]] 
+; CHECK: %SBIndex = load i64, ptr %pCurrSBIndex, align 8, !dbg [[LOCATION_METADATA:![0-9]+]]
+; CHECK: [[SB_LocalId_Offset4:%.*]] = add nuw i64 %SBIndex, 64, !dbg [[LOCATION_METADATA]]
+; CHECK: [[GEP:%.*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LocalId_Offset4]], !dbg [[LOCATION_METADATA]]
 ; CHECK: store ptr [[GEP]], ptr %i.addr, align 8, !dbg [[LOCATION_METADATA]]
 ; CHECK: [[LOCATION_METADATA]] = !DILocation(line: 0, scope: [[SCOPE_METADATA:![0-9]+]])
 ; CHECK: [[SCOPE_METADATA]] = !DILexicalBlockFile(scope: !{{[0-9]+}}, file: [[FILE_METADATA:![0-9]+]], discriminator: 0)

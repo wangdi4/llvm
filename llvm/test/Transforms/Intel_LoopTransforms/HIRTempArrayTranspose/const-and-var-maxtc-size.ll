@@ -1,54 +1,56 @@
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-array-transpose,print<hir>" -hir-temp-array-transpose-max-const-dimsize=400 -disable-output 2>&1 | FileCheck %s
 
-; Check that transpose occurs with cl-opt size of 400, and that it is disabled
-; when size < 400 for the following test case that has a LoopMaxTCEst of 400.
-; We should bail out for cases where MaxTCEst exceeds the threshold.
+; Check that transpose succeeds for one const and one var dimension.
+; For now test is not testing new functionality, as the variable path has been optimized
+; to const for i3 loop.
 
 ; HIR Before
-;    BEGIN REGION { }
-;          + DO i1 = 0, 199, 1   <DO_LOOP>
-;          |   + DO i2 = 0, 299, 1   <DO_LOOP>
-;          |   |   (@global.3)[i2][i1] = 0;
-;          |   |
-;          |   |      %phi132 = 0;
-;          |   |   + DO i3 = 0, sext.i32.i64(%load92) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 400>
-;          |   |   |   %load136 = (@global.5)[i3][i1];
-;          |   |   |   %load138 = (@global.4)[i2][i3];
-;          |   |   |   %phi132 = (%load138 * %load136)  +  %phi132;
-;          |   |   + END LOOP
-;          |   |      (@global.3)[i2][i1] = %phi132;
-;          |   + END LOOP
-;          + END LOOP
-;    END REGION
+;         BEGIN REGION { }
+;               + DO i1 = 0, 199, 1   <DO_LOOP>
+;               |   + DO i2 = 0, 299, 1   <DO_LOOP>
+;               |   |   (@global.3)[0][i2][i1] = 0;
+;               |   |
+;               |   |      %phi132 = 0;
+;               |   |   + DO i3 = 0, sext.i32.i64(%load92) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 400>  <LEGAL_MAX_TC = 2147483647>
+;               |   |   |   %load136 = (@global.5)[0][i3][i1];
+;               |   |   |   %load138 = (@global.4)[0][i2][i3];
+;               |   |   |   %phi132 = (%load138 * %load136)  +  %phi132;
+;               |   |   + END LOOP
+;               |   |      (@global.3)[0][i2][i1] = %phi132;
+;               |   + END LOOP
+;               + END LOOP
+;         END REGION
+
 
 ; HIR After
-; CHECK: BEGIN REGION { modified }
-; CHECK:   %call = @llvm.stacksave();
-; CHECK:   %TranspTmpArr = alloca 800 * sext.i32.i64(%load92);
+; CHECK:  BEGIN REGION { modified }
+; CHECK:        %call = @llvm.stacksave.p0();
+; CHECK:        %TranspTmpArr = alloca 320000;
 ;
-;          + DO i1 = 0, 199, 1   <DO_LOOP>
-;          |   + DO i2 = 0, sext.i32.i64(%load92) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 400>
-; CHECK:   |   |   (%TranspTmpArr)[i1][i2] = (@global.5)[i2][i1];
-;          |   + END LOOP
-;          + END LOOP
+; CHECK:        + DO i1 = 0, 199, 1   <DO_LOOP>
+;               |   + DO i2 = 0, 399, 1   <DO_LOOP>
+; CHECK:        |   |   (%TranspTmpArr)[i1][i2] = (@global.5)[0][i2][i1];
+;               |   + END LOOP
+;               + END LOOP
 ;
 ;
-;          + DO i1 = 0, 199, 1   <DO_LOOP>
-;          |   + DO i2 = 0, 299, 1   <DO_LOOP>
-;          |   |   (@global.3)[i2][i1] = 0;
-;          |   |
-;          |   |      %phi132 = 0;
-;          |   |   + DO i3 = 0, sext.i32.i64(%load92) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 400>
-; CHECK:   |   |   |   %load136 = (%TranspTmpArr)[i1][i3];
-;          |   |   |   %load138 = (@global.4)[i2][i3];
-;          |   |   |   %phi132 = (%load138 * %load136)  +  %phi132;
-;          |   |   + END LOOP
-;          |   |      (@global.3)[i2][i1] = %phi132;
-;          |   + END LOOP
-;          + END LOOP
+; CHECK:        + DO i1 = 0, 199, 1   <DO_LOOP>
+; CHECK:        |   + DO i2 = 0, 299, 1   <DO_LOOP>
+; CHECK:        |   |   (@global.3)[0][i2][i1] = 0;
+;               |   |
+;               |   |      %phi132 = 0;
+; CHECK:        |   |   + DO i3 = 0, sext.i32.i64(%load92) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 400>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:        |   |   |   %load136 = (%TranspTmpArr)[i1][i3];
+; CHECK:        |   |   |   %load138 = (@global.4)[0][i2][i3];
+;               |   |   |   %phi132 = (%load138 * %load136)  +  %phi132;
+;               |   |   + END LOOP
+;               |   |      (@global.3)[0][i2][i1] = %phi132;
+;               |   + END LOOP
+;               + END LOOP
 ;
-;          @llvm.stackrestore(&((%call)[0]));
-;    END REGION
+;               @llvm.stackrestore.p0(&((%call)[0]));
+;         END REGION
+
 
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-array-transpose,print<hir>" -hir-temp-array-transpose-max-const-dimsize=200 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-DISABLED
 

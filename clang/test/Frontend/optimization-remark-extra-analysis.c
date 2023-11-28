@@ -2,7 +2,7 @@
 // requiring extra analysis is only conditionally enabled.
 
 // INTEL add '-mllvm -loopopt=0' to disable additional GVN passes
-// RUN: %clang_cc1 %s -Rpass-missed=gvn -O2 -emit-llvm-only -verify -mllvm -loopopt=0
+// INTEL RUN: %clang_cc1 %s -Rpass-missed=gvn -O2 -emit-llvm-only -verify -mllvm -loopopt=0
 
 int foo(int *x, int *y) {
   int a = *x;

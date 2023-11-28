@@ -1,6 +1,6 @@
 //===-- IntelVPlanVerifier.h ------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -111,6 +111,16 @@ private:
   // be recomputed.
   void verifyDAShape(const VPInstruction *VPI) const;
 
+  // Verify the LiveIn/Out lists attached to the VPlan
+  // Checks that there is a corresponding VPExternalUse for every live-in
+  // and live-out, and that the index of each live-in/out in the list
+  // matches the merge ID of the external use.
+  void verifyLiveInOut(const VPlanVector *Plan) const;
+
+  // Verify that the header of a loop and its exits have the same predicate,
+  // or that none are predicated.
+  void verifyHeaderExitPredicates(const VPLoop *Lp) const;
+
   // Helper functions to hide the underlying enum check
   bool shouldSkipLoopInfo() const { return Flags & SkipLoopInfo; }
 
@@ -158,4 +168,4 @@ public:
 } // namespace vpo
 } // namespace llvm
 
-#endif //LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVERIFIER_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVERIFIER_H

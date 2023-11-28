@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2022 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -30,6 +30,7 @@
 #include <sstream>
 #include <stddef.h>
 #include <stdio.h>
+#include <thread>
 #if defined(_WIN32)
 #define NOMINMAX
 #include <strsafe.h>
@@ -142,6 +143,11 @@ Kernel::~Kernel() {
   }
   m_stackMem.clear();
   m_stackMutex.unlock();
+
+  for (auto &Item : m_HeapMem) {
+    ALIGNED_FREE(Item.second.first);
+  }
+  m_HeapMem.clear();
 
   for (auto &argInfo : m_explicitArgsInfo) {
     free(argInfo.name);
@@ -645,6 +651,8 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
       LocalSize = ((LocalSize + VF - 1) / VF) * VF;
     ActualBarrierBufferSize *= LocalSize;
   }
+  m_BarrierBufferSize = ActualBarrierBufferSize;
+  m_localBufferSize = localBufferSize;
   m_stackActualSize =
       ActualBarrierBufferSize + localBufferSize + m_stackExtraSize;
 
@@ -901,17 +909,43 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 
   AfterExecution();
 #else
-  if (!m_useAutoMemory || m_stackActualSize < m_stackDefaultSize)
-    kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
+#if defined(_WIN32)
+  thread_local cl_ulong stackSize = 0u;
+  // Get Windows stack size.
+  if (stackSize == 0u) {
+    ULONG_PTR lowAddr, highAddr;
+    GetCurrentThreadStackLimits(&lowAddr, &highAddr);
+    stackSize = highAddr - lowAddr;
+  }
+#else
+  cl_ulong stackSize = m_stackDefaultSize;
+#endif
+  NonUniformKernelArgs KenrelNonUniformArgs =
+      NonUniformKernelArgs{{pGroupID[0], pGroupID[1], pGroupID[2]}, nullptr};
+
+  const size_t *PKenrelNonUniformArgs = (size_t *)&KenrelNonUniformArgs;
+  if (!m_useAutoMemory || m_stackActualSize < stackSize)
+    kernel(pKernelUniformArgs, PKenrelNonUniformArgs, pRuntimeHandle);
   else {
+    if (m_stackActualSize - (m_BarrierBufferSize + m_localBufferSize) <
+        stackSize) {
+      size_t HeapSize =
+          m_BarrierBufferSize + m_localBufferSize + CPU_DEV_MAXIMUM_ALIGN * 2;
+      KenrelNonUniformArgs.HeapForPrivateLocal =
+          AllocaHeapForPrivateLocalMem(HeapSize);
+      kernel(pKernelUniformArgs, PKenrelNonUniformArgs, pRuntimeHandle);
+    } else {
 #if defined(_WIN32)
     LPVOID primaryFiber = nullptr, fiber = nullptr;
-    primaryFiber = ConvertThreadToFiber(nullptr);
+    if (IsThreadAFiber())
+      primaryFiber = GetCurrentFiber();
+    else
+      primaryFiber = ConvertThreadToFiber(nullptr);
     if (!primaryFiber)
       ErrorExit(TEXT("ConvertThreadToFiber"));
 
-    FIBERDATA fiberData = {pKernelUniformArgs, pGroupID, pRuntimeHandle, kernel,
-                           primaryFiber};
+    FIBERDATA fiberData = {pKernelUniformArgs, PKenrelNonUniformArgs,
+                           pRuntimeHandle, kernel, primaryFiber};
     fiber = CreateFiberEx(m_stackActualSize, 0, 0, CreateFiberExRoutineFunc,
                           &fiberData);
     if (!fiber)
@@ -932,10 +966,11 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
     newContext.uc_link = &originalContext;
 
     makecontext(&newContext, (void (*)())(kernel), 3, pKernelUniformArgs,
-                pGroupID, pRuntimeHandle);
+                PKenrelNonUniformArgs, pRuntimeHandle);
     swapcontext(&originalContext, &newContext);
     ReleaseStack(stackBase, allocatedSize);
 #endif
+    }
   }
 #endif // ENABLE_SDE
   return CL_DEV_SUCCESS;
@@ -944,6 +979,29 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 cl_dev_err_code Kernel::RestoreThreadState(ICLDevExecutionState &state) const {
   _mm_setcsr(state.MXCSRstate);
   return CL_DEV_SUCCESS;
+}
+
+void *Kernel::AllocaHeapForPrivateLocalMem(size_t HeapSize) const {
+  void *HeapBase = nullptr;
+  std::thread::id TId = std::this_thread::get_id();
+  if (auto It = m_HeapMem.find(TId); It != m_HeapMem.end()) {
+    auto Item = It->second;
+    if (Item.second >= HeapSize) {
+      HeapBase = Item.first;
+    } else {
+      HeapBase = realloc(HeapBase, HeapSize);
+      Item.first = HeapBase;
+      Item.second = HeapSize;
+    }
+  } else {
+    HeapBase = ALIGNED_MALLOC(HeapSize, CPU_DEV_MAXIMUM_ALIGN);
+    // TODO : Need to find an alternative approach without locking.
+    m_HeapMutex.lock();
+    m_HeapMem.insert(std::make_pair(TId, std::make_pair(HeapBase, HeapSize)));
+    m_HeapMutex.unlock();
+  }
+  assert(HeapBase && "Error: System memory is out of resource");
+  return HeapBase;
 }
 
 #if !defined(_WIN32)

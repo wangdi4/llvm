@@ -27,13 +27,13 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ]
-; CHECK-NEXT:     [DA: Div] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x float]* @src i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Div] float [[VP0:%.*]] = load float* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x float], ptr @src i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] float [[VP0:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] double [[VP_CONV:%.*]] = fpext float [[VP0]] to double
 ; CHECK-NEXT:     [DA: Div] double [[VP_LIB_CALL:%.*]] = call double [[VP_CONV]] __svml_sin4 [x 1]
 ; CHECK-NEXT:     [DA: Div] float [[VP_LIB_TRUNC:%.*]] = fptrunc double [[VP_LIB_CALL]] to float
-; CHECK-NEXT:     [DA: Div] float* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x float]* @dst i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Div] store float [[VP_LIB_TRUNC]] float* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x float], ptr @dst i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] store float [[VP_LIB_TRUNC]] ptr [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
@@ -63,13 +63,13 @@ DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.1 ]
-  %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @src, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x float], ptr @src, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4
   %conv = fpext float %1 to double
   %lib.call = call afn double @sin(double %conv) #1
   %lib.trunc = fptrunc double %lib.call to float
-  %arrayidx2 = getelementptr inbounds [1024 x float], [1024 x float]* @dst, i64 0, i64 %indvars.iv
-  store float %lib.trunc, float* %arrayidx2
+  %arrayidx2 = getelementptr inbounds [1024 x float], ptr @dst, i64 0, i64 %indvars.iv
+  store float %lib.trunc, ptr %arrayidx2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body

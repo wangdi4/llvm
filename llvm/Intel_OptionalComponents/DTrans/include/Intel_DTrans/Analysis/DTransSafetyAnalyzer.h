@@ -1,6 +1,6 @@
 //===--------------------DTransSafetyAnalyzer.h--------------------------===//
 //
-// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -393,22 +393,6 @@ private:
   static AnalysisKey Key;
   friend AnalysisInfoMixin<DTransSafetyAnalyzer>;
   static char PassID;
-};
-
-class DTransSafetyAnalyzerWrapper : public ModulePass {
-public:
-  static char ID;
-
-  DTransSafetyAnalyzerWrapper();
-
-  DTransSafetyInfo &getDTransSafetyInfo(Module &M);
-
-  bool runOnModule(Module &M) override;
-  bool doFinalization(Module &M) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-private:
-  DTransSafetyInfo Result;
 };
 
 } // end namespace dtransOP

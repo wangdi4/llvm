@@ -1,4 +1,21 @@
 //===--- SPIRVUtils.cpp ---- SPIR-V Utility Functions -----------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,6 +32,7 @@
 #include "SPIRV.h"
 #include "SPIRVInstrInfo.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -209,15 +227,16 @@ SPIRV::MemorySemantics::MemorySemantics getMemSemantics(AtomicOrdering Ord) {
 MachineInstr *getDefInstrMaybeConstant(Register &ConstReg,
                                        const MachineRegisterInfo *MRI) {
   MachineInstr *ConstInstr = MRI->getVRegDef(ConstReg);
-  if (ConstInstr->getOpcode() == TargetOpcode::G_INTRINSIC_W_SIDE_EFFECTS &&
-      ConstInstr->getIntrinsicID() == Intrinsic::spv_track_constant) {
-    ConstReg = ConstInstr->getOperand(2).getReg();
-    ConstInstr = MRI->getVRegDef(ConstReg);
+  if (auto *GI = dyn_cast<GIntrinsic>(ConstInstr)) {
+    if (GI->is(Intrinsic::spv_track_constant)) {
+      ConstReg = ConstInstr->getOperand(2).getReg();
+      return MRI->getVRegDef(ConstReg);
+    }
   } else if (ConstInstr->getOpcode() == SPIRV::ASSIGN_TYPE) {
     ConstReg = ConstInstr->getOperand(1).getReg();
-    ConstInstr = MRI->getVRegDef(ConstReg);
+    return MRI->getVRegDef(ConstReg);
   }
-  return ConstInstr;
+  return MRI->getVRegDef(ConstReg);
 }
 
 uint64_t getIConstVal(Register ConstReg, const MachineRegisterInfo *MRI) {
@@ -227,8 +246,9 @@ uint64_t getIConstVal(Register ConstReg, const MachineRegisterInfo *MRI) {
 }
 
 bool isSpvIntrinsic(MachineInstr &MI, Intrinsic::ID IntrinsicID) {
-  return MI.getOpcode() == TargetOpcode::G_INTRINSIC_W_SIDE_EFFECTS &&
-         MI.getIntrinsicID() == IntrinsicID;
+  if (auto *GI = dyn_cast<GIntrinsic>(&MI))
+    return GI->is(IntrinsicID);
+  return false;
 }
 
 Type *getMDOperandAsType(const MDNode *N, unsigned I) {
@@ -322,14 +342,9 @@ std::string getOclOrSpirvBuiltinDemangledName(StringRef Name) {
   return Name.substr(Start, Len).str();
 }
 
-const Type *getTypedPtrEltType(const Type *Ty) {
-  auto PType = dyn_cast<PointerType>(Ty);
-  if (!PType || PType->isOpaque())
-    return Ty;
-  return PType->getNonOpaquePointerElementType();
-}
+const Type *getTypedPtrEltType(const Type *Ty) { return Ty; } // INTEL
 
-static bool hasBuiltinTypePrefix(StringRef Name) {
+bool hasBuiltinTypePrefix(StringRef Name) {
   if (Name.starts_with("opencl.") || Name.starts_with("spirv."))
     return true;
   return false;

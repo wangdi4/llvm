@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fintel-compatibility \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 

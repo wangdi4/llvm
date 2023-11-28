@@ -41,7 +41,7 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, ptr nocapture readonly %a, i8 signex
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP3]] i64 1
 ; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP4]], UF = 1
-; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -68,7 +68,7 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, ptr nocapture readonly %a, i8 signex
 ; CHECK-NEXT:       br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH0]]: # preds: [[BB4]], [[INTERMEDIATE_BB0]]
-; CHECK-NEXT:     i64 [[VP__SSA_PHI]] = phi  [ i64 [[VP9]], [[BB4]] ],  [ i64 undef, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:     i64 [[VP__SSA_PHI]] = phi  [ i64 [[VP9]], [[BB4]] ],  [ i64 [[VP5]], [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP10]], [[BB4]] ],  [ i1 false, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     br i1 [[VP_TAKE_BACKEDGE_COND]], [[BB2]], [[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]]

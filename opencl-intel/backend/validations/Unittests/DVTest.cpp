@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2013-2022 Intel Corporation.
+// Copyright 2013 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,22 +12,19 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "BufferContainerList.h"
+#include "OCLBuilder.h"
+#include "OCLKernelDataGenerator.h"
 #include "cl_types.h"
 #include "gtest_wrapper.h"
 #include "opencl_clang.h"
-
-#include "OCLBuilder.h"
+#include "tinyxml_wrapper.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
-
-#include "BufferContainerList.h"
-#include "tinyxml_wrapper.h"
 #include <fstream>
-
-#include "OCLKernelDataGenerator.h"
 
 using namespace Intel::OpenCL::DeviceBackend::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;

@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===----  Intel_IPOPrefetch.cpp - Intel IPO Prefetch   --------===//
 //
-// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -85,6 +85,8 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
@@ -1883,6 +1885,8 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
     NF->addMetadata(MD.first, *MD.second);
 
   // Delete the old function
+  getInlineReport()->replaceFunctionWithFunction(F, NF);
+  getMDInlineReport()->replaceFunctionWithFunction(F, NF);
   F->eraseFromParent();
 
   return true;
@@ -2240,7 +2244,7 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
 
     Builder.SetInsertPoint(&*It);
     Value *PrefetchAddr = Builder.CreateBitCast(
-        DLInst->getPointerOperand(), Type::getInt8PtrTy(M.getContext()),
+        DLInst->getPointerOperand(), PointerType::getUnqual(M.getContext()),
         "bitcast-for-prefetch0");
 
     // insert a prefetch(addr,3) intrinsic: prefetch into L3 cache
@@ -2257,6 +2261,8 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
                           ConstantInt::get(I32, 1)  // 1: data cache
                       });
 
+    getInlineReport()->addCallSite(PrefetchInst);
+    getMDInlineReport()->addCallSite(PrefetchInst);
     LLVM_DEBUG({
       dbgs() << "PrefetchInst: " << *PrefetchInst << "\n"
              << "BasicBlock:\n"
@@ -2288,7 +2294,8 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
           Ptr2Int, ConstantInt::get(I64, Offset), "intplusoffset");
 
       Value *PrefetchAddr2 = Builder.CreateIntToPtr(
-          IntPlusOffset, Type::getInt8PtrTy(M.getContext()), "prefetch2-addr");
+          IntPlusOffset, PointerType::getUnqual(M.getContext()),
+          "prefetch2-addr");
 
       // insert the 2nd prefetch(addr2,3) intrinsic:
       CallInst *PrefetchInst2 = Builder.CreateCall(
@@ -2298,7 +2305,8 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
                             ConstantInt::get(I32, 3), // L3
                             ConstantInt::get(I32, 1)  // 1: data cache
                         });
-
+      getInlineReport()->addCallSite(PrefetchInst2);
+      getMDInlineReport()->addCallSite(PrefetchInst2);
       LLVM_DEBUG({
         dbgs() << "PrefetchInst2: " << *PrefetchInst2 << "\n"
                << "BasicBlock:\n"
@@ -2374,7 +2382,7 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
   }
 
   // Suppress inline report with a special flag or under PROD build
-  if (SuppressInlineReport || IPOUtils::isProdBuild())
+  if (SuppressInlineReport || IPOUtils::isProductReleaseBuild())
     if (!MarkFunctionNoInlineReport(PrefetchFunction)) {
       LLVM_DEBUG(dbgs() << "MarkFunctionNoInlineReport() failed\n";);
       return false;
@@ -2434,9 +2442,11 @@ bool IPOPrefetcher::insertCallToPrefetchFunction(void) {
 
       CallInst *CI = Builder.CreateCall(PrefetchFunction, Args);
       CI->setCallingConv(PrefetchFunction->getCallingConv());
+      getInlineReport()->addCallSite(CI);
+      getMDInlineReport()->addCallSite(CI);
 
       // Suppress inline report with a special flag or under PROD build
-      if (SuppressInlineReport || IPOUtils::isProdBuild())
+      if (SuppressInlineReport || IPOUtils::isProductReleaseBuild())
         if (!MarkCallNoInlineReport(CI)) {
           LLVM_DEBUG(dbgs() << "MarkCallNoInlineReport(CI) failed\n";);
           return false;

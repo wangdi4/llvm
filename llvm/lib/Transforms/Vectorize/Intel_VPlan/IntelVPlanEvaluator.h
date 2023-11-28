@@ -40,6 +40,7 @@ namespace vpo {
 extern bool EnableVectorizedPeel;
 extern bool EnableNonMaskedVectorizedRemainder;
 extern bool EnableMaskedVectorizedRemainder;
+extern unsigned DefaultTripCount;
 
 class VPlanVector;
 class VPlanMasked;
@@ -158,11 +159,15 @@ public:
     TCIsUnknown = TCIsUnknownP || PeelIsDynamic;
     if (OrigTC < MainLoopVF)
       RemainderTC = 0;
-    else
-      RemainderTC = PeelIsDynamic ? MainLoopVF * MainLoopUF - 1
-                                  : // tc is unknown, but this is the max
-                        ((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF));
-
+    else {
+      // Use a maximum for cases with dynamic peeling and when we were unable
+      // to estimate TC (using in that case our default TC). The estimation
+      // equal to our default TC is considered as a corner case and is ignored.
+      RemainderTC =
+          PeelIsDynamic || (OrigTC == DefaultTripCount && TCIsUnknownP)
+              ? MainLoopVF * MainLoopUF - 1 // this is the max
+              : ((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF));
+    }
     calculateBestVariant();
   }
 

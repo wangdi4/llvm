@@ -14,7 +14,7 @@ declare void @llvm.directive.region.exit(token)
 ;; transformation isn't preserving LCSSA form and the test would become useless
 ;; once this is fixed. In fact, we should fix this and add an assert in the
 ;; LoopCFU transformation for any non-LCSSA uses.
-define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_addr #0 {
+define dso_local void @foo_non_lcssa(i64 %N, ptr %a, i64 %mask_out_loop) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan IR for: foo_non_lcssa
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
@@ -38,8 +38,8 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-NEXT:       [DA: Div] br i1 [[VP_LOOP_MASK]], [[BB6:BB[0-9]+]], [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB6]]: # preds: [[BB4]]
-; CHECK-NEXT:         [DA: Uni] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
-; CHECK-NEXT:         [DA: Uni] i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:         [DA: Uni] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[A0:%.*]] i64 [[VP_IV]]
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_LD:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:         [DA: Uni] i1 [[VP_SOME_CMP:%.*]] = icmp eq i64 [[VP_LD]] i64 42
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:         [DA: Uni] br i1 [[VP_SOME_CMP]], [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]], [[BB7:BB[0-9]+]]
@@ -95,8 +95,8 @@ preheader:
 
 header:
   %iv = phi i64 [ %iv.next, %no_early_exit ], [ 0, %preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %a, i64 %iv
-  %ld = load i64, i64* %arrayidx
+  %arrayidx = getelementptr inbounds i64, ptr %a, i64 %iv
+  %ld = load i64, ptr %arrayidx
   %some_cmp = icmp eq i64 %ld, 42
   %iv.next = add nuw nsw i64 %iv, 1
   br i1 %some_cmp, label %loop.exit, label %no_early_exit
@@ -118,7 +118,7 @@ exit:
   ret void
 }
 
-define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 %mask_out_loop) {
+define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, ptr %a, i64 %mask_out_loop) {
 ; CHECK-LABEL:  VPlan IR for: foo_non_lcssa_from_uniform_sub_loop
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
@@ -131,8 +131,8 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-NEXT:     [DA: Div] br i1 [[VP_LOOP_MASK]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64, ptr [[A0:%.*]] i64 [[VP_IV]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_LD:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_SOME_CMP:%.*]] = icmp eq i64 [[VP_LD]] i64 42
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
@@ -142,8 +142,8 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 1
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_MUL:%.*]] = mul i64 [[VP_IV]] i64 100
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IDX:%.*]] = add i64 [[VP_MUL]] i64 [[VP_INNER_IV]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[A0]] i64 [[VP_IDX]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_INNER_DEF:%.*]] = load i64* [[VP_GEP]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr i64, ptr [[A0]] i64 [[VP_IDX]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_INNER_DEF:%.*]] = load ptr [[VP_GEP]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_INNER_EXITCOND:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 100
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_INNER_EXITCOND]], [[BB5:BB[0-9]+]], [[BB4]]
 ; CHECK-EMPTY:
@@ -169,8 +169,8 @@ entry:
 
 outer.header:
   %iv = phi i64 [ %lane, %entry ], [ %iv.next, %outer.latch ]
-  %arrayidx = getelementptr inbounds i64, i64* %a, i64 %iv
-  %ld = load i64, i64* %arrayidx
+  %arrayidx = getelementptr inbounds i64, ptr %a, i64 %iv
+  %ld = load i64, ptr %arrayidx
   %some_cmp = icmp eq i64 %ld, 42
   %iv.next = add nuw nsw i64 %iv, 1
   br label %inner.header
@@ -180,12 +180,12 @@ inner.header:
   %inner.iv.next = add nsw nuw i64 %inner.iv, 1
   %mul = mul nsw nuw i64 %iv, 100
   %idx = add nsw nuw i64 %mul, %inner.iv
-  %gep = getelementptr i64, i64* %a, i64 %idx
+  %gep = getelementptr i64, ptr %a, i64 %idx
   ; Might be speculatable and executed without mask. As such, CFU transformation
   ; must blend it as well. This stopped being a special case once we've started
   ; doing LCSSA transformation for the whole VPlan, so the benefit of the test
   ; is mostly for historical purposes.
-  %inner.def = load i64, i64 *%gep
+  %inner.def = load i64, ptr %gep
   %inner.exitcond = icmp eq i64 %inner.iv.next, 100
   br i1 %inner.exitcond, label %outer.latch, label %inner.header
 

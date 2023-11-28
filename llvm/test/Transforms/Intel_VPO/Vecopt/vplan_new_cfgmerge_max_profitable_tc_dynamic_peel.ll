@@ -48,9 +48,10 @@ define void @test(ptr %A, i64 %N) {
 ; CHECK:         Selected peeling: Dynamic
 ; SCA-PEEL:      Peel loop cost = {{[0-9]+}} (scalar peel loop)
 ; VEC-PEEL:      Peel loop cost = {{[0-9]+}} (masked vector peel loop)
-; CHECK:         Peeling will be performed.
 ; CHECK:         (VF = 8, UF = 1) min profitable peel tc = [[TC:[0-9]+]]
 ; CHECK:         Truncating min profitable peel tc to 16
+; CHECK:         Peeling will be performed.
+; CHECK:         Using min profitable peel TC: 16
 ; CHECK:       Selecting VPlan with VF=8
 ; CHECK-LABEL: VPlan after CFG merge before CG:
 ; LLVM-NEXT:   VPlan IR for: test:for.body.#{{[0-9]+}}

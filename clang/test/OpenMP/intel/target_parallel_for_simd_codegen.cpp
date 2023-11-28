@@ -1,11 +1,11 @@
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fintel-compatibility \
-// RUN:  -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s \
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fintel-compatibility \
+// RUN:  -fopenmp -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fintel-compatibility -DSPLIT \
-// RUN:  -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s \
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fintel-compatibility -DSPLIT \
+// RUN:  -fopenmp -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fexceptions \
-// RUN:  -fintel-compatibility -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fexceptions \
+// RUN:  -fintel-compatibility -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // The CodeGen for combined directives should be the same as the

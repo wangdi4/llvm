@@ -40,6 +40,16 @@ using namespace vpo;
 using namespace loopopt;
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+// Current FE doesn't yet support the INTERLEAVE construct, but we
+// want to enable this loop transformation in performance experiments.
+// With this flag, TILE SIZES(x) means INTERLEAVE STRIDES(x).
+// TODO: remove this flag when FE supports the new construct.
+#endif // INTEL_CUSTOMIZATION
+cl::opt<bool> ParseTileAsInterleave(
+    "vpo-paropt-parse-tile-as-interleave", cl::Hidden, cl::init(false),
+    cl::desc("Experimental: parse TILE construct as INTERLEAVE construct."));
+
 // Return default address space for the current target.
 // It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
 unsigned WRegionUtils::getDefaultAS(const Module *M) {
@@ -297,7 +307,16 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       W = new WRNGuardMemMotionNode(EntryBB);
       break;
     case DIR_OMP_TILE:
-      W = new WRNTileNode(EntryBB, LI);
+      if (ParseTileAsInterleave) {
+        W = new WRNInterleaveNode(EntryBB, LI);
+        DirID = DIR_OMP_INTERLEAVE;
+        LLVM_DEBUG(dbgs() << "Parsed TILE as an INTERLEAVE construct.\n");
+      } else {
+        W = new WRNTileNode(EntryBB, LI);
+      }
+      break;
+    case DIR_OMP_INTERLEAVE:
+      W = new WRNInterleaveNode(EntryBB, LI);
       break;
     case DIR_OMP_SCAN:
       W = new WRNScanNode(EntryBB);
@@ -908,6 +927,14 @@ bool WRegionUtils::needsDestructors(WRegionNode *W) {
   return false;
 }
 
+// Returns true if W needs an implicit barrier.
+bool WRegionUtils::needsImplicitBarrier(WRegionNode *W) {
+  if (W->getIsOmpLoop() &&
+      (!W->getIsDistribute() || !W->getIsTask() || !isa<WRNVecLoopNode>(W)))
+    return true;
+  return false;
+}
+
 bool WRegionUtils::hasCancelConstruct(WRegionNode *W) {
   assert(W && "hasCancelConstruct: null WRegionNode");
 
@@ -1054,7 +1081,8 @@ bool WRegionUtils::hasParentTarget(const WRegionNode *W) {
 
 // Returns true iff W contains a WRN for which Predicate is true.
 bool WRegionUtils::containsWRNsWith(
-    WRegionNode *W, std::function<bool(WRegionNode *)> Predicate) {
+    WRegionNode *W, std::function<bool(WRegionNode *)> Predicate,
+    bool Recursive) {
   if (!W->hasChildren())
     return false;
 
@@ -1069,7 +1097,21 @@ bool WRegionUtils::containsWRNsWith(
     if (!W->hasChildren())
       continue;
 
-    ContainedWRNs.append(W->wrn_child_begin(), W->wrn_child_end());
+    if (Recursive)
+      ContainedWRNs.append(W->wrn_child_begin(), W->wrn_child_end());
+  }
+  return false;
+}
+
+// Returns true iff W has an ancestor WRN for which Predicate is true.
+bool WRegionUtils::hasAncestorWRNWith(
+    WRegionNode *W, std::function<bool(WRegionNode *)> Predicate) {
+  WRegionNode *PW = W->getParent();
+  while (PW) {
+    if (Predicate(W))
+      return true;
+
+    PW = PW->getParent();
   }
   return false;
 }

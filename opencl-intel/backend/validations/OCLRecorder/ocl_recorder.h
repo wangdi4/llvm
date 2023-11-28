@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2023 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -20,6 +20,21 @@
 // imported from a DLL, whereas this DLL sees symbols defined with this macro as
 // being exported.
 
+#include "cl_dev_backend_api.h"
+#include "cl_device_api.h"
+#include "cl_types.h"
+#include "ocl_source_recorder.h"
+#include "plugin_interface.h"
+#include "tinyxml_wrapper.h"
+
+#include "llvm/IR/DataLayout.h"
+#include "llvm/Support/Mutex.h"
+#include "llvm/Support/Path.h"
+
+#include <atomic>
+#include <list>
+#include <map>
+
 #if defined(_WIN32)
 #ifdef OCL_RECORDER_EXPORTS
 #define OCL_RECORDER_API __declspec(dllexport)
@@ -29,21 +44,6 @@
 #else
 #define OCL_RECORDER_API
 #endif
-
-#include "cl_dev_backend_api.h"
-#include "cl_device_api.h"
-#include "cl_types.h"
-#include "ocl_source_recorder.h"
-#include "plugin_interface.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/Support/Mutex.h"
-#include "llvm/Support/Path.h"
-
-#include "tinyxml_wrapper.h"
-
-#include <atomic>
-#include <list>
-#include <map>
 
 #ifdef __cplusplus
 extern "C" {

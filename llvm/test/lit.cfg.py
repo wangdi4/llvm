@@ -216,7 +216,6 @@ tools.extend(
         "llvm-rc",
         "llvm-readelf",
         "llvm-readobj",
-        "llvm-remark-size-diff",
         "llvm-rtdyld",
         "llvm-sim",
         "llvm-size",
@@ -226,7 +225,7 @@ tools.extend(
         "llvm-strings",
         "llvm-strip",
         "llvm-tblgen",
-        "llvm-tapi-diff",
+        "llvm-readtapi",
         "llvm-undname",
         "llvm-windres",
         "llvm-c-test",
@@ -430,8 +429,6 @@ if config.have_tf_aot:
 # INTEL_CUSTOMIZATION
 llvm_config.add_intel_features()
 
-llvm_config.feature_config([('--opaque-ptr-mode', {'ON': 'enable-opaque-pointers'})])
-
 if config.enable_proto_bor:
     config.available_features.add("proto_bor")
 # end INTEL_CUSTOMIZATION
@@ -494,10 +491,6 @@ ics_wsvariant = os.environ.get("ICS_WSVARIANT")
 if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
     config.available_features.add("intel_opencl")
 # end INTEL_CUSTOMIZATION
-
-# Allow checking for specific details in the host triple
-if config.host_triple:
-    config.available_features.add('host=%s' % config.host_triple)
 
 if config.have_llvm_driver:
     config.available_features.add("llvm-driver")
@@ -606,9 +599,6 @@ if not re.match(
 ) and not re.match(r"^arm64(e)?-apple-(macos|darwin)", config.target_triple):
     config.available_features.add("debug_frame")
 
-if config.have_libxar:
-    config.available_features.add("xar")
-
 if config.enable_threads:
     config.available_features.add("thread_support")
 
@@ -648,13 +638,12 @@ config.substitutions.append(('%intel_mllvm', intel_mllvm))
 config.substitutions.append(('%intel_plugin_devirt_options', intel_plugin_devirt_options))
 if config.new_pm_default:
     config.available_features.add('new_pm_default')
-if config.spirv_enable_opaque_pointers:
-    config.available_features.add('spirv_enable_opaque_pointers')
 
 import lit.llvm.util
-config.options_to_revert_to_llorg_behavior = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false" ]
-lit.llvm.util.add_default_options_to_tool(config, 'opt', config.options_to_revert_to_llorg_behavior)
-lit.llvm.util.add_default_options_to_tool(config, 'llc', config.options_to_revert_to_llorg_behavior)
+config.opt_options_to_mimic_llorg = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false" , "-instcombine-disable-fpclass-folding=false", "-indvars-zext2sext=false", "-indvars-widen-nneg"]
+config.llc_options_to_mimic_llorg = [ "-xmain-enable-gep0-removal" , "-scalar-evolution-xmain-infer-nsw-nuw=false", "-cgp-split-switch-critical-edge=false", "-intel-adjust-is-stmt=false"]
+lit.llvm.util.add_default_options_to_tool(config, 'opt', config.opt_options_to_mimic_llorg)
+lit.llvm.util.add_default_options_to_tool(config, 'llc', config.llc_options_to_mimic_llorg)
 # end INTEL_CUSTOMIZATION
 
 if config.expensive_checks:
@@ -663,34 +652,6 @@ if config.expensive_checks:
 if "MemoryWithOrigins" in config.llvm_use_sanitizer:
     config.available_features.add("use_msan_with_origins")
 
-
-def exclude_unsupported_files_for_aix(dirname):
-    for filename in os.listdir(dirname):
-        source_path = os.path.join(dirname, filename)
-        if os.path.isdir(source_path):
-            continue
-        f = open(source_path, "r")
-        try:
-            data = f.read()
-            # 64-bit object files are not supported on AIX, so exclude the tests.
-            if (
-                "-emit-obj" in data or "-filetype=obj" in data
-            ) and "64" in config.target_triple:
-                config.excludes += [filename]
-        finally:
-            f.close()
-
-
-if "aix" in config.target_triple:
-    for directory in (
-        "/CodeGen/X86",
-        "/DebugInfo",
-        "/DebugInfo/X86",
-        "/DebugInfo/Generic",
-        "/LTO/X86",
-        "/Linker",
-    ):
-        exclude_unsupported_files_for_aix(config.test_source_root + directory)
 
 # Some tools support an environment variable "OBJECT_MODE" on AIX OS, which
 # controls the kind of objects they will support. If there is no "OBJECT_MODE"

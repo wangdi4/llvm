@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,11 +14,10 @@
 
 #pragma once
 
+#include "IDeviceCommandManager.h"
+#include "cl_dev_backend_api.h"
+#include "cl_sys_defines.h"
 #include "command.h"
-#include <IDeviceCommandManager.h>
-#include <cl_dev_backend_api.h>
-
-#include <cl_sys_defines.h>
 
 namespace Intel {
 namespace OpenCL {

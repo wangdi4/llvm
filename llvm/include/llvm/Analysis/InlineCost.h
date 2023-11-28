@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -33,15 +33,18 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/Analysis/InlineModelFeatureMaps.h"
-#include "llvm/Analysis/Intel_WP.h"           // INTEL
-#include "llvm/Analysis/LoopInfo.h"           // INTEL
-#include "llvm/Analysis/OptimizationRemarkEmitter.h"
-#include "llvm/ADT/SmallSet.h"                // INTEL
 #include "llvm/IR/PassManager.h"
 #include <cassert>
 #include <climits>
-#include <map>                                // INTEL
 #include <optional>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/SmallSet.h"
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include <map>
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 class AssumptionCache;
@@ -150,9 +153,12 @@ namespace InlineReportTypes {
 typedef enum {
   InlrFirst, // Just a marker placed before the first inlining reason
   InlrNoReason,
+  InlrCSAlwaysInlineRecursive,
+  InlrCSAlwaysInline,
   InlrAlwaysInlineRecursive,
   InlrAlwaysInline,
   InlrInlineList,
+  InlrInlineRecursiveList,
   InlrHotProfile,
   InlrHotCallsite,
   InlrHotCallee,
@@ -267,8 +273,10 @@ extern bool IsNotInlinedReason(InlineReportTypes::InlineReason Reason);
 /// based on the information available for a particular callsite. They can be
 /// directly tested to determine if inlining should occur given the cost and
 /// threshold for this cost metric.
-/// INTEL The Intel version is augmented with the InlineReason, which is the
-/// INTEL principal reason that a call site was or was not inlined.
+#if INTEL_CUSTOMIZATION
+/// The Intel version is augmented with the InlineReason, which is the
+/// principal reason that a call site was or was not inlined.
+#endif // INTEL_CUSTOMIZATION
 
 class InlineCost {
   enum SentinelValues { AlwaysInlineCost = INT_MIN, NeverInlineCost = INT_MAX };
@@ -353,10 +361,10 @@ public:
   static InlineCost
   getNever(const char *Reason,
            std::optional<CostBenefitPair> CostBenefit = std::nullopt) {
-    return InlineCost(NeverInlineCost, 0, 0, Reason, CostBenefit,  // INTEL
-                      false, InlineReportTypes::NinlrNeverInline); // INTEL
-  }
 #if INTEL_CUSTOMIZATION
+    return InlineCost(NeverInlineCost, 0, 0, Reason, CostBenefit, false,
+                      InlineReportTypes::NinlrNeverInline);
+  }
   static InlineCost getAlways(const char *Reason,
                               InlineReportTypes::InlineReason IntelReason) {
     return InlineCost(AlwaysInlineCost, 0, 0, Reason, std::nullopt, true,
@@ -575,7 +583,8 @@ InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
 
 /// Return the cost associated with a callsite, including parameter passing
 /// and the call/return instruction.
-int getCallsiteCost(const CallBase &Call, const DataLayout &DL);
+int getCallsiteCost(const TargetTransformInfo &TTI, const CallBase &Call,
+                    const DataLayout &DL);
 
 /// Get an InlineCost object representing the cost of inlining this
 /// callsite.

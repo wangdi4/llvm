@@ -3,7 +3,7 @@
 ; loop body (simd.loop) and is followed by a store to the widened alloca used as the
 ; return from the function.
 
-; RUN: opt -opaque-pointers=0 -passes=vec-clone -S < %s | FileCheck %s
+; RUN: opt -passes=vec-clone -S < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -13,9 +13,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:      define dso_local <4 x i32> @_ZGVbN4l_dowork(i32 [[K0:%.*]]) #1 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ALLOCA_K0:%.*]] = alloca i32
-; CHECK-NEXT:    store i32 [[K0]], i32* [[ALLOCA_K0]]
+; CHECK-NEXT:    store i32 [[K0]], ptr [[ALLOCA_K0]]
 ; CHECK-NEXT:    [[VEC_RETVAL0:%.*]] = alloca <4 x i32>
-; CHECK-NEXT:    [[RET_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_RETVAL0]] to i32*
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 
 ; CHECK:       simd.loop.header:
@@ -23,22 +22,22 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i32 1, [[INDEX0]]
 ; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i32 [[LOAD_K0:%.*]], [[STRIDE_MUL0]]
 ; CHECK-NEXT:    [[IDXPROM0:%.*]] = sext i32 [[STRIDE_ADD0]] to i64
-; CHECK-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds [4096 x i32], [4096 x i32]* @a, i64 0, i64 [[IDXPROM0]]
-; CHECK-NEXT:    [[TMP0:%.*]] = load i32, i32* [[ARRAYIDX0]], align 4
-; CHECK-NEXT:    [[RET_CAST_GEP0:%.*]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
-; CHECK-NEXT:    store i32 [[TMP0:%.*]], i32* [[RET_CAST_GEP0]], align 4
+; CHECK-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds [4096 x i32], ptr @a, i64 0, i64 [[IDXPROM0]]
+; CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[ARRAYIDX0]], align 4
+; CHECK-NEXT:    [[RET_CAST_GEP0:%.*]] = getelementptr i32, ptr [[VEC_RETVAL0]], i32 [[INDEX0]]
+; CHECK-NEXT:    store i32 [[TMP0:%.*]], ptr [[RET_CAST_GEP0]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 
 ; CHECK:       return:
-; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_RETVAL0]]
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x i32>, ptr [[VEC_RETVAL0]]
 ; CHECK-NEXT:    ret <4 x i32> [[VEC_RET0]]
 ; CHECK-NEXT: }
 
 define dso_local i32 @dowork(i32 %k) #0 {
 entry:
   %idxprom = sext i32 %k to i64
-  %arrayidx = getelementptr inbounds [4096 x i32], [4096 x i32]* @a, i64 0, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [4096 x i32], ptr @a, i64 0, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   ret i32 %0
 }
 

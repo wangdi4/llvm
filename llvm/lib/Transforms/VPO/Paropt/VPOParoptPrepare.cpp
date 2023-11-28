@@ -202,11 +202,15 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI,
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),
                         WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                        WI.getAliasAnalysis(), Mode,
 #if INTEL_CUSTOMIZATION
-                        ORVerbosity,
-#endif  // INTEL_CUSTOMIZATION
-                        ORE, 2, PrepareDisableOffload);
+                        WI.getAliasAnalysis(),
+                        /*MemorySSA=*/nullptr, Mode, ORVerbosity, ORE, 2,
+                        PrepareDisableOffload);
+#else
+                        WI.getAliasAnalysis(), Mode, ORE, 2,
+                        PrepareDisableOffload);
+#endif // INTEL_CUSTOMIZATION
+
   Changed = Changed | VP.paroptTransforms();
 
   LLVM_DEBUG(

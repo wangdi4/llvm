@@ -22,19 +22,17 @@ File Name:  BackendWrapper.h
  *
  */
 
-#include <string>
-#include <vector>
-
-#include "gtest_wrapper.h" // Test framework
-
 #include "BE_DynamicLib.h"
 #include "BWOptions.h" // the implemented Options classes
 #include "Exception.h"
 #include "cl_cpu_detect.h"
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
+#include "gtest_wrapper.h" // Test framework
 #include "mem_utils.h"
 #include "plugin_manager.h"
+#include <string>
+#include <vector>
 
 #if defined(_WIN32)
 /// @brief the plugin dll file name, in our case its the SamplePlugin

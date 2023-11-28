@@ -8,7 +8,7 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:      + DO i1 = 0, 1, 1   <DO_LOOP>
-; CHECK:      |   (ptr)(%hasPrefixCallbacks)[i1] = null;
+; CHECK:      |   (%hasPrefixCallbacks)[0][i1].0.0.0.0 = null;
 ; CHECK:      + END LOOP
 ; CHECK: END REGION
 
@@ -22,8 +22,8 @@
 ; CHECK: Function: foo
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: (ptr)(%hasPrefixCallbacks)[0] = null;
-; CHECK: (ptr)(%hasPrefixCallbacks)[1] = null;
+; CHECK: (%hasPrefixCallbacks)[0][0].0.0.0.0 = null;
+; CHECK: (%hasPrefixCallbacks)[0][1].0.0.0.0 = null;
 ; CHECK: END REGION
 
 

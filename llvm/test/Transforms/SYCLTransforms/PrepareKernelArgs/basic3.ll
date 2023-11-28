@@ -58,7 +58,7 @@ define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32>
 !sycl.kernels = !{!0}
 !0 = !{ptr @A}
 !1 = !{!"char __attribute__((ext_vector_type(4)))", !"uchar __attribute__((ext_vector_type(4)))", !"short __attribute__((ext_vector_type(4)))", !"ushort __attribute__((ext_vector_type(4)))", !"int __attribute__((ext_vector_type(4)))", !"uint __attribute__((ext_vector_type(4)))", !"float __attribute__((ext_vector_type(4)))", !"float __attribute__((ext_vector_type(4)))*"}
-!2 = !{<4 x i8> zeroinitializer, <4 x i8> zeroinitializer, <4 x i16> zeroinitializer, <4 x i16> zeroinitializer, <4 x i32> zeroinitializer, <4 x i32> zeroinitializer, <4 x float> zeroinitializer, <4 x float> addrspace(1)* null}
+!2 = !{<4 x i8> zeroinitializer, <4 x i8> zeroinitializer, <4 x i16> zeroinitializer, <4 x i16> zeroinitializer, <4 x i32> zeroinitializer, <4 x i32> zeroinitializer, <4 x float> zeroinitializer, ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-44: WARNING: Instruction with empty DebugLoc in function A {{.*}}

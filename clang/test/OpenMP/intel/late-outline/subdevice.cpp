@@ -1,11 +1,11 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -fopenmp-version=50 -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 //
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
 // RUN:   -triple x86_64-unknown-linux-gnu -emit-pch %s -o %t
 
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
 // RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t -emit-llvm %s -o - \
 // RUN:   | FileCheck %s
 

@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone -generate-vector-variants -disable-selective-mv < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -generate-vector-variants -acd-enable-all < %s -S | FileCheck %s
 
 ; This test checks that AutoCPUClone pass does not modify spir64 modules.
 

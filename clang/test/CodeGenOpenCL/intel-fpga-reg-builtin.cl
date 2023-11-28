@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -O0 -triple spir-unknown-unknown-intelfpga -emit-llvm -opaque-pointers -o - | FileCheck %s
+// RUN: %clang_cc1 %s -O0 -triple spir-unknown-unknown-intelfpga -emit-llvm -o - | FileCheck %s
 
 struct st {
   int a;

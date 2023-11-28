@@ -89,12 +89,10 @@
 ;CHECK-NEXT: Running analysis: CallGraphAnalysis on [module]
 ;CHECK-NEXT: Running pass: InvalidateAnalysisPass<llvm::AAManager> on foo
 ;CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ProfileSummaryAnalysis{{.*}}> on [module]
-;CHECK-NEXT: Running analysis: ProfileSummaryAnalysis on [module]
 ;CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*SCC.*}}, {{.*Module.*}}> on [module]
 ;CHECK-NEXT: Running analysis: LazyCallGraphAnalysis on [module]
 ;CHECK-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy on (foo)
 ;CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*Module.*}}, {{.*SCC.*}}> on (foo)
-;CHECK-NEXT: Running pass: InlinerPass on (foo)
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
 ;CHECK-NEXT: Running pass: SROAPass on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo

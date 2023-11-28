@@ -1,6 +1,6 @@
 //= Intel_ReqdSubGroupSize.cpp - intel_reqd_sub_group_size attr test -*- C++ =//
 ////
-//// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+//// Copyright (C) 2015 Intel Corporation. All rights reserved.
 ////
 //// The information and source code contained herein is the exclusive property
 //// of Intel Corporation and may not be disclosed, examined or reproduced in

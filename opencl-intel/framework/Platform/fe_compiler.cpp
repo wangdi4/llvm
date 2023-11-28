@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,14 +13,13 @@
 // License.
 
 #include "fe_compiler.h"
+#include "cl_sys_defines.h"
 #include "cl_sys_info.h"
 #include "cl_user_logger.h"
 #include "frontend_api.h"
 #include "observer.h"
 #include "opencl_clang.h"
-
-#include <cl_sys_defines.h>
-#include <task_executor.h>
+#include "task_executor.h"
 
 #ifdef _WIN32
 #include <Windows.h>

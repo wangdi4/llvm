@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2019 Intel Corporation.
+// Copyright 2008 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,21 +14,20 @@
 
 #pragma once
 
+#include "CL/cl_fpga_ext.h"
 #include "Device.h"
+#include "Logger.h"
 #include "MemoryObject.h"
+#include "cl_device_api.h"
 #include "cl_object.h"
+#include "cl_types.h"
 #include "command_name.h"
 #include "kernel.h"
 #include "observer.h"
+#include "ocl_itt.h"
 #include "queue_event.h"
 #include "task_executor.h"
-
-#include <CL/cl_fpga_ext.h>
-#include <Logger.h>
-#include <cl_device_api.h>
-#include <cl_types.h>
 #include <list>
-#include <ocl_itt.h>
 
 namespace Intel {
 namespace OpenCL {
@@ -142,9 +141,14 @@ public:
   const SharedPtr<FissionableDevice> &GetDevice() const { return m_pDevice; }
 
   void SetUsmPtrList(const std::vector<const void *> &usmPtrs) {
-    std::lock_guard<std::mutex> lock(m_UsmPtrsMutex);
+    // Releasing tracker event along with its related context will cause huge
+    // memory consumption in extreme case. So we save USM pointers for the
+    // command in order to unregister its tracker event once the command is
+    // completed.
     m_UsmPtrs = usmPtrs;
   }
+
+  const std::vector<const void *> &GetUsmPtrList(void) { return m_UsmPtrs; }
 
   cl_dev_cmd_desc *GetDeviceCommandDescriptor();
 
@@ -181,7 +185,6 @@ public:
   virtual ocl_gpa_command *GPA_GetCommand() { return m_pGpaCommand; }
   virtual void GPA_InitCommand();
   virtual void GPA_DestroyCommand();
-  virtual void GPA_WriteCommandMetadata() {}
   virtual const char *GPA_GetCommandName() const {
     return getCommandNameGPA(m_commandType);
   }
@@ -282,7 +285,6 @@ protected:
   ContextModule *m_pContextModule;
   // A list of pointers to USM whose free may be blocked by this command.
   std::vector<const void *> m_UsmPtrs;
-  std::mutex m_UsmPtrsMutex;
 
   DECLARE_LOGGER_CLIENT;
 
@@ -1116,7 +1118,6 @@ public:
                ? m_pKernel->GetName()
                : Command::GPA_GetCommandName();
   }
-  virtual void GPA_WriteCommandMetadata() override;
 
   using CommandCallBackFn = std::function<void(cl_event)>;
 

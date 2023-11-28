@@ -1,5 +1,4 @@
 ; RUN: opt < %s -passes=jump-threading -jump-thread-loop-header=false -print-lvi-after-jump-threading -disable-output 2>&1 | FileCheck %s ;INTEL
-; RUN: opt < %s -passes=jump-threading -print-lvi-after-jump-threading -disable-output 2>&1 | FileCheck %s
 
 ; Testing LVI cache after jump-threading
 

@@ -1,5 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt -passes="vplan-vec" -disable-output -debug-only=vploop-analysis < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -debug-only=vploop-analysis -vplan-enable-hir-f90-dv < %s 2>&1 | FileCheck %s
 
 ; Dope vector is used outside the loop and alias shouldn't be generated.
 

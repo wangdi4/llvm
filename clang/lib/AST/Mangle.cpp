@@ -219,8 +219,12 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
     Out << '_';
   else if (CC == CCM_Fast)
     Out << '@';
-  else if (CC == CCM_RegCall)
-    Out << "__regcall3__";
+  else if (CC == CCM_RegCall) {
+    if (getASTContext().getLangOpts().RegCall4)
+      Out << "__regcall4__";
+    else
+      Out << "__regcall3__";
+  }
 
   if (!MCXX)
     Out << D->getIdentifier()->getName();
@@ -228,6 +232,12 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
     mangleObjCMethodNameAsSourceName(OMD, Out);
   else
     mangleCXXName(GD, Out);
+
+#if INTEL_CUSTOMIZATION
+  // do no produce @<number> suffix if it is regcall4
+  if (CC == CCM_RegCall && getASTContext().getLangOpts().RegCall4)
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   const FunctionDecl *FD = cast<FunctionDecl>(D);
   const FunctionType *FT = FD->getType()->castAs<FunctionType>();
@@ -242,7 +252,7 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
   assert(!Proto->isVariadic());
   unsigned ArgWords = 0;
   if (const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD))
-    if (!MD->isStatic())
+    if (MD->isImplicitObjectMemberFunction())
       ++ArgWords;
   uint64_t DefaultPtrWidth = TI.getPointerWidth(LangAS::Default);
   for (const auto &AT : Proto->param_types()) {

@@ -1,6 +1,6 @@
 //===-- HIRMultiExitLoopReroll.cpp - Rerolls multi-exit loops -------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -831,43 +831,4 @@ PreservedAnalyses HIRMultiExitLoopRerollPass::runImpl(
       HIRMultiExitLoopReroll(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F))
           .run();
   return PreservedAnalyses::all();
-}
-
-class HIRMultiExitLoopRerollLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRMultiExitLoopRerollLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRMultiExitLoopRerollLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRMultiExitLoopReroll(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
-        .run();
-  }
-};
-
-char HIRMultiExitLoopRerollLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRMultiExitLoopRerollLegacyPass, OPT_SWITCH, OPT_DESC,
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRMultiExitLoopRerollLegacyPass, OPT_SWITCH, OPT_DESC,
-                    false, false)
-
-FunctionPass *llvm::createHIRMultiExitLoopRerollPass() {
-  return new HIRMultiExitLoopRerollLegacyPass();
 }

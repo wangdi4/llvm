@@ -26,21 +26,21 @@
 ; ----------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
 ; ----------------------------------------------------
-; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck --implicit-check-not read_channel_intel %s
+
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck --implicit-check-not read_channel_intel %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
 %struct.Foo = type { i32, i64 }
 
-@bar = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
-@far = addrspace(1) global target("spirv.Channel") zeroinitializer, align 1, !packet_size !2, !packet_align !2, !depth !3
-@star = addrspace(1) global target("spirv.Channel") zeroinitializer, align 8, !packet_size !4, !packet_align !5
-@bar_arr = addrspace(1) global [5 x target("spirv.Channel")] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
-@far_arr = addrspace(1) global [5 x [4 x target("spirv.Channel")]] zeroinitializer, align 1, !packet_size !2, !packet_align !2, !depth !3
-@star_arr = addrspace(1) global [5 x [4 x [3 x target("spirv.Channel")]]] zeroinitializer, align 8, !packet_size !4, !packet_align !5
+@bar = addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !0, !packet_align !0, !depth !1
+@far = addrspace(1) global ptr addrspace(1) null, align 1, !packet_size !2, !packet_align !2, !depth !3
+@star = addrspace(1) global ptr addrspace(1) null, align 8, !packet_size !4, !packet_align !5
+@bar_arr = addrspace(1) global [5 x ptr addrspace(1)] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
+@far_arr = addrspace(1) global [5 x [4 x ptr addrspace(1)]] zeroinitializer, align 1, !packet_size !2, !packet_align !2, !depth !3
+@star_arr = addrspace(1) global [5 x [4 x [3 x ptr addrspace(1)]]] zeroinitializer, align 8, !packet_size !4, !packet_align !5
 
 ; CHECK: @[[PIPE_BAR:.*]] = addrspace(1) global ptr addrspace(1)
 ; CHECK: @[[PIPE_FAR:.*]] = addrspace(1) global ptr addrspace(1)
@@ -91,15 +91,15 @@ entry:
   %2 = load ptr addrspace(1), ptr addrspace(1) @star, align 8, !tbaa !10
   call void @_Z18read_channel_intel11ocl_channel3Foo(ptr sret(%struct.Foo) align 8 %st, ptr addrspace(1) %2) #4
   call void @llvm.lifetime.start.p0(i64 4, ptr %ii) #3
-  %3 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([5 x target("spirv.Channel")], ptr addrspace(1) @bar_arr, i64 0, i64 3), align 4, !tbaa !10
+  %3 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([5 x ptr addrspace(1)], ptr addrspace(1) @bar_arr, i64 0, i64 3), align 4, !tbaa !10
   %call2 = call i32 @_Z18read_channel_intel11ocl_channeli(ptr addrspace(1) %3) #4
   store i32 %call2, ptr %ii, align 4, !tbaa !13
   call void @llvm.lifetime.start.p0(i64 1, ptr %ff) #3
-  %4 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([5 x [4 x target("spirv.Channel")]], ptr addrspace(1) @far_arr, i64 0, i64 3, i64 2), align 1, !tbaa !10
+  %4 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([5 x [4 x ptr addrspace(1)]], ptr addrspace(1) @far_arr, i64 0, i64 3, i64 2), align 1, !tbaa !10
   %call3 = call signext i8 @_Z18read_channel_intel11ocl_channelc(ptr addrspace(1) %4) #4
   store i8 %call3, ptr %ff, align 1, !tbaa !10
   call void @llvm.lifetime.start.p0(i64 16, ptr %stst) #3
-  %5 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([5 x [4 x [3 x target("spirv.Channel")]]], ptr addrspace(1) @star_arr, i64 0, i64 3, i64 2, i64 1), align 8, !tbaa !10
+  %5 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([5 x [4 x [3 x ptr addrspace(1)]]], ptr addrspace(1) @star_arr, i64 0, i64 3, i64 2, i64 1), align 8, !tbaa !10
   call void @_Z18read_channel_intel11ocl_channel3Foo(ptr sret(%struct.Foo) align 8 %stst, ptr addrspace(1) %5) #4
   call void @llvm.lifetime.end.p0(i64 16, ptr %stst) #3
   call void @llvm.lifetime.end.p0(i64 1, ptr %ff) #3

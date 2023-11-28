@@ -1,5 +1,4 @@
 #include "CL/cl.h"
-
 #include "FrameworkTest.h"
 #include "gtest_wrapper.h"
 #include <string>

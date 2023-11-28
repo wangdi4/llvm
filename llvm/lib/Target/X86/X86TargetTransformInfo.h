@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -144,7 +144,7 @@ public:
   /// \name Scalar TTI Implementations
   /// @{
   TTI::PopcntSupportKind getPopcntSupport(unsigned TyWidth);
-  unsigned getLoopRotationDefaultThreshold(bool OptForSize) const;
+  unsigned getLoopRotationDefaultThreshold(bool OptForSize) const; // INTEL
 
   /// @}
 
@@ -206,7 +206,7 @@ public:
                                          const Value *Ptr, bool VariableMask,
                                          Align Alignment,
                                          TTI::TargetCostKind CostKind,
-                                         const Instruction *I,
+                                         const Instruction *I, // INTEL
                                          bool UndefPassThru); // INTEL
 #if INTEL_CUSTOMIZATION
   InstructionCost getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
@@ -304,6 +304,7 @@ public:
   bool forceScalarizeMaskedGatherScatter(VectorType *VTy, Align Alignment); // INTEL
   bool forceScalarizeMaskedGather(VectorType *VTy, Align Alignment);
   bool forceScalarizeMaskedScatter(VectorType *VTy, Align Alignment); // INTEL
+  bool isLegalMaskedGatherScatter(Type *DataType, Align Alignment);
   bool isLegalMaskedGather(Type *DataType, Align Alignment);
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI);

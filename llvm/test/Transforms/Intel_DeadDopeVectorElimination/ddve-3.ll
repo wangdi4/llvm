@@ -556,6 +556,7 @@ attributes #4 = { nounwind }
 
 !omp_offload.info = !{}
 !llvm.module.flags = !{!0, !1, !2, !3}
+!ifx.types.dv = !{!138}
 
 !0 = !{i32 1, !"ThinLTO", i32 0}
 !1 = !{i32 1, !"EnableSplitLTOUnit", i32 1}
@@ -695,3 +696,4 @@ attributes #4 = { nounwind }
 !135 = !{i32 336}
 !136 = !{i32 338}
 !137 = !{i32 81}
+!138 = !{%"QNCA_a0$DIFFICULTSTRUCT$.btLAYERING_TYPE*$rank1$" zeroinitializer, %"DIFFICULTSTRUCT$.btLAYERING_TYPE" zeroinitializer}

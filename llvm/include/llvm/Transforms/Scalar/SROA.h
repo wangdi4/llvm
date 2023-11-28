@@ -234,6 +234,9 @@ private:
   /// hints. Use the SROAOptions::IntelPreserveCFG and
   /// SROAOptions::IntelModifyCFG options to enable it.
   const bool RunForInlineInLoopsOnly;
+  /// For highest performance, disable the limit on the number of alloca
+  /// slices. This is determined using the loopopt metadata.
+  bool IgnoreSliceLimit{false};
 #endif // INTEL_CUSTOMIZATION
 };
 

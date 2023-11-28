@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,19 +13,19 @@
 // License.
 
 #pragma once
-#include "cl_framework.h"
 
+#include "Logger.h"
 #include "MemoryAllocator/MemoryObject.h"
 #include "MemoryAllocator/MemoryObjectFactory.h"
+#include "cl_framework.h"
+#include "cl_heap.h"
 #include "cl_object.h"
 #include "cl_objects_map.h"
-#include "program_service.h"
-
-#include "cl_heap.h"
 #include "cl_shared_ptr.h"
 #include "ocl_itt.h"
+#include "program_service.h"
 #include "sampler.h"
-#include <Logger.h>
+
 #include <list>
 #include <map>
 #include <mutex>

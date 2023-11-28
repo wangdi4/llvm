@@ -35,9 +35,9 @@
 ; ----------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
 ; ----------------------------------------------------
-; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s
+
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
@@ -45,20 +45,20 @@ target triple = "spir64-unknown-unknown-intelfpga"
 %struct.st = type { i32 }
 
 @__const.foo.s = private unnamed_addr addrspace(2) constant %struct.st { i32 100 }, align 4
-@bar_arr = addrspace(1) global [5 x target("spirv.Channel")] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
-@far_arr = addrspace(1) global [5 x [4 x target("spirv.Channel")]] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !2
-@star_arr = addrspace(1) global [5 x [4 x [3 x target("spirv.Channel")]]] zeroinitializer, align 4, !packet_size !0, !packet_align !0
-@lar_arr = addrspace(1) global [6 x [5 x [4 x [3 x target("spirv.Channel")]]]] zeroinitializer, align 8, !packet_size !3, !packet_align !3
+@bar_arr = addrspace(1) global [5 x ptr addrspace(1)] zeroinitializer, align 8, !packet_size !0, !packet_align !0, !depth !1
+@far_arr = addrspace(1) global [5 x [4 x ptr addrspace(1)]] zeroinitializer, align 8, !packet_size !0, !packet_align !0, !depth !2
+@star_arr = addrspace(1) global [5 x [4 x [3 x ptr addrspace(1)]]] zeroinitializer, align 8, !packet_size !0, !packet_align !0
+@lar_arr = addrspace(1) global [6 x [5 x [4 x [3 x ptr addrspace(1)]]]] zeroinitializer, align 8, !packet_size !3, !packet_align !3
 
 ; CHECK: %[[CINDEX0:.*]] = load {{.*}} %char_index
 ; CHECK: %[[BAR_PIPE_ARR_W_INDEX0:.*]] = sext {{.*}} %[[CINDEX0]]
-; CHECK: %[[GEP_BAR_PIPE_ARR_W:.*]] = getelementptr {{.*}} @bar_arr.pipe, i64 0, i64 %[[BAR_PIPE_ARR_W_INDEX0]]
+; CHECK: %[[GEP_BAR_PIPE_ARR_W:.*]] = getelementptr {{.*}} @bar_arr, i64 0, i64 %[[BAR_PIPE_ARR_W_INDEX0]]
 ; CHECK: %[[LOAD_BAR_PIPE_ARR_W:.*]] = load {{.*}} %[[GEP_BAR_PIPE_ARR_W]]
 ; CHECK: call i32 @__write_pipe_2{{.*}} %[[LOAD_BAR_PIPE_ARR_W]]
 ;
 ; CHECK: %[[CINDEX1:.*]] = load {{.*}} %char_index
 ; CHECK: %[[FAR_PIPE_ARR_W_INDEX0:.*]] = sext {{.*}} %[[CINDEX1]]
-; CHECK: %[[GEP_FAR_PIPE_ARR_W0:.*]] = getelementptr {{.*}} @far_arr.pipe, i64 0, i64 %[[FAR_PIPE_ARR_W_INDEX0]]
+; CHECK: %[[GEP_FAR_PIPE_ARR_W0:.*]] = getelementptr {{.*}} @far_arr, i64 0, i64 %[[FAR_PIPE_ARR_W_INDEX0]]
 ; CHECK: %[[SINDEX0:.*]] = load {{.*}} %short_index
 ; CHECK: %[[FAR_PIPE_ARR_W_INDEX1:.*]] = sext {{.*}} %[[SINDEX0]]
 ; CHECK: %[[GEP_FAR_PIPE_ARR_W1:.*]] = getelementptr {{.*}} %[[GEP_FAR_PIPE_ARR_W0]], i64 0, i64 %[[FAR_PIPE_ARR_W_INDEX1]]
@@ -67,7 +67,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ;
 ; CHECK: %[[CINDEX2:.*]] = load {{.*}} %char_index
 ; CHECK: %[[STAR_PIPE_ARR_W_INDEX0:.*]] = sext {{.*}} %[[CINDEX2]]
-; CHECK: %[[GEP_STAR_PIPE_ARR_W0:.*]] = getelementptr {{.*}} @star_arr.pipe, i64 0, i64 %[[STAR_PIPE_ARR_W_INDEX0]]
+; CHECK: %[[GEP_STAR_PIPE_ARR_W0:.*]] = getelementptr {{.*}} @star_arr, i64 0, i64 %[[STAR_PIPE_ARR_W_INDEX0]]
 ; CHECK: %[[SINDEX1:.*]] = load {{.*}} %short_index
 ; CHECK: %[[STAR_PIPE_ARR_W_INDEX1:.*]] = sext {{.*}} %[[SINDEX1]]
 ; CHECK: %[[GEP_STAR_PIPE_ARR_W1:.*]] = getelementptr {{.*}} %[[GEP_STAR_PIPE_ARR_W0]], i64 0, i64 %[[STAR_PIPE_ARR_W_INDEX1]]
@@ -79,7 +79,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ;
 ; CHECK: %[[CINDEX3:.*]] = load {{.*}} %char_index
 ; CHECK: %[[LAR_PIPE_ARR_W_INDEX0:.*]] = sext {{.*}} %[[CINDEX3]]
-; CHECK: %[[GEP_LAR_PIPE_ARR_W0:.*]] = getelementptr {{.*}} @lar_arr.pipe, i64 0, i64 %[[LAR_PIPE_ARR_W_INDEX0]]
+; CHECK: %[[GEP_LAR_PIPE_ARR_W0:.*]] = getelementptr {{.*}} @lar_arr, i64 0, i64 %[[LAR_PIPE_ARR_W_INDEX0]]
 ; CHECK: %[[SINDEX2:.*]] = load {{.*}} %short_index
 ; CHECK: %[[LAR_PIPE_ARR_W_INDEX1:.*]] = sext {{.*}} %[[SINDEX2]]
 ; CHECK: %[[GEP_LAR_PIPE_ARR_W1:.*]] = getelementptr {{.*}} %[[GEP_LAR_PIPE_ARR_W0]], i64 0, i64 %[[LAR_PIPE_ARR_W_INDEX1]]
@@ -93,13 +93,13 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ;
 ; CHECK: %[[CINDEX4:.*]] = load {{.*}} %char_index
 ; CHECK: %[[BAR_PIPE_ARR_R_INDEX0:.*]] = sext {{.*}} %[[CINDEX4]]
-; CHECK: %[[GEP_BAR_PIPE_ARR_R:.*]] = getelementptr {{.*}} @bar_arr.pipe, i64 0, i64 %[[BAR_PIPE_ARR_R_INDEX0]]
+; CHECK: %[[GEP_BAR_PIPE_ARR_R:.*]] = getelementptr {{.*}} @bar_arr, i64 0, i64 %[[BAR_PIPE_ARR_R_INDEX0]]
 ; CHECK: %[[LOAD_BAR_PIPE_ARR_R:.*]] = load {{.*}} %[[GEP_BAR_PIPE_ARR_R]]
 ; CHECK: call i32 @__read_pipe_2{{.*}} %[[LOAD_BAR_PIPE_ARR_R]]
 ;
 ; CHECK: %[[CINDEX5:.*]] = load {{.*}} %char_index
 ; CHECK: %[[FAR_PIPE_ARR_R_INDEX0:.*]] = sext {{.*}} %[[CINDEX5]]
-; CHECK: %[[GEP_FAR_PIPE_ARR_R0:.*]] = getelementptr {{.*}} @far_arr.pipe, i64 0, i64 %[[FAR_PIPE_ARR_R_INDEX0]]
+; CHECK: %[[GEP_FAR_PIPE_ARR_R0:.*]] = getelementptr {{.*}} @far_arr, i64 0, i64 %[[FAR_PIPE_ARR_R_INDEX0]]
 ; CHECK: %[[SINDEX3:.*]] = load {{.*}} %short_index
 ; CHECK: %[[FAR_PIPE_ARR_R_INDEX1:.*]] = sext {{.*}} %[[SINDEX3]]
 ; CHECK: %[[GEP_FAR_PIPE_ARR_R1:.*]] = getelementptr {{.*}} %[[GEP_FAR_PIPE_ARR_R0]], i64 0, i64 %[[FAR_PIPE_ARR_R_INDEX1]]
@@ -108,7 +108,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ;
 ; CHECK: %[[CINDEX6:.*]] = load {{.*}} %char_index
 ; CHECK: %[[STAR_PIPE_ARR_R_INDEX0:.*]] = sext {{.*}} %[[CINDEX6]]
-; CHECK: %[[GEP_STAR_PIPE_ARR_R0:.*]] = getelementptr {{.*}} @star_arr.pipe, i64 0, i64 %[[STAR_PIPE_ARR_R_INDEX0]]
+; CHECK: %[[GEP_STAR_PIPE_ARR_R0:.*]] = getelementptr {{.*}} @star_arr, i64 0, i64 %[[STAR_PIPE_ARR_R_INDEX0]]
 ; CHECK: %[[SINDEX4:.*]] = load {{.*}} %short_index
 ; CHECK: %[[STAR_PIPE_ARR_R_INDEX1:.*]] = sext {{.*}} %[[SINDEX4]]
 ; CHECK: %[[GEP_STAR_PIPE_ARR_R1:.*]] = getelementptr {{.*}} %[[GEP_STAR_PIPE_ARR_R0]], i64 0, i64 %[[STAR_PIPE_ARR_R_INDEX1]]
@@ -120,7 +120,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ;
 ; CHECK: %[[CINDEX7:.*]] = load {{.*}} %char_index
 ; CHECK: %[[LAR_PIPE_ARR_R_INDEX0:.*]] = sext {{.*}} %[[CINDEX7]]
-; CHECK: %[[GEP_LAR_PIPE_ARR_R0:.*]] = getelementptr {{.*}} @lar_arr.pipe, i64 0, i64 %[[LAR_PIPE_ARR_R_INDEX0]]
+; CHECK: %[[GEP_LAR_PIPE_ARR_R0:.*]] = getelementptr {{.*}} @lar_arr, i64 0, i64 %[[LAR_PIPE_ARR_R_INDEX0]]
 ; CHECK: %[[SINDEX5:.*]] = load {{.*}} %short_index
 ; CHECK: %[[LAR_PIPE_ARR_R_INDEX1:.*]] = sext {{.*}} %[[SINDEX5]]
 ; CHECK: %[[GEP_LAR_PIPE_ARR_R1:.*]] = getelementptr {{.*}} %[[GEP_LAR_PIPE_ARR_R0]], i64 0, i64 %[[LAR_PIPE_ARR_R_INDEX1]]
@@ -162,84 +162,84 @@ entry:
   store i64 500, ptr %l, align 8, !tbaa !15
   %0 = load i8, ptr %char_index, align 1, !tbaa !8
   %idxprom = sext i8 %0 to i64
-  %arrayidx = getelementptr inbounds [5 x target("spirv.Channel")], ptr addrspace(1) @bar_arr, i64 0, i64 %idxprom
+  %arrayidx = getelementptr inbounds [5 x ptr addrspace(1)], ptr addrspace(1) @bar_arr, i64 0, i64 %idxprom
   %1 = load ptr addrspace(1), ptr addrspace(1) %arrayidx, align 4, !tbaa !8
   %2 = load i32, ptr %i, align 4, !tbaa !13
   call void @_Z19write_channel_intel11ocl_channelii(ptr addrspace(1) %1, i32 noundef %2) #5
   %3 = load i8, ptr %char_index, align 1, !tbaa !8
   %idxprom1 = sext i8 %3 to i64
-  %arrayidx2 = getelementptr inbounds [5 x [4 x target("spirv.Channel")]], ptr addrspace(1) @far_arr, i64 0, i64 %idxprom1
+  %arrayidx2 = getelementptr inbounds [5 x [4 x ptr addrspace(1)]], ptr addrspace(1) @far_arr, i64 0, i64 %idxprom1
   %4 = load i16, ptr %short_index, align 2, !tbaa !11
   %idxprom3 = sext i16 %4 to i64
-  %arrayidx4 = getelementptr inbounds [4 x target("spirv.Channel")], ptr addrspace(1) %arrayidx2, i64 0, i64 %idxprom3
+  %arrayidx4 = getelementptr inbounds [4 x ptr addrspace(1)], ptr addrspace(1) %arrayidx2, i64 0, i64 %idxprom3
   %5 = load ptr addrspace(1), ptr addrspace(1) %arrayidx4, align 4, !tbaa !8
   %6 = load float, ptr %f, align 4, !tbaa !17
   call void @_Z19write_channel_intel11ocl_channelff(ptr addrspace(1) %5, float noundef %6) #5
   %7 = load i8, ptr %char_index, align 1, !tbaa !8
   %idxprom5 = sext i8 %7 to i64
-  %arrayidx6 = getelementptr inbounds [5 x [4 x [3 x target("spirv.Channel")]]], ptr addrspace(1) @star_arr, i64 0, i64 %idxprom5
+  %arrayidx6 = getelementptr inbounds [5 x [4 x [3 x ptr addrspace(1)]]], ptr addrspace(1) @star_arr, i64 0, i64 %idxprom5
   %8 = load i16, ptr %short_index, align 2, !tbaa !11
   %idxprom7 = sext i16 %8 to i64
-  %arrayidx8 = getelementptr inbounds [4 x [3 x target("spirv.Channel")]], ptr addrspace(1) %arrayidx6, i64 0, i64 %idxprom7
+  %arrayidx8 = getelementptr inbounds [4 x [3 x ptr addrspace(1)]], ptr addrspace(1) %arrayidx6, i64 0, i64 %idxprom7
   %9 = load i32, ptr %int_index, align 4, !tbaa !13
   %idxprom9 = sext i32 %9 to i64
-  %arrayidx10 = getelementptr inbounds [3 x target("spirv.Channel")], ptr addrspace(1) %arrayidx8, i64 0, i64 %idxprom9
+  %arrayidx10 = getelementptr inbounds [3 x ptr addrspace(1)], ptr addrspace(1) %arrayidx8, i64 0, i64 %idxprom9
   %10 = load ptr addrspace(1), ptr addrspace(1) %arrayidx10, align 4, !tbaa !8
   call void @_Z19write_channel_intel11ocl_channel2stS_(ptr addrspace(1) %10, ptr noundef byval(%struct.st) align 4 %s) #5
   %11 = load i8, ptr %char_index, align 1, !tbaa !8
   %idxprom11 = sext i8 %11 to i64
-  %arrayidx12 = getelementptr inbounds [6 x [5 x [4 x [3 x target("spirv.Channel")]]]], ptr addrspace(1) @lar_arr, i64 0, i64 %idxprom11
+  %arrayidx12 = getelementptr inbounds [6 x [5 x [4 x [3 x ptr addrspace(1)]]]], ptr addrspace(1) @lar_arr, i64 0, i64 %idxprom11
   %12 = load i16, ptr %short_index, align 2, !tbaa !11
   %idxprom13 = sext i16 %12 to i64
-  %arrayidx14 = getelementptr inbounds [5 x [4 x [3 x target("spirv.Channel")]]], ptr addrspace(1) %arrayidx12, i64 0, i64 %idxprom13
+  %arrayidx14 = getelementptr inbounds [5 x [4 x [3 x ptr addrspace(1)]]], ptr addrspace(1) %arrayidx12, i64 0, i64 %idxprom13
   %13 = load i32, ptr %int_index, align 4, !tbaa !13
   %idxprom15 = sext i32 %13 to i64
-  %arrayidx16 = getelementptr inbounds [4 x [3 x target("spirv.Channel")]], ptr addrspace(1) %arrayidx14, i64 0, i64 %idxprom15
+  %arrayidx16 = getelementptr inbounds [4 x [3 x ptr addrspace(1)]], ptr addrspace(1) %arrayidx14, i64 0, i64 %idxprom15
   %14 = load i64, ptr %long_index, align 8, !tbaa !15
-  %arrayidx17 = getelementptr inbounds [3 x target("spirv.Channel")], ptr addrspace(1) %arrayidx16, i64 0, i64 %14
+  %arrayidx17 = getelementptr inbounds [3 x ptr addrspace(1)], ptr addrspace(1) %arrayidx16, i64 0, i64 %14
   %15 = load ptr addrspace(1), ptr addrspace(1) %arrayidx17, align 8, !tbaa !8
   %16 = load i64, ptr %l, align 8, !tbaa !15
   call void @_Z19write_channel_intel11ocl_channelll(ptr addrspace(1) %15, i64 noundef %16) #5
   %17 = load i8, ptr %char_index, align 1, !tbaa !8
   %idxprom18 = sext i8 %17 to i64
-  %arrayidx19 = getelementptr inbounds [5 x target("spirv.Channel")], ptr addrspace(1) @bar_arr, i64 0, i64 %idxprom18
+  %arrayidx19 = getelementptr inbounds [5 x ptr addrspace(1)], ptr addrspace(1) @bar_arr, i64 0, i64 %idxprom18
   %18 = load ptr addrspace(1), ptr addrspace(1) %arrayidx19, align 4, !tbaa !8
   %call = call i32 @_Z18read_channel_intel11ocl_channeli(ptr addrspace(1) %18) #5
   store i32 %call, ptr %i, align 4, !tbaa !13
   %19 = load i8, ptr %char_index, align 1, !tbaa !8
   %idxprom20 = sext i8 %19 to i64
-  %arrayidx21 = getelementptr inbounds [5 x [4 x target("spirv.Channel")]], ptr addrspace(1) @far_arr, i64 0, i64 %idxprom20
+  %arrayidx21 = getelementptr inbounds [5 x [4 x ptr addrspace(1)]], ptr addrspace(1) @far_arr, i64 0, i64 %idxprom20
   %20 = load i16, ptr %short_index, align 2, !tbaa !11
   %idxprom22 = sext i16 %20 to i64
-  %arrayidx23 = getelementptr inbounds [4 x target("spirv.Channel")], ptr addrspace(1) %arrayidx21, i64 0, i64 %idxprom22
+  %arrayidx23 = getelementptr inbounds [4 x ptr addrspace(1)], ptr addrspace(1) %arrayidx21, i64 0, i64 %idxprom22
   %21 = load ptr addrspace(1), ptr addrspace(1) %arrayidx23, align 4, !tbaa !8
   %call24 = call float @_Z18read_channel_intel11ocl_channelf(ptr addrspace(1) %21) #5
   store float %call24, ptr %f, align 4, !tbaa !17
   call void @llvm.lifetime.start.p0(i64 4, ptr %tmp) #4
   %22 = load i8, ptr %char_index, align 1, !tbaa !8
   %idxprom25 = sext i8 %22 to i64
-  %arrayidx26 = getelementptr inbounds [5 x [4 x [3 x target("spirv.Channel")]]], ptr addrspace(1) @star_arr, i64 0, i64 %idxprom25
+  %arrayidx26 = getelementptr inbounds [5 x [4 x [3 x ptr addrspace(1)]]], ptr addrspace(1) @star_arr, i64 0, i64 %idxprom25
   %23 = load i16, ptr %short_index, align 2, !tbaa !11
   %idxprom27 = sext i16 %23 to i64
-  %arrayidx28 = getelementptr inbounds [4 x [3 x target("spirv.Channel")]], ptr addrspace(1) %arrayidx26, i64 0, i64 %idxprom27
+  %arrayidx28 = getelementptr inbounds [4 x [3 x ptr addrspace(1)]], ptr addrspace(1) %arrayidx26, i64 0, i64 %idxprom27
   %24 = load i32, ptr %int_index, align 4, !tbaa !13
   %idxprom29 = sext i32 %24 to i64
-  %arrayidx30 = getelementptr inbounds [3 x target("spirv.Channel")], ptr addrspace(1) %arrayidx28, i64 0, i64 %idxprom29
+  %arrayidx30 = getelementptr inbounds [3 x ptr addrspace(1)], ptr addrspace(1) %arrayidx28, i64 0, i64 %idxprom29
   %25 = load ptr addrspace(1), ptr addrspace(1) %arrayidx30, align 4, !tbaa !8
   call void @_Z18read_channel_intel11ocl_channel2st(ptr sret(%struct.st) align 4 %tmp, ptr addrspace(1) %25) #5
   call void @llvm.memcpy.p0.p0.i64(ptr align 4 %s, ptr align 4 %tmp, i64 4, i1 false), !tbaa.struct !19
   call void @llvm.lifetime.end.p0(i64 4, ptr %tmp) #4
   %26 = load i8, ptr %char_index, align 1, !tbaa !8
   %idxprom31 = sext i8 %26 to i64
-  %arrayidx32 = getelementptr inbounds [6 x [5 x [4 x [3 x target("spirv.Channel")]]]], ptr addrspace(1) @lar_arr, i64 0, i64 %idxprom31
+  %arrayidx32 = getelementptr inbounds [6 x [5 x [4 x [3 x ptr addrspace(1)]]]], ptr addrspace(1) @lar_arr, i64 0, i64 %idxprom31
   %27 = load i16, ptr %short_index, align 2, !tbaa !11
   %idxprom33 = sext i16 %27 to i64
-  %arrayidx34 = getelementptr inbounds [5 x [4 x [3 x target("spirv.Channel")]]], ptr addrspace(1) %arrayidx32, i64 0, i64 %idxprom33
+  %arrayidx34 = getelementptr inbounds [5 x [4 x [3 x ptr addrspace(1)]]], ptr addrspace(1) %arrayidx32, i64 0, i64 %idxprom33
   %28 = load i32, ptr %int_index, align 4, !tbaa !13
   %idxprom35 = sext i32 %28 to i64
-  %arrayidx36 = getelementptr inbounds [4 x [3 x target("spirv.Channel")]], ptr addrspace(1) %arrayidx34, i64 0, i64 %idxprom35
+  %arrayidx36 = getelementptr inbounds [4 x [3 x ptr addrspace(1)]], ptr addrspace(1) %arrayidx34, i64 0, i64 %idxprom35
   %29 = load i64, ptr %long_index, align 8, !tbaa !15
-  %arrayidx37 = getelementptr inbounds [3 x target("spirv.Channel")], ptr addrspace(1) %arrayidx36, i64 0, i64 %29
+  %arrayidx37 = getelementptr inbounds [3 x ptr addrspace(1)], ptr addrspace(1) %arrayidx36, i64 0, i64 %29
   %30 = load ptr addrspace(1), ptr addrspace(1) %arrayidx37, align 8, !tbaa !8
   %call38 = call i64 @_Z18read_channel_intel11ocl_channell(ptr addrspace(1) %30) #5
   store i64 %call38, ptr %l, align 8, !tbaa !15

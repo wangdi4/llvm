@@ -23,6 +23,6 @@ entry:
 
 !0 = !{ptr @kernel}
 !1 = !{!"long*"}
-!2 = !{i64 addrspace(1)* null}
+!2 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING

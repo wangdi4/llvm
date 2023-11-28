@@ -38,7 +38,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H
 
-#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
+#include "HIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallString.h"
@@ -70,7 +70,7 @@ class VPValue {
   friend class VPBasicBlock;
   friend class VPlanPredicator;
   friend class VPlanHCFGBuilder;
-  friend class VPOCodeGen;
+  friend class CodeGenLLVM;
   friend class VPlanDivergenceAnalysis;
   friend class VPVectorShape;
   friend class VPInstruction;
@@ -576,7 +576,7 @@ class VPExternalDef : public VPValue, public FoldingSetNode {
   friend class VPExternalValues;
   friend class VPLiveInOutCreator;
   friend class VPOCodeGenHIR;
-  friend class VPOCodeGen;
+  friend class CodeGenLLVM;
   friend class HIROperandSpecifics;
 
 private:
@@ -675,10 +675,11 @@ class VPExternalUse : public VPUser {
 private:
   friend class VPExternalValues;
   friend class VPLiveInOutCreator;
-  friend class VPOCodeGen;
+  friend class CodeGenLLVM;
   friend class VPOCodeGenHIR;
   friend class VPDecomposerHIR;
   friend class HIROperandSpecifics;
+  friend class VPlanVerifierTestBase;
 
   // Hold the DDRef or IV information related to this external use.
   std::unique_ptr<VPOperandHIR> HIROperand;

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -63,7 +63,7 @@ static bool promoteMemoryToRegisterForBB(Function &F, DominatorTree &DT,
   std::vector<AllocaInst *> Allocas;
 #if !INTEL_CUSTOMIZATION
   BasicBlock &BB = F.getEntryBlock(); // Get the entry node for the function
-#endif // INTEL_CUSTOMIZATION
+#endif // !INTEL_CUSTOMIZATION
   bool Changed = false;
   while (true) {
     Allocas.clear();

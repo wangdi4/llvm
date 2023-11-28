@@ -14,16 +14,15 @@ define dso_local i64 @_Z3fooPlS_() local_unnamed_addr #0 {
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Exit instr: i64 [[VP__LCSSA:%.*]] = phi  [ i64 [[VP0:%.*]], [[BB1:BB[0-9]+]] ]
-; CHECK-NEXT:    Linked values: i64 [[VP__LCSSA]], i64* [[RET_LPRIV0:%.*]], i64 [[VP__LCSSA30:%.*]], i64* [[VP_RET_LPRIV:%.*]], i64 [[VP__LCSSA_PRIV_FINAL:%.*]],
-; CHECK-NEXT:   Memory: i64* [[RET_LPRIV0]]
+; CHECK-NEXT:    Linked values: i64 [[VP__LCSSA]], ptr [[RET_LPRIV0:%.*]], i64 [[VP__LCSSA30:%.*]], ptr [[VP_RET_LPRIV:%.*]], i64 [[VP__LCSSA_PRIV_FINAL:%.*]],
+; CHECK-NEXT:   Memory: ptr [[RET_LPRIV0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     i64* [[VP_RET_LPRIV]] = allocate-priv i64, OrigAlign = 8
-; CHECK-NEXT:     i8* [[VP_RET_LPRIV_BCAST:%.*]] = bitcast i64* [[VP_RET_LPRIV]]
-; CHECK-NEXT:     call i64 8 i8* [[VP_RET_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     ptr [[VP_RET_LPRIV]] = allocate-priv i64, OrigAlign = 8
+; CHECK-NEXT:     call i64 8 ptr [[VP_RET_LPRIV]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_020_IND_INIT]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_020_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB0]]
@@ -73,8 +72,7 @@ define dso_local i64 @_Z3fooPlS_() local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB4]]
 ; CHECK-NEXT:     i64 [[VP__OMP_IV_LOCAL_020_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP__LCSSA_PRIV_FINAL]] = private-final-c i64 [[VP__LCSSA]] i64 [[VP_PRIV_IDX_BB8]] i64 [[RET_LPRIV_PROMOTED290]]
-; CHECK-NEXT:     i8* [[VP_RET_LPRIV_BCAST1:%.*]] = bitcast i64* [[VP_RET_LPRIV]]
-; CHECK-NEXT:     call i64 8 i8* [[VP_RET_LPRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     call i64 8 ptr [[VP_RET_LPRIV]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
@@ -85,15 +83,15 @@ define dso_local i64 @_Z3fooPlS_() local_unnamed_addr #0 {
 ;
 omp.inner.for.body.lr.ph:
   %ret.lpriv = alloca i64, align 8
-  store i64 0, i64* %ret.lpriv, align 8
+  store i64 0, ptr %ret.lpriv, align 8
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i64* %ret.lpriv, i64 0, i64 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(ptr %ret.lpriv, i64 0, i64 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %ret.lpriv.promoted29 = load i64, i64* %ret.lpriv, align 8
+  %ret.lpriv.promoted29 = load i64, ptr %ret.lpriv, align 8
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %for.cond.cleanup

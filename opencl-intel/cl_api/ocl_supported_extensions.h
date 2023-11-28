@@ -1,4 +1,4 @@
-// Copyright 2006-2021 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -72,3 +72,7 @@
 #define OCL_EXT_KHR_SPIRV_LINKONCE_ODR "cl_khr_spirv_linkonce_odr"
 
 #define OCL_EXT_INTEL_DEVICE_ATTRIBUTE_QUERY "cl_intel_device_attribute_query"
+
+#define OCL_EXT_INTEL_CONCURRENT_DISPATCH "cl_intel_concurrent_dispatch"
+
+#define OCL_EXT_INTEL_DEVICELIB_ASSERT "cl_intel_devicelib_assert"

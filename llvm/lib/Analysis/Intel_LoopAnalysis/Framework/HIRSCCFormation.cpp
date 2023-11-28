@@ -1,6 +1,6 @@
 //===------ HIRSCCFormation.cpp - Identifies SCC in IRRegions -------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -112,10 +112,15 @@ bool HIRSCCFormation::hasUnconventionalAccess(
 
   uint64_t PtrElemSize = DL.getTypeAllocSize(ElementTy);
 
+  // Element size of 1 evenly divides any stride.
+  if (PtrElemSize == 1) {
+    return false;
+  }
+
   // Return conservative answer if constant stride is not available or not
   // evenly divisible by ptr element size.
   if ((ConstStride == 0) || (ConstStride % (int64_t)PtrElemSize != 0)) {
-    return RI.hasNonGEPAccess(Phi);
+    return true;
   }
 
   return false;

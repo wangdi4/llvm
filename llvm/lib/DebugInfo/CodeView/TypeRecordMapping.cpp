@@ -873,4 +873,58 @@ Error TypeRecordMapping::visitKnownRecord(CVType &CVR, DimConLURecord &Record) {
 
   return Error::success();
 }
+
+Error TypeRecordMapping::visitKnownRecord(CVType &CVR, RefSymRecord &Record) {
+  // The first two bytes encode the length of the Symbol record
+  uint16_t EncodedSymSize;
+  if (IO.isReading()) {
+    error(IO.mapByteVectorTail(Record.Sym));
+    EncodedSymSize = static_cast<uint16_t>(*Record.Sym.data());
+    assert(EncodedSymSize <= Record.Sym.size() - 2 &&
+           "Malformed RefSymRecord!");
+    // Drop any padding bytes
+    Record.Sym.resize(EncodedSymSize + 2);
+  } else {
+    EncodedSymSize = static_cast<uint16_t>(*Record.Sym.data());
+    assert(EncodedSymSize == Record.Sym.size() - 2 &&
+           "Malformed RefSymRecord!");
+    error(IO.mapByteVectorTail(Record.Sym));
+  }
+
+  return Error::success();
+}
+
+Error TypeRecordMapping::visitKnownRecord(CVType &CVR, DimVarURecord &Record) {
+  error(IO.mapInteger(Record.Rank, "Rank"));
+  error(IO.mapInteger(Record.IndexType, "IndexType"));
+  for (uint32_t i = 0; i < Record.Rank; i++) {
+    if (IO.isReading()) {
+      TypeIndex B;
+      error(IO.mapInteger(B, "Bound"));
+      Record.Bounds.push_back(B);
+    } else {
+      TypeIndex B = Record.Bounds[i];
+      error(IO.mapInteger(B, "Bound"));
+    }
+  }
+
+  return Error::success();
+}
+
+Error TypeRecordMapping::visitKnownRecord(CVType &CVR, DimVarLURecord &Record) {
+  error(IO.mapInteger(Record.Rank, "Rank"));
+  error(IO.mapInteger(Record.IndexType, "IndexType"));
+  for (uint32_t i = 0; i < 2 * Record.Rank; i++) {
+    if (IO.isReading()) {
+      TypeIndex B;
+      error(IO.mapInteger(B, "Bound"));
+      Record.Bounds.push_back(B);
+    } else {
+      TypeIndex B = Record.Bounds[i];
+      error(IO.mapInteger(B, "Bound"));
+    }
+  }
+
+  return Error::success();
+}
 #endif //INTEL_CUSTOMIZATION

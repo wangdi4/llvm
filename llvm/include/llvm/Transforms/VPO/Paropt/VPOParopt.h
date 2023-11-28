@@ -51,7 +51,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Pass.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 #include <functional>
 
@@ -77,19 +77,22 @@ namespace vpo {
 //   __tbb_omp_task_reduction_get_th_data
 
 enum VPOParoptMode {
-  ParoptOff       = 0x00000000,
-  ParPrepare      = 0x00000001,
-  ParTrans        = 0x00000002,
-  OmpPar          = 0x00000004,
-  OmpVec          = 0x00000008,
-  OmpTpv          = 0x00000010, // thread-private legacy mode
-  OmpOffload      = 0x00000020,
-  AutoVec         = 0x00000040,
-  AutoPar         = 0x00000080,
-  OmpTbb          = 0x00000100, // emit tbb_omp_task_* calls (vs kmpc_task_*)
+  ParoptOff = 0x00000000,
+  ParPrepare = 0x00000001,
+  ParTrans = 0x00000002,
+  OmpPar = 0x00000004,
+  OmpVec = 0x00000008,
+  OmpTpv = 0x00000010, // thread-private legacy mode
+  OmpOffload = 0x00000020,
+  AutoVec = 0x00000040,
+  AutoPar = 0x00000080,
+  OmpTbb = 0x00000100,          // emit tbb_omp_task_* calls (vs kmpc_task_*)
   OmpNoFECollapse = 0x00000200, // FE doesn't collapse loops
-  OmpSimt         = 0x00000400, // SIMT mode
-  LoopTransform   = 0x00000800  // Loop Transforms pass: TILE, etc.
+  OmpSimt = 0x00000400,         // SIMT mode
+  LoopTransform = 0x00000800,   // Loop Transforms pass: TILE, etc.
+#if INTEL_CUSTOMIZATION
+  FuseCollapse = 0x00001000 // Loop FuseAndCollapse pass
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace vpo
@@ -120,10 +123,13 @@ private:
   unsigned Mode;
 
 #if INTEL_CUSTOMIZATION
+  // NOTE: This only needs to be exposed for the old pass manager; it can be
+  // made private again when we remove old pass manager support.
+public:
   // Verbosity level for generating remarks using Loop Opt Report
   // framework (under -qopt-report).
   OptReportVerbosity::Level ORVerbosity = OptReportVerbosity::None;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 };
 
 namespace vpo {
@@ -147,18 +153,12 @@ public:
 
 private:
   VPOParoptPass Impl;
-
-#if INTEL_CUSTOMIZATION
-  // Verbosity level for generating remarks using Loop Opt Report
-  // framework (under -qopt-report).
-  OptReportVerbosity::Level ORVerbosity = OptReportVerbosity::None;
-#endif  // INTEL_CUSTOMIZATION
 };
 
 #if INTEL_CUSTOMIZATION
 // External storage for -loopopt-use-omp-region.
 extern bool UseOmpRegionsInLoopoptFlag;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 class ParoptDiagInfo : public DiagnosticInfoWithLocationBase {
   const Twine &Msg;

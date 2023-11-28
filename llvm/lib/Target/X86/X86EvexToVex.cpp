@@ -117,9 +117,9 @@ bool EvexToVexInstPass::runOnMachineFunction(MachineFunction &MF) {
   ST = &MF.getSubtarget<X86Subtarget>();
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  if (!ST->hasAVX3())
+  if (!ST->hasAVX3() && !ST->hasNDD() && !ST->hasEGPR())
 #else // INTEL_FEATURE_ISA_AVX256P
-  if (!ST->hasAVX512())
+  if (!ST->hasAVX512() && !ST->hasNDD() && !ST->hasEGPR())
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
     return false;
@@ -149,11 +149,9 @@ static bool usesExtendedRegister(const MachineInstr &MI) {
       return true;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     // Check for GPR with indexes between 16 - 31.
     if (X86II::isApxExtendedReg(Reg))
       return true;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
     return false;
@@ -257,6 +255,9 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
   if ((Desc.TSFlags & X86II::EncodingMask) != X86II::EVEX)
     return false;
 
+#if INTEL_CUSTOMIZATION
+  if ((Desc.TSFlags & X86II::OpMapMask) != X86II::T_MAP4) {
+#endif // INTEL_CUSTOMIZATION
   // Check for EVEX instructions with mask or broadcast as in these cases
   // the EVEX prefix is needed in order to carry this information
   // thus preventing the transformation to VEX encoding.
@@ -267,6 +268,9 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
   // and can't be converted to VEX.
   if (Desc.TSFlags & X86II::EVEX_L2)
     return false;
+#if INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
 
 #ifndef NDEBUG
   // Make sure the tables are sorted.
@@ -276,14 +280,31 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
            "X86EvexToVex128CompressTable is not sorted!");
     assert(llvm::is_sorted(X86EvexToVex256CompressTable) &&
            "X86EvexToVex256CompressTable is not sorted!");
+#if INTEL_CUSTOMIZATION
+    assert(llvm::is_sorted(ND2NonNDCompressTable) &&
+           "ND2NonNDCompressTable is not sorted!");
+    assert(llvm::is_sorted(EVEX2LegacyCompressTable) &&
+           "EVEX2LegacyCompressTable is not sorted!");
+#endif // INTEL_CUSTOMIZATION
     TableChecked.store(true, std::memory_order_relaxed);
   }
 #endif
 
-  // Use the VEX.L bit to select the 128 or 256-bit table.
-  ArrayRef<X86EvexToVexCompressTableEntry> Table =
-      (Desc.TSFlags & X86II::VEX_L) ? ArrayRef(X86EvexToVex256CompressTable)
-                                    : ArrayRef(X86EvexToVex128CompressTable);
+#if INTEL_CUSTOMIZATION
+  // TODO: Update the name of the class when upstream
+  ArrayRef<X86EvexToVexCompressTableEntry> Table;
+  if ((Desc.TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
+      !(Desc.TSFlags & X86II::EVEX_NF)) {
+    if (Desc.TSFlags & X86II::EVEX_B)
+      Table = ArrayRef(ND2NonNDCompressTable);
+    else
+      Table = ArrayRef(EVEX2LegacyCompressTable);
+  } else {
+    Table = (Desc.TSFlags & X86II::VEX_L)
+                ? ArrayRef(X86EvexToVex256CompressTable)
+                : ArrayRef(X86EvexToVex128CompressTable);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   const auto *I = llvm::lower_bound(Table, MI.getOpcode());
   if (I == Table.end() || I->EvexOpcode != MI.getOpcode())
@@ -291,6 +312,50 @@ bool EvexToVexInstPass::CompressEvexToVexImpl(MachineInstr &MI) const {
 
   unsigned NewOpc = I->VexOpcode;
 
+#if INTEL_CUSTOMIZATION
+  if ((Desc.TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
+      (Desc.TSFlags & X86II::EVEX_B)) {
+    const MachineOperand &Dst = MI.getOperand(0);
+    const MachineOperand &Src = MI.getOperand(1);
+    assert(Dst.isReg() && Src.isReg() && "Unexpected MachineInstr!");
+
+    if (Dst.getReg() != Src.getReg()) {
+      bool IsCommutable = Desc.isCommutable();
+      unsigned NumOperands = Desc.getNumOperands();
+      if (!IsCommutable || NumOperands < 3)
+        return false;
+      const MachineOperand &Src2 = MI.getOperand(2);
+      if (!Src2.isReg())
+        return false;
+      if (Dst.getReg() != Src2.getReg())
+        return false;
+      TII->commuteInstruction(MI, false, 1, 2);
+      // After commnution, the opcode may change
+      I = llvm::lower_bound(Table, MI.getOpcode());
+      if (I == Table.end() || I->EvexOpcode != MI.getOpcode())
+        return false;
+      NewOpc = I->VexOpcode;
+    }
+    assert(MI.getOperand(0).getReg() == MI.getOperand(1).getReg());
+
+    MI.setDesc(TII->get(NewOpc));
+    MI.setAsmPrinterFlag(X86::AC_ND_2_NONND);
+    MI.tieOperands(0, 1);
+    return true;
+  } else if ((Desc.TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
+             !(Desc.TSFlags & X86II::EVEX_B) &&
+             !(Desc.TSFlags & X86II::EVEX_NF)) {
+    for (unsigned Index = 0, Size = MI.getNumOperands(); Index < Size;
+         Index++) {
+      const MachineOperand &Op = MI.getOperand(Index);
+      if (Op.isReg() && X86II::isApxExtendedReg(Op.getReg()))
+        return false;
+    }
+    MI.setDesc(TII->get(NewOpc));
+    MI.setAsmPrinterFlag(X86::AC_EVEX_2_LEGACY);
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (usesExtendedRegister(MI))
     return false;
 

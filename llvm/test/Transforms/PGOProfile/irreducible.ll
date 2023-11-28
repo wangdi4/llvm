@@ -136,5 +136,5 @@ indirectgoto:                                     ; preds = %if.then18, %if.then
 ; USE: ![[ENTRY8_IRR_LOOP]] = !{!"loop_header_weight", i64 373}
 ; USE: ![[IF_END9_IRR_LOOP]] = !{!"loop_header_weight", i64 1000}
 ; USE: ![[SW_BB6_IRR_LOOP]] = !{!"loop_header_weight", i64 501}
-; USE: ![[SW_BB15_IRR_LOOP]] = !{!"loop_header_weight", i64 100}
+; USE: ![[SW_BB15_IRR_LOOP]] = !{!"loop_header_weight", i64 99}
 ; USE: ![[INDIRECTGOTO_IRR_LOOP]] = !{!"loop_header_weight", i64 399}

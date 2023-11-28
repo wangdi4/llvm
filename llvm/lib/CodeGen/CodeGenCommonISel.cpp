@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -159,7 +159,7 @@ llvm::findSplitPointForStackProtector(MachineBasicBlock *BB,
       if (Op.isGlobal()) {
         const GlobalValue *GV = Op.getGlobal();
         if (auto *Fn = dyn_cast<Function>(GV)) {
-          if (Fn->doesNotReturn()) {
+          if (Fn->doesNotReturn() && !Fn->doesNotThrow()) {
             SplitPoint = I;
             break;
           }
@@ -188,8 +188,11 @@ llvm::findSplitPointForStackProtector(MachineBasicBlock *BB,
     --Previous;
   } while (Previous != Start && Previous->isDebugInstr());
 
-  if (TII.isTailCall(*SplitPoint) &&
-      Previous->getOpcode() == TII.getCallFrameDestroyOpcode()) {
+#if INTEL_CUSTOMIZATION
+  if ((TII.isTailCall(*SplitPoint) &&
+       Previous->getOpcode() == TII.getCallFrameDestroyOpcode()) ||
+      (!SplitPoint->isTerminator() && !TII.isTailCall(*SplitPoint))) {
+#endif // INTEL_CUSTOMIZATION
     // Call frames cannot be nested, so if this frame is describing the tail
     // call itself, then we must insert before the sequence even starts. For
     // example:
@@ -206,11 +209,19 @@ llvm::findSplitPointForStackProtector(MachineBasicBlock *BB,
     //     ADJCALLSTACKUP
     //     <split point>
     //     TAILJMP somewhere
-    do {
+#if INTEL_CUSTOMIZATION
+    // example:
+    //     <split point>
+    //     ADJCALLSTACKDOWN
+    //     CALL something_else (noreturn aren't nounwind)
+    //     ADJCALLSTACKUP
+    //     unreachable
+    while (Previous->getOpcode() != TII.getCallFrameSetupOpcode()) {
       --Previous;
       if (Previous->isCall())
         return SplitPoint;
-    } while(Previous->getOpcode() != TII.getCallFrameSetupOpcode());
+    }
+#endif // INTEL_CUSTOMIZATION
 
     return Previous;
   }

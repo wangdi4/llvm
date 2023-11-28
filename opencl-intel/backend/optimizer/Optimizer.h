@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2023 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,10 +16,8 @@
 
 #include "Compiler.h"
 #include "OptimizerConfig.h"
-#include "debuggingservicetype.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
@@ -37,43 +35,7 @@ public:
 
   virtual ~Optimizer() {}
 
-  enum InvalidFunctionType {
-    RECURSION,
-    RECURSION_WITH_BARRIER,
-    FPGA_PIPE_DYNAMIC_ACCESS,
-    VECTOR_VARIANT_FAILURE
-  };
-
-  enum InvalidGVType { FPGA_DEPTH_IS_IGNORED };
-
   virtual void Optimize(llvm::raw_ostream &LogStream) = 0;
-
-  /// @brief recursion was detected after standard LLVM optimizations
-  /// @return for SYCL returns true if the recursive function also calls
-  /// barrier; for OpenCL returns true if any recursive function is present.
-  bool hasUnsupportedRecursion();
-
-  /// @brief checks if some pipes access were not resolved statically
-  bool hasFpgaPipeDynamicAccess() const;
-
-  /// @brief checks if there are any issues with vector-varian attributes.
-  bool hasVectorVariantFailure() const;
-
-  /// @brief checks if there are some channels whose depths are differs from
-  /// real depth on FPGA hardware due to channel depth mode, so we should emit
-  /// diagnostic message
-  bool hasFPGAChannelsWithDepthIgnored() const;
-
-  /// @brief obtain functions names wich are not valid for OpenCL
-  /// @param Ty is a type of invalid function
-  /// @return std::vector with function names
-  std::vector<std::string> GetInvalidFunctions(InvalidFunctionType Ty) const;
-
-  /// @brief obtain global variable names wich are not valid due to some
-  /// limitations
-  /// @param Ty is a type of global variables to search
-  /// @return std::vector with global variable names
-  std::vector<std::string> GetInvalidGlobals(InvalidGVType Ty) const;
 
   static llvm::ArrayRef<llvm::VectItem> getVectInfos();
 
@@ -84,6 +46,11 @@ public:
   static bool getVerifyEachPass();
 
   static const llvm::StringSet<> &getVPlanMaskedFuncs(); // INTEL
+
+  void setExceptionMsg(std::string &Msg) { ExceptionMsg = Msg; }
+  const std::string &getExceptionMsg() const { return ExceptionMsg; }
+  bool isFpgaEmulator() const { return m_IsFpgaEmulator; }
+
 protected:
   /// Register OCLDiagnosticHandler callback to LLVMContext.
   void setDiagnosticHandler(llvm::raw_ostream &LogStream);
@@ -117,10 +84,10 @@ protected:
 
   bool m_IsFpgaEmulator;
 
-  intel::DebuggingServiceType m_debugType;
   bool m_UseTLSGlobals;
 
-  bool UnrollLoops;
+  /// Exception message in case of error diagnose emitted from a pass.
+  std::string ExceptionMsg;
 };
 
 } // namespace DeviceBackend

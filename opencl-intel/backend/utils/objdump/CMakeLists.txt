@@ -39,8 +39,16 @@ include_directories(
   # path of tablegen generated include files.
   ${LLVM_OBJ_DIR}/tools/llvm-objdump)
 
-add_opencl_library(${TARGET_NAME} STATIC ObjectDump.h ObjectDump.cpp
-                   ${COPIED_OBJDUMP_FILES})
+add_opencl_library(
+  ${TARGET_NAME}
+  STATIC
+  ObjectDump.h
+  ObjectDump.cpp
+  ${COPIED_OBJDUMP_FILES}
+  LINK_LIBS
+  ${LLVM_MODULE_LIBS})
 
 # For a tidy Visual Studio solution layout
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
+
+target_link_libraries(${TARGET_NAME} PRIVATE LLVMDebuginfod)

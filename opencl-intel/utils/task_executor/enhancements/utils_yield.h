@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2021 Intel Corporation
+    Copyright (c) 2005 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #define __TBB_test_common_utils_yield_H
 
 #include "config.h"
-#include <oneapi/tbb/detail/_machine.h>
+#include "oneapi/tbb/detail/_machine.h"
 
 namespace utils {
 #if __TBB_GLIBCXX_THIS_THREAD_YIELD_BROKEN

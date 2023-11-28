@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll" -print-before=hir-loop-reroll -print-after=hir-loop-reroll -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll" -print-before=hir-loop-reroll -print-after=hir-loop-reroll -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that the upper of i3 loop which has DefAtLevel of 2 is converted to
 ; non-linear when we create an explicit instruction for it in the loop preheader
@@ -23,8 +23,8 @@
 ; CHECK: |   |
 ; CHECK: |   |   %t226 = %t226  +  -1 * i2 + %t225;
 ; CHECK: |   |   %t262 = i2  +  1;
-; CHECK: |   |   %t235 = i2 + 1;
 ; CHECK: |   |   %t233 = -1 * i2 + %t233 + smax(%t262, %t228);
+; CHECK: |   |   %t235 = i2 + 1;
 ; CHECK: |   + END LOOP
 ; CHECK: |      %t225 = %t225  -  %t228;
 ; CHECK: |      %t224 = -1 * %t228 + %t233.out + smax(%t262, %t228) + 1;
@@ -48,8 +48,8 @@
 ; CHECK: |   |
 ; CHECK: |   |   %t226 = %t226  +  -1 * i2 + %t225;
 ; CHECK: |   |   %t262 = i2  +  1;
-; CHECK: |   |   %t235 = i2 + 1;
 ; CHECK: |   |   %t233 = -1 * i2 + %t233 + smax(%t262, %t228);
+; CHECK: |   |   %t235 = i2 + 1;
 ; CHECK: |   + END LOOP
 ; CHECK: |      %t225 = %t225  -  %t228;
 ; CHECK: |      %t224 = -1 * %t228 + %t233.out + smax(%t262, %t228) + 1;

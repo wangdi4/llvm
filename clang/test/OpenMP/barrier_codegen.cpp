@@ -1,18 +1,18 @@
-// RUN: %clang_cc1 -opaque-pointers -verify -fopenmp -x c++ -triple x86_64-unknown-unknown -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,CLANGCG
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -x c++ -std=c++11 -triple x86_64-unknown-unknown -emit-pch -o %t %s
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -x c++ -triple x86_64-unknown-unknown -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CLANGCG
+// RUN: %clang_cc1 -verify -fopenmp -x c++ -triple x86_64-unknown-unknown -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,CLANGCG
+// RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -triple x86_64-unknown-unknown -emit-pch -o %t %s
+// RUN: %clang_cc1 -fopenmp -x c++ -triple x86_64-unknown-unknown -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CLANGCG
 
-// RUN: %clang_cc1 -opaque-pointers -verify -fopenmp -x c++ -triple x86_64-unknown-unknown -fopenmp-enable-irbuilder -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,IRBUILDER
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -x c++ -std=c++11 -triple x86_64-unknown-unknown -fopenmp-enable-irbuilder -emit-pch -o %t %s
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -x c++ -triple x86_64-unknown-unknown -fopenmp-enable-irbuilder -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,IRBUILDER
+// RUN: %clang_cc1 -verify -fopenmp -x c++ -triple x86_64-unknown-unknown -fopenmp-enable-irbuilder -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,IRBUILDER
+// RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -triple x86_64-unknown-unknown -fopenmp-enable-irbuilder -emit-pch -o %t %s
+// RUN: %clang_cc1 -fopenmp -x c++ -triple x86_64-unknown-unknown -fopenmp-enable-irbuilder -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,IRBUILDER
 
-// RUN: %clang_cc1 -opaque-pointers -verify -fopenmp -x c++ -triple x86_64-unknown-unknown -fopenmp-enable-irbuilder -mllvm -openmp-ir-builder-optimistic-attributes -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,IRBUILDER_OPT
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -x c++ -std=c++11 -triple x86_64-unknown-unknown -fopenmp-enable-irbuilder -emit-pch -o %t %s
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -x c++ -triple x86_64-unknown-unknown -fopenmp-enable-irbuilder -mllvm -openmp-ir-builder-optimistic-attributes -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,IRBUILDER_OPT
+// RUN: %clang_cc1 -verify -fopenmp -x c++ -triple x86_64-unknown-unknown -fopenmp-enable-irbuilder -mllvm -openmp-ir-builder-optimistic-attributes -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,IRBUILDER_OPT
+// RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -triple x86_64-unknown-unknown -fopenmp-enable-irbuilder -emit-pch -o %t %s
+// RUN: %clang_cc1 -fopenmp -x c++ -triple x86_64-unknown-unknown -fopenmp-enable-irbuilder -mllvm -openmp-ir-builder-optimistic-attributes -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,IRBUILDER_OPT
 
-// RUN: %clang_cc1 -opaque-pointers -verify -fopenmp-simd -x c++ -triple x86_64-unknown-unknown -emit-llvm %s -o - | FileCheck --check-prefix SIMD-ONLY0 %s
-// RUN: %clang_cc1 -opaque-pointers -fopenmp-simd -x c++ -std=c++11 -triple x86_64-unknown-unknown -emit-pch -o %t %s
-// RUN: %clang_cc1 -opaque-pointers -fopenmp-simd -x c++ -triple x86_64-unknown-unknown -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix SIMD-ONLY0 %s
+// RUN: %clang_cc1 -verify -fopenmp-simd -x c++ -triple x86_64-unknown-unknown -emit-llvm %s -o - | FileCheck --check-prefix SIMD-ONLY0 %s
+// RUN: %clang_cc1 -fopenmp-simd -x c++ -std=c++11 -triple x86_64-unknown-unknown -emit-pch -o %t %s
+// RUN: %clang_cc1 -fopenmp-simd -x c++ -triple x86_64-unknown-unknown -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix SIMD-ONLY0 %s
 // SIMD-ONLY0-NOT: {{__kmpc|__tgt}}
 // expected-no-diagnostics
 #ifndef HEADER
@@ -42,12 +42,12 @@ int main(int argc, char **argv) {
   return tmain(argc) + tmain(argv[0][0]) + a;
 }
 
-// CLANGCG: declare i32 @__kmpc_global_thread_num(ptr nocapture readonly) ;INTEL
+// INTEL CLANGCG: declare i32 @__kmpc_global_thread_num(ptr nocapture readonly)
 
 // IRBUILDER:          ; Function Attrs: nounwind
-// IRBUILDER-NEXT:     declare i32 @__kmpc_global_thread_num(ptr nocapture readonly) # ;INTEL
+// INTEL IRBUILDER-NEXT:     declare i32 @__kmpc_global_thread_num(ptr nocapture readonly)
 // IRBUILDER_OPT:      ; Function Attrs: nofree nosync nounwind willreturn memory(argmem: read, inaccessiblemem: read)
-// IRBUILDER_OPT-NEXT: declare i32 @__kmpc_global_thread_num(ptr nocapture readonly) # ;INTEL
+// INTEL IRBUILDER_OPT-NEXT: declare i32 @__kmpc_global_thread_num(ptr nocapture readonly)
 
 // CHECK: define {{.+}} [[TMAIN_INT]](
 // CHECK: [[GTID:%.+]] = call i32 @__kmpc_global_thread_num(ptr [[LOC]])

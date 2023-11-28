@@ -172,10 +172,6 @@ set(CLANG_CL_COMMON_FLAGS
     -D__opencl_c_atomic_scope_device
     -ffake-address-space-map)
 
-if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
-  set(CLANG_CL_COMMON_FLAGS ${CLANG_CL_COMMON_FLAGS} -no-opaque-pointers)
-endif()
-
 # llvm-link parameters
 set(LLVM_LINK_PARAMS -suppress-warnings)
 

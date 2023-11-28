@@ -159,7 +159,7 @@
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS %s
 // CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64,sycl-spir64-unknown-unknown-sycldevice" "-input=[[FATOBJ:.+\.o]]" "-output=[[HOSTOBJ:.+\.o]]" "-output=[[OMPBC:.+\.o]]" "-output=[[SYCLBC:.+\.o]]" "-unbundle"
 // CHK-UBJOBS: llvm-link{{.*}} "[[SYCLBC]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
-// CHK-UBJOBS: sycl-post-link{{.*}} "-symbols" "-spec-const=rt" "-device-globals" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
+// CHK-UBJOBS: sycl-post-link{{.*}} "-symbols" "-spec-const=native" "-device-globals" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
 // CHK-UBJOBS: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[SYCLTABLEOUT:.+\.txt]]" "[[SYCLTABLE]]"
 // CHK-UBJOBS: llvm-foreach{{.*}} "--in-file-list=[[SYCLTABLEOUT]]" "--in-replace=[[SYCLTABLEOUT]]" "--out-ext=spv" "--out-file-list=[[SYCLLLVMFOROUT:.+\.txt]]" "--out-replace=[[SYCLLLVMFOROUT]]" "--" "{{.*}}llvm-spirv" "-o" "[[SYCLLLVMFOROUT]]" "-spirv-max-version=1.1" {{.*}} "[[SYCLTABLEOUT]]"
 // CHK-UBJOBS: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[SYCLSPIRV:.+\.table]]" "[[SYCLTABLE]]" "[[SYCLLLVMFOROUT]]"
@@ -176,7 +176,7 @@
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS-CL %s
 // CHK-UBJOBS-CL: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64,sycl-spir64-unknown-unknown-sycldevice{{(-coff)?}}" "-input=[[FATOBJ:.+\.o]]" "-output=[[HOSTOBJCL:.+\.obj]]" "-output=[[OMPBCCL:.+\.obj]]" "-output=[[SYCLBCCL:.+\.obj]]" "-unbundle"
 // CHK-UBJOBS-CL: llvm-link{{.*}} "[[SYCLBCCL]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
-// CHK-UBJOBS-CL: sycl-post-link{{.*}} "-symbols" "-spec-const=rt" "-device-globals" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
+// CHK-UBJOBS-CL: sycl-post-link{{.*}} "-symbols" "-spec-const=native" "-device-globals" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
 // CHK-UBJOBS-CL: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[SYCLTABLEOUT:.+\.txt]]" "[[SYCLTABLE]]"
 // CHK-UBJOBS-CL: llvm-foreach{{.*}} "--in-file-list=[[SYCLTABLEOUT]]" "--in-replace=[[SYCLTABLEOUT]]" "--out-ext=spv" "--out-file-list=[[SYCLLLVMFOROUT:.+\.txt]]" "--out-replace=[[SYCLLLVMFOROUT]]" "--" "{{.*}}llvm-spirv" "-o" "[[SYCLLLVMFOROUT]]" "-spirv-max-version=1.1" {{.*}} "[[SYCLTABLEOUT]]"
 // CHK-UBJOBS-CL: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[SYCLSPIRV:.+\.table]]" "[[SYCLTABLE]]" "[[SYCLLLVMFOROUT]]"

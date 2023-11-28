@@ -14,6 +14,8 @@
 ; CHECK: INLINE: wolff_{{.*}}Callee has single callsite and local linkage
 ; CHECK-AFTER-NOT: call{{.*}}@wolff_
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+
 declare double @fmod(double %0, double %1) local_unnamed_addr
 
 define internal fastcc void @wolff_(ptr noalias nocapture readonly %0, ptr noalias nocapture %1, ptr noalias nocapture %2, ptr noalias nocapture %3) unnamed_addr #0 {

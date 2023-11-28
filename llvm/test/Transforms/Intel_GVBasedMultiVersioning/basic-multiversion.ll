@@ -13,10 +13,10 @@ define void @basic_multiversion(ptr nocapture noundef %num) #0 {
 ; CHECK-NEXT:  mv.global.loads:
 ; CHECK-NEXT:    [[MV_LOAD_GLOBAL1:%.*]] = load i1, ptr @global1, align 1
 ; CHECK-NEXT:    [[TMP0:%.*]] = xor i1 [[MV_LOAD_GLOBAL1]], true
-; CHECK-NEXT:    br i1 [[TMP0]], label %entry.clone, label %entry
+; CHECK-NEXT:    br i1 [[TMP0]], label %if.end.thread.clone, label %entry
 ; CHECK:       entry:
 ; Conditional branches in the cloned code are simplified.
-; CHECK:       entry.clone:
+; CHECK:       if.end.thread.clone:
 ; CHECK-NEXT:    [[TMP5:%.*]] = load i32, ptr %num, align 4
 ; CHECK-NEXT:    [[INC3_CLONE:%.*]] = add nsw i32 [[TMP5]], 2
 ; CHECK-NEXT:    store i32 [[INC3_CLONE]], ptr %num, align 4

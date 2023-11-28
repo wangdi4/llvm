@@ -1,6 +1,6 @@
 //===----------------------DTransSafetyAnalyzer.cpp-----------------------===//
 //
-// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8055,10 +8055,6 @@ void DTransSafetyInfo::analyzeModule(
     Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
     DTransImmutableInfo *DTImmutInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
-  if (!dtrans::shouldRunOpaquePointerPasses(M)) {
-    LLVM_DEBUG(dbgs() << "DTransSafetyInfo: Not using opaque pointer passes");
-    return;
-  }
   // Initialize the DTransTypeManager & TypeMetadataReader classes first, so
   // that the DTrans base class can be run without the complete pointer type
   // analysis being run because there are some transformations that can be done

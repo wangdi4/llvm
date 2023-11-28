@@ -31,9 +31,9 @@
 ; ----------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
 ; ----------------------------------------------------
-; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck --implicit-check-not write_channel_nb_intel %s
+
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl -passes=sycl-kernel-channel-pipe-transformation %s -S | FileCheck --implicit-check-not write_channel_nb_intel %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
@@ -41,11 +41,11 @@ target triple = "spir64-unknown-unknown-intelfpga"
 %struct.Foo = type { i32, i64 }
 
 @foo.l_valid = internal addrspace(3) global i8 undef, align 1
-@bar = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
-@far = addrspace(1) global target("spirv.Channel") zeroinitializer, align 1, !packet_size !2, !packet_align !2, !depth !3
+@bar = addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !0, !packet_align !0, !depth !1
+@far = addrspace(1) global ptr addrspace(1) null, align 1, !packet_size !2, !packet_align !2, !depth !3
 @g_valid = addrspace(1) global i8 0, align 1
-@star = addrspace(1) global target("spirv.Channel") zeroinitializer, align 8, !packet_size !4, !packet_align !5
-@bar_arr = addrspace(1) global [5 x target("spirv.Channel")] zeroinitializer, align 4, !packet_size !0, !packet_align !0
+@star = addrspace(1) global ptr addrspace(1) null, align 8, !packet_size !4, !packet_align !5
+@bar_arr = addrspace(1) global [5 x ptr addrspace(1)] zeroinitializer, align 4, !packet_size !0, !packet_align !0
 
 ; CHECK: @[[PIPE_BAR:.*]] = addrspace(1) global ptr addrspace(1)
 ; CHECK: @[[PIPE_FAR:.*]] = addrspace(1) global ptr addrspace(1)
@@ -101,7 +101,7 @@ entry:
   %call3 = call zeroext i1 @_Z22write_channel_nb_intel11ocl_channel3FooS_(ptr addrspace(1) %4, ptr noundef byval(%struct.Foo) align 8 %st) #5
   %frombool4 = zext i1 %call3 to i8
   store i8 %frombool4, ptr %p_valid, align 1, !tbaa !15
-  %5 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([5 x target("spirv.Channel")], ptr addrspace(1) @bar_arr, i64 0, i64 3), align 4, !tbaa !14
+  %5 = load ptr addrspace(1), ptr addrspace(1) getelementptr inbounds ([5 x ptr addrspace(1)], ptr addrspace(1) @bar_arr, i64 0, i64 3), align 4, !tbaa !14
   %6 = load i32, ptr %i, align 4, !tbaa !10
   %call5 = call zeroext i1 @_Z22write_channel_nb_intel11ocl_channelii(ptr addrspace(1) %5, i32 noundef %6) #5
   %frombool6 = zext i1 %call5 to i8

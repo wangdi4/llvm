@@ -35,7 +35,7 @@ createTargetMachine(StringRef CPUStr, StringRef FeaturesStr) {
   const Target *TheTarget = TargetRegistry::lookupTarget(TT, Error);
   return std::unique_ptr<TargetMachine>(TheTarget->createTargetMachine(
       TT, CPUStr, FeaturesStr, TargetOptions(), std::nullopt, std::nullopt,
-      CodeGenOpt::Default));
+      CodeGenOptLevel::Default));
 }
 
 class VPlanAllZeroCheckCostTest : public VPlanTestBase {};

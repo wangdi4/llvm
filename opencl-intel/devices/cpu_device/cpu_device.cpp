@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,22 +13,21 @@
 // License.
 
 #include "cpu_device.h"
+#include "CL/cl_ext.h"
+#include "CL/cl_fpga_ext.h"
+#include "buildversion.h"
+#include "builtin_kernels.h"
+#include "cl_cpu_detect.h"
+#include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
+#include "cl_sys_info.h"
+#include "clang_device_info.h"
+#include "cpu_dev_limits.h"
 #include "cpu_logger.h"
 #include "memory_allocator.h"
 #include "program_config.h"
 #include "program_service.h"
 #include "task_dispatcher.h"
-
-#include <CL/cl_ext.h>
-#include <CL/cl_fpga_ext.h>
-#include <buildversion.h>
-#include <builtin_kernels.h>
-#include <cl_cpu_detect.h>
-#include <cl_shared_ptr.hpp>
-#include <cl_sys_defines.h>
-#include <cl_sys_info.h>
-#include <clang_device_info.h>
-#include <cpu_dev_limits.h>
 #include <numeric>
 
 #ifdef __INCLUDE_MKL__
@@ -353,9 +352,6 @@ cl_dev_err_code CPUDevice::Init() {
   m_pTaskDispatcher = new TaskDispatcher(
       m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator,
       m_pLogDescriptor, &m_CPUDeviceConfig, this);
-  if ((nullptr == m_pMemoryAllocator) || (nullptr == m_pTaskDispatcher)) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   ret = m_pTaskDispatcher->init();
   if (CL_DEV_SUCCESS != ret) {
@@ -367,9 +363,6 @@ cl_dev_err_code CPUDevice::Init() {
 cl_dev_err_code CPUDevice::QueryHWInfo() {
   m_numCores = GetNumberOfProcessors();
   m_pComputeUnitMap = new unsigned int[m_numCores];
-  if (nullptr == m_pComputeUnitMap) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
   // Todo: m_pComputeUnitScoreboard.reserve(m_numCores);
 
   m_threadToCore.reserve(m_numCores);
@@ -448,6 +441,7 @@ void CPUDevice::calculateComputeUnitMap() {
   std::string places = "cores";
   bool hasEnvPlaces = getEnvVar(places, "SYCL_CPU_PLACES") ||
                       getEnvVar(places, "DPCPP_CPU_PLACES");
+  places = StringRef(places).lower();
 
 #ifndef _WIN32
   // For Linux, respect the process affinity mask in determining which cores to
@@ -491,7 +485,7 @@ void CPUDevice::calculateComputeUnitMap() {
   // affinity, similar to OMP_PROC_BIND in OpenMP.
   // By default, the SYCL_CPU_CU_AFFINITY variable is not set.
   if (!hasEnvAffinity) {
-    if (hasEnvPlaces)
+    if (hasEnvPlaces && places != "numa_domains")
       reportWarning("SYCL_CPU_PLACES: Value is ignored since "
                     "SYCL_CPU_CU_AFFINITY is not set.");
     return;
@@ -526,7 +520,6 @@ void CPUDevice::calculateComputeUnitMap() {
                   "SYCL_CPU_PLACES is not set.");
     return;
   }
-  places = StringRef(places).lower();
   if ("sockets" != places && "numa_domains" != places && "cores" != places &&
       "threads" != places) {
     reportWarning("SYCL_CPU_PLACES: Value is invalid; ignored. Valid values "
@@ -2125,11 +2118,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     }
     return CL_DEV_SUCCESS;
   case (CL_DEVICE_HALF_FP_CONFIG): {
-    std::string Env;
-    if (isCPUDeviceMode && !Intel::OpenCL::Utils::getEnvVar(
-                               Env, "CL_CONFIG_CPU_EXPERIMENTAL_FP16")) {
-      return CL_DEV_INVALID_VALUE;
-    }
     cl_device_fp_config fpConfig = 0;
     fpConfig = CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST;
     *pinternalRetunedValueSize = sizeof(cl_device_fp_config);
@@ -2452,10 +2440,6 @@ cl_dev_err_code CPUDevice::clDevPartition(
     for (cl_uint i = 0; i < (cl_uint)numPartitions; ++i) {
       cl_dev_internal_subdevice_id *pNewsubdeviceId =
           new cl_dev_internal_subdevice_id;
-      if (nullptr == pNewsubdeviceId) {
-        rollBackSubdeviceAllocation(subdevice_ids, i);
-        return CL_DEV_OUT_OF_MEMORY;
-      }
 
       pNewsubdeviceId->legal_core_ids = nullptr;
       pNewsubdeviceId->is_by_names = false;
@@ -2502,10 +2486,6 @@ cl_dev_err_code CPUDevice::clDevPartition(
     for (cl_uint i = 0; i < num_subdevices_to_create; ++i) {
       cl_dev_internal_subdevice_id *pNewsubdeviceId =
           new cl_dev_internal_subdevice_id;
-      if (nullptr == pNewsubdeviceId) {
-        rollBackSubdeviceAllocation(subdevice_ids, i);
-        return CL_DEV_OUT_OF_MEMORY;
-      }
 
       pNewsubdeviceId->legal_core_ids = nullptr;
       pNewsubdeviceId->is_by_names = false;
@@ -2540,14 +2520,8 @@ cl_dev_err_code CPUDevice::clDevPartition(
 
     cl_dev_internal_subdevice_id *pNewsubdeviceId =
         new cl_dev_internal_subdevice_id;
-    if (nullptr == pNewsubdeviceId) {
-      return CL_DEV_OUT_OF_MEMORY;
-    }
+
     pNewsubdeviceId->legal_core_ids = new unsigned int[totalNumUnits];
-    if (nullptr == pNewsubdeviceId->legal_core_ids) {
-      delete pNewsubdeviceId;
-      return CL_DEV_OUT_OF_MEMORY;
-    }
 
     pNewsubdeviceId->is_by_names = true;
     pNewsubdeviceId->is_by_numa = false;
@@ -2597,14 +2571,9 @@ cl_dev_err_code CPUDevice::clDevPartition(
       numUnits[i] = index.size();
       cl_dev_internal_subdevice_id *pNewsubdeviceId =
           new cl_dev_internal_subdevice_id;
-      if (nullptr == pNewsubdeviceId) {
-        return CL_DEV_OUT_OF_MEMORY;
-      }
+
       pNewsubdeviceId->legal_core_ids = new uint32_t[numUnits[i]];
-      if (nullptr == pNewsubdeviceId->legal_core_ids) {
-        delete pNewsubdeviceId;
-        return CL_DEV_OUT_OF_MEMORY;
-      }
+
       // since we need to specify which device a cpu core wound be
       // bound to, each subdevice is allocated according to the name
       // of cpu cores.
@@ -2709,9 +2678,6 @@ CPUDevice::clDevCreateCommandList(cl_dev_cmd_list_props IN props,
   CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
              TEXT("clDevCreateCommandList Function enter"));
   cl_dev_internal_cmd_list *pList = new cl_dev_internal_cmd_list();
-  if (nullptr == pList) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
 
   cl_dev_internal_subdevice_id *pSubdeviceData =
       reinterpret_cast<cl_dev_internal_subdevice_id *>(subdevice_id);
@@ -3052,14 +3018,6 @@ cl_dev_err_code CPUDevice::clDevBuildProgram(cl_dev_program IN prog,
                                              cl_build_status *OUT buildStatus) {
   CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
              TEXT("clDevBuildProgram Function enter"));
-#if defined(_WIN32)
-  if (options) {
-    std::string buildOptions(options);
-    if (!m_disableMasterJoin &&
-        buildOptions.find("-cl-opt-disable") != std::string::npos)
-      m_disableMasterJoin = true;
-  }
-#endif
   return (cl_dev_err_code)m_pProgramService->BuildProgram(prog, options,
                                                           buildStatus);
 }

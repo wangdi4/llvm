@@ -1,6 +1,6 @@
 //==----------------- ReduceCrossBarrierValues.h ---------------- C++ -*---==//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -73,12 +73,6 @@ class ReduceCrossBarrierValuesPass
     : public PassInfoMixin<ReduceCrossBarrierValuesPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
-
-  // Glue for old PM.
-  bool runImpl(Module &M, BuiltinLibInfo *BLI, DataPerValue *DPV,
-               WIRelatedValue *WIRV, DataPerBarrier *DPB,
-               function_ref<DominanceFrontier &(Function &)> GetDF,
-               function_ref<DominatorTree &(Function &)> GetDT);
 };
 
 } // namespace llvm

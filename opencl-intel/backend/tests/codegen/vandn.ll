@@ -14,10 +14,10 @@ define <8 x i32> @test_v8i32_rr_swapped(<8 x i32> %b, <8 x i32> %a) {
     ret <8 x i32> %t1
 }
 
-define <8 x i32> @test_v8i32_rm_swapped(<8 x i32> %b, <8 x i32>* %a) {
+define <8 x i32> @test_v8i32_rm_swapped(<8 x i32> %b, ptr %a) {
 ; CHECK1: test_v8i32_rm_swapped
 ; CHECK: vandnpd (
-    %a0 = load <8 x i32>, <8 x i32>* %a
+    %a0 = load <8 x i32>, ptr %a
     %t0 = xor <8 x i32> %b, <i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1>
     %t1 = and <8 x i32> %t0, %a0
     ret <8 x i32> %t1
@@ -37,19 +37,19 @@ define <8 x i32> @test_v8i32_rr(<8 x i32> %a, <8 x i32> %b) {
     ret <8 x i32> %t1
 }
 
-define <8 x i32> @test_v8i32_rm(<8 x i32> %a, <8 x i32>* %b) {
+define <8 x i32> @test_v8i32_rm(<8 x i32> %a, ptr %b) {
 ; CHECK: test_v8i32_rm
 ; CHECK: vandnpd (
-    %b0 = load <8 x i32>, <8 x i32>* %b
+    %b0 = load <8 x i32>, ptr %b
     %t0 = xor <8 x i32> %a, <i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1>
     %t1 = and <8 x i32> %t0, %b0
     ret <8 x i32> %t1
     }
 
-define <8 x i32> @test_v8f32_rm(<8 x float> %b, <8 x float>* %a) {
+define <8 x i32> @test_v8f32_rm(<8 x float> %b, ptr %a) {
 ; CHECK: test_v8f32_rm
 ; CHECK: vandnps (
-    %a1 = load <8 x float>, <8 x float>* %a
+    %a1 = load <8 x float>, ptr %a
     %a0 = bitcast <8 x float> %a1 to <8 x i32>
     %b0 = bitcast <8 x float> %b to <8 x i32>
     %t0 = xor <8 x i32> %b0, <i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1>
@@ -57,10 +57,10 @@ define <8 x i32> @test_v8f32_rm(<8 x float> %b, <8 x float>* %a) {
     ret <8 x i32> %t1
 }
 
-define <4 x double> @test_v4f64_rm(<4 x double> %a, <4 x double>* %b) {
+define <4 x double> @test_v4f64_rm(<4 x double> %a, ptr %b) {
 ; CHECK: test_v4f64_rm
 ; CHECK: vandnpd (
-    %b0 = load <4 x double>, <4 x double>* %b
+    %b0 = load <4 x double>, ptr %b
     %t0 = bitcast <4 x double> %a to <4 x i64>
     %t1 = bitcast <4 x double> %b0 to <4 x i64>
     %t2 = xor <4 x i64> %t0, <i64 -1, i64 -1, i64 -1, i64 -1>
@@ -77,10 +77,10 @@ define <4 x i64> @test_v4i64_rr(<4 x i64> %a, <4 x i64> %b) {
     ret <4 x i64> %t1
 }
 
-define <4 x i64> @test_v4i64_rm(<4 x i64> %a, <4 x i64>* %b) {
+define <4 x i64> @test_v4i64_rm(<4 x i64> %a, ptr %b) {
 ; CHECK: test_v4i64_rm
 ; CHECK: vandnpd (
-    %b0 = load <4 x i64>, <4 x i64>* %b
+    %b0 = load <4 x i64>, ptr %b
     %t0 = xor <4 x i64> %a, <i64 -1, i64 -1, i64 -1, i64 -1>
     %t1 = and <4 x i64> %t0, %b0
     ret <4 x i64> %t1
@@ -94,10 +94,10 @@ define <16 x i16> @test_v16i16_rr(<16 x i16> %a, <16 x i16> %b) {
     ret <16 x i16> %t1
 }
 
-define <16 x i16> @test_v16i16_rm(<16 x i16> %a, <16 x i16>* %b) {
+define <16 x i16> @test_v16i16_rm(<16 x i16> %a, ptr %b) {
 ; CHECK: test_v16i16_rm
 ; CHECK: vandnpd (
-    %b0 = load <16 x i16>, <16 x i16>* %b
+    %b0 = load <16 x i16>, ptr %b
     %t0 = xor <16 x i16> %a, <i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1>
     %t1 = and <16 x i16> %t0, %b0
     ret <16 x i16> %t1

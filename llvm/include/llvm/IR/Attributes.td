@@ -58,10 +58,10 @@ class TypeAttr<string S, list<AttrProperty> P> : Attr<S, P>;
 /// StringBool attribute.
 class StrBoolAttr<string S> : Attr<S, []>;
 
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 /// String attribute.
 class StrAttr<string S> : Attr<S, []>;
-// endif INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 /// Arbitrary string attribute.
 class ComplexStrAttr<string S, list<AttrProperty> P> : Attr<S, P>;
@@ -88,11 +88,11 @@ def AllocSize : IntAttr<"allocsize", [FnAttr]>;
 
 /// inline=always.
 def AlwaysInline : EnumAttr<"alwaysinline", [FnAttr]>;
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 
 /// Recursive counterpart of alwaysinline.
 def AlwaysInlineRecursive : EnumAttr<"alwaysinline_recursive", [FnAttr]>;
-// endif INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 /// Callee is recognized as a builtin, despite nobuiltin attribute on its
 /// declaration.
@@ -138,11 +138,11 @@ def InAlloca : TypeAttr<"inalloca", [ParamAttr]>;
 
 /// Source said inlining was desirable.
 def InlineHint : EnumAttr<"inlinehint", [FnAttr]>;
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 
 /// Recursive counterpart of inlinhint.
 def InlineHintRecursive : EnumAttr<"inlinehint_recursive", [FnAttr]>;
-// endif INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 /// Force argument to be passed in register.
 def InReg : EnumAttr<"inreg", [ParamAttr, RetAttr]>;
@@ -231,6 +231,9 @@ def NoSanitizeCoverage : EnumAttr<"nosanitize_coverage", [FnAttr]>;
 
 /// Null pointer in address space zero is valid.
 def NullPointerIsValid : EnumAttr<"null_pointer_is_valid", [FnAttr]>;
+
+/// Select optimizations that give decent debug info.
+def OptimizeForDebugging : EnumAttr<"optdebug", [FnAttr]>;
 
 /// Select optimizations for best fuzzing signal.
 def OptForFuzzing : EnumAttr<"optforfuzzing", [FnAttr]>;
@@ -332,6 +335,9 @@ def VScaleRange : IntAttr<"vscale_range", [FnAttr]>;
 /// Function always comes back to callsite.
 def WillReturn : EnumAttr<"willreturn", [FnAttr]>;
 
+/// Pointer argument is writable.
+def Writable : EnumAttr<"writable", [ParamAttr]>;
+
 /// Function only writes to memory.
 def WriteOnly : EnumAttr<"writeonly", [ParamAttr]>;
 
@@ -344,6 +350,9 @@ def MustProgress : EnumAttr<"mustprogress", [FnAttr]>;
 /// Function is a presplit coroutine.
 def PresplitCoroutine : EnumAttr<"presplitcoroutine", [FnAttr]>;
 
+/// The coroutine would only be destroyed when it is complete.
+def CoroDestroyOnlyWhenComplete : EnumAttr<"coro_only_destroy_when_complete", [FnAttr]>;
+
 /// Target-independent string attributes.
 def LessPreciseFPMAD : StrBoolAttr<"less-precise-fpmad">;
 def NoInfsFPMath : StrBoolAttr<"no-infs-fp-math">;
@@ -355,15 +364,12 @@ def NoJumpTables : StrBoolAttr<"no-jump-tables">;
 def NoInlineLineTables : StrBoolAttr<"no-inline-line-tables">;
 def ProfileSampleAccurate : StrBoolAttr<"profile-sample-accurate">;
 def UseSampleProfile : StrBoolAttr<"use-sample-profile">;
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def MayHaveOpenmpDirective : StrBoolAttr<"may-have-openmp-directive">;
     // The "may-have-openmp-directive" attribute is set by the front-end for
     // functions that contain OpenMP directives. While the backend passes can
     // also obtain this information by scanning the IR, setting this attribute
     // in the front-end significantly reduces compile time.
-// endif INTEL_CUSTOMIZATION
-
-// if INTEL_CUSTOMIZATION
 
 /// This attribute indicates that at some point during compilation,
 /// the compiler recognized that the function allocates large chunks
@@ -373,15 +379,10 @@ def MayHaveOpenmpDirective : StrBoolAttr<"may-have-openmp-directive">;
 /// which will do their own analysis to prove it.
 def MayHaveHugeLocalMalloc : StrBoolAttr<"may_have_huge_local_malloc">;
 
-// endif INTEL_CUSTOMIZATION
-
-// if INTEL_CUSTOMIZATION
 /// The attribute indicates that pointers loaded from the function argument have
 /// "noalias" semantic.
 def PtrNoAlias : StrBoolAttr<"ptrnoalias">;
-// endif INTEL_CUSTOMIZATION
 
-// if INTEL_CUSTOMIZATION
 /// This range indicates that complex multiply, division, and absolute value
 /// expressions can be simplified to their trivial mathematical expressions. It
 /// has an equivalent effect to specifying the STDC CX_LIMITED_RANGE pragma in
@@ -395,7 +396,7 @@ def ComplexLimitedRange : StrBoolAttr<"complex-limited-range">;
 def ComplexNoScale : StrBoolAttr<"complex-no-scale">;
 
 def VectorFunctionPtrs : StrAttr<"vector_function_ptrs">;
-// endif INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 def DenormalFPMath : ComplexStrAttr<"denormal-fp-math", [FnAttr]>;
 def DenormalFPMathF32 : ComplexStrAttr<"denormal-fp-math-f32", [FnAttr]>;

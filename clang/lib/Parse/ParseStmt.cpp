@@ -31,6 +31,7 @@
 #include "clang/AST/PrettyDeclStackTrace.h"
 #include "clang/Basic/Attributes.h"
 #include "clang/Basic/PrettyStackTrace.h"
+#include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/TokenKinds.h"
 #include "clang/Parse/LoopHint.h"
 #include "clang/Parse/Parser.h"
@@ -67,7 +68,6 @@ StmtResult Parser::ParseStatement(SourceLocation *TrailingElseLoc,
 
   return Res;
 }
-
 
 /// ParseStatementOrDeclaration - Read 'statement' or 'declaration'.
 ///       StatementOrDeclaration:
@@ -1147,8 +1147,8 @@ void Parser::DiagnoseLabelAtEndOfCompoundStatement() {
                   ? diag::warn_cxx20_compat_label_end_of_compound_statement
                   : diag::ext_cxx_label_end_of_compound_statement);
   } else {
-    Diag(Tok, getLangOpts().C2x
-                  ? diag::warn_c2x_compat_label_end_of_compound_statement
+    Diag(Tok, getLangOpts().C23
+                  ? diag::warn_c23_compat_label_end_of_compound_statement
                   : diag::ext_c_label_end_of_compound_statement);
   }
 }
@@ -1972,7 +1972,8 @@ StmtResult Parser::ParseDoStatement() {
   ExprResult Cond = ParseExpression();
   // Correct the typos in condition before closing the scope.
   if (Cond.isUsable())
-    Cond = Actions.CorrectDelayedTyposInExpr(Cond);
+    Cond = Actions.CorrectDelayedTyposInExpr(Cond, /*InitDecl=*/nullptr,
+                                             /*RecoverUncorrectedTypos=*/true);
   else {
     if (!Tok.isOneOf(tok::r_paren, tok::r_square, tok::r_brace))
       SkipUntil(tok::semi);
@@ -2065,11 +2066,7 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   // as those declared in the condition.
   //
   unsigned ScopeFlags = 0;
-  if (C99orCXXorObjC
-#if INTEL_CUSTOMIZATION
-      && getLangOpts().Zc_forScope
-#endif  // INTEL_CUSTOMIZATION
-      )
+  if (C99orCXXorObjC && getLangOpts().Zc_forScope) // INTEL
     ScopeFlags = Scope::DeclScope | Scope::ControlScope;
 
   ParseScope ForScope(this, ScopeFlags);
@@ -2239,11 +2236,13 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
         // for-range-declaration next.
         bool MightBeForRangeStmt = !ForRangeInfo.ParsedForRangeDecl();
         ColonProtectionRAIIObject ColonProtection(*this, MightBeForRangeStmt);
+        SourceLocation SecondPartStart = Tok.getLocation();
+        Sema::ConditionKind CK = Sema::ConditionKind::Boolean;
         SecondPart = ParseCXXCondition(
-            nullptr, ForLoc, Sema::ConditionKind::Boolean,
+            /*InitStmt=*/nullptr, ForLoc, CK,
             // FIXME: recovery if we don't see another semi!
             /*MissingOK=*/true, MightBeForRangeStmt ? &ForRangeInfo : nullptr,
-            /*EnterForConditionScope*/ true);
+            /*EnterForConditionScope=*/true);
 
         if (ForRangeInfo.ParsedForRangeDecl()) {
           Diag(FirstPart.get() ? FirstPart.get()->getBeginLoc()
@@ -2259,6 +2258,19 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
                 << FixItHint::CreateRemoval(EmptyInitStmtSemiLoc);
           }
         }
+
+        if (SecondPart.isInvalid()) {
+          ExprResult CondExpr = Actions.CreateRecoveryExpr(
+              SecondPartStart,
+              Tok.getLocation() == SecondPartStart ? SecondPartStart
+                                                   : PrevTokLocation,
+              {}, Actions.PreferredConditionType(CK));
+          if (!CondExpr.isInvalid())
+            SecondPart = Actions.ActOnCondition(getCurScope(), ForLoc,
+                                                CondExpr.get(), CK,
+                                                /*MissingOK=*/false);
+        }
+
       } else {
         // We permit 'continue' and 'break' in the condition of a for loop.
         getCurScope()->AddFlags(Scope::BreakScope | Scope::ContinueScope);

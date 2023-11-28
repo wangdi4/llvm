@@ -1,3 +1,21 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 //===-- sanitizer_suppressions.cpp ----------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -113,6 +131,34 @@ static const char *StripPrefix(const char *str, const char *prefix) {
     return str;
   return 0;
 }
+
+#if INTEL_CUSTOMIZATION
+void SuppressionContext::Add(const char *type, const char *templ) {
+  CHECK(can_parse_);
+  if (!type || !templ)
+    return;
+
+  int type_idx;
+  for (type_idx = 0; type_idx < suppression_types_num_; type_idx++) {
+    if (internal_strcmp(type, suppression_types_[type_idx]) == 0) {
+      break;
+    }
+  }
+  if (type_idx == suppression_types_num_) {
+    Printf("%s: failed to add suppressions\n", SanitizerToolName);
+    Die();
+  }
+
+  int templ_len = internal_strlen(templ);
+  Suppression s;
+  s.type = suppression_types_[type_idx];
+  s.templ = (char *)InternalAlloc(templ_len + 1);
+  internal_memcpy(s.templ, templ, templ_len);
+  s.templ[templ_len] = 0;
+  suppressions_.push_back(s);
+  has_suppression_type_[type_idx] = true;
+}
+#endif  // INTEL_CUSTOMIZATION
 
 void SuppressionContext::Parse(const char *str) {
   // Context must not mutate once Match has been called.

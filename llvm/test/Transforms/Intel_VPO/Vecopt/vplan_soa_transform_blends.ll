@@ -2,16 +2,15 @@
 ; RUN: opt -passes=vplan-vec -vplan-enable-soa-phis -vplan-force-vf=2 -vplan-print-after-transformed-soa-geps\
 ; RUN: -vplan-enable-soa -disable-output %s 2>&1 | FileCheck %s
 
-define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
+define void @uniform_with_undef(ptr %p, ptr %uniform.ptr) #0 {
 ; CHECK-LABEL:  VPlan after Dump Transformed SOA GEPs:
 ; CHECK-NEXT:  VPlan IR for: uniform_with_undef:simd.loop.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] [1024 x i32]* [[VP_ARR_SOA_PRIV32:%.*]] = allocate-priv [1024 x i32], OrigAlign = 4
-; CHECK-NEXT:     [DA: Div] i8* [[VP_ARR_SOA_PRIV32_BCAST:%.*]] = bitcast [1024 x i32]* [[VP_ARR_SOA_PRIV32]]
-; CHECK-NEXT:     [DA: Div] call i64 4096 i8* [[VP_ARR_SOA_PRIV32_BCAST:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARR_SOA_PRIV32:%.*]] = allocate-priv [1024 x i32], OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] call i64 4096 ptr [[VP_ARR_SOA_PRIV32]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 4, UF = 1
@@ -19,14 +18,14 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_UNI_GEP32:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_SOA_PRIV32]] i64 0 i64 0
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_UNI_GEP32]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_UNI_GEP32:%.*]] = getelementptr inbounds [1024 x i32], ptr [[VP_ARR_SOA_PRIV32]] i64 0 i64 0
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load ptr [[VP_UNI_GEP32]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp sgt i64 [[VP_IV]] i64 0
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_COND]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = load i1* [[UNIFORM_PTR0:%.*]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = load ptr [[UNIFORM_PTR0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[VP_UNIFORM]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -37,31 +36,31 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_UNI_ELSE:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 2
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_ELSE:%.*]] = load i32* [[VP_UNI_ELSE]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_RND_ELSE:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i32 [[VP_LD]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_UNI_ELSE:%.*]] = getelementptr inbounds i32, ptr [[VP_UNI_GEP32]] i64 2
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_ELSE:%.*]] = load ptr [[VP_UNI_ELSE]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_RND_ELSE:%.*]] = getelementptr inbounds i32, ptr [[VP_UNI_GEP32]] i32 [[VP_LD]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_UNIFORM]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_UNI_IF:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 1
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_IF:%.*]] = load i32* [[VP_UNI_IF]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_STR_IF:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 [[VP_IV]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_UNI_IF:%.*]] = getelementptr inbounds i32, ptr [[VP_UNI_GEP32]] i64 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_IF:%.*]] = load ptr [[VP_UNI_IF]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_STR_IF:%.*]] = getelementptr inbounds i32, ptr [[VP_UNI_GEP32]] i64 [[VP_IV]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_BLEND_BLEND_BB5:%.*]] = blend [ i64 2, i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i64 1, i1 [[VP_BB3_BR_VP_UNIFORM]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_BLENDPTRUNI_BLEND_BB5:%.*]] = blend [ i32* [[VP_UNI_ELSE]], i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i32* [[VP_UNI_IF]], i1 [[VP_BB3_BR_VP_UNIFORM]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_BLENDPTRRND_BLEND_BB5:%.*]] = blend [ i32* [[VP_RND_ELSE]], i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i32* [[VP_STR_IF]], i1 [[VP_BB3_BR_VP_UNIFORM]] ]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_BLENDPTRUNI_BLEND_BB5:%.*]] = blend [ ptr [[VP_UNI_ELSE]], i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ ptr [[VP_UNI_IF]], i1 [[VP_BB3_BR_VP_UNIFORM]] ]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_BLENDPTRRND_BLEND_BB5:%.*]] = blend [ ptr [[VP_RND_ELSE]], i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ ptr [[VP_STR_IF]], i1 [[VP_BB3_BR_VP_UNIFORM]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
-; CHECK-NEXT:     [DA: Div] i32* [[VP4:%.*]] = getelementptr i32* [[VP_BLENDPTRRND_BLEND_BB5]] i32 0 i32 [[VP_CONST_STEP]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP4:%.*]] = getelementptr i32, ptr [[VP_BLENDPTRRND_BLEND_BB5]] i32 0 i32 [[VP_CONST_STEP]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_CONST_STEP_1:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
-; CHECK-NEXT:     [DA: Div] i32* [[VP5:%.*]] = getelementptr i32* [[VP_BLENDPTRUNI_BLEND_BB5]] i32 0 i32 [[VP_CONST_STEP_1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP5:%.*]] = getelementptr i32, ptr [[VP_BLENDPTRUNI_BLEND_BB5]] i32 0 i32 [[VP_CONST_STEP_1]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_COND_ACTIVE:%.*]] = active-lane i1 [[VP_COND]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_BLEND_BLEND_BB5_ACTIVE:%.*]] = lane-extract i64 [[VP_BLEND_BLEND_BB5]] i1 [[VP_COND_ACTIVE]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_COND]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_UNI:%.*]] = load i32* [[VP5]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_RND:%.*]] = load i32* [[VP4]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_UNI:%.*]] = load ptr [[VP5]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_RND:%.*]] = load ptr [[VP4]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VAL:%.*]] = add i64 [[VP_BLEND_BLEND_BB5_ACTIVE]] i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -80,38 +79,38 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr.soa.priv32, i32 0, i32 1024) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr.soa.priv32, i32 0, i32 1024) ]
   br label %simd.loop
 
 simd.loop:
   %iv = phi i64 [ 0, %simd.begin.region], [ %iv.next, %latch ]
-  %uni.gep32 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.soa.priv32, i64 0, i64 0
-  %ld = load i32, i32* %uni.gep32, align 4
+  %uni.gep32 = getelementptr inbounds [1024 x i32], ptr %arr.soa.priv32, i64 0, i64 0
+  %ld = load i32, ptr %uni.gep32, align 4
   %cond = icmp sgt i64 %iv, 0
   br i1 %cond, label %uni.start, label %latch
 
 uni.start:
-  %uniform = load i1, i1 *%uniform.ptr
+  %uniform = load i1, ptr %uniform.ptr
   br i1 %uniform, label %if, label %else
 
 if:
-  %uni.if = getelementptr inbounds i32, i32* %uni.gep32, i64 1
-  %ld.if = load i32, i32* %uni.if, align 4
-  %str.if = getelementptr inbounds i32, i32* %uni.gep32, i64 %iv
+  %uni.if = getelementptr inbounds i32, ptr %uni.gep32, i64 1
+  %ld.if = load i32, ptr %uni.if, align 4
+  %str.if = getelementptr inbounds i32, ptr %uni.gep32, i64 %iv
   br label %if.end
 
 else:
-  %uni.else = getelementptr inbounds i32, i32* %uni.gep32, i64 2
-  %ld.else = load i32, i32* %uni.else, align 4
-  %rnd.else = getelementptr inbounds i32, i32* %uni.gep32, i32 %ld
+  %uni.else = getelementptr inbounds i32, ptr %uni.gep32, i64 2
+  %ld.else = load i32, ptr %uni.else, align 4
+  %rnd.else = getelementptr inbounds i32, ptr %uni.gep32, i32 %ld
   br label %if.end
 
 if.end:
   %blend = phi i64 [ 1, %if ], [ 2, %else]
-  %blendPtrUni = phi i32* [ %uni.if, %if ], [ %uni.else, %else]
-  %blendPtrRnd = phi i32* [ %str.if, %if ], [ %rnd.else, %else]
-  %ld.uni = load i32, i32* %blendPtrUni, align 4
-  %ld.rnd = load i32, i32* %blendPtrRnd, align 4
+  %blendPtrUni = phi ptr [ %uni.if, %if ], [ %uni.else, %else]
+  %blendPtrRnd = phi ptr [ %str.if, %if ], [ %rnd.else, %else]
+  %ld.uni = load i32, ptr %blendPtrUni, align 4
+  %ld.rnd = load i32, ptr %blendPtrRnd, align 4
   %val = add nsw nuw i64 %blend, 1
   br label %uni.end
 

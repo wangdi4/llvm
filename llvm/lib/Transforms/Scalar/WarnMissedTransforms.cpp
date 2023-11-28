@@ -49,7 +49,7 @@ static cl::opt<bool> VPlanSIMDAssertNoError(
     cl::desc(
         "Emit a warning instead of an error if pragma simd assert loop is not "
         "vectorized by VPlan"));
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 /// Emit warnings for forced (i.e. user-defined) loop transformations which have
 /// still not been performed.
@@ -60,7 +60,7 @@ warnAboutLoopLeftoverTransformations(Loop *L, Function *F,
 #else
 static void warnAboutLeftoverTransformations(Loop *L,
                                              OptimizationRemarkEmitter *ORE) {
-#endif
+#endif // INTEL_CUSTOMIZATION
   if (hasUnrollTransformation(L) == TM_ForcedByUser) {
     LLVM_DEBUG(dbgs() << "Leftover unroll transformation\n");
     ORE->emit(
@@ -140,7 +140,7 @@ static void warnAboutLeftoverTransformations(Function *F, LoopInfo *LI,
     warnAboutLoopLeftoverTransformations(L, F, ORE);
 #else
     warnAboutLeftoverTransformations(L, ORE);
-#endif
+#endif // INTEL_CUSTOMIZATION
 }
 
 // New pass manager boilerplate

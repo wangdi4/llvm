@@ -36,4 +36,4 @@ attributes #0 = { nounwind }
 
 !0 = !{ptr @main}
 !1 = !{!"int*"}
-!2 = !{i32 addrspace(1)* null}
+!2 = !{ptr addrspace(1) null}

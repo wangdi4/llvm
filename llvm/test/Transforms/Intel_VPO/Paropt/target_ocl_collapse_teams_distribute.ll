@@ -1,5 +1,7 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -loop-rotate -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S %s | FileCheck %s
+; RUN: opt -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-loop-collapse)' -switch-to-offload -S %s | FileCheck %s
 
 ; Original code:
 ; void foo() {
@@ -8,7 +10,7 @@
 ;     for (int j = 0; j < 32; ++j);
 ; }
 
-; Check that the distribute loop nest was collapsed:
+; Check that the distribute loop nest was collapsed and also check that 'vpo-paropt-loop-collapse' pass could handle rotated loops:
 ; CHECK:      "DIR.OMP.TARGET"()
 ; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED.WILOCAL"(ptr addrspace(4) [[LB:%omp.collapsed.lb[^ ,]*]], i64 0, i32 1)
 ; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED.WILOCAL"(ptr addrspace(4) [[UB:%omp.collapsed.ub[^ ,]*]], i64 0, i32 1)

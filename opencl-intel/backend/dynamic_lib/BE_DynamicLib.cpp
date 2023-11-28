@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,7 +13,7 @@
 // License.
 
 #include "BE_DynamicLib.h"
-#include <ocl_string_exception.h>
+#include "ocl_string_exception.h"
 
 #if defined(_WIN32)
 #include <windows.h>

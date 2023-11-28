@@ -25,17 +25,17 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, ptr nocapture readonly %a, i8 signex
 ; CHECK-LABEL:  VPlan after transforming early-exit loop:
 ; CHECK-NEXT:  VPlan IR for: _Z3fooiPKaPaa:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {sext.i32.i64(%n) + -1}
-; CHECK-DAG:     [[VP1:%.*]] = {%a}
-; CHECK-DAG:     [[VP2:%.*]] = {%val}
+; CHECK-DAG:     [[VP0:%.*]] = {%a}
+; CHECK-DAG:     [[VP1:%.*]] = {%val}
+; CHECK-DAG:     [[VP2:%.*]] = {sext.i32.i64(%n) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
+; CHECK-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP3]], UF = 1
-; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -56,7 +56,7 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, ptr nocapture readonly %a, i8 signex
 ; CHECK-NEXT:       br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH0]]: # preds: [[BB3]], [[INTERMEDIATE_BB0]]
-; CHECK-NEXT:     i64 [[VP__SSA_PHI]] = phi  [ i64 [[VP6]], [[BB3]] ],  [ i64 undef, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:     i64 [[VP__SSA_PHI]] = phi  [ i64 [[VP6]], [[BB3]] ],  [ i64 [[VP4]], [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB3]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP7]], [[BB3]] ],  [ i1 false, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     i1 [[VP_EE_LATCH_COND_CANON:%.*]] = not i1 [[VP_TAKE_BACKEDGE_COND]]
@@ -66,11 +66,15 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, ptr nocapture readonly %a, i8 signex
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]]: # preds: [[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp ne i32 [[VP_EXIT_ID_PHI]] i32 0
 ; CHECK-NEXT:     i32 [[VP_EARLY_EXIT_LANE:%.*]] = early-exit-lane i1 [[VP8]]
-; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 1
-; CHECK-NEXT:     br i1 [[VP9]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp ne i32 [[VP_EARLY_EXIT_LANE]] i32 -1
+; CHECK-NEXT:     i32 [[VP_EE_OR_FIRST_LANE:%.*]] = select-val-or-lane i1 [[VP9]] i32 [[VP_EARLY_EXIT_LANE]], first lane
+; CHECK-NEXT:     i32 [[VP_EE_OR_LAST_LANE:%.*]] = select-val-or-lane i1 [[VP9]] i32 [[VP_EARLY_EXIT_LANE]], last lane
+; CHECK-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 [[VP__SSA_PHI]] i32 [[VP_EE_OR_FIRST_LANE]]
+; CHECK-NEXT:     i32 [[VP_EARLY_EXIT_ID:%.*]] = early-exit-id i32 [[VP_EXIT_ID_PHI]] i32 [[VP_EE_OR_LAST_LANE]]
+; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp eq i32 [[VP_EARLY_EXIT_ID]] i32 1
+; CHECK-NEXT:     br i1 [[VP10]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[CASCADED_IF_BLOCK0]]
-; CHECK-NEXT:       i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:       br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[CASCADED_IF_BLOCK0]]

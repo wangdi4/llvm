@@ -54,7 +54,7 @@
 // CHK-COMMANDS: clang-offload-bundler{{.*}} "-type=o" "-targets=openmp-spir64" "-input={{.*}}libomp-itt-stubs.obj" "-output=[[ITT3TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-COMMANDS: llvm-link{{.*}} "[[TGTBC]]" "[[RTLTGT]]" "-o" "[[UNBUNDLED:.+\.bc]]"
 // CHK-COMMANDS: llvm-link{{(.exe)?}}{{.*}} "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[TGTLINKEDBC:.+\.bc]]"
-// CHK-COMMANDS: sycl-post-link{{(.exe)?}}{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-device-globals" "-o" "[[TGTPOSTLINK:.+\.bc]]" "[[TGTLINKEDBC]]"
+// CHK-COMMANDS: sycl-post-link{{(.exe)?}}{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=native" "-device-globals" "-o" "[[TGTPOSTLINK:.+\.bc]]" "[[TGTLINKEDBC]]"
 // CHK-COMMANDS: llvm-spirv{{(.exe)?}}{{.*}}" "-o" "[[TGTSPIRV:.+\.spv]]" {{.*}} "-spirv-allow-unknown-intrinsics" {{.*}} "[[TGTPOSTLINK]]"
 // CHK-COMMANDS: clang-offload-wrapper{{(.exe)?}}{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[TGTSPIRV]]"
 // CHK-COMMANDS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" "-emit-obj" {{.*}} "-o" "[[WRAPPEROBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
@@ -126,7 +126,7 @@
 // CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=openmp-spir64" "-input={{.*}}libomp-itt-stubs.obj" "-output=[[ITT3TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-UBJOBS: llvm-link{{.*}} "[[TGTBC]]" "[[RTLTGT]]" "-o" "[[UNBUNDLED:.+\.bc]]"
 // CHK-UBJOBS: llvm-link{{(.exe)?}}{{.*}} "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[TGTLINKEDBC:.+\.bc]]"
-// CHK-UBJOBS: sycl-post-link{{(.exe)?}}{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2"  "-spec-const=rt" "-device-globals" "-o" "[[TGTPOSTLINK:.+\.bc]]" "[[TGTLINKEDBC]]"
+// CHK-UBJOBS: sycl-post-link{{(.exe)?}}{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2"  "-spec-const=native" "-device-globals" "-o" "[[TGTPOSTLINK:.+\.bc]]" "[[TGTLINKEDBC]]"
 // CHK-UBJOBS: llvm-spirv{{(.exe)?}}{{.*}} "-o" "[[TGTSPIRV:.+\.spv]]" {{.*}} "-spirv-allow-unknown-intrinsics" {{.*}} "[[TGTPOSTLINK]]"
 // CHK-UBJOBS: clang-offload-wrapper{{(.exe)?}}{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[TGTSPIRV]]"
 // CHK-UBJOBS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" "-emit-obj" {{.*}} "-o" "[[WRAPPEROBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
@@ -145,3 +145,12 @@
 // RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-pc-windows-msvc -O1 -fopenmp-targets=spir64 -fno-openmp-device-lib=all  %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-SPIRV-OPT %s
 // CHK-SPIRV-OPT: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-pc-windows-msvc"{{.*}} "-mllvm" "-spirv-opt"
+
+/// CodeView is the default for Windows spir64 based compilations with debug.
+// RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64 -Zi -c \
+// RUN:           --target=x86_64-pc-windows-msvc %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=DEBUG-WIN %s
+// DEBUG-WIN: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}"{{.*}} "-gcodeview"
+// DEBUG-WIN-DAG: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}"{{.*}} "-gcodeview"
+// DEBUG-WIN-DAG: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-gcodeview"
+// DEBUG-WIN-NOT: dwarf-version

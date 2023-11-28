@@ -1,6 +1,6 @@
 //===--- HIRLMMImpl.h -----------------------------------------*- C++ -*---===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -66,7 +66,8 @@ public:
   bool belongs(RegDDRef *Ref) const;
 
   // Statistically analyze all ref(s) in the Group
-  void analyze(const HLLoop *Lp, DominatorTree *DT, bool LoopNestHoistingOnly);
+  void analyze(const HLLoop *Lp, DominatorTree *DT, bool LoopNestHoistingOnly,
+               SmallVectorImpl<const HLGoto *> &Gotos);
 
   // *** Supported Queries ***
   bool hasAnyLoadOrStoreOnDominatePath(void) const {
@@ -155,8 +156,10 @@ public:
 
   // analyze each group in MRC by checking Load(s), store(s), etc.
   void analyze(const HLLoop *Lp, DominatorTree *DT, bool LoopNestHoistingOnly) {
+    SmallVector<const HLGoto *, 16> Gotos;
+    Lp->populateEarlyExits(Gotos);
     for (auto &Group : MemRefGroups) {
-      Group.analyze(Lp, DT, LoopNestHoistingOnly);
+      Group.analyze(Lp, DT, LoopNestHoistingOnly, Gotos);
     }
   }
 
@@ -275,7 +278,7 @@ private:
                                 HLLoop *OuterLp) const;
 
   void createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
-                             bool NeedLoadInPrehdr) const;
+                             bool LoadCreatedInPrehdr) const;
 };
 
 //

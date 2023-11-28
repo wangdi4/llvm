@@ -196,7 +196,7 @@ class AliasSet : public ilist_node<AliasSet> {
   };
   unsigned Alias : 1;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   const bool RequiresLoopCarried = false;
 #endif // INTEL_CUSTOMIZATION
 
@@ -284,7 +284,7 @@ private:
   AliasSet()
       : PtrListEnd(&PtrList), RefCount(0),  AliasAny(false),
         Access(NoAccess), Alias(SetMustAlias) {}
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // This constructor allows one to specify whether or not "loopCarriedAlias"
   // disambiguation is will be used instead of the usual "alias"
   // disambiguation.
@@ -350,7 +350,7 @@ inline raw_ostream& operator<<(raw_ostream &OS, const AliasSet &AS) {
 class AliasSetTracker {
   BatchAAResults &AA;
   ilist<AliasSet> AliasSets;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   const bool LoopCarriedDisam = false;
   // If the pass requires to override the saturation threshold for Alias
   // Analysis, we store a new threshold in this field. During the analysis we
@@ -368,7 +368,7 @@ public:
   /// analysis object to disambiguate load and store addresses.
   explicit AliasSetTracker(BatchAAResults &AA) : AA(AA) {}
   ~AliasSetTracker() { clear(); }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   explicit AliasSetTracker(BatchAAResults &aa, bool NeedsLoopCarried,
                            unsigned STO = 0)
       : AA(aa), LoopCarriedDisam(NeedsLoopCarried),
@@ -459,7 +459,7 @@ private:
   AliasSet *findAliasSetForUnknownInst(Instruction *Inst);
 };
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // This class is a simple wrapper for a normal AST, but it always uses
 // loopCarriedAlias for disambiguation.
 class LoopCarriedAliasSetTracker : public AliasSetTracker {

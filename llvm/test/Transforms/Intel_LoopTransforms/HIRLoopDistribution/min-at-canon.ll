@@ -171,6 +171,7 @@ for.body4:                                        ; preds = %newFuncRoot, %for.b
   %16 = load float, ptr %arrayidx163, align 4, !tbaa !2
   %arrayidx165 = getelementptr inbounds [100 x float], ptr @MAIN__.a13, i64 0, i64 %inc939
   %17 = load float, ptr %arrayidx165, align 4, !tbaa !2
+  %dist.pt = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
   %sub167 = fsub float %16, %17
   %arrayidx169 = getelementptr inbounds [100 x float], ptr @MAIN__.a23, i64 0, i64 %inc939
   %18 = load float, ptr %arrayidx169, align 4, !tbaa !2
@@ -245,10 +246,19 @@ for.body4:                                        ; preds = %newFuncRoot, %for.b
   %sub315 = fsub float %sub311, %mul254
   %sub319 = fsub float %sub315, %mul258
   store float %sub319, ptr %arrayidx303, align 4, !tbaa !2
+  call void @llvm.directive.region.exit(token %dist.pt) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
   %inc322 = add nuw nsw i64 %storemerge903938, 1
   %exitcond = icmp ugt i64 %storemerge903938, %storemerge966
   br i1 %exitcond, label %for.end.exitStub, label %for.body4
 }
+
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #1
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token) #1
+
+attributes #1 = { nounwind }
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 

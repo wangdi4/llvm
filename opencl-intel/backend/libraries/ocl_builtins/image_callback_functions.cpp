@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,7 +13,6 @@
 // License.
 
 #define __OPENCL__
-#include "opencl-intrin-wrapper.h"
 
 // ll_intrinsics.h needs some types defined in cl_image_declaration.h, so we
 // have to disable formatting the code to reorder the header files.
@@ -21,6 +20,8 @@
 #include "cl_image_declaration.h"
 #include "GENERIC/ll_intrinsics.h"
 // clang-format on
+
+#include "opencl-intrin-wrapper.h"
 #include "transpose_functions.h"
 
 #define SHRT16_MIN (-32768)

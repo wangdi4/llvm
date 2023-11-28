@@ -232,9 +232,10 @@ private:
   // and almost dummy information.
   // However, current setup of transformation requires that info for contructing
   // an object of class Transformer.
-  // TODO: clean up class Transformer so that an empty InnermostToRefRep
-  //       can be passed when no-alignment or no-extra guardings are needed.
-  RegDDRef *getRepRef(ArrayRef<DDRef *> Refs);
+  // TODO: clean up HIRInterLoopBlocking's class Transformer so that an empty
+  //       InnermostToRefRep can be passed when no-alignment or no-extra
+  //       guardings are needed.
+  RegDDRef *getRepMemRef(ArrayRef<DDRef *> Refs);
 
 public:
   bool BailedOut;
@@ -326,13 +327,13 @@ RegDDRef *LegalityChecker::isValidInnermostLoop(HLLoop *InnermostLoop,
     return nullptr;
   }
 
-  RegDDRef *RepRef = getRepRef(Refs);
-  assert(RepRef && "RepRef cannot be nullptr.");
+  RegDDRef *RepRef = getRepMemRef(Refs);
+  LLVM_DEBUG(dbgs() << "RepMemRef: " << (RepRef ? "non-null" : "null") << "\n");
 
   return RepRef;
 }
 
-RegDDRef *LegalityChecker::getRepRef(ArrayRef<DDRef *> Refs) {
+RegDDRef *LegalityChecker::getRepMemRef(ArrayRef<DDRef *> Refs) {
 
   DDGraph DDG = DDA.getGraph(LCALoop);
 
@@ -353,6 +354,8 @@ RegDDRef *LegalityChecker::getRepRef(ArrayRef<DDRef *> Refs) {
     return RegRef;
   }
 
+  // When there is no memref with an outgoing edge,
+  // nullptr can be returned.
   return nullptr;
 }
 

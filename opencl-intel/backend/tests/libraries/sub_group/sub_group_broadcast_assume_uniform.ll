@@ -5,7 +5,7 @@
 ; CHECK-NEXT:   [[TO_BOOL:%.*]] = trunc <16 x i32> [[MASK]] to <16 x i1>
 ; CHECK-NEXT:   [[TO_INT:%.*]] = bitcast <16 x i1> [[TO_BOOL]] to i16
 ; CHECK-NEXT:   [[TRAIL_ZERO:%.*]] = tail call i16 @llvm.cttz.i16(i16 [[TO_INT]], i1 true)
-; CHECK-NEXT:   [[LEADER:%.*]] = zext i16 [[TRAIL_ZERO]] to i32
+; CHECK-NEXT:   [[LEADER:%.*]] = zext nneg i16 [[TRAIL_ZERO]] to i32
 ; CHECK-NEXT:   [[VECEXT:%.*]] = extractelement <16 x i32> [[LIDS]], i32 [[LEADER]]
 ; CHECK-NEXT:   [[ELEM:%.*]] = extractelement <16 x i32> [[X]], i32 [[VECEXT]]
 ; CHECK-NEXT:   [[SPLAT:%.*]] = insertelement <16 x i32> {{.*}}, i32 [[ELEM]], i64 0

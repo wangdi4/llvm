@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,19 +12,19 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <CL/cl_gl.h>
-#include <assert.h>
-#include <cl_sys_defines.h>
-#include <stdarg.h>
-
 #include "Device.h"
+#include "CL/cl_gl.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
 #include "cl_sys_info.h"
 #include "command_queue.h"
 #include "enqueue_commands.h"
+#include "framework_proxy.h"
 #include "observer.h"
 #include "platform_module.h"
-#include <framework_proxy.h>
+
+#include <assert.h>
+#include <stdarg.h>
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
@@ -190,11 +190,6 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(
   for (unsigned int i = 0; i < numDevicesInDeviceTypeRet; i++) {
     // create new device object
     SharedPtr<Device> pDevice = Device::Allocate(pClPlatformId);
-    if (0 == pDevice) {
-      pOutDevices->clear();
-      clErrRet = CL_OUT_OF_HOST_MEMORY;
-      break;
-    }
 
     clErr = pDevice->InitDevice(deviceIdsList[i]);
     if (CL_FAILED(clErr)) {
@@ -346,9 +341,7 @@ cl_int Device::clLogCreateClient(cl_int /*device_id*/, const char *client_name,
   }
 
   LoggerClient *pLoggerClient = new LoggerClient(client_name, LL_DEBUG);
-  if (nullptr == pLoggerClient) {
-    return CL_ERR_LOGGER_FAILED;
-  }
+
   *client_id = m_iNextClientId++;
   m_mapDeviceLoggerClinets[*client_id] = pLoggerClient;
   return CL_SUCCESS;
@@ -680,10 +673,6 @@ bool FissionableDevice::IsImageFormatSupported(
   assert(CL_SUCCESS == clErr);
   cl_image_format *const pFormats = new cl_image_format[uiNumEntries];
 
-  if (nullptr == pFormats) {
-    LOG_ERROR(TEXT("out of memory"));
-    return false;
-  }
   clErr = GetDeviceAgent()->clDevGetSupportedImageFormats(
       clMemFlags, clMemObjType, uiNumEntries, pFormats, nullptr);
   assert(CL_SUCCESS == clErr);
@@ -846,10 +835,7 @@ void SubDevice::CacheFissionProperties(
     }
     m_cachedFissionMode =
         new cl_device_partition_property[m_cachedFissionLength];
-    if (nullptr == m_cachedFissionMode) {
-      // Todo: what?
-      return;
-    }
+
     MEMCPY_S(m_cachedFissionMode,
              m_cachedFissionLength * sizeof(cl_device_partition_property),
              props,

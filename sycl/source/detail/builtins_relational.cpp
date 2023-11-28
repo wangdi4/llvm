@@ -90,7 +90,7 @@ template <typename T> inline T __sUnordered(T x, T y) {
 }
 
 template <typename T>
-inline typename std::enable_if_t<d::is_sgeninteger<T>::value, T>
+inline typename std::enable_if_t<d::is_sgeninteger_v<T>, T>
 __sycl_host_bitselect(T a, T b, T c) {
   return (a & ~c) | (b & c);
 }
@@ -121,8 +121,8 @@ template <> union databitset<s::cl_half> {
 };
 
 template <typename T>
-typename std::enable_if_t<d::is_sgenfloat<T>::value,
-                          T> inline __sycl_host_bitselect(T a, T b, T c) {
+typename std::enable_if_t<d::is_sgenfloat_v<T>, T> inline __sycl_host_bitselect(
+    T a, T b, T c) {
   databitset<T> ba;
   ba.f = a;
   databitset<T> bb;
@@ -458,12 +458,21 @@ __SYCL_EXPORT rel_res_t sycl_host_SignBitSet(s::cl_float x) __NOEXC {
 __SYCL_EXPORT rel_res_t sycl_host_SignBitSet(s::cl_double x) __NOEXC {
   return std::signbit(x);
 }
-__SYCL_EXPORT s::cl_int __vSignBitSet(s::cl_float x) __NOEXC {
-  return -static_cast<s::cl_int>(std::signbit(x));
-}
 __SYCL_EXPORT s::cl_long __vSignBitSet(s::cl_double x) __NOEXC {
   return -static_cast<s::cl_long>(std::signbit(x));
 }
+__SYCL_EXPORT s::cl_int __vSignBitSet(s::cl_float x) __NOEXC {
+#ifdef __GNUC__
+  // GCC 11.3 and later is stumbling with an internal compiler error
+  // here we are just redirecting it to the other overload to avoid that.
+  // Ultimately, all these math built-ins should probably not be macro
+  // expansions but templates in the main headers.
+  return static_cast<s::cl_int>(__vSignBitSet(static_cast<s::cl_double>(x)));
+#else
+  return -static_cast<s::cl_int>(std::signbit(x));
+#endif
+}
+
 __SYCL_EXPORT rel_res_t sycl_host_SignBitSet(s::cl_half x) __NOEXC {
   return std::signbit(d::cast_if_host_half(x));
 }

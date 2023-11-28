@@ -1,6 +1,6 @@
 //===- llvm/unittest/Transforms/Vectorize/IntelVPlanTestBase.h ------------===//
 //
-//   Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -15,12 +15,12 @@
 #ifndef LLVM_UNITTESTS_TRANSFORMS_VECTORIZE_INTELVPLANTESTBASE_H
 #define LLVM_UNITTESTS_TRANSFORMS_VECTORIZE_INTELVPLANTESTBASE_H
 
-#include "../lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationLegality.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationPlanner.h"
-#include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPOCodeGen.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCFGBuilder.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanHCFGBuilder.h"
+#include "../lib/Transforms/Vectorize/Intel_VPlan/LLVM/CodeGenLLVM.h"
+#include "../lib/Transforms/Vectorize/Intel_VPlan/LLVM/LegalityLLVM.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -49,7 +49,7 @@ protected:
   std::unique_ptr<DataLayout> DL;
   std::unique_ptr<ScalarEvolution> SE;
   std::unique_ptr<PredicatedScalarEvolution> PSE;
-  std::unique_ptr<VPOVectorizationLegality> Legal;
+  std::unique_ptr<LegalityLLVM> Legal;
   std::unique_ptr<VPExternalValues> Externals;
   std::unique_ptr<VPUnlinkedInstructions> UVPI;
   std::unique_ptr<LoopVectorizationPlanner> LVP;
@@ -80,8 +80,7 @@ protected:
     SE.reset(new ScalarEvolution(F, *TLI, *AC, *DT, *LI));
     if (Loop) {
       PSE.reset(new PredicatedScalarEvolution(*SE, *Loop));
-      Legal.reset(
-          new VPOVectorizationLegality(Loop, *PSE, &F, &F.getContext()));
+      Legal.reset(new LegalityLLVM(Loop, *PSE, &F, &F.getContext()));
     }
     Externals.reset(new VPExternalValues(M.get()));
     UVPI.reset(new VPUnlinkedInstructions());
@@ -124,11 +123,11 @@ protected:
     return Plan;
   }
 
-  std::unique_ptr<VPOCodeGen> getVPOCodeGen(BasicBlock *LoopHeader, unsigned VF,
-                                            unsigned UF) {
+  std::unique_ptr<CodeGenLLVM> getVPOCodeGen(BasicBlock *LoopHeader,
+                                             unsigned VF, unsigned UF) {
     OptReportBuilder ORBuilder; // Unsetup ORBuilder
     auto Plan = buildHCFG(LoopHeader);
-    auto VPOCG = std::make_unique<VPOCodeGen>(
+    auto VPOCG = std::make_unique<CodeGenLLVM>(
         LI->getLoopFor(LoopHeader), *Ctx.get(), *PSE.get(), LI.get(), DT.get(),
         TLI.get(), TTI.get(), VF, UF, Legal.get(), nullptr /*VLSA*/, Plan.get(),
         ORBuilder);

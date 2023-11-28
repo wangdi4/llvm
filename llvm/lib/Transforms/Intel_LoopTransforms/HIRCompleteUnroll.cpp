@@ -1,6 +1,6 @@
 //===- HIRCompleteUnroll.cpp - Implements CompleteUnroll class ------------===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -202,6 +202,11 @@ static cl::opt<unsigned> PerfectLoopDepthThreshold(
     "hir-complete-unroll-perfect-loop-depth-threshold", cl::init(7), cl::Hidden,
     cl::desc("Threshold for perfect loop depth"));
 
+static cl::opt<unsigned> ExtraFPOpsCostRatio(
+    "hir-complete-unroll-extra-fp-ops-cost-ratio", cl::init(4), cl::Hidden,
+    cl::desc("Specifies how many non-simplifyiable fp operations are "
+             "equivalent to 1 extra cost in the cost model."));
+
 // External interface
 namespace llvm {
 namespace loopopt {
@@ -215,6 +220,7 @@ void completeUnrollLoop(HLLoop *Loop) { HIRCompleteUnroll::doUnroll(Loop); }
 
 HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
                                      const TargetTransformInfo &TTI,
+                                     const TargetLibraryInfo &TLI,
                                      HIRLoopStatistics &HLS, HIRDDAnalysis &DDA,
                                      HIRSafeReductionAnalysis &HSRA,
 #if INTEL_FEATURE_SW_DTRANS
@@ -222,7 +228,7 @@ HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
 #endif // INTEL_FEATURE_SW_DTRANS
                                      unsigned OptLevel, bool IsPreVec,
                                      bool PragmaOnlyUnroll)
-    : HIRF(HIRF), DT(DT), TTI(TTI), HLS(HLS), DDA(DDA), HSRA(HSRA),
+    : HIRF(HIRF), DT(DT), TTI(TTI), TLI(TLI), HLS(HLS), DDA(DDA), HSRA(HSRA),
 #if INTEL_FEATURE_SW_DTRANS
       DTII(DTII),
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -429,7 +435,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
     unsigned NumSimplifiedTerms = 0;
     unsigned NumNonLinearTerms = 0;
     unsigned NumUnrollableIVBlobs = 0;
-    bool HasUnrollableStandAloneIV = false;
+    unsigned UnrollableStandAloneIVLevel = 0;
   };
 
   class InvalidBasePtrRefFinder;
@@ -437,6 +443,8 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   HIRCompleteUnroll &HCU;
   const HLLoop *CurLoop;
   const HLLoop *OuterLoop;
+
+  bool CurLoopIsVectorizationCandidate;
 
   const unsigned CurLevel;
   unsigned LoopNestTripCount;
@@ -456,6 +464,11 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 
   // Number of memrefs which can be eliminated by unrolling.
   unsigned NumSimplifiedMemRefs;
+
+  // Number of FP operations which cannot be simplified with unrolling but can
+  // be profitable for vectorization. Used to add extra cost to vectorizable
+  // loops.
+  unsigned NumVectorizableFPOps;
 
   // Keeps track of non-linear blobs that we encounter during our traversal so
   // they aren't penalized multiple times. Blobs are removed from the set when
@@ -505,19 +518,25 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 #endif // INTEL_FEATURE_SW_DTRANS
       SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents)
       : HCU(HCU), CurLoop(CurLp), OuterLoop(OuterLp),
+        CurLoopIsVectorizationCandidate(false),
         CurLevel(CurLp->getNestingLevel()), Cost(0), ScaledCost(0), Savings(0),
         ScaledSavings(0), GEPCost(0), GEPSavings(0), NumMemRefs(0),
-        NumDDRefs(0), NumSimplifiedMemRefs(0),
+        NumDDRefs(0), NumSimplifiedMemRefs(0), NumVectorizableFPOps(0),
         SimplifiedTempBlobs(SimplifiedBlobs), OuterLoopMemRefMap(MemRefMap),
         SimplifiableStores(SimplifiableStores),
 #if INTEL_FEATURE_SW_DTRANS
         DTII(DTII),
 #endif // INTEL_FEATURE_SW_DTRANS
         SimplifiedNonLoopParents(SimplifiedNonLoopParents) {
+
     auto Iter = HCU.AvgTripCount.find(CurLp);
     assert((Iter != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
     LoopNestTripCount = (ParentLoopNestTripCount * Iter->second);
   }
+
+  // Sets the data member CurLoopIsVectorizationCandidate if this loop looks
+  // like a profitable vectorization candidate.
+  void analyzeAndSetVectorizationCandidate();
 
   /// Inserts a simplified temp blob with \p Index. It overwrite the previous
   /// entry for the same blob.
@@ -856,9 +875,37 @@ void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
 
 ///// ProfitabilityAnalyzer Visitor Start
 
+void HIRCompleteUnroll::ProfitabilityAnalyzer::
+    analyzeAndSetVectorizationCandidate() {
+  if (!HCU.IsPreVec || !CurLoop->isInnermost() || !CurLoop->isDo())
+    return;
+
+  // Only when the loop is outermost do all the refs in OuterLoopMemRefMap
+  // belong to the current loop, otherwsie they belong to an outer loop.
+  bool IsOutermostLoop = (CurLoop->getNestingLevel() == 1);
+
+  // Check if all memrefs inside the loop are unit stride refs. This doesn't
+  // check if there is possiblity of G2S/VLS but we can relax/extend the check
+  // later.
+  for (auto &Entry : OuterLoopMemRefMap) {
+    for (auto *MemRef : Entry.second) {
+      if (!IsOutermostLoop && (MemRef->getLexicalParentLoop() != CurLoop))
+        continue;
+
+      bool IsNegStride;
+      if (!MemRef->isUnitStride(CurLevel, IsNegStride))
+        return;
+    }
+  }
+
+  CurLoopIsVectorizationCandidate = true;
+}
+
 void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
 
-  if (HCU.IsPreVec && CurLoop->isInnermost() && CurLoop->isDo()) {
+  analyzeAndSetVectorizationCandidate();
+
+  if (CurLoopIsVectorizationCandidate) {
     // compute safe reduction chain for innermost do loops if we are executing
     // before vectorizer. This is to add extra cost to the loops containing
     // reductions.
@@ -870,6 +917,10 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
   // parsed as blob.
   CurLoop->getHLNodeUtils().visitRange<true, false>(
       *this, CurLoop->child_begin(), CurLoop->child_end());
+
+  // Adds some extra cost to vectorizable loops for every few non-simplifyiable
+  // FP operations.
+  Cost += (NumVectorizableFPOps / ExtraFPOpsCostRatio);
 
   // Scale results by loop's average trip count.
   auto Iter = HCU.AvgTripCount.find(CurLoop);
@@ -933,6 +984,16 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
   LLVM_DEBUG(dbgs() << "Number of ddrefs: " << NumDDRefs << "\n");
   LLVM_DEBUG(dbgs() << "Number of memrefs which can be eliminated: "
                     << NumSimplifiedMemRefs << "\n");
+  LLVM_DEBUG(dbgs() << "Number of FP operations which cannot be eliminated: "
+                    << NumVectorizableFPOps << "\n");
+  LLVM_DEBUG(dbgs() << "Is vectorization candidate : ");
+
+  if (CurLoopIsVectorizationCandidate) {
+    LLVM_DEBUG(dbgs() << "yes\n");
+  } else {
+    LLVM_DEBUG(dbgs() << "no\n");
+  }
+
   LLVM_DEBUG(dbgs() << "Loop: \n"; CurLoop->dump(); dbgs() << "\n");
 
   if (SavingsPercentage < HCU.Limits.SavingsThreshold) {
@@ -1156,11 +1217,19 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
   if (!CanSimplifyRvals || !CanSimplifyLval) {
 
     if (HInst && !IsSelect) {
-      // Add extra cost if instruction is a non-simplifiable reduction and we
-      // are executing before vectorizer. We should prefer vectorizing
-      // reductions rather than unrolling them.
-      Cost +=
-          (HCU.IsPreVec && LvalRef && HCU.HSRA.isSafeReduction(HInst)) ? 2 : 1;
+
+      if (CurLoopIsVectorizationCandidate && isa<FPMathOperator>(Inst)) {
+        ++NumVectorizableFPOps;
+      }
+
+      // Add extra cost if instruction is a non-simplifiable reduction or
+      // vectorizable call and we are executing before vectorizer. We should
+      // prefer vectorizing reductions/calls rather than unrolling them.
+      Cost += (CurLoopIsVectorizationCandidate &&
+               (HCU.HSRA.isSafeReduction(HInst) ||
+                HInst->isVectorizableCall(HCU.TLI)))
+                  ? 2
+                  : 1;
     } else {
       // Add extra cost for ifs/switches/selects.
       Cost += 2;
@@ -1315,12 +1384,11 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
     return false;
   }
 
-  assert(Dist != 0 && "Non-zero distance expected!");
   unsigned TripCount = HCU.AvgTripCount.find(Loop)->second;
 
   // Distance should be negative for (store -> store) case but it doesn't matter
   // as it will be accounted once per ref pair due to symmetry of checks.
-  if ((Dist < 0) || (Dist >= TripCount)) {
+  if ((Dist <= 0) || (Dist >= TripCount)) {
     return true;
   }
 
@@ -1471,8 +1539,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isDDIndependentInLoop(
     }
 
     // Give up if the refs do not look structurally similar: A[i1] and B[0].
-    if (!DDRefUtils::haveEqualBaseAndShape(Ref, SymRef, false) ||
-        !DDRefUtils::haveEqualOffsets(Ref, SymRef)) {
+    if (!DDRefUtils::haveEqualBaseAndShapeAndOffsets(Ref, SymRef, false)) {
       RefinedOccurences = 0;
       return false;
     }
@@ -1841,16 +1908,17 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder final
   unsigned BaseIndex;
   const RegDDRef *CurStore;
   BasicBlock *StartBBlock;
+  unsigned StoreLoopLevel;
   bool IsStartLoop;
   bool FoundInvalidRef;
-  bool FoundIdenticalUse;
+  bool FoundProfitableUse;
   bool IsDone;
 
   bool foundInvalidRef() const { return FoundInvalidRef; }
 
   void reset(bool StartLoop) {
     FoundInvalidRef = false;
-    FoundIdenticalUse = false;
+    FoundProfitableUse = false;
     IsDone = false;
     IsStartLoop = StartLoop;
   }
@@ -1860,8 +1928,8 @@ public:
                           unsigned BaseIndex, const RegDDRef *Store,
                           BasicBlock *StartBBlock)
       : PA(PA), BaseIndex(BaseIndex), CurStore(Store), StartBBlock(StartBBlock),
-        IsStartLoop(true), FoundInvalidRef(false), FoundIdenticalUse(false),
-        IsDone(false) {}
+        StoreLoopLevel(Store->getNodeLevel()), IsStartLoop(true),
+        FoundInvalidRef(false), FoundProfitableUse(false), IsDone(false) {}
 
   void visit(const HLNode *Node) {}
 
@@ -1897,7 +1965,8 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::visit(
 
     bool HasNonSimplifiedBlob = false;
 
-    PA.getMaxNonSimplifiedBlobLevel(Ref, HasNonSimplifiedBlob);
+    unsigned DefLevel =
+        PA.getMaxNonSimplifiedBlobLevel(Ref, HasNonSimplifiedBlob);
 
     if (HasNonSimplifiedBlob) {
       FoundInvalidRef = true;
@@ -1917,7 +1986,8 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::visit(
       }
     }
 
-    auto ParLoop = Inst->getParentLoop();
+    auto *ParLoop = Inst->getLexicalParentLoop();
+    unsigned UseLoopLevel = ParLoop ? ParLoop->getNestingLevel() : 0;
     bool IsCandidateLoop = false;
 
     // Check if any parent loop is unroll candidate.
@@ -1933,7 +2003,29 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::visit(
     if (IsCandidateLoop) {
       if (!PA.HCU.IsPreVec || !((PA.HCU.HLS.getSelfStatistics(ParLoop))
                                     .hasProfitableVectorizableCalls())) {
-        FoundIdenticalUse = DDRefUtils::areEqual(CurStore, Ref);
+        // Set use as profitable if it has the same shape as the store and all
+        // its indices can be simplified. Loop nesting level check only serves
+        // as a heuristic to help restrict cases where we deduce load A[i2] as a
+        // profitble use for a store A[i1]. A later store to A[i2] in the same
+        // loop can prevent propagation of all the stores from the previous
+        // loop. See example below.
+        // TODO: Replace this heuritic with a more complicated analysis.
+        //
+        // DO i1 = 4
+        //   A[i1] =
+        // END DO
+        //
+        // DO i1 = n
+        //   DO i2 = 4
+        //         = A[i2]
+        //     A[i2] = // overwites A for all but the first iteration of i1 loop
+        //   END DO
+        // END DO
+        //
+        if ((DefLevel == 0) && (UseLoopLevel == StoreLoopLevel) &&
+            DDRefUtils::haveEqualBaseAndShapeAndOffsets(CurStore, Ref, false)) {
+          FoundProfitableUse = true;
+        }
       }
     } else {
       FoundInvalidRef = true;
@@ -1946,7 +2038,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::visit(
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::
     foundInvalidUse(const HLNode *PrevNode, bool IsStartLoop,
-                    bool *FoundProfitableUse) {
+                    bool *FoundProfitableUsePtr) {
 
   reset(IsStartLoop);
 
@@ -1967,8 +2059,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::
         HLNodeUtils::getLastLexicalChild(StartNode->getParent(), StartNode);
     HLNodeUtils::visitRange(*this, StartNode, EndNode);
 
-    if (FoundProfitableUse) {
-      *FoundProfitableUse = FoundIdenticalUse;
+    if (FoundProfitableUsePtr) {
+      *FoundProfitableUsePtr = FoundProfitableUse;
     }
   }
 
@@ -2556,11 +2648,36 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processCanonExpr(
       ++Cost;
     }
   } else if ((CEInfo.NumSimplifiedTerms == 1) &&
-             CEInfo.HasUnrollableStandAloneIV) {
+             CEInfo.UnrollableStandAloneIVLevel) {
     // Make sure we add at least 1 to savings for turning any IV into a
     // constant. Otherwise converting simple expressions like A[i1] to A[0] will
     // not be considered savings.
-    ++Savings;
+    // Make sure the savings are only considered for partial loopnests starting
+    // at IV level. For example, for a reference like A[i1][i2] inside the i2
+    // loop, we shouldn't consider simplification of i1 as savings for the
+    // combined trip count of i1 and i2 loop since i1 is invariant w.r.t i2
+    // loop.
+    //
+    // Incrementing savings works correctly if we are either analyzing a single
+    // loop or the IV being simplified belongs to the innermost loop of the
+    // loopnest.
+    if ((CurLoop == OuterLoop) ||
+        (CurLoop->getNestingLevel() == CEInfo.UnrollableStandAloneIVLevel)) {
+      ++Savings;
+
+    } else {
+      unsigned OuterLoopnestTC = HCU.AvgTripCount.find(OuterLoop)->second;
+
+      auto *Loop =
+          CurLoop->getParentLoopAtLevel(CEInfo.UnrollableStandAloneIVLevel);
+
+      while (Loop != OuterLoop) {
+        OuterLoopnestTC *= HCU.AvgTripCount.find(Loop)->second;
+        Loop = Loop->getParentLoop();
+      }
+
+      ScaledSavings += OuterLoopnestTC;
+    }
   }
 
   // Add 1 to cost/savings for non-unit denominator based on linearity.
@@ -2647,7 +2764,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processIVs(
       if (Coeff != 1) {
         ++Savings;
       } else {
-        CEInfo.HasUnrollableStandAloneIV = true;
+        CEInfo.UnrollableStandAloneIVLevel = Level;
       }
 
       ++CEInfo.NumSimplifiedTerms;
@@ -3473,6 +3590,8 @@ void HIRCompleteUnroll::transformLoops() {
     }
 
     HLLoop *ParentLoop = Loop->getParentLoop();
+    if (Loop->isMultiExit() && ParentLoop && ParentLoop->isMultiExit())
+      ParentLoop = Loop->getOutermostParentLoop();
     HLNode *ParentNode = ParentLoop;
 
     if (!ParentNode) {

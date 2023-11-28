@@ -1,6 +1,29 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 include(CheckCXXCompilerFlag)
 include(CompilerRTCompile)
 include(CompilerRTLink)
+
+# INTEL_CUSTOMIZATION
+# Remove libimf dependency using this flag
+append_string_if(COMPILER_RT_HAS_INTEL_NO_INTEL_LIB_FLAG ${INTEL_NO_INTEL_LIB_FLAG} CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+# end INTEL_CUSTOMIZATION
 
 set(MEMPROF_UNITTEST_CFLAGS
   ${COMPILER_RT_UNITTEST_CFLAGS}
@@ -58,7 +81,8 @@ if(COMPILER_RT_DEFAULT_TARGET_ARCH IN_LIST MEMPROF_SUPPORTED_ARCH)
     $<TARGET_OBJECTS:RTSanitizerCommon.${arch}>
     $<TARGET_OBJECTS:RTSanitizerCommonCoverage.${arch}>
     $<TARGET_OBJECTS:RTSanitizerCommonLibc.${arch}>
-    $<TARGET_OBJECTS:RTSanitizerCommonSymbolizer.${arch}>)
+    $<TARGET_OBJECTS:RTSanitizerCommonSymbolizer.${arch}>
+    $<TARGET_OBJECTS:RTSanitizerCommonSymbolizerInternal.${arch}>)
   set_target_compile_flags(MemProfUnitTests ${MEMPROF_UNITTEST_CFLAGS})
   set_target_link_flags(MemProfUnitTests ${MEMPROF_UNITTEST_LINK_FLAGS})
   target_link_libraries(MemProfUnitTests ${MEMPROF_UNITTEST_LINK_LIBRARIES})

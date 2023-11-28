@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,7 +12,16 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "InterpreterPluggable.h"
+#include "PlugInNEAT.h"
+#include "BLTImages.h"
+#include "Buffer.h"
+#include "Helpers.h"
+#include "IMemoryObject.h"
+#include "Image.h"
+#include "NEAT_WRAP.h"
+#include "OCLBuiltinParser.h"
+#include "Utils.h"
+
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/Statistic.h"
@@ -27,16 +36,10 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/FunctionDescriptor.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
-
-#include "BLTImages.h"
-#include "Buffer.h"
-#include "Helpers.h"
-#include "IMemoryObject.h"
-#include "Image.h"
-#include "NEAT_WRAP.h"
-#include "OCLBuiltinParser.h"
-#include "PlugInNEAT.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 
 #include <algorithm>
 #include <cmath>
@@ -1053,15 +1056,11 @@ bool NEATDataLayout ::IsNEATSupported(const Type *Ty, Value *V) {
   // TODO: implement
   switch (Ty->getTypeID()) {
   case Type::PointerTyID: {
-    if (cast<PointerType>(Ty)->isOpaque()) {
-      std::string ArgTyName;
-      Type *EltTy = findElementType(Ty, V, ArgTyName);
-      if (!ArgTyName.empty())
-        return isNEATArgTypeSupported(StringRef(ArgTyName).drop_back());
-      return IsNEATSupported(EltTy);
-    } else {
-      return IsNEATSupported(Ty->getNonOpaquePointerElementType());
-    }
+    std::string ArgTyName;
+    Type *EltTy = findElementType(Ty, V, ArgTyName);
+    if (!ArgTyName.empty())
+      return isNEATArgTypeSupported(StringRef(ArgTyName).drop_back());
+    return IsNEATSupported(EltTy);
   }
   case Type::ArrayTyID: {
     const ArrayType *ATy = dyn_cast<ArrayType>(Ty);
@@ -1583,108 +1582,6 @@ void NEATPlugIn::visitBitCastInst(BitCastInst &I) {
     }
     // handle pointer to pointer conversion
     else if (SrcTy->getTypeID() == Type::PointerTyID) {
-      // allowed cases: float* to float*, [n x float]* to float*, <n x float>*
-      // to float* float* to [n x float]*, float* to <n x float>* and the same
-      // for doubles
-      const Type *localSrcTy =
-          dyn_cast<PointerType>(SrcTy)->getNonOpaquePointerElementType();
-      const Type *localDstTy =
-          dyn_cast<PointerType>(DstTy)->getNonOpaquePointerElementType();
-
-      // float* to float*, double* to double*
-      if ((localSrcTy->getTypeID() == Type::FloatTyID &&
-           localDstTy->getTypeID() == Type::FloatTyID) ||
-          (localSrcTy->getTypeID() == Type::DoubleTyID &&
-           localDstTy->getTypeID() == Type::DoubleTyID)) {
-        LLVM_DEBUG(
-            dbgs() << "[NEATPlugin] warning : bitcast pointer to pointer\n");
-        R.PointerVal = Src1.PointerVal;
-        SetValue(&I, R, SF);
-        return;
-      }
-
-      // <n x float>* to float*, <n x double>* to double*
-      if (isa<VectorType>(localSrcTy)) {
-        Type::TypeID VecTypeID =
-            dyn_cast<VectorType>(localSrcTy)->getElementType()->getTypeID();
-        if ((VecTypeID == Type::FloatTyID &&
-             localDstTy->getTypeID() == Type::FloatTyID) ||
-            (VecTypeID == Type::DoubleTyID &&
-             localDstTy->getTypeID() == Type::DoubleTyID)) {
-          LLVM_DEBUG(dbgs()
-                     << "[NEATPlugin] warning : bitcast pointer to pointer\n");
-          R.PointerVal = Src1.PointerVal;
-          SetValue(&I, R, SF);
-          return;
-        }
-      }
-
-      // [n x float]* to float*, [n x double]* to double*
-      if (localSrcTy->getTypeID() == Type::ArrayTyID) {
-        Type::TypeID ArrTypeID =
-            dyn_cast<ArrayType>(localSrcTy)->getElementType()->getTypeID();
-        if ((ArrTypeID == Type::FloatTyID &&
-             localDstTy->getTypeID() == Type::FloatTyID) ||
-            (ArrTypeID == Type::DoubleTyID &&
-             localDstTy->getTypeID() == Type::DoubleTyID)) {
-          LLVM_DEBUG(dbgs()
-                     << "[NEATPlugin] warning : bitcast pointer to pointer\n");
-          R.PointerVal = Src1.PointerVal;
-          SetValue(&I, R, SF);
-          return;
-        }
-      }
-
-      // float* to <n x float>*, double* to <n x double>*
-      if (isa<VectorType>(localDstTy)) {
-        Type::TypeID VecTypeID =
-            dyn_cast<VectorType>(localDstTy)->getElementType()->getTypeID();
-        if ((VecTypeID == Type::FloatTyID &&
-             localSrcTy->getTypeID() == Type::FloatTyID) ||
-            (VecTypeID == Type::DoubleTyID &&
-             localSrcTy->getTypeID() == Type::DoubleTyID)) {
-          LLVM_DEBUG(dbgs()
-                     << "[NEATPlugin] warning : bitcast pointer to pointer\n");
-          R.PointerVal = Src1.PointerVal;
-          SetValue(&I, R, SF);
-          return;
-        }
-      }
-
-      // float* to [n x float]*, double* to [n x double]*
-      if (localDstTy->getTypeID() == Type::ArrayTyID) {
-        Type::TypeID ArrTypeID =
-            dyn_cast<ArrayType>(localDstTy)->getElementType()->getTypeID();
-        if ((ArrTypeID == Type::FloatTyID &&
-             localSrcTy->getTypeID() == Type::FloatTyID) ||
-            (ArrTypeID == Type::DoubleTyID &&
-             localSrcTy->getTypeID() == Type::DoubleTyID)) {
-          LLVM_DEBUG(dbgs()
-                     << "[NEATPlugin] warning : bitcast pointer to pointer\n");
-          R.PointerVal = Src1.PointerVal;
-          SetValue(&I, R, SF);
-          return;
-        }
-      }
-
-      // <n x float>* to <m x float>*, <n x double>* to <m x double>*
-      if (isa<VectorType>(localSrcTy) && isa<VectorType>(localDstTy)) {
-        Type::TypeID VecSrcTypeID =
-            dyn_cast<VectorType>(localSrcTy)->getElementType()->getTypeID();
-        Type::TypeID VecDstTypeID =
-            dyn_cast<VectorType>(localDstTy)->getElementType()->getTypeID();
-        if ((VecSrcTypeID == Type::FloatTyID &&
-             VecDstTypeID == Type::FloatTyID) ||
-            (VecSrcTypeID == Type::DoubleTyID &&
-             VecDstTypeID == Type::DoubleTyID)) {
-          LLVM_DEBUG(dbgs()
-                     << "[NEATPlugin] warning : bitcast pointer to pointer\n");
-          R.PointerVal = Src1.PointerVal;
-          SetValue(&I, R, SF);
-          return;
-        }
-      }
-
       // if we are here, we don't know how to bitcast
       throw Exception::NEATTrackFailure(
           "NEATPlugin:Invalid arguments for bitcast instruction. Can't bitcast "
@@ -2497,8 +2394,7 @@ typedef NEATVector (*vloadOp)(size_t, const NEATValue *);
       return;                                                                  \
     const NEATGenericValue &ValArg1 = GetArg(arg1, ArgVals);                   \
     NEATValue *p = (NEATValue *)NGVTOP(ValArg1);                               \
-    const PointerType *PTy = dyn_cast<PointerType>(Ty1);                       \
-    const Type *ETy = PTy->getNonOpaquePointerElementType();                   \
+    const Type *ETy = cast<VectorType>(F->getReturnType())->getElementType();  \
     if (ETy->isFloatTy()) {                                                    \
       Result.NEATVec = NEAT_WRAP::vload##n##_f(offset, p);                     \
     } else if (ETy->isDoubleTy()) {                                            \
@@ -2619,9 +2515,7 @@ typedef void (*vstoreOp)(NEATVector, size_t, const NEATValue *);
     Value *arg2 = &*Fit++;                                                     \
     const NEATGenericValue &ValArg2 = GetArg(arg2, ArgVals);                   \
     NEATValue *p = (NEATValue *)NGVTOP(ValArg2);                               \
-    const Type *Ty2 = arg2->getType();                                         \
-    const PointerType *PTy = dyn_cast<PointerType>(Ty2);                       \
-    const Type *ETy = PTy->getNonOpaquePointerElementType();                   \
+    const Type *ETy = cast<VectorType>(Ty0)->getElementType();                 \
     if (ETy->isFloatTy()) {                                                    \
       NEAT_WRAP::vstore##n##_f(data, offset, p);                               \
     } else if (ETy->isDoubleTy()) {                                            \
@@ -2876,9 +2770,11 @@ void NEATPlugIn::execute_async_work_group_copy(
   Function::arg_iterator Fit = F->arg_begin();
   Value *arg0 = &*Fit++;
 
-  const Type *Ty = arg0->getType();
-  const PointerType *PTy = cast<PointerType>(Ty);
-  const Type *ETy = PTy->getNonOpaquePointerElementType();
+  reflection::FunctionDescriptor FD = NameMangleAPI::demangle(F->getName());
+  const Type *ETy = parseLLVMTypeFromName(
+      F->getContext(), cast<reflection::PointerType>(FD.Parameters[0].get())
+                           ->getPointee()
+                           ->toString());
 
   if (!m_NTD.IsNEATSupported(ETy, arg0))
     return;
@@ -2914,9 +2810,11 @@ void NEATPlugIn::execute_async_work_group_strided_copy(
   Function::arg_iterator Fit = F->arg_begin();
   Value *arg0 = &*Fit++;
 
-  const Type *Ty = arg0->getType();
-  const PointerType *PTy = cast<PointerType>(Ty);
-  const Type *ETy = PTy->getNonOpaquePointerElementType();
+  reflection::FunctionDescriptor FD = NameMangleAPI::demangle(F->getName());
+  const Type *ETy = parseLLVMTypeFromName(
+      F->getContext(), cast<reflection::PointerType>(FD.Parameters[0].get())
+                           ->getPointee()
+                           ->toString());
 
   if (!m_NTD.IsNEATSupported(ETy, arg0))
     return;

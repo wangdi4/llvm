@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2010 Intel Corporation
+// Copyright (c) 2006 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -25,8 +25,7 @@
 //  Implementation of the Class MemoryObject
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include <cl_device_api.h>
-
+#include "cl_device_api.h"
 class SimpleBackingStore : public IOCLDevBackingStore {
 public:
   SimpleBackingStore(const cl_image_format *pclImageFormat,

@@ -23,27 +23,27 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @_Z3fooPiii(i32* nocapture readonly %ptr, i32 %step, i32 %n) local_unnamed_addr {
+define dso_local i32 @_Z3fooPiii(ptr nocapture readonly %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; Check induction initialization instructions
 ; CHECK:          i32 [[VP__OMP_IV_0_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP__OMP_IV_0_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     i32* [[VP_PTR_ADDR_019_IND_INIT:%.*]] = induction-init{getelementptr} i32* [[PTR0:%.*]] i64 1
-; CHECK-NEXT:     i64 [[VP_PTR_ADDR_019_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 1
+; CHECK-NEXT:     ptr [[VP_PTR_ADDR_019_IND_INIT:%.*]] = induction-init{getelementptr} ptr [[PTR0:%.*]] i64 4
+; CHECK-NEXT:     i64 [[VP_PTR_ADDR_019_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 4
 ; CHECK-NEXT:     i8 [[VP_C_018_IND_INIT:%.*]] = induction-init{add} i8 [[CONV0:%.*]] i8 1
 ; CHECK-NEXT:     i8 [[VP_C_018_IND_INIT_STEP:%.*]] = induction-init-step{add} i8 1
 ;
 ; Check induction PHIs
 ; CHECK:          i32 [[VP_ADD824:%.*]] = phi  [ i32 [[VP_ADD8:%.*]], [[BB2:BB[0-9]+]] ],  [ i32 [[VP_ADD824_RED_INIT:%.*]], [[BB1:BB[0-9]+]] ]
 ; CHECK-NEXT:     i32 [[VP__OMP_IV_0:%.*]] = phi  [ i32 [[VP_ADD9:%.*]], [[BB2]] ],  [ i32 [[VP__OMP_IV_0_IND_INIT]], [[BB1]] ]
-; CHECK-NEXT:     i32* [[VP_PTR_ADDR_019:%.*]] = phi  [ i32* [[VP0:%.*]], [[BB2]] ],  [ i32* [[VP_PTR_ADDR_019_IND_INIT]], [[BB1]] ]
+; CHECK-NEXT:     ptr [[VP_PTR_ADDR_019:%.*]] = phi  [ ptr [[VP0:%.*]], [[BB2]] ],  [ ptr [[VP_PTR_ADDR_019_IND_INIT]], [[BB1]] ]
 ; CHECK-NEXT:     i8 [[VP_C_018:%.*]] = phi  [ i8 [[VP1:%.*]], [[BB2]] ],  [ i8 [[VP_C_018_IND_INIT]], [[BB1]] ]
 ;
 ; Check induction binops and close-form instructions
-; CHECK:          i32* [[VP0]] = getelementptr inbounds i32* [[VP_PTR_ADDR_019]] i64 [[VP_PTR_ADDR_019_IND_INIT_STEP]]
-; CHECK-NEXT:     i32* [[VP_INCDEC_PTR:%.*]] = getelementptr inbounds i32* [[VP_PTR_ADDR_019]] i64 1
+; CHECK:          ptr [[VP0]] = getelementptr inbounds i8, ptr [[VP_PTR_ADDR_019]] i64 [[VP_PTR_ADDR_019_IND_INIT_STEP]]
+; CHECK-NEXT:     ptr [[VP_INCDEC_PTR:%.*]] = getelementptr inbounds i32, ptr [[VP_PTR_ADDR_019]] i64 1
 ; CHECK-NEXT:     i8 [[VP1]] = add i8 [[VP_C_018]] i8 [[VP_C_018_IND_INIT_STEP]]
 ; CHECK-NEXT:     i8 [[VP_INC:%.*]] = add i8 [[VP_C_018]] i8 1
-; CHECK-NEXT:     i32 [[VP2:%.*]] = load i32* [[VP_INCDEC_PTR]]
+; CHECK-NEXT:     i32 [[VP2:%.*]] = load ptr [[VP_INCDEC_PTR]]
 ; CHECK-NEXT:     i32 [[VP_CONV6:%.*]] = sext i8 [[VP_INC]] to i32
 ; CHECK-NEXT:     i32 [[VP_MUL7:%.*]] = mul i32 [[VP2]] i32 [[VP_CONV6]]
 ; CHECK-NEXT:     i32 [[VP_ADD8]] = add i32 [[VP_MUL7]] i32 [[VP_ADD824]]
@@ -58,21 +58,21 @@ DIR.OMP.SIMD.1:                                   ; preds = %entry
   br label %DIR.OMP.SIMD.126
 
 DIR.OMP.SIMD.126:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s.red, i32 0, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %s.red, i32 0, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.126
-  store i32 0, i32* %s.red, align 4
+  store i32 0, ptr %s.red, align 4
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.2
   %add824 = phi i32 [ %add8, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.2 ]
   %.omp.iv.0 = phi i32 [ %add9, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.2 ]
-  %ptr.addr.019 = phi i32* [ %incdec.ptr, %omp.inner.for.body ], [ %ptr, %DIR.OMP.SIMD.2 ]
+  %ptr.addr.019 = phi ptr [ %incdec.ptr, %omp.inner.for.body ], [ %ptr, %DIR.OMP.SIMD.2 ]
   %c.018 = phi i8 [ %inc, %omp.inner.for.body ], [ %conv, %DIR.OMP.SIMD.2 ]
-  %incdec.ptr = getelementptr inbounds i32, i32* %ptr.addr.019, i64 1
+  %incdec.ptr = getelementptr inbounds i32, ptr %ptr.addr.019, i64 1
   %inc = add i8 %c.018, 1
-  %1 = load i32, i32* %incdec.ptr, align 4, !tbaa !2
+  %1 = load i32, ptr %incdec.ptr, align 4, !tbaa !2
   %conv6 = sext i8 %inc to i32
   %mul7 = mul nsw i32 %1, %conv6
   %add8 = add nsw i32 %mul7, %add824
@@ -82,7 +82,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
   %add8.lcssa = phi i32 [ %add8, %omp.inner.for.body ]
-  store i32 %add8.lcssa, i32* %s.red, align 4, !tbaa !2
+  store i32 %add8.lcssa, ptr %s.red, align 4, !tbaa !2
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %omp.loop.exit

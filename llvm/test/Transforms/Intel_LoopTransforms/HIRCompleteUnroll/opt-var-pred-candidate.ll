@@ -1,4 +1,7 @@
+; REQUIRES: asserts
+
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s --check-prefix=CHECK-DEBUG
 
 ; Test checks that pre vec complete unroll treats i3-loop mem refs as unconditionally
 ; executed in case of embracing 'if' statement is a candidate for
@@ -54,47 +57,51 @@
 ; CHECK: END LOOP
 ; CHECK: END LOOP
 
+; Verify that we compute 5 fp operations for first i3 loop and 3 for second i3 loop.
+; CHECK-DEBUG: Number of FP operations which cannot be eliminated: 5
+
+; CHECK-DEBUG: Number of FP operations which cannot be eliminated: 3
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%"QNCA_a0$double*$rank1$" = type { double*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
-%"QNCA_a0$double*$rank2$" = type { double*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
+%"QNCA_a0$ptr$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
+%"QNCA_a0$ptr$rank2$" = type { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 %struct.ident_t = type { i32, i32, i32, i32, i8* }
 
 @md_globals_mp_vc_ = external hidden unnamed_addr global double, align 8, !llfort.type_idx !0
 @md_globals_mp_frp_ = external hidden global double, align 8, !llfort.type_idx !1
 @md_globals_mp_xmuc_ = external hidden unnamed_addr global double, align 8, !llfort.type_idx !2
-@md_globals_mp_zii_ = external hidden global %"QNCA_a0$double*$rank1$", !llfort.type_idx !3
+@md_globals_mp_zii_ = external hidden global %"QNCA_a0$ptr$rank1$", !llfort.type_idx !3
 @md_globals_mp_xl_ = external hidden unnamed_addr global double, align 8, !llfort.type_idx !4
-@md_globals_mp_x_ = external hidden global %"QNCA_a0$double*$rank2$", !llfort.type_idx !5
+@md_globals_mp_x_ = external hidden global %"QNCA_a0$ptr$rank2$", !llfort.type_idx !5
 @md_globals_mp_n_ = external hidden global i32, align 8, !llfort.type_idx !6
-@md_globals_mp_a_ = external hidden global %"QNCA_a0$double*$rank2$", !llfort.type_idx !5
+@md_globals_mp_a_ = external hidden global %"QNCA_a0$ptr$rank2$", !llfort.type_idx !5
 @md_globals_mp_xmass_ = external hidden global double, align 8, !llfort.type_idx !7
-@md_globals_mp_aii_ = external hidden global %"QNCA_a0$double*$rank1$", !llfort.type_idx !3
+@md_globals_mp_aii_ = external hidden global %"QNCA_a0$ptr$rank1$", !llfort.type_idx !3
 @.kmpc_loc.0.0.18.108 = external hidden unnamed_addr global %struct.ident_t
 @.kmpc_loc.0.0.20.109 = external hidden unnamed_addr global %struct.ident_t
 
 ; Function Attrs: nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32) #0
+declare i64* @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, i64*, i32) #0
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 ; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
 declare !llfort.type_idx !12 !llfort.intrin_id !13 double @llvm.sqrt.f64(double) #1
 
 ; Function Attrs: nofree nounwind
-declare void @__kmpc_dispatch_init_4(%struct.ident_t*, i32, i32, i32, i32, i32, i32) local_unnamed_addr #2
+declare void @__kmpc_dispatch_init_4(ptr, i32, i32, i32, i32, i32, i32) local_unnamed_addr #2
 
 ; Function Attrs: nofree nounwind
-declare i32 @__kmpc_dispatch_next_4(%struct.ident_t*, i32, i32*, i32*, i32*, i32*) local_unnamed_addr #2
+declare i32 @__kmpc_dispatch_next_4(ptr, i32, ptr, ptr, ptr, ptr) local_unnamed_addr #2
 
 ; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
 declare !llfort.type_idx !14 !llfort.intrin_id !15 double @llvm.exp.f64(double) #1
 
 ; Function Attrs: nofree nounwind uwtable
-define hidden void @foo(i32* nocapture readonly %arg, i32* nocapture readnone %arg1, i64 %arg2, i64 %arg3, i64 %arg4, i64 %arg5, i64 %arg6) #3 {
+define hidden void @foo(ptr nocapture readonly %arg, ptr nocapture readnone %arg1, i64 %arg2, i64 %arg3, i64 %arg4, i64 %arg5, i64 %arg6) #3 {
 bb:
   %i = trunc i64 %arg6 to i32
   %i7 = bitcast i64 %arg2 to double
@@ -103,19 +110,19 @@ bb:
   %i10 = alloca i32, align 4
   %i11 = alloca i32, align 4
   %i12 = alloca i32, align 4
-  store i32 0, i32* %i9, align 4
+  store i32 0, ptr %i9, align 4
   %i13 = icmp slt i32 %i, 0
   br i1 %i13, label %bb167, label %bb100
 
 bb14:                                             ; preds = %bb127, %bb97
   %i15 = phi i64 [ %i128, %bb127 ], [ %i98, %bb97 ]
-  %i16 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 24, double* elementtype(double) %i117, i64 %i15)
+  %i16 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 24, ptr elementtype(double) %i117, i64 %i15)
   br label %bb22
 
 bb22:                                             ; preds = %bb17
-  %i23 = load double*, double** getelementptr inbounds (%"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* @md_globals_mp_x_, i64 0, i32 0), align 16
-  %i24 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 24, double* elementtype(double) %i23, i64 %i15)
-  %i25 = load double*, double** getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @md_globals_mp_zii_, i64 0, i32 0), align 16
+  %i23 = load ptr, ptr getelementptr inbounds (%"QNCA_a0$ptr$rank2$", ptr @md_globals_mp_x_, i64 0, i32 0), align 16
+  %i24 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 24, ptr elementtype(double) %i23, i64 %i15)
+  %i25 = load ptr, ptr getelementptr inbounds (%"QNCA_a0$ptr$rank1$", ptr @md_globals_mp_zii_, i64 0, i32 0), align 16
   %i26 = load i64, i64* %i102, align 1
   %i27 = and i64 %i15, 4294967295
   br label %bb28
@@ -126,25 +133,25 @@ bb28:                                             ; preds = %bb77, %bb22
   br i1 %i30, label %bb77, label %bb31
 
 bb31:                                             ; preds = %bb28
-  %i32 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 24, double* elementtype(double) %i23, i64 %i29), !llfort.type_idx !112
+  %i32 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 24, ptr elementtype(double) %i23, i64 %i29), !llfort.type_idx !112
   br label %bb33
 
 bb33:                                             ; preds = %bb33, %bb31
   %i34 = phi i64 [ 1, %bb31 ], [ %i50, %bb33 ]
   %i35 = phi double [ 0.000000e+00, %bb31 ], [ %i49, %bb33 ]
-  %i36 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %i24, i64 %i34), !llfort.type_idx !113
-  %i37 = load double, double* %i36, align 1, !tbaa !114, !alias.scope !117, !noalias !118, !llvm.access.group !111, !llfort.type_idx !113
-  %i38 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %i32, i64 %i34), !llfort.type_idx !119
-  %i39 = load double, double* %i38, align 1, !tbaa !114, !alias.scope !120, !noalias !118, !llvm.access.group !111, !llfort.type_idx !119
+  %i36 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i24, i64 %i34), !llfort.type_idx !113
+  %i37 = load double, ptr %i36, align 1, !tbaa !114, !alias.scope !117, !noalias !118, !llvm.access.group !111, !llfort.type_idx !113
+  %i38 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i32, i64 %i34), !llfort.type_idx !119
+  %i39 = load double, ptr %i38, align 1, !tbaa !114, !alias.scope !120, !noalias !118, !llvm.access.group !111, !llfort.type_idx !119
   %i40 = fsub fast double %i37, %i39
-  %i41 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %i104, i64 %i34), !llfort.type_idx !121, !ifx.array_extent !122
+  %i41 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %i104, i64 %i34), !llfort.type_idx !121, !ifx.array_extent !122
   %i42 = fcmp fast ogt double %i40, %i7
   %i43 = fsub fast double %i40, %i133
   %i44 = select i1 %i42, double %i43, double %i40
   %i45 = fcmp fast olt double %i44, %i105
   %i46 = fadd fast double %i133, %i44
   %i47 = select i1 %i45, double %i46, double %i44
-  store double %i47, double* %i41, align 8, !tbaa !123, !alias.scope !125, !noalias !126
+  store double %i47, ptr %i41, align 8, !tbaa !123, !alias.scope !125, !noalias !126
   %i48 = fmul fast double %i47, %i47
   %i49 = fadd fast double %i48, %i35
   %i50 = add nuw nsw i64 %i34, 1
@@ -154,8 +161,8 @@ bb33:                                             ; preds = %bb33, %bb31
 bb52:                                             ; preds = %bb33
   %i53 = phi double [ %i49, %bb33 ]
   %i54 = call fast double @llvm.sqrt.f64(double %i53), !llfort.type_idx !127
-  %i55 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %i26, i64 8, double* elementtype(double) %i25, i64 %i29), !llfort.type_idx !128
-  %i56 = load double, double* %i55, align 1, !tbaa !129, !alias.scope !131, !noalias !118, !llvm.access.group !111, !llfort.type_idx !128
+  %i55 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i26, i64 8, ptr elementtype(double) %i25, i64 %i29), !llfort.type_idx !128
+  %i56 = load double, ptr %i55, align 1, !tbaa !129, !alias.scope !131, !noalias !118, !llvm.access.group !111, !llfort.type_idx !128
   %i57 = fneg fast double %i54
   %i58 = fmul fast double %i132, %i57
   %i59 = call fast double @llvm.exp.f64(double %i58), !llfort.type_idx !127
@@ -168,14 +175,14 @@ bb52:                                             ; preds = %bb33
 
 bb65:                                             ; preds = %bb65, %bb52
   %i66 = phi i64 [ 1, %bb52 ], [ %i74, %bb65 ]
-  %i67 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %i16, i64 %i66)
-  %i68 = load double, double* %i67, align 1, !tbaa !17, !alias.scope !132, !noalias !133, !llvm.access.group !111, !llfort.type_idx !134
-  %i69 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %i104, i64 %i66), !llfort.type_idx !135, !ifx.array_extent !122
-  %i70 = load double, double* %i69, align 8, !tbaa !123, !alias.scope !136, !noalias !137, !llvm.access.group !111, !llfort.type_idx !138
+  %i67 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i16, i64 %i66)
+  %i68 = load double, ptr %i67, align 1, !tbaa !17, !alias.scope !132, !noalias !133, !llvm.access.group !111, !llfort.type_idx !134
+  %i69 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %i104, i64 %i66), !llfort.type_idx !135, !ifx.array_extent !122
+  %i70 = load double, ptr %i69, align 8, !tbaa !123, !alias.scope !136, !noalias !137, !llvm.access.group !111, !llfort.type_idx !138
   %i71 = fmul fast double %i63, %i70
   %i72 = fmul fast double %i71, %i64
   %i73 = fadd fast double %i72, %i68
-  store double %i73, double* %i67, align 1, !tbaa !17, !alias.scope !139, !noalias !27, !llvm.access.group !111
+  store double %i73, ptr %i67, align 1, !tbaa !17, !alias.scope !139, !noalias !27, !llvm.access.group !111
   %i74 = add nuw nsw i64 %i66, 1
   %i75 = icmp eq i64 %i74, 4
   br i1 %i75, label %bb76, label %bb65
@@ -197,13 +204,13 @@ bb97:                                             ; preds = %bb80
   br i1 %i99, label %bb107, label %bb14, !llvm.loop !149
 
 bb100:                                            ; preds = %bb
-  %i101 = load i32, i32* %arg, align 4
-  store i32 0, i32* %i10, align 4
-  store i32 %i, i32* %i11, align 4
-  store i32 1, i32* %i12, align 4
-  tail call void @__kmpc_dispatch_init_4(%struct.ident_t* nonnull @.kmpc_loc.0.0.18.108, i32 %i101, i32 37, i32 0, i32 %i, i32 1, i32 0)
-  %i102 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @md_globals_mp_zii_, i64 0, i32 6, i64 0, i32 2), i32 0)
-  %i103 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @md_globals_mp_aii_, i64 0, i32 6, i64 0, i32 2), i32 0)
+  %i101 = load i32, ptr %arg, align 4
+  store i32 0, ptr %i10, align 4
+  store i32 %i, ptr %i11, align 4
+  store i32 1, ptr %i12, align 4
+  tail call void @__kmpc_dispatch_init_4(ptr nonnull @.kmpc_loc.0.0.18.108, i32 %i101, i32 37, i32 0, i32 %i, i32 1, i32 0)
+  %i102 = tail call i64* @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$ptr$rank1$", ptr @md_globals_mp_zii_, i64 0, i32 6, i64 0, i32 2), i32 0)
+  %i103 = tail call i64* @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$ptr$rank1$", ptr @md_globals_mp_aii_, i64 0, i32 6, i64 0, i32 2), i32 0)
   %i104 = getelementptr inbounds [3 x double], [3 x double]* %i8, i64 0, i64 0
   %i105 = fneg fast double %i7
   br label %bb109
@@ -218,27 +225,27 @@ bb108:                                            ; preds = %bb107, %bb106
   br label %bb109, !llvm.loop !149
 
 bb109:                                            ; preds = %bb108, %bb100
-  %i110 = call i32 @__kmpc_dispatch_next_4(%struct.ident_t* nonnull @.kmpc_loc.0.0.20.109, i32 %i101, i32* nonnull %i9, i32* nonnull %i10, i32* nonnull %i11, i32* nonnull %i12)
+  %i110 = call i32 @__kmpc_dispatch_next_4(ptr nonnull @.kmpc_loc.0.0.20.109, i32 %i101, ptr nonnull %i9, ptr nonnull %i10, ptr nonnull %i11, ptr nonnull %i12)
   %i111 = icmp eq i32 %i110, 0
   br i1 %i111, label %bb167, label %bb112
 
 bb112:                                            ; preds = %bb109
-  %i113 = load i32, i32* %i10, align 4, !range !156
-  %i114 = load i32, i32* %i11, align 4, !range !156
+  %i113 = load i32, ptr %i10, align 4, !range !156
+  %i114 = load i32, ptr %i11, align 4, !range !156
   %i115 = icmp ugt i32 %i113, %i114
   br i1 %i115, label %bb167, label %bb116
 
 bb116:                                            ; preds = %bb112
-  %i117 = load double*, double** getelementptr inbounds (%"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* @md_globals_mp_a_, i64 0, i32 0), align 16, !tbaa !157, !alias.scope !161, !noalias !118, !llvm.access.group !111, !llfort.type_idx !127
-  %i118 = load i32, i32* @md_globals_mp_n_, align 8, !tbaa !162, !alias.scope !164, !noalias !118, !llvm.access.group !111, !llfort.type_idx !165
+  %i117 = load ptr, ptr getelementptr inbounds (%"QNCA_a0$ptr$rank2$", ptr @md_globals_mp_a_, i64 0, i32 0), align 16, !tbaa !157, !alias.scope !161, !noalias !118, !llvm.access.group !111, !llfort.type_idx !127
+  %i118 = load i32, ptr @md_globals_mp_n_, align 8, !tbaa !162, !alias.scope !164, !noalias !118, !llvm.access.group !111, !llfort.type_idx !165
   %i119 = icmp slt i32 %i118, 1
-  %i120 = load double, double* @md_globals_mp_frp_, align 8, !tbaa !166, !alias.scope !168, !noalias !118, !llvm.access.group !111, !llfort.type_idx !169
-  %i121 = load double*, double** getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @md_globals_mp_zii_, i64 0, i32 0), align 16, !tbaa !170, !alias.scope !172, !noalias !118, !llvm.access.group !111, !llfort.type_idx !127
+  %i120 = load double, ptr @md_globals_mp_frp_, align 8, !tbaa !166, !alias.scope !168, !noalias !118, !llvm.access.group !111, !llfort.type_idx !169
+  %i121 = load ptr, ptr getelementptr inbounds (%"QNCA_a0$ptr$rank1$", ptr @md_globals_mp_zii_, i64 0, i32 0), align 16, !tbaa !170, !alias.scope !172, !noalias !118, !llvm.access.group !111, !llfort.type_idx !127
   %i122 = load i64, i64* %i102, align 1, !tbaa !173, !alias.scope !174, !noalias !118, !llvm.access.group !111, !llfort.type_idx !175
-  %i123 = load double, double* @md_globals_mp_vc_, align 8, !tbaa !176, !alias.scope !178, !noalias !118, !llvm.access.group !111, !llfort.type_idx !179
-  %i124 = load double*, double** getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @md_globals_mp_aii_, i64 0, i32 0), align 16, !tbaa !180, !alias.scope !182, !noalias !118, !llvm.access.group !111, !llfort.type_idx !127
+  %i123 = load double, ptr @md_globals_mp_vc_, align 8, !tbaa !176, !alias.scope !178, !noalias !118, !llvm.access.group !111, !llfort.type_idx !179
+  %i124 = load ptr, ptr getelementptr inbounds (%"QNCA_a0$ptr$rank1$", ptr @md_globals_mp_aii_, i64 0, i32 0), align 16, !tbaa !180, !alias.scope !182, !noalias !118, !llvm.access.group !111, !llfort.type_idx !127
   %i125 = load i64, i64* %i103, align 1, !tbaa !183, !alias.scope !184, !noalias !118, !llvm.access.group !111, !llfort.type_idx !185
-  %i126 = load double, double* @md_globals_mp_xmass_, align 8, !tbaa !186, !alias.scope !188, !noalias !118, !llvm.access.group !111, !llfort.type_idx !189
+  %i126 = load double, ptr @md_globals_mp_xmass_, align 8, !tbaa !186, !alias.scope !188, !noalias !118, !llvm.access.group !111, !llfort.type_idx !189
   br i1 %i119, label %bb167, label %bb127
 
 bb127:                                            ; preds = %bb116
@@ -246,8 +253,8 @@ bb127:                                            ; preds = %bb116
   %i129 = add nuw nsw i32 %i114, 1
   %i130 = zext i32 %i129 to i64
   %i131 = zext i32 %i118 to i64
-  %i132 = load double, double* @md_globals_mp_xmuc_, align 8
-  %i133 = load double, double* @md_globals_mp_xl_, align 8
+  %i132 = load double, ptr @md_globals_mp_xmuc_, align 8
+  %i133 = load double, ptr @md_globals_mp_xl_, align 8
   br label %bb14
 
 bb167:                                            ; preds = %bb112, %bb109, %bb
@@ -413,8 +420,7 @@ attributes #3 = { nofree nounwind uwtable "denormal-fp-math"="preserve_sign" "fr
 !147 = !{i64 451}
 !148 = !{!23, !26}
 !149 = distinct !{!149, !150, !154, !155}
-!150 = distinct !{!"intel.optreport.rootnode", !151}
-!151 = distinct !{!"intel.optreport", !152}
+!150 = distinct !{!"intel.optreport", !152}
 !152 = !{!"intel.optreport.remarks", !153}
 !153 = !{!"intel.optreport.remark", i32 0, !"OpenMP: Outlined parallel loop"}
 !154 = !{!"llvm.loop.vectorize.ivdep_loop", i32 0}

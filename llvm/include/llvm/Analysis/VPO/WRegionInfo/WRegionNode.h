@@ -59,7 +59,7 @@ class HLNode;
 class HLInst;
 class HLLoop;
 }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 namespace vpo {
 
@@ -172,6 +172,12 @@ private:
   /// * implicit taskgroup around a taskloop construct
   bool IsImplicit = false;
 
+  /// True means the construct is perfectly nested inside its parent construct.
+  /// NOTE: This property is set by the FE, but it does not guarantee that all
+  /// perfectly-nested cases are marked, so this boolean carries no useful
+  /// information when it is false.
+  bool IsPerfectlyNested = false;
+
 #if INTEL_CUSTOMIZATION
   /// True if the WRN came from HIR; false otherwise
   bool IsFromHIR = false;
@@ -224,6 +230,9 @@ protected:
   /// Set whether this WRegionNode is for an implicit construct.
   void setIsImplicit(bool B) { IsImplicit = B; }
 
+  /// Set whether this WRegionNode is perfectly nested in its parent construct.
+  void setIsPerfectlyNested(bool B) { IsPerfectlyNested = B; }
+
   /// Set the DominatorTree of this region.
   void setDT(DominatorTree *D) { DT = D; }
 
@@ -273,7 +282,7 @@ public:
 #if INTEL_FEATURE_CSA
   bool canHaveWorkerSchedule() const;
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   bool canHaveShared() const;
   bool canHavePrivate() const;
   bool canHaveFirstprivate() const;
@@ -309,6 +318,7 @@ public:
   bool canHaveOrderedTripCounts() const;
   bool canHaveIf() const;
   bool canHaveSizes() const;
+  bool canHaveStrides() const;
   bool canHaveLivein() const;
 #if INTEL_CUSTOMIZATION
   bool canHaveDoConcurrent() const;
@@ -406,10 +416,11 @@ public:
 #if INTEL_FEATURE_CSA
   virtual ScheduleClause &getWorkerSchedule()  {WRNERROR("SA_SCHEDULE");      }
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
   virtual SizesClause &getSizes()            {WRNERROR(QUAL_OMP_SIZES);       }
+  virtual StridesClause &getStrides()        {WRNERROR(QUAL_OMP_STRIDES);     }
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual InclusiveClause &getInclusive()    {WRNERROR(QUAL_OMP_INCLUSIVE);   }
   virtual ExclusiveClause &getExclusive()    {WRNERROR(QUAL_OMP_EXCLUSIVE);   }
@@ -472,11 +483,13 @@ public:
   virtual const ScheduleClause &getWorkerSchedule() const
                                            {WRNERROR("SA_SCHEDULE")         }
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   virtual const SharedClause &getShared() const
                                            {WRNERROR(QUAL_OMP_SHARED);      }
   virtual const SizesClause &getSizes() const
                                            {WRNERROR(QUAL_OMP_SIZES);       }
+  virtual const StridesClause &getStrides() const
+                                           {WRNERROR(QUAL_OMP_STRIDES);     }
   virtual const UniformClause &getUniform() const
                                            {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual const InclusiveClause &getInclusive() const
@@ -569,7 +582,7 @@ public:
   virtual void setPipelineDepth(int E)        {WRNERROR(QUAL_OMP_SA_PIPELINE);}
   virtual int  getPipelineDepth()       const {WRNERROR(QUAL_OMP_SA_PIPELINE);}
 #endif // INTEL_FEATURE_CSA
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   virtual void setOffloadEntryIdx(int N)       {WRNERROR("OFFLOAD_ENTRY_IDX");}
   virtual int  getOffloadEntryIdx()      const {WRNERROR("OFFLOAD_ENTRY_IDX");}
   virtual void setOrdered(int N)                {WRNERROR(QUAL_OMP_ORDERED);  }
@@ -693,7 +706,7 @@ public:
   virtual loopopt::HLNode *getExitHLNode() const  {WRNERROR("ExitHLNode");    }
   virtual void setHLLoop(loopopt::HLLoop *)       {WRNERROR("HLLoop");        }
   virtual loopopt::HLLoop *getHLLoop() const      {WRNERROR("HLLoop");        }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
   /// Only these classes are allowed to create/modify/delete WRegionNode.
   friend class WRegionUtils;
@@ -833,6 +846,10 @@ public:
   /// Returns whether the WRegionNode is for an implicit construct.
   bool getIsImplicit() const { return IsImplicit; }
 
+  /// Returns whether the WRegionNode is perfectly nested in its parent
+  /// construct.
+  bool getIsPerfectlyNested() const { return IsPerfectlyNested; }
+
   // Methods for BBlockSet
 
   /// Returns the entry(first) bblock of this region.
@@ -956,7 +973,7 @@ public:
 
   /// An enumeration to keep track of the concrete subclasses of
   /// WRegionNode
-  enum WRegionNodeKind{
+  enum WRegionNodeKind {
                                       // WRNAttribute:
     // These require outlining:
 
@@ -990,6 +1007,7 @@ public:
     WRNWorkshare,                     // IsOmpLoop
     WRNDistribute,                    // IsOmpLoop, IsDistribute
     WRNTile,                          // IsOmpLoopTransform
+    WRNInterleave,                    // IsOmpLoopTransform
     WRNAtomic,
     WRNBarrier,
     WRNCancel,
@@ -1066,6 +1084,11 @@ private:
   static void extractDependOpndList(const Use *Args, unsigned NumArgs,
                                     const ClauseSpecifier &ClauseInfo,
                                     DependClause &C, bool IsIn);
+
+  /// Extract operands from a livein clause
+  static void extractLiveinOpndList(const Use *Args, unsigned NumArgs,
+                                    const ClauseSpecifier &ClauseInfo,
+                                    LiveinClause &C);
 
   /// Extract operands from a linear clause
 #if INTEL_CUSTOMIZATION

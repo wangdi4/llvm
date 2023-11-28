@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -O0 -fintel-compatibility -fhls -triple=x86_64-linux-gnu -emit-llvm -opaque-pointers -o - | FileCheck %s
+// RUN: %clang_cc1 %s -O0 -fintel-compatibility -fhls -triple=x86_64-linux-gnu -emit-llvm -o - | FileCheck %s
 
 struct Foo {
   char a, b, c, d;

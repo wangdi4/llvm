@@ -53,24 +53,38 @@ static bool hasUsersInFunction(Value &V, Function &F) {
   return false;
 }
 
+static bool isPipeTy(Type *Ty) {
+  auto *TETy = dyn_cast<TargetExtType>(Ty);
+  return TETy && (TETy->getName() == "spirv.Pipe" ||
+                  TETy->getName() == "spirv.Channel");
+}
+
 static int getNumUsedPipes(Function &F, const PipeTypesHelper &PipeTypes) {
   SmallPtrSet<Value *, 8> Pipes;
 
   // Count local pipes.
   SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(&F);
-  // TODO update LIT tests so that ArgTypeNullValList exists.
   if (KIMD.ArgTypeNullValList.hasValue()) {
-    for (const auto &[Idx, C] : llvm::enumerate(KIMD.ArgTypeNullValList))
-      if (auto *TETy = dyn_cast<TargetExtType>(C->getType());
-          TETy && (TETy->getName() == "spirv.Pipe" ||
-                   TETy->getName() == "spirv.Channel"))
-        Pipes.insert(F.getArg(Idx));
-  }
-  // TODO not needed when opaque pointer is enabled.
-  if (Pipes.empty()) {
-    for (auto &Arg : F.args())
-      if (PipeTypes.isPipeType(Arg.getType()))
-        Pipes.insert(&Arg);
+    if (F.arg_size() == KIMD.ArgTypeNullValList.size()) {
+      for (const auto &[Idx, C] : llvm::enumerate(KIMD.ArgTypeNullValList))
+        if (isPipeTy(C->getType()))
+          Pipes.insert(F.getArg(Idx));
+    } else {
+      // Some arguments are eliminated. In this case it is ok to over-estimate
+      // the number of pipes, since this would only increase the capacity of
+      // pipe arrays.
+      auto MaxNumPipeArgs =
+          (unsigned)llvm::count_if(KIMD.ArgTypeNullValList, [](auto *C) {
+            return isPipeTy(C->getType());
+          });
+      for (auto &A : F.args()) {
+        if (Pipes.size() == MaxNumPipeArgs)
+          break;
+        if (A.getType() ==
+            PointerType::get(A.getContext(), ADDRESS_SPACE_GLOBAL))
+          Pipes.insert(&A);
+      }
+    }
   }
   if (Pipes.empty()) {
     // Parse pipe from mangled non-kernel function name, e.g. the first
@@ -196,8 +210,7 @@ static Value *getPipeCallRetcode(const PipeCallInfo &PC) {
       !PC.Kind.SimdSuffix.empty()) {
     auto *RetcodePtr = PC.Call->getArgOperand(1);
 
-    Type *Ty = cast<PointerType>(RetcodePtr->getType())
-                   ->getNonOpaquePointerElementType();
+    Type *Ty = RetcodePtr->getType();
     return new LoadInst(Ty, RetcodePtr, "", PC.Call->getNextNode());
   }
 
@@ -228,8 +241,7 @@ static PipeCallInfo replaceBlockingCall(Module *M, const PipeCallInfo &PC,
         NonBlockingFTy->getParamType(NonBlockingFTy->getNumParams() - 1));
 
     NewArgs.push_back(Builder.CreatePointerBitCastOrAddrSpaceCast(
-        Builder.CreateAlloca(RetcodePtrTy->getNonOpaquePointerElementType()),
-        RetcodePtrTy, "retcode"));
+        Builder.CreateAlloca(RetcodePtrTy), RetcodePtrTy, "retcode"));
   }
   auto *NonBlockingCall = CallInst::Create(NonBlockingFun, NewArgs);
   ReplaceInstWithInst(PC.Call, NonBlockingCall);

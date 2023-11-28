@@ -118,6 +118,9 @@
 #include <optional>
 #include <utility>
 #include <vector>
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/CFG.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -215,7 +218,7 @@ static cl::opt<bool> BBSectionsGuidedSectionPrefix(
              "impacted, i.e., their prefixes will be decided by FDO/sampleFDO "
              "profiles."));
 
-static cl::opt<unsigned> FreqRatioToSkipMerge(
+static cl::opt<uint64_t> FreqRatioToSkipMerge(
     "cgp-freq-ratio-to-skip-merge", cl::Hidden, cl::init(2),
     cl::desc("Skip merging empty blocks if (frequency of empty block) / "
              "(frequency of destination block) is greater than this ratio"));
@@ -272,6 +275,10 @@ static cl::opt<bool> EnableSwitchCriticalEdgeSplit(
 static cl::opt<bool> DontSplitColdCriticalEdge(
     "cgp-dont-split-cold-critical-edge", cl::Hidden, cl::init(true),
     cl::desc("Don't split a cold critical edge from an indirectbr/switch."));
+
+static cl::opt<bool> EnableCmpLeaJcc2IncCmpJcc(
+    "cgp-icmp-CmpLeaJcc2IncCmpJcc", cl::Hidden, cl::init(true),
+    cl::desc("Transform CmpLeaJcc to IncCmpJcc by changing src and jcc"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableICMP_EQToICMP_ST(
@@ -295,6 +302,11 @@ static cl::opt<unsigned>
     MaxAddressUsersToScan("cgp-max-address-users-to-scan", cl::init(100),
                           cl::Hidden,
                           cl::desc("Max number of address users to look at"));
+
+static cl::opt<bool>
+    DisableDeletePHIs("disable-cgp-delete-phis", cl::Hidden, cl::init(false),
+                      cl::desc("Disable elimination of dead PHI nodes."));
+
 namespace {
 
 enum ExtType {
@@ -511,6 +523,9 @@ private:
   bool optimizeCmp(CmpInst *Cmp, ModifyDT &ModifiedDT);
   bool combineToUSubWithOverflow(CmpInst *Cmp, ModifyDT &ModifiedDT);
   bool combineToUAddWithOverflow(CmpInst *Cmp, ModifyDT &ModifiedDT);
+#if INTEL_CUSTOMIZATION
+  bool combineCmpLeaJcc2IncCmpJcc(CmpInst *Cmp);
+#endif // INTEL_CUSTOMIZATION
   void verifyBFIUpdates(Function &F);
 };
 
@@ -586,8 +601,8 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
       // optimization to those blocks.
       BasicBlock *Next = BB->getNextNode();
       // F.hasOptSize is already checked in the outer if statement.
-      if (!llvm::shouldOptimizeForSize(BB, PSI, BFI.get())) {
 #if INTEL_CUSTOMIZATION
+      if (!llvm::shouldOptimizeForSize(BB, PSI, BFI.get())) {
         // Divopt may split a block BB into a "diamond":
         //
         //      HeadBB (1st part of original BB)
@@ -622,8 +637,8 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
           if (TailBB)
             BPI->setEdgeProbability(TailBB, OrigProbs);
         }
-#endif // INTEL_CUSTOMIZATION
       }
+#endif // INTEL_CUSTOMIZATION
 
       BB = Next;
     }
@@ -983,8 +998,12 @@ bool CodeGenPrepare::eliminateMostlyEmptyBlocks(Function &F) {
   // as we remove them.
   // Note that this intentionally skips the entry block.
   SmallVector<WeakTrackingVH, 16> Blocks;
-  for (auto &Block : llvm::drop_begin(F))
+  for (auto &Block : llvm::drop_begin(F)) {
+    // Delete phi nodes that could block deleting other empty blocks.
+    if (!DisableDeletePHIs)
+      MadeChange |= DeleteDeadPHIs(&Block, TLInfo);
     Blocks.push_back(&Block);
+  }
 
   for (auto &Block : Blocks) {
     BasicBlock *BB = cast_or_null<BasicBlock>(Block);
@@ -1082,8 +1101,8 @@ bool CodeGenPrepare::isMergingEmptyBlockProfitable(BasicBlock *BB,
         DestBB == findDestBlockOfMergeableEmptyBlock(SameValueBB))
       BBFreq += BFI->getBlockFreq(SameValueBB);
 
-  return PredFreq.getFrequency() <=
-         BBFreq.getFrequency() * FreqRatioToSkipMerge;
+  std::optional<BlockFrequency> Limit = BBFreq.mul(FreqRatioToSkipMerge);
+  return !Limit || PredFreq <= *Limit;
 }
 
 /// Return true if we can merge BB into DestBB if there is a single
@@ -1305,6 +1324,7 @@ simplifyRelocatesOffABase(GCRelocateInst *RelocatedBase,
       if (RI->getStatepoint() == RelocatedBase->getStatepoint())
         if (RI->getBasePtrIndex() == RelocatedBase->getBasePtrIndex()) {
           RelocatedBase->moveBefore(RI);
+          MadeChange = true;
           break;
         }
 
@@ -1803,6 +1823,189 @@ bool CodeGenPrepare::combineToUSubWithOverflow(CmpInst *Cmp,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// If CMP's src is also src of a monotonic INC, change the src to dest of
+// the INC according to CMP's CC, to avoid the INC sink after CMP
+// which would break CMP+JCC macro-fuse chance.
+// TODO: The similar transform for monotonic DEC if needed.
+// An example:
+// Transform   %a = phi (%inc, ...)
+//             %inc = add nsw i64 %a, 1
+//             %cmp = icmp eq i64 %a, %b    // %a is CMP's src
+//             br %cmp
+// To          %a = phi (%inc, ...)
+//             %inc = add nsw i64 %a, 1
+//             %cmp = icmp sgt i64 %inc, %b // %inc becomess CMP's src
+//             br %cmp
+// to avoid %inc sink after %cmp as LEA (by phi-node-elimination and
+// twoaddressinstruction passes), so icmp+br would be glued.
+// In most cases, this could be optimized by Loop Strength Reduction, unless
+// it is in a complicated loop.
+bool CodeGenPrepare::combineCmpLeaJcc2IncCmpJcc(CmpInst *Cmp) {
+  // This optimization is designed for macro fusion.
+  if (!EnableCmpLeaJcc2IncCmpJcc || !TTI->canMacroFuseCmp())
+    return false;
+  if (isa<FCmpInst>(Cmp) || !Cmp->hasOneUse())
+    return false;
+  Value *CmpOp0 = Cmp->getOperand(0), *CmpOp1 = Cmp->getOperand(1);
+  auto *CI0 = dyn_cast_or_null<ConstantInt>(CmpOp0);
+  auto *CI1 = dyn_cast_or_null<ConstantInt>(CmpOp1);
+  if ((CI0 && CI0->isZero() && Cmp->getPredicate() == ICmpInst::ICMP_EQ) ||
+      (CI1 && CI1->isZero() && Cmp->getPredicate() == ICmpInst::ICMP_EQ))
+    return false; // Avoid changing CMP to 0 which could optimize to TEST.
+  Function *F = Cmp->getParent()->getParent();
+  for (unsigned i = 0; i < Cmp->getNumOperands(); i++) {
+    auto *CmpOpL = Cmp->getOperand(i);
+    if (dyn_cast<Constant>(CmpOpL))
+      continue;
+    for (User *U : CmpOpL->users()) {
+      Instruction *CmpOpIncI = cast<Instruction>(U);
+      if (!CmpOpIncI)
+        continue;
+      // Only if CmpOpIncI and Cmp are in the same BB and CmpOpIncI
+      // dominates Cmp could do the transform.
+      if (CmpOpIncI->getParent() != Cmp->getParent() ||
+          !getDT(*F).dominates(CmpOpIncI, Cmp))
+        continue;
+      Value *AddLHS = nullptr;
+      Instruction *CmpUsr = cast<Instruction>(*Cmp->user_begin());
+      auto *BI = dyn_cast<BranchInst>(CmpUsr);
+      if (!BI || !BI->isConditional())
+        continue;
+      if (match(CmpOpIncI, m_Add(m_Value(AddLHS), m_One())) &&
+          // Check nsw or nuw to avoid INC overflow.
+          (CmpOpIncI->hasNoSignedWrap() || CmpOpIncI->hasNoUnsignedWrap())) {
+        // Check the pattern that make sure %a is monotonic increase.
+        // %a = phi (%inc, ...)
+        // ...
+        // %inc = add %a, 1
+        PHINode *CmpOpDefPhi = dyn_cast<PHINode>(CmpOpL);
+        if (!CmpOpDefPhi)
+          continue;
+        for (unsigned i = 0; i < CmpOpDefPhi->getNumIncomingValues(); i++) {
+          Value *PHIValue = CmpOpDefPhi->getIncomingValue(i);
+          if (dyn_cast<PHINode>(PHIValue)) { // It might be two level phi
+            CmpOpDefPhi = dyn_cast<PHINode>(PHIValue); // Find the root phi
+            break; // Consider only one PHIValue is phi node situation.
+          }
+        }
+        if (CmpOpDefPhi->getNumIncomingValues() != 2)
+          continue; // Only deal phi node with 2 inputs.
+        bool isMonoInc = false, isLE = false, isEqual = false;
+        // Deal with two phis. One should be monotomic INC;
+        // The other is initial value from a SEL between const and variable.
+        for (unsigned i = 0; i < 2; i++) {
+          Value *PHIValue = CmpOpDefPhi->getIncomingValue(i);
+          if (!isPotentiallyReachable(CmpOpDefPhi->getParent(),
+                                      CmpOpIncI->getParent()))
+            continue;
+          if (PHIValue == U) { // Phi node is %inc
+            isMonoInc = true;
+          } else {
+            // Check that the initial value of CmpOpL <= CmpOpR
+            // TODO pattern match for "for(i=0;i<n;i++)"
+            auto *CmpOpR = Cmp->getOperand(1 - i); //%data_ext_sel_2
+
+            // Pattern match to check %data_ext_sel_1 <= %data_ext_sel_2:
+            //   %data_ext_1 = sext i32 %data to i64
+            //   %data_ext_2 = sext i32 %data to i64
+            //   %data_ext_sel_1 = select i1 %cmp, i64 %data_ext_1, i64 1
+            //   %data_ext_sel_2 = select i1 %cmp, i64 %data_ext_2, i64 9
+            // loop:
+            //   %phi = phi i64 (%data_ext_sel_1, %inc)
+            //   %inc = add nsw i64 %phi, 1
+            //   %cmp_eq = icmp eq i64 %phi, %data_ext_sel_2
+            //   br %cmp_eq, label %loop, label %exit
+            SExtInst *PHIValueIExt = dyn_cast<SExtInst>(PHIValue);
+            SExtInst *CmpOpRIExt = dyn_cast<SExtInst>(CmpOpR);
+            if (PHIValueIExt && CmpOpRIExt) { // Filter Sext
+              PHIValue = PHIValueIExt->getOperand(0);
+              CmpOpR = CmpOpRIExt->getOperand(0);
+            }
+            SelectInst *PHIValueISel = dyn_cast<SelectInst>(PHIValue);
+            SelectInst *CmpOpRISel = dyn_cast<SelectInst>(CmpOpR);
+            if (PHIValueISel && CmpOpRISel &&
+                // Make sure selection condistion is the same: %cmp
+                PHIValueISel->getCondition() == CmpOpRISel->getCondition()) {
+              for (unsigned j = 1; j < 3; j++) { // Deal with SEL's src.
+                auto *PHIValueISelOp = PHIValueISel->getOperand(j);
+                auto *CmpOpRISelOp = CmpOpRISel->getOperand(j);
+                // check CmpOpL <= CmpOpR, when both of them are const
+                auto *PHIISelCI = dyn_cast<ConstantInt>(PHIValueISelOp);
+                auto *CmpRISelCI = dyn_cast<ConstantInt>(CmpOpRISelOp);
+                if (PHIISelCI && CmpRISelCI) {
+                  APInt Sub = CmpRISelCI->getValue() - PHIISelCI->getValue();
+                  if (Sub.isNonNegative())
+                    isLE = true;
+                  else
+                    isLE = false;
+                } else {
+                  // check CmpOpL == CmpOpR, when both of them are variables
+                  SExtInst *PHIValueExtI = dyn_cast<SExtInst>(PHIValueISelOp);
+                  SExtInst *CmpOpRExtI = dyn_cast<SExtInst>(CmpOpRISelOp);
+                  if (PHIValueISelOp == CmpOpRISelOp ||
+                      (PHIValueExtI && CmpOpRExtI &&
+                       PHIValueExtI->getType() == CmpOpRExtI->getType() &&
+                       PHIValueExtI->getOperand(0) ==
+                           CmpOpRExtI->getOperand(0))) {
+                    isEqual = true;
+                  } else
+                    isEqual = false;
+                }
+              }
+            }
+          }
+        }
+        // If CmpOp is not monotonic increase, or
+        // the iniatial value of CmpOpL NOT <= CmpOpR, drop the transformation.
+        if (!isMonoInc || !isLE || !isEqual)
+          continue;
+        if (Cmp->getPredicate() == ICmpInst::ICMP_EQ) {
+          LLVM_DEBUG(dbgs() << "Transfer ICMP_LEA+1_EQ from ");
+          LLVM_DEBUG(Cmp->dump());
+          // %a   = 0, 1, ..., N
+          // %inc =    1, 2...,N, N+1
+          // icmp eq i64 %a, N
+          // --> icmp sgt %inc, N
+          if (i == 0)
+            Cmp->setPredicate(ICmpInst::ICMP_SGT);
+          // %a   = 0, 1, ..., N
+          // %inc =    1, 2...,N, N+1
+          // icmp eq i64 N, %a
+          // --> icmp slt i64 N, %inc
+          else // i == 1
+            Cmp->setPredicate(ICmpInst::ICMP_SLT);
+          Cmp->setOperand(i, cast<Value>(CmpOpIncI));
+          LLVM_DEBUG(dbgs() << "    To ");
+          LLVM_DEBUG(Cmp->dump());
+          return true;
+        } else if (Cmp->getPredicate() == ICmpInst::ICMP_NE) {
+          LLVM_DEBUG(dbgs() << "Transfer ICMP_LEA+1_NE from ");
+          LLVM_DEBUG(Cmp->dump());
+          // %a   = 0, 1, ..., N
+          // %inc =    1, 2...,N, N+1
+          // icmp ne i64 %a, N
+          // --> icmp sle %inc, N
+          if (i == 0)
+            Cmp->setPredicate(ICmpInst::ICMP_SLE);
+          // %a   = 0, 1, ..., N
+          // %inc =    1, 2...,N, N+1
+          // icmp ne i64 N, %a
+          // --> icmp sge N, %inc
+          else // i == 1
+            Cmp->setPredicate(ICmpInst::ICMP_SGE);
+          Cmp->setOperand(i, cast<Value>(CmpOpIncI));
+          LLVM_DEBUG(dbgs() << "    To ");
+          LLVM_DEBUG(Cmp->dump());
+          return true;
+        } // TODO Cmp->getPredicate() == ICmpInst::ICMP_SLT)
+      }   // TODO match m_Sub and transform eq to slt/sgt, ne to sge.
+    }
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Sink the given CmpInst into user blocks to reduce the number of virtual
 /// registers that must be created and coalesced. This is a clear win except on
 /// targets with multiple condition code registers (PowerPC), where it might
@@ -2002,6 +2205,11 @@ bool CodeGenPrepare::optimizeCmp(CmpInst *Cmp, ModifyDT &ModifiedDT) {
 
   if (swapICmpOperandsToExposeCSEOpportunities(Cmp))
     return true;
+
+#if INTEL_CUSTOMIZATION
+  if (combineCmpLeaJcc2IncCmpJcc(Cmp))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -2358,7 +2566,7 @@ static bool despeculateCountZeros(IntrinsicInst *CountZeros,
 
   // Create a PHI in the end block to select either the output of the intrinsic
   // or the bit width of the operand.
-  Builder.SetInsertPoint(&EndBlock->front());
+  Builder.SetInsertPoint(EndBlock, EndBlock->begin());
   PHINode *PN = Builder.CreatePHI(Ty, 2, "ctz");
   replaceAllUsesWith(CountZeros, PN, FreshBBs, IsHugeFunc);
   Value *BitWidth = Builder.getInt(APInt(SizeInBits, SizeInBits));
@@ -2701,9 +2909,8 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB,
     (void)FoldReturnIntoUncondBranch(RetI, BB, TailCallBB);
     assert(!VerifyBFIUpdates ||
            BFI->getBlockFreq(BB) >= BFI->getBlockFreq(TailCallBB));
-    BFI->setBlockFreq(
-        BB,
-        (BFI->getBlockFreq(BB) - BFI->getBlockFreq(TailCallBB)).getFrequency());
+    BFI->setBlockFreq(BB,
+                      (BFI->getBlockFreq(BB) - BFI->getBlockFreq(TailCallBB)));
     ModifiedDT = ModifyDT::ModifyBBDT;
     Changed = true;
     ++NumRetsDup;
@@ -5613,7 +5820,7 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
       return Modified;
     } else {
       Type *I8PtrTy =
-          Builder.getInt8PtrTy(Addr->getType()->getPointerAddressSpace());
+          Builder.getPtrTy(Addr->getType()->getPointerAddressSpace());
       Type *I8Ty = Builder.getInt8Ty();
 
       // Start with the base register. Do this first so that subsequent address
@@ -6349,7 +6556,7 @@ bool CodeGenPrepare::splitLargeGEPOffsets() {
       LLVMContext &Ctx = GEP->getContext();
       Type *PtrIdxTy = DL->getIndexType(GEP->getType());
       Type *I8PtrTy =
-          Type::getInt8PtrTy(Ctx, GEP->getType()->getPointerAddressSpace());
+          PointerType::get(Ctx, GEP->getType()->getPointerAddressSpace());
       Type *I8Ty = Type::getInt8Ty(Ctx);
 
       if (!NewBaseGEP) {
@@ -6514,7 +6721,7 @@ bool CodeGenPrepare::optimizePhiType(
   // correct type.
   ValueToValueMap ValMap;
   for (ConstantData *C : Constants)
-    ValMap[C] = ConstantExpr::getCast(Instruction::BitCast, C, ConvertTy);
+    ValMap[C] = ConstantExpr::getBitCast(C, ConvertTy);
   for (Instruction *D : Defs) {
     if (isa<BitCastInst>(D)) {
       ValMap[D] = D->getOperand(0);
@@ -7241,25 +7448,72 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
   // first branch will point directly to select.end, and the corresponding PHI
   // predecessor block will be the start block.
 
-  // First, we split the block containing the select into 2 blocks.
+  // Collect values that go on the true side and the values that go on the false
+  // side.
+  SmallVector<Instruction *> TrueInstrs, FalseInstrs;
+  for (SelectInst *SI : ASI) {
+    if (Value *V = SI->getTrueValue(); sinkSelectOperand(TTI, V))
+      TrueInstrs.push_back(cast<Instruction>(V));
+    if (Value *V = SI->getFalseValue(); sinkSelectOperand(TTI, V))
+      FalseInstrs.push_back(cast<Instruction>(V));
+  }
+
+  // Split the select block, according to how many (if any) values go on each
+  // side.
   BasicBlock *StartBlock = SI->getParent();
   BasicBlock::iterator SplitPt = ++(BasicBlock::iterator(LastSI));
-  BasicBlock *EndBlock = StartBlock->splitBasicBlock(SplitPt, "select.end");
-  if (IsHugeFunc)
-    FreshBBs.insert(EndBlock);
-  Loop *L = LI->getLoopFor(StartBlock);
-  if (L)
-    L->addBasicBlockToLoop(EndBlock, *LI);
-  BFI->setBlockFreq(EndBlock, BFI->getBlockFreq(StartBlock).getFrequency());
-  // Delete the unconditional branch that was just created by the split.
-  StartBlock->getTerminator()->eraseFromParent();
 
-  // These are the new basic blocks for the conditional branch.
-  // At least one will become an actual new basic block.
+  IRBuilder<> IB(SI);
+  auto *CondFr = IB.CreateFreeze(SI->getCondition(), SI->getName() + ".frozen");
+
   BasicBlock *TrueBlock = nullptr;
   BasicBlock *FalseBlock = nullptr;
+  BasicBlock *EndBlock = nullptr;
   BranchInst *TrueBranch = nullptr;
   BranchInst *FalseBranch = nullptr;
+  if (TrueInstrs.size() == 0) {
+    FalseBranch = cast<BranchInst>(SplitBlockAndInsertIfElse(
+        CondFr, &*SplitPt, false, nullptr, nullptr, LI));
+    FalseBlock = FalseBranch->getParent();
+    EndBlock = cast<BasicBlock>(FalseBranch->getOperand(0));
+  } else if (FalseInstrs.size() == 0) {
+    TrueBranch = cast<BranchInst>(SplitBlockAndInsertIfThen(
+        CondFr, &*SplitPt, false, nullptr, nullptr, LI));
+    TrueBlock = TrueBranch->getParent();
+    EndBlock = cast<BasicBlock>(TrueBranch->getOperand(0));
+  } else {
+    Instruction *ThenTerm = nullptr;
+    Instruction *ElseTerm = nullptr;
+    SplitBlockAndInsertIfThenElse(CondFr, &*SplitPt, &ThenTerm, &ElseTerm,
+                                  nullptr, nullptr, LI);
+    TrueBranch = cast<BranchInst>(ThenTerm);
+    FalseBranch = cast<BranchInst>(ElseTerm);
+    TrueBlock = TrueBranch->getParent();
+    FalseBlock = FalseBranch->getParent();
+    EndBlock = cast<BasicBlock>(TrueBranch->getOperand(0));
+  }
+
+  EndBlock->setName("select.end");
+  if (TrueBlock)
+    TrueBlock->setName("select.true.sink");
+  if (FalseBlock)
+    FalseBlock->setName(FalseInstrs.size() == 0 ? "select.false"
+                                                : "select.false.sink");
+
+  if (IsHugeFunc) {
+    if (TrueBlock)
+      FreshBBs.insert(TrueBlock);
+    if (FalseBlock)
+      FreshBBs.insert(FalseBlock);
+    FreshBBs.insert(EndBlock);
+  }
+
+  BFI->setBlockFreq(EndBlock, BFI->getBlockFreq(StartBlock));
+
+  static const unsigned MD[] = {
+      LLVMContext::MD_prof, LLVMContext::MD_unpredictable,
+      LLVMContext::MD_make_implicit, LLVMContext::MD_dbg};
+  StartBlock->getTerminator()->copyMetadata(*SI, MD);
 
 #if INTEL_CUSTOMIZATION
   auto SinkInstOperandsRecursively = [](Instruction *Inst,
@@ -7283,78 +7537,23 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
 
   // Sink expensive instructions into the conditional blocks to avoid executing
   // them speculatively.
-  for (SelectInst *SI : ASI) {
-    if (sinkSelectOperand(TTI, SI->getTrueValue())) {
-      if (TrueBlock == nullptr) {
-        TrueBlock = BasicBlock::Create(SI->getContext(), "select.true.sink",
-                                       EndBlock->getParent(), EndBlock);
-        TrueBranch = BranchInst::Create(EndBlock, TrueBlock);
-        if (IsHugeFunc)
-          FreshBBs.insert(TrueBlock);
-        if (L)
-          L->addBasicBlockToLoop(TrueBlock, *LI);
-        TrueBranch->setDebugLoc(SI->getDebugLoc());
-      }
-      auto *TrueInst = cast<Instruction>(SI->getTrueValue());
-      TrueInst->moveBefore(TrueBranch);
+  for (Instruction *I : TrueInstrs) { // INTEL
+    I->moveBefore(TrueBranch);
+    SinkInstOperandsRecursively(I, TTI); // INTEL
+  } // INTEL 
+  for (Instruction *I : FalseInstrs) { // INTEL
+    I->moveBefore(FalseBranch);
+    SinkInstOperandsRecursively(I, TTI); // INTEL
+  } // INTEL
 
-      SinkInstOperandsRecursively(TrueInst, TTI); // INTEL
-    }
-    if (sinkSelectOperand(TTI, SI->getFalseValue())) {
-      if (FalseBlock == nullptr) {
-        FalseBlock = BasicBlock::Create(SI->getContext(), "select.false.sink",
-                                        EndBlock->getParent(), EndBlock);
-        if (IsHugeFunc)
-          FreshBBs.insert(FalseBlock);
-        if (L)
-          L->addBasicBlockToLoop(FalseBlock, *LI);
-        FalseBranch = BranchInst::Create(EndBlock, FalseBlock);
-        FalseBranch->setDebugLoc(SI->getDebugLoc());
-      }
-      auto *FalseInst = cast<Instruction>(SI->getFalseValue());
-      FalseInst->moveBefore(FalseBranch);
-
-      SinkInstOperandsRecursively(FalseInst, TTI); // INTEL
-    }
-  }
-
-  // If there was nothing to sink, then arbitrarily choose the 'false' side
-  // for a new input value to the PHI.
-  if (TrueBlock == FalseBlock) {
-    assert(TrueBlock == nullptr &&
-           "Unexpected basic block transform while optimizing select");
-
-    FalseBlock = BasicBlock::Create(SI->getContext(), "select.false",
-                                    EndBlock->getParent(), EndBlock);
-    if (IsHugeFunc)
-      FreshBBs.insert(FalseBlock);
-    if (L)
-      L->addBasicBlockToLoop(FalseBlock, *LI);
-    auto *FalseBranch = BranchInst::Create(EndBlock, FalseBlock);
-    FalseBranch->setDebugLoc(SI->getDebugLoc());
-  }
-
-  // Insert the real conditional branch based on the original condition.
   // If we did not create a new block for one of the 'true' or 'false' paths
   // of the condition, it means that side of the branch goes to the end block
   // directly and the path originates from the start block from the point of
   // view of the new PHI.
-  BasicBlock *TT, *FT;
-  if (TrueBlock == nullptr) {
-    TT = EndBlock;
-    FT = FalseBlock;
+  if (TrueBlock == nullptr)
     TrueBlock = StartBlock;
-  } else if (FalseBlock == nullptr) {
-    TT = TrueBlock;
-    FT = EndBlock;
+  else if (FalseBlock == nullptr)
     FalseBlock = StartBlock;
-  } else {
-    TT = TrueBlock;
-    FT = FalseBlock;
-  }
-  IRBuilder<> IB(SI);
-  auto *CondFr = IB.CreateFreeze(SI->getCondition(), SI->getName() + ".frozen");
-  IB.CreateCondBr(CondFr, TT, FT, SI);
 
   SmallPtrSet<const Instruction *, 2> INS;
   INS.insert(ASI.begin(), ASI.end());
@@ -7363,7 +7562,8 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
   // to get the PHI operand.
   for (SelectInst *SI : llvm::reverse(ASI)) {
     // The select itself is replaced with a PHI Node.
-    PHINode *PN = PHINode::Create(SI->getType(), 2, "", &EndBlock->front());
+    PHINode *PN = PHINode::Create(SI->getType(), 2, "");
+    PN->insertBefore(EndBlock->begin());
     PN->takeName(SI);
     PN->addIncoming(getTrueOrFalseValue(SI, true, INS), TrueBlock);
     PN->addIncoming(getTrueOrFalseValue(SI, false, INS), FalseBlock);
@@ -8117,9 +8317,7 @@ static bool splitMergedValStore(StoreInst &SI, const DataLayout &DL,
   bool IsLE = SI.getModule()->getDataLayout().isLittleEndian();
   auto CreateSplitStore = [&](Value *V, bool Upper) {
     V = Builder.CreateZExtOrBitCast(V, SplitStoreType);
-    Value *Addr = Builder.CreateBitCast(
-        SI.getOperand(1),
-        SplitStoreType->getPointerTo(SI.getPointerAddressSpace()));
+    Value *Addr = SI.getPointerOperand();
     Align Alignment = SI.getAlign();
     const bool IsOffsetStore = (IsLE && Upper) || (!IsLE && !Upper);
     if (IsOffsetStore) {
@@ -8266,6 +8464,8 @@ static bool tryUnmergingGEPsAcrossIndirectBr(GetElementPtrInst *GEPI,
     if (!GEPSequentialConstIndexed(UGEPI))
       return false;
     if (UGEPI->getOperand(0) != GEPIOp)
+      return false;
+    if (UGEPI->getSourceElementType() != GEPI->getSourceElementType())
       return false;
     if (GEPIIdx->getType() !=
         cast<ConstantInt>(UGEPI->getOperand(1))->getType())
@@ -8496,7 +8696,6 @@ bool CodeGenPrepare::optimizeInst(Instruction *I, ModifyDT &ModifiedDT) {
     if (tryUnmergingGEPsAcrossIndirectBr(GEPI, TTI)) {
       return true;
     }
-    return false;
   }
 
   if (FreezeInst *FI = dyn_cast<FreezeInst>(I)) {

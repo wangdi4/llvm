@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -32,12 +32,6 @@ bool TBB_ThreadManager<Data>::Init(unsigned int uiNumberOfThreads) {
   if (m_uiNumberOfStaticEntries > 0) {
     m_DescriptorsArray =
         new TBB_ThreadDescriptor<Data>[m_uiNumberOfStaticEntries];
-
-    if (nullptr == m_DescriptorsArray) {
-      m_object_exists = false;
-      m_uiNumberOfStaticEntries = 0;
-      return false;
-    }
   }
 
   return true;
@@ -78,9 +72,6 @@ template <class Data> Data *TBB_ThreadManager<Data>::RegisterCurrentThread() {
     // These are not tracked anywhere so they leak, but we don't have to
     // synchronize anything so hurray
     m_CurrentThreadGlobalID = new TBB_ThreadDescriptor<Data>;
-    if (nullptr == m_CurrentThreadGlobalID) {
-      return nullptr;
-    }
   }
 
   m_CurrentThreadGlobalID->m_data.thread_attach();

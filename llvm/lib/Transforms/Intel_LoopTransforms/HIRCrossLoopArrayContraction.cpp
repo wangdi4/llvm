@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===---------------- HIRCrossLoopArrayContraction.cpp --------------------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -62,50 +62,6 @@ static cl::opt<unsigned> MinMemRefNumDimension(
 static cl::opt<unsigned> NumPostProcSteps(
     OPT_SWITCH "-num-postprocessors", cl::init(5), cl::Hidden,
     cl::desc("Number of post-processors to run in " OPT_DESC " pass"));
-
-namespace {
-
-class HIRCrossLoopArrayContractionLegacyPass : public HIRTransformPass {
-  bool IsMultiJob;
-
-public:
-  static char ID;
-  HIRCrossLoopArrayContractionLegacyPass(bool IsMultiJob = true)
-      : HIRTransformPass(ID), IsMultiJob(IsMultiJob) {
-    initializeHIRCrossLoopArrayContractionLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override {}
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRArraySectionAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-
-} // namespace
-
-char HIRCrossLoopArrayContractionLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRCrossLoopArrayContractionLegacyPass, OPT_SWITCH,
-                      OPT_DESC, false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRArraySectionAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(HIRCrossLoopArrayContractionLegacyPass, OPT_SWITCH,
-                    OPT_DESC, false, false)
-
-FunctionPass *
-llvm::createHIRCrossLoopArrayContractionLegacyPass(bool IsMultiJob) {
-  return new HIRCrossLoopArrayContractionLegacyPass(IsMultiJob);
-}
 
 class HIRCrossLoopArrayContraction {
   HIRFramework &HIRF;
@@ -285,7 +241,7 @@ static HLLoop *getCandidateParentLoop(const RegDDRef *Ref,
   unsigned MinLevel = NonLinearLevel;
 
   for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
-    auto IVLevel = CE->getFirstIVLevel();
+    auto IVLevel = CE->getOutermostIVLevel();
 
     if (IVLevel != 0) {
       MinLevel = std::min(IVLevel, MinLevel);
@@ -1789,26 +1745,6 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
   HIRInvalidationUtils::invalidateNonLoopRegion(&Reg);
   Reg.setGenCode();
   return true;
-}
-
-bool HIRCrossLoopArrayContractionLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    return false;
-  }
-
-  if (DisablePass) {
-    LLVM_DEBUG(dbgs() << "HIR Cross-Loop Array Contraction\n");
-    return false;
-  }
-
-  return HIRCrossLoopArrayContraction(
-             getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-             getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-             getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA(),
-             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-             getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
-             IsMultiJob)
-      .run();
 }
 
 PreservedAnalyses HIRCrossLoopArrayContractionPass::runImpl(

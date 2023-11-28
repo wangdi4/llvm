@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 
 ; Check that we correctly parse the multi-exit loop and set the liveout value %0.
@@ -14,7 +14,7 @@
 ; CHECK: + END LOOP
 
 ; Check CG for liveout value %0
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
 
 
 ; CHECK-CG: %t.1.ph = phi i32 [ %0, %for.cond ], [ %0, %for.body.split ], [ [[LIVEOUTLOAD1:.*]], %[[NORMALEXIT:.*]] ], [ [[LIVEOUTLOAD2:.*]], %[[EARLYEXIT:.*]] ]
@@ -26,16 +26,16 @@
 ; CHECK-CG: br i1 {{.*}}, label %[[EARLYEXIT:.*]], label {{.*}}
 
 ; CHECK-CG: [[EARLYEXIT]]:
-; CHECK-CG: [[LIVEOUTLOAD2]] = load i32, i32* [[LIVEOUTVAL:.*]]
+; CHECK-CG: [[LIVEOUTLOAD2]] = load i32, ptr [[LIVEOUTVAL:.*]]
 
 ; CHECK-CG: [[NORMALEXIT]]:
-; CHECK-CG: [[LIVEOUTLOAD1]] = load i32, i32* [[LIVEOUTVAL]]
+; CHECK-CG: [[LIVEOUTLOAD1]] = load i32, ptr [[LIVEOUTVAL]]
 
 
 ; ModuleID = 'multi-exit3_1.ll'
 source_filename = "multi-exit3.ll"
 
-define i32 @foo(i32* nocapture readonly %A, i32 %n) local_unnamed_addr {
+define i32 @foo(ptr nocapture readonly %A, i32 %n) local_unnamed_addr {
 entry:
   %cmp10 = icmp slt i32 0, %n
   br i1 %cmp10, label %for.body.preheader, label %for.end
@@ -46,8 +46,8 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.cond, %for.body.preheader
   %i.011 = phi i32 [ %inc, %for.cond ], [ 0, %for.body.preheader ]
   %idxprom = sext i32 %i.011 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp3 = icmp sgt i32 %0, 0
   %inc = add nsw i32 %i.011, 1
   br i1 %cmp3, label %for.end.loopexit, label %for.cond

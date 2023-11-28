@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -516,8 +516,8 @@ void OpenCLReferenceRunner::ReadKernelArgs(
       }
       case Type::PointerTyID: {
         StringRef ArgTyStr = KMD.ArgBaseTypeList.getItem(i);
-        currArg.PointerVal = GetPointerToTheArgValues(
-            currBuffer, outputBuffer, arg_it->getType(), ArgTyStr);
+        currArg.PointerVal =
+            GetPointerToTheArgValues(currBuffer, outputBuffer, ArgTyStr);
       } break;
       case Type::IntegerTyID: {
         uint64_t uVal;
@@ -636,49 +636,20 @@ void OpenCLReferenceRunner::ReadKernelArgs(
 }
 
 void *OpenCLReferenceRunner::GetPointerToTheArgValues(
-    const IMemoryObject *buffer, IMemoryObject *outBuffer,
-    const llvm::Type *argType, StringRef ArgTyStr) {
+    const IMemoryObject *buffer, IMemoryObject *outBuffer, StringRef ArgTyStr) {
   BufferDesc buffDsc = GetBufferDescription(buffer->GetMemoryObjectDesc());
-  const PointerType *ptr = cast<PointerType>(argType);
-  if (ptr->isOpaque()) {
-    auto NumStar = ArgTyStr.count('*');
-    if (NumStar == 1) {
-      std::copy((char *)(buffer->GetDataPtr()),
-                (char *)(buffer->GetDataPtr()) + buffDsc.GetSizeInBytes(),
-                (char *)(outBuffer->GetDataPtr()));
-      m_pointerArgs.push_back(outBuffer->GetDataPtr());
-    } else if (NumStar > 1) {
-      throw TestReferenceRunnerException(
-          "According to OCL specifications 1.1"
-          "rev 36. Arguments to __kernel functions in a program cannot be"
-          "declared as a pointer to a pointer(s).");
-    } else {
-      throw TestReferenceRunnerException("Unhandled parameter type");
-    }
-    return m_pointerArgs[m_pointerArgs.size() - 1];
-  }
-
-  switch (argType->getNonOpaquePointerElementType()->getTypeID()) {
-  case Type::HalfTyID:
-  case Type::FloatTyID:
-  case Type::DoubleTyID:
-  case Type::IntegerTyID:
-  case Type::FixedVectorTyID:
-  case Type::ScalableVectorTyID:
-  case Type::StructTyID: {
+  auto NumStar = ArgTyStr.count('*');
+  if (NumStar == 1) {
     std::copy((char *)(buffer->GetDataPtr()),
               (char *)(buffer->GetDataPtr()) + buffDsc.GetSizeInBytes(),
               (char *)(outBuffer->GetDataPtr()));
     m_pointerArgs.push_back(outBuffer->GetDataPtr());
-    break;
-  }
-  case Type::PointerTyID: {
+  } else if (NumStar > 1) {
     throw TestReferenceRunnerException(
         "According to OCL specifications 1.1"
         "rev 36. Arguments to __kernel functions in a program cannot be"
         "declared as a pointer to a pointer(s).");
-  } break;
-  default:
+  } else {
     throw TestReferenceRunnerException("Unhandled parameter type");
   }
   return m_pointerArgs[m_pointerArgs.size() - 1];

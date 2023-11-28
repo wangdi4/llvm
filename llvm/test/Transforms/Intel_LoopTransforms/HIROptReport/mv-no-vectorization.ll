@@ -30,7 +30,7 @@
 
 ; CHECK:      LOOP BEGIN
 ; CHECK-NEXT: <Multiversioned v1>
-; CHECK-NEXT:    remark: dummy pre loopopt remark
+; CHECK-NEXT:    remark #99999: Dummy remark for testing
 ; CHECK-NEXT:    remark #25228: Loop multiversioned for Data Dependence
 ; CHECK-NEXT:    remark #15335: loop was not vectorized: vectorization possible but seems inefficient. Use vector always directive or -vec-threshold0 to override
 ; CHECK-NEXT: LOOP END
@@ -69,7 +69,6 @@ for.end:                                          ; preds = %for.body
 }
 
 !0 = distinct !{!0, !1}
-!1 = distinct !{!"intel.optreport.rootnode", !2}
-!2 = distinct !{!"intel.optreport", !3}
+!1 = distinct !{!"intel.optreport", !3}
 !3 = !{!"intel.optreport.remarks", !4}
-!4 = !{!"intel.optreport.remark", i32 0, !"dummy pre loopopt remark"}
+!4 = !{!"intel.optreport.remark", i32 99999}

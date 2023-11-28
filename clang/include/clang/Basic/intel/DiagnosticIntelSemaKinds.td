@@ -1,6 +1,6 @@
 //===--- DiagnosticIntelSemaKinds.td - Intel libsema diagnostics ----------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -15,10 +15,65 @@
 
 let Component = "Sema" in {
 let CategoryName = "Semantic Issue" in {
+
+def err_loop_fuse_unknown_arg : Error<
+  "unknown argument to 'loop_fuse'. Expected integer expression">;
+
+//JR 45956
+def err_pragma_distpt_on_nonloop_stmt : Warning<
+  "statement following '%0' must be a loop or within a loop">,
+  InGroup<Pragmas>;
+
 // CQ#364268
 def warn_main_arg_wrong : Warning<"%select{first|second|third|fourth}0 "
     "parameter of 'main' (%select{argument count|argument array|environment|"
     "platform-specific data}0) should be of type %1">, InGroup<Main>;
+
+// Fix for CQ368409: Different behavior on accessing static private class
+// members.
+def warn_access_type : Warning<
+  "type %1 is a %select{private|protected}0 member of %3 (allowed for cfront "
+  "compatibility)">, AccessControl, InGroup<IntelCompat>;
+def warn_access : Warning<
+  err_access.Summary>, AccessControl, InGroup<IntelCompat>;
+
+def err_interrupt_function_wrong_return_type : Error<
+  "interrupt service routine must have void return value">;
+def err_interrupt_function_wrong_args : Error<
+  "interrupt service routine can only have a pointer argument and an optional "
+  "integer argument">;
+def err_interrupt_function_wrong_first_arg : Error<
+  "interrupt service routine should have a pointer as the first argument">;
+def err_interrupt_function_wrong_second_arg : Error<
+  "interrupt service routine should have one of unsigned integer types as the "
+  "second argument">;
+
+def warn_inline_declaration_block_scope : Warning<
+    err_inline_declaration_block_scope.Summary>, InGroup<IntelCompat>;
+
+def warn_typecheck_invalid_restrict_not_pointer : Warning<
+  err_typecheck_invalid_restrict_not_pointer.Summary>,
+  InGroup<C99>;
+def warn_typecheck_invalid_restrict_not_pointer_noarg : Warning<
+  err_typecheck_invalid_restrict_not_pointer_noarg.Summary>,
+  InGroup<C99>;
+
+// cq371131
+def warn_implicit_empty_initializer : Warning<
+  err_implicit_empty_initializer.Summary>, InGroup<IntelCompat>;
+
+def warn_unqualified_pointer_member_function : Warning<
+  err_unqualified_pointer_member_function.Summary>, InGroup<IntelCompat>;
+
+def warn_fast_floating_point_eq : Warning<
+  "explicit comparison with %0 in fast floating point mode">,
+  InGroup<TautologicalConstantCompare>;
+
+// INTEL_FEATURE_ISA_AMX_SPARSE
+def err_x86_builtin_tilepair_arg_duplicate : Error<
+  "tilepair arguments must refer to different tilepair registers">;
+// end INTEL_FEATURE_ISA_AMX_SPARSE
+
 // CQ#366562 - allow #pragma unroll with non-positive or too large argument.
 def warn_pragma_unroll_invalid_factor_ignored : Warning<
   "unrolling factor '%0' is %select{negative|too large}1 and will be ignored">,
@@ -107,7 +162,34 @@ def err_prefetch_invalid_argument : Error<
 def warn_intel_compat_feature : Warning<
   "Intel compatibility feature [%0] %select{used|possible}1">,
   InGroup<Pragmas>;
-}
+} // end of sema category
+
+let CategoryName = "OpenMP Issue" in {
+
+def err_omp_unexpected_lastprivate_conditional : Error<
+  "expected 'scalar'%select{| or 'vector'}0 in OpenMP clause 'lastprivate' with conditional modifier">;
+def err_invalid_ompx_processor : Error<"invalid cpu name '%0' in 'ompx_processor' clause">;
+
+} // end of OpenMP category
+
+def warn_sycl_unmasked_num_of_function_params : Warning<
+  "function with 'unmasked' attribute must have at least one parameter">,
+  InGroup<IgnoredAttributes>;
+def warn_sycl_unmasked_improper_caller : Warning<"function with 'unmasked' attribute "
+  "can be called only by 'non_uniform_sub_group::invoke_unmasked()'">,
+  InGroup<AcceptedAttributes>;
+
+def err_bad_variant_specifier : Error<
+  "bad variant specifier %0, expected %select{variant_list|'masked' "
+  "or 'unmasked'|'varying', 'uniform' or 'linear'}1">;
+def err_wrong_num_params_in_variant_specifier : Error<
+  "wrong number of parameters in variant specifier, expected '%0', have '%1'">;
+def err_vector_length_passing : Error<
+  "the vector length %select{'%1' |}0must be %select{positive value|"
+  "passed as template parameter}0">;
+def err_function_arg_passing : Error<
+      "%select{function argument is not valid function|invalied function "
+      "table argument}0">;
 
 def warn_ovl_diff_return_type : Warning<
   "functions that differ only in their return type cannot be overloaded, new definition ignored">, InGroup<IntelCompat>;

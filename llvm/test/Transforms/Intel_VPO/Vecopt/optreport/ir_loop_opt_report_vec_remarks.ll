@@ -89,14 +89,12 @@ exit:
 
 ; Check metadata for remarks from vectorized IR
 ; CHECK: [[FOO_LOOP_MD:!.*]] = distinct !{[[FOO_LOOP_MD]], [[FOO_OPTRPT:![^,]+]]{{.*}}}
-; CHECK: [[FOO_OPTRPT]] = distinct !{!"intel.optreport.rootnode", [[FOO_OPTRPT_INTEL:!.*]]}
-; CHECK-NEXT: [[FOO_OPTRPT_INTEL]] = distinct !{!"intel.optreport", [[REMARKS:!.*]]}
+; CHECK: [[FOO_OPTRPT]] = distinct !{!"intel.optreport", [[REMARKS:!.*]]}
 ; CHECK-NEXT: [[REMARKS]] = !{!"intel.optreport.remarks", [[R1:!.*]], [[R2:!.*]]}
-; CHECK-NEXT: [[R1]] = !{!"intel.optreport.remark", i32 15301, !"SIMD LOOP WAS VECTORIZED"}
-; CHECK-NEXT: [[R2]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", {{.*}}}
+; CHECK-NEXT: [[R1]] = !{!"intel.optreport.remark", i32 15301}
+; CHECK-NEXT: [[R2]] = !{!"intel.optreport.remark", i32 15305, {{.*}}}
 ; CHECK: [[TEST_OUTER_LOOP_MD]] = distinct !{[[TEST_OUTER_LOOP_MD]], [[TEST_OUTER_OPTRPT:![^,]+]]{{.*}}}
-; CHECK-NEXT: [[TEST_OUTER_OPTRPT]] = distinct !{!"intel.optreport.rootnode", [[TEST_OUTER_OPTRPT_INTEL:!.*]]}
-; CHECK-NEXT: [[TEST_OUTER_OPTRPT_INTEL]] = distinct !{!"intel.optreport", [[REMARKS]]}
+; CHECK-NEXT: [[TEST_OUTER_OPTRPT]] = distinct !{!"intel.optreport", [[REMARKS]]}
 
 
 ; Function Attrs: argmemonly nounwind

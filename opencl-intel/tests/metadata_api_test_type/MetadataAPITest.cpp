@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2021 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,6 +13,7 @@
 // License.
 
 #include "MetadataAPITestFixture.h"
+#include "gtest_wrapper.h"
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Module.h"
@@ -20,8 +21,6 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataStatsAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-
-#include "gtest_wrapper.h"
 
 #include <algorithm>
 #include <utility>

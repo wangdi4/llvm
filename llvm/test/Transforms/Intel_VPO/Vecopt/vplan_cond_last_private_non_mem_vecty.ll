@@ -1,7 +1,7 @@
 ;
 ; Test for registerized last private of a vector type. Bailout for now.
 ;
-; RUN: opt %s -disable-output -passes="vplan-vec" -debug-only=vpo-ir-loop-vectorize-legality 2>&1 | FileCheck %s
+; RUN: opt %s -disable-output -passes="vplan-vec" -debug-only=VPlanLegality 2>&1 | FileCheck %s
 ; RUN: opt %s -disable-output -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=medium 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 ; TODO: Enable test for HIR when vectors are supported by loopopt
 ; R_UN: opt %s -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -debug-only=LoopVectorizationPlanner 2>&1 | FileCheck %s

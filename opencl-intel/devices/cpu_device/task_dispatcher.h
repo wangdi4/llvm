@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2009-2018 Intel Corporation.
+// Copyright 2009 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,15 +14,15 @@
 
 #pragma once
 
+#include "builtin_kernels.h"
 #include "cl_device_api.h"
+#include "cl_thread.h"
 #include "cpu_config.h"
 #include "dispatcher_commands.h"
 #include "handle_allocator.h"
 #include "memory_allocator.h"
 #include "program_service.h"
 #include "task_executor.h"
-#include <builtin_kernels.h>
-#include <cl_thread.h>
 
 #include <atomic>
 #include <list>

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 
 ; Check parsing output for the loop verifying that header phi %indvars.iv38 with unusual access pattern is parsed conservatively as a blob.
@@ -15,7 +15,7 @@
 ; CHECK: |
 ; CHECK: |   %4 = (%indvars.iv38)[0][0];
 ; CHECK: |   (@t3)[0][i1 + 5] = %4;
-; CHECK: |   %indvars.iv38 = &(([20 x i32]*)(%indvars.iv38)[0][1]);
+; CHECK: |   %indvars.iv38 = &((%indvars.iv38)[0][1]);
 ; CHECK: + END LOOP
 
 
@@ -31,49 +31,49 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define i32 @main() local_unnamed_addr #0 {
 entry:
-  store i32 0, i32* @n, align 4
+  store i32 0, ptr @n, align 4
   br label %for.end
 
 for.end:                                          ; preds = %for.end
-  store i32 20, i32* @n, align 4
+  store i32 20, ptr @n, align 4
   store i8 5, i8* @g, align 1
   br label %for.body4
 
 for.body4:                                        ; preds = %for.end24, %for.end
   %indvars.iv40 = phi i64 [ 5, %for.end ], [ %indvars.iv.next41, %for.end24 ]
-  %indvars.iv38 = phi [20 x i32]* [ bitcast (i32* getelementptr inbounds ([20 x i32], [20 x i32]* @kh, i64 0, i64 8) to [20 x i32]*), %for.end ], [ %5, %for.end24 ]
-  %arrayidx16 = getelementptr inbounds [20 x i32], [20 x i32]* @kh, i64 0, i64 %indvars.iv40
+  %indvars.iv38 = phi ptr [ bitcast (ptr getelementptr inbounds ([20 x i32], ptr @kh, i64 0, i64 8) to ptr), %for.end ], [ %5, %for.end24 ]
+  %arrayidx16 = getelementptr inbounds [20 x i32], ptr @kh, i64 0, i64 %indvars.iv40
   %0 = and i64 %indvars.iv40, 4294967295
-  %.pre = load i32, i32* %arrayidx16, align 4
+  %.pre = load i32, ptr %arrayidx16, align 4
   br label %for.body11
 
 for.body11:                                       ; preds = %for.body11, %for.body4
   %1 = phi i32 [ %.pre, %for.body4 ], [ %and, %for.body11 ]
   %indvars.iv35 = phi i64 [ %indvars.iv40, %for.body4 ], [ %indvars.iv.next36, %for.body11 ]
   %2 = add nuw nsw i64 %indvars.iv35, 3
-  %arrayidx13 = getelementptr inbounds [20 x i32], [20 x i32]* @kh, i64 0, i64 %2
-  %3 = load i32, i32* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [20 x i32], ptr @kh, i64 0, i64 %2
+  %3 = load i32, ptr %arrayidx13, align 4
   %add14 = add i32 %3, 9
   %and = and i32 %1, %add14
-  store i32 %and, i32* %arrayidx16, align 4
+  store i32 %and, ptr %arrayidx16, align 4
   %indvars.iv.next36 = add nuw nsw i64 %indvars.iv35, 1
   %cmp9 = icmp ult i64 %indvars.iv35, %0
   br i1 %cmp9, label %for.body11, label %for.end24
 
 for.end24:                                        ; preds = %for.body11
-  %indvars.iv3839 = getelementptr inbounds [20 x i32], [20 x i32]* %indvars.iv38, i64 0, i64 0
-  %arrayidx21 = getelementptr inbounds [20 x i32], [20 x i32]* @t3, i64 0, i64 %indvars.iv40
-  %4 = load i32, i32* %indvars.iv3839, align 4
-  store i32 %4, i32* %arrayidx21, align 4
+  %indvars.iv3839 = getelementptr inbounds [20 x i32], ptr %indvars.iv38, i64 0, i64 0
+  %arrayidx21 = getelementptr inbounds [20 x i32], ptr @t3, i64 0, i64 %indvars.iv40
+  %4 = load i32, ptr %indvars.iv3839, align 4
+  store i32 %4, ptr %arrayidx21, align 4
   %indvars.iv.next41 = add nuw nsw i64 %indvars.iv40, 1
-  %scevgep = getelementptr [20 x i32], [20 x i32]* %indvars.iv38, i64 0, i64 1
-  %5 = bitcast i32* %scevgep to [20 x i32]*
+  %scevgep = getelementptr [20 x i32], ptr %indvars.iv38, i64 0, i64 1
+  %5 = bitcast ptr %scevgep to ptr
   %exitcond = icmp eq i64 %indvars.iv.next41, 10
   br i1 %exitcond, label %for.end27, label %for.body4
 
 for.end27:                                        ; preds = %for.end24
   store i8 10, i8* @g, align 1
-  %6 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @t3, i64 0, i64 8), align 16
+  %6 = load i32, ptr getelementptr inbounds ([20 x i32], ptr @t3, i64 0, i64 8), align 16
   ret i32 0
 }
 

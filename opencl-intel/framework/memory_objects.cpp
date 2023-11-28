@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,10 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "GenericImageArray.h"
 #include "MemoryAllocator/GenericMemObj.h"
 #include "MemoryAllocator/MemoryObjectFactory.h"
-
-#include "GenericImageArray.h"
 #include "cl_shared_ptr.hpp"
 #include "pipe.h"
 

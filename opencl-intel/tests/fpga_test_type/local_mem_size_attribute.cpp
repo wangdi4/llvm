@@ -12,11 +12,9 @@
 //
 // ===--------------------------------------------------------------------=== //
 
+#include "CL/cl.h"
 #include "base_fixture.h"
-
 #include "gtest_wrapper.h"
-#include <CL/cl.h>
-
 #include <string>
 
 class TestLocalMemSizeAttr : public OCLFPGABaseFixture {};

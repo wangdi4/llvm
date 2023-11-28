@@ -12,10 +12,10 @@ define void @foo(ptr %a) {
 ; INNER-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <2 x i64> [[TMP0]], i32 0
 ; INNER-NEXT:    [[TMP1:%.*]] = udiv i64 [[DOTEXTRACT_0_]], 4
 ; INNER-NEXT:    [[TMP2:%.*]] = mul i64 [[TMP1]], 1
-; INNER-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> poison, i64 [[TMP2]], i64 0
+; INNER-NEXT:    [[TMP3:%.*]] = urem i64 [[TMP2]], 2
+; INNER-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> poison, i64 [[TMP3]], i64 0
 ; INNER-NEXT:    [[BROADCAST_SPLAT2:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT1]], <2 x i64> poison, <2 x i32> zeroinitializer
-; INNER-NEXT:    [[TMP3:%.*]] = urem <2 x i64> [[BROADCAST_SPLAT2]], <i64 2, i64 2>
-; INNER-NEXT:    [[TMP4:%.*]] = trunc <2 x i64> [[TMP3]] to <2 x i32>
+; INNER-NEXT:    [[TMP4:%.*]] = trunc <2 x i64> [[BROADCAST_SPLAT2]] to <2 x i32>
 ; INNER-NEXT:    [[DOTEXTRACT_0_3:%.*]] = extractelement <2 x i32> [[TMP4]], i32 0
 ; INNER-NEXT:    [[TMP5:%.*]] = icmp eq i32 0, [[DOTEXTRACT_0_3]]
 ; INNER-NEXT:    br i1 [[TMP5]], label [[MERGE_BLK21:%.*]], label [[PEEL_CHECKV24:%.*]]
@@ -89,9 +89,9 @@ define void @foo(ptr %a) {
 ; CHECK-NEXT:    [[WIDE_EXTRACT:%.*]] = shufflevector <4 x i64> [[TMP1]], <4 x i64> undef, <2 x i32> <i32 0, i32 2>
 ; CHECK-NEXT:    [[TMP2:%.*]] = udiv <2 x i64> [[WIDE_EXTRACT]], <i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP3:%.*]] = mul <2 x i64> [[TMP2]], <i64 1, i64 1>
-; CHECK-NEXT:    [[WIDE_INSERT25:%.*]] = shufflevector <2 x i64> [[TMP3]], <2 x i64> undef, <4 x i32> <i32 0, i32 poison, i32 1, i32 poison>
-; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <4 x i64> [[WIDE_INSERT25]], <4 x i64> poison, <4 x i32> <i32 0, i32 0, i32 2, i32 2>
-; CHECK-NEXT:    [[TMP5:%.*]] = urem <4 x i64> [[TMP4]], <i64 2, i64 2, i64 2, i64 2>
+; CHECK-NEXT:    [[TMP4:%.*]] = urem <2 x i64> [[TMP3]], <i64 2, i64 2>
+; CHECK-NEXT:    [[WIDE_INSERT25:%.*]] = shufflevector <2 x i64> [[TMP4]], <2 x i64> undef, <4 x i32> <i32 0, i32 poison, i32 1, i32 poison>
+; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <4 x i64> [[WIDE_INSERT25]], <4 x i64> poison, <4 x i32> <i32 0, i32 0, i32 2, i32 2>
 ; CHECK-NEXT:    [[TMP6:%.*]] = trunc <4 x i64> [[TMP5]] to <4 x i32>
 ; CHECK-NEXT:    [[WIDE_EXTRACT26:%.*]] = shufflevector <4 x i32> [[TMP6]], <4 x i32> undef, <2 x i32> <i32 0, i32 2>
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq <2 x i32> zeroinitializer, [[WIDE_EXTRACT26]]

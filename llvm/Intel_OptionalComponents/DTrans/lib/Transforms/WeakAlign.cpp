@@ -1,6 +1,6 @@
 //===---------------- WeakAlign.cpp - DTransWeakAlignPass -----------------===//
 //
-// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -717,23 +717,7 @@ bool WeakAlignImpl::willAssumeHold(IntrinsicInst *II) {
   // inference to check what type is using used in the alignment check. For
   // now, we can go conservative on any pointer seen when using opaque pointers,
   // because the pattern does not currently show up in the case of interest.
-  if (AlignedPtr->getType()->isOpaquePointerTy())
-    return false;
-
-  // TODO: The code from here to the 'return true' statement should be remvoved
-  // when typed pointers are no longer used.
-  assert(AlignedPtr->getType()->isPointerTy() && "Expected pointer value");
-  auto *StructTy = dyn_cast<llvm::StructType>(
-      AlignedPtr->getType()->getNonOpaquePointerElementType());
-  if (!StructTy || StructTy->isOpaque())
-    return false;
-
-  const DataLayout &DL = II->getFunction()->getParent()->getDataLayout();
-  uint64_t Size = DL.getTypeAllocSize(StructTy);
-  if (Size % 8)
-    return false;
-
-  return true;
+  return false;
 }
 
 // Return 'true' if 'V' is recognized as just nullptr check of memory

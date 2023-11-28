@@ -11,13 +11,15 @@
 /// with -cl-std=CL1.1). Starting from OpenCL 1.2 cl_khr_fp64 is an optional
 /// core feature and can not be disabled by the user.
 
-#include "CL/cl.h"
-
 // Use the OpenCL C++ bindings, with exceptions enabled. For MSVC, disable
 // warning 4290 (C++ exception specifications ignored) that's emitted from
 // CL/opencl.hpp
 #define CL_HPP_ENABLE_EXCEPTIONS
 #define CL_HPP_TARGET_OPENCL_VERSION 200
+
+#include "CL/cl.h"
+#include "cl_utils.h"
+#include "test_utils.h"
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -27,12 +29,9 @@
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif // _MSC_VER
-
-#include "cl_utils.h"
-#include "test_utils.h"
-
 #include <iostream>
 #include <string>
+
 using namespace std;
 
 extern cl_device_type gDeviceType;

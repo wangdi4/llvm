@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,14 +14,12 @@
 
 #include "queue_event.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_info.h"
+#include "cl_utils.h"
 #include "command_queue.h"
 #include "enqueue_commands.h"
-#include <cassert>
-#include <cl_sys_info.h>
-
-// For debugging
-#include "cl_utils.h"
 #include <assert.h>
+#include <cassert>
 
 using namespace Intel::OpenCL::Framework;
 
@@ -310,13 +308,6 @@ OclEventState QueueEvent::SetEventState(OclEventState newColor) {
   if (EVENT_STATE_READY_TO_EXECUTE == newColor) {
     if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA)) {
       if (m_pGPAData->cStatusMarkerFlags & ITT_SHOW_SUBMITTED_MARKER) {
-#if INTEL_CUSTOMIZATION
-#if defined(USE_GPA)
-        // Write this data to the thread track
-        __itt_set_track(NULL);
-#endif
-#endif // end INTEL_CUSTOMIZATION
-
         char strMarkerString[ITT_TASK_NAME_LEN];
         SPRINTF_S(strMarkerString, ITT_TASK_NAME_LEN, "Ready To Execute - %s",
                   m_pCommand->GetCommandName());

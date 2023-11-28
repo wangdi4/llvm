@@ -1,7 +1,7 @@
 ; INTEL_CUSTOMIZATION
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-wrncollection -analyze -debug -S %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(print<vpo-wrncollection>)' -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-wrncollection -analyze -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(print<vpo-wrncollection>)' -debug -S %s 2>&1 | FileCheck %s
 ;
 ; Test src:
 ; subroutine foo()

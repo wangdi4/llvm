@@ -1,10 +1,8 @@
-#include "gtest_wrapper.h"
-
-#include <string>
-
 #include "BackendWrapper.h"
 #include "KernelProperties.h"
 #include "common_utils.h"
+#include "gtest_wrapper.h"
+#include <string>
 
 #if defined _M_X64 || defined __x86_64__
 #define BC_FILE "reqd_num_sub_groups_64.bc"
@@ -36,7 +34,6 @@ TEST_F(DISABLED_BackEndTests_KernelSubGroupInfo, SubGroupInfoSuccess) {
 
   // load pre created bitcode buffer
   std::unique_ptr<BackendWrapper> pBackendWrapper(new BackendWrapper());
-  ASSERT_TRUE(pBackendWrapper.get());
   std::vector<char> program;
   pBackendWrapper->CreateProgramContainer(get_exe_dir() + BC_FILE, program);
   ASSERT_TRUE(program.size() > 0);

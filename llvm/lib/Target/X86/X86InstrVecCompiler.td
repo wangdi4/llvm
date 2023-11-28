@@ -82,9 +82,9 @@ let Predicates = [NoVLX] in {
   def : Pat<(v8bf16 (scalar_to_vector BFR16:$src)),
             (COPY_TO_REGCLASS BFR16:$src, VR128)>;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8f16 (scalar_to_vector FR16X:$src)),
             (COPY_TO_REGCLASS FR16X:$src, VR128)>;
+#endif // INTEL_CUSTOMIZATION
   // Implicitly promote a 32-bit scalar to a vector.
   def : Pat<(v4f32 (scalar_to_vector FR32:$src)),
             (COPY_TO_REGCLASS FR32:$src, VR128)>;

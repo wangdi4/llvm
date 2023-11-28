@@ -475,7 +475,7 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
     if (ShouldUpdateAnalysis) {
       // Copy the BFI/BPI from Target to BodyBlock.
       BPI->setEdgeProbability(BodyBlock, EdgeProbabilities);
-      BFI->setBlockFreq(BodyBlock, BFI->getBlockFreq(Target).getFrequency());
+      BFI->setBlockFreq(BodyBlock, BFI->getBlockFreq(Target));
     }
     // It's possible Target was its own successor through an indirectbr.
     // In this case, the indirectbr now comes from BodyBlock.
@@ -500,7 +500,7 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
     if (ShouldUpdateAnalysis) {
       BlockFrequency NewBlockFreqForTarget =
           BFI->getBlockFreq(Target) - BlockFreqForDirectSucc;
-      BFI->setBlockFreq(Target, NewBlockFreqForTarget.getFrequency());
+      BFI->setBlockFreq(Target, NewBlockFreqForTarget);
     }
 
 #if INTEL_CUSTOMIZATION
@@ -528,8 +528,8 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
       PHINode *NewIndPHI = PHINode::Create(IndPHI->getType(), 1, "ind", IndPHI);
       // Create a PHI in the body block, to merge the direct and indirect
       // predecessors.
-      PHINode *MergePHI =
-          PHINode::Create(IndPHI->getType(), 0, "merge", &*MergeInsert);
+      PHINode *MergePHI = PHINode::Create(IndPHI->getType(), 0, "merge");
+      MergePHI->insertBefore(MergeInsert);
       MergePHI->addIncoming(NewIndPHI, Target);
       for (unsigned Pred = 0, E = IndPHI->getNumIncomingValues(); Pred != E;
            ++Pred) {

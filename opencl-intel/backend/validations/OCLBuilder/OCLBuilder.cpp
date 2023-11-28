@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2022 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,8 +15,8 @@
 #include "OCLBuilder.h"
 #include "cl_env.h"
 #include "clang_device_info.h"
+#include "ocl_string_exception.h"
 #include "opencl_c_features.h"
-#include <ocl_string_exception.h>
 
 using namespace llvm;
 using namespace Intel::OpenCL::FECompilerAPI;
@@ -123,9 +123,7 @@ OCLBuilder &OCLBuilder::withExtensions(bool IsFPGA) {
   std::string ext = std::string(BE_FE_COMPILER_USE_EXTENSIONS) +
                     std::string(IsFPGA ? BE_FE_COMPILER_USE_EXTENSIONS_FPGA
                                        : BE_FE_COMPILER_USE_EXTENSIONS_CPU);
-  std::string Env;
-  if (!IsFPGA &&
-      Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_CPU_EXPERIMENTAL_FP16"))
+  if (!IsFPGA)
     ext += " cl_khr_fp16";
   m_CommonBuilder.withExtensions(ext);
   return *this;

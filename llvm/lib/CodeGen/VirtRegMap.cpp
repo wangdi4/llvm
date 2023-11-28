@@ -1,4 +1,21 @@
 //===- llvm/CodeGen/VirtRegMap.cpp - Virtual Register Map -----------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -41,6 +58,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h" // INTEL
 #include <cassert>
 #include <iterator>
 #include <utility>
@@ -51,6 +69,7 @@ using namespace llvm;
 
 STATISTIC(NumSpillSlots, "Number of spill slots allocated");
 STATISTIC(NumIdCopies,   "Number of identity moves eliminated after rewriting");
+STATISTIC(NumReloadElim, "Number of eliminated reload instructions"); // INTEL
 
 //===----------------------------------------------------------------------===//
 //  VirtRegMap implementation
@@ -200,6 +219,11 @@ class VirtRegRewriter : public MachineFunctionPass {
   void expandCopyBundle(MachineInstr &MI) const;
   bool subRegLiveThrough(const MachineInstr &MI, MCRegister SuperPhysReg) const;
 
+#if INTEL_CUSTOMIZATION
+  bool postOptimization();
+  bool redundantReloadsElimination(MachineBasicBlock &MBB);
+#endif // INTEL_CUSTOMIZATION
+
 public:
   static char ID;
   VirtRegRewriter(bool ClearVirtRegs_ = true) :
@@ -261,7 +285,7 @@ bool VirtRegRewriter::runOnMachineFunction(MachineFunction &fn) {
   Indexes = &getAnalysis<SlotIndexes>();
   LIS = &getAnalysis<LiveIntervals>();
   VRM = &getAnalysis<VirtRegMap>();
-  DebugVars = getAnalysisIfAvailable<LiveDebugVariables>();
+  DebugVars = &getAnalysis<LiveDebugVariables>();
   LLVM_DEBUG(dbgs() << "********** REWRITE VIRTUAL REGISTERS **********\n"
                     << "********** Function: " << MF->getName() << '\n');
   LLVM_DEBUG(VRM->dump());
@@ -275,7 +299,7 @@ bool VirtRegRewriter::runOnMachineFunction(MachineFunction &fn) {
   // Rewrite virtual registers.
   rewrite();
 
-  if (DebugVars && ClearVirtRegs) {
+  if (ClearVirtRegs) {
     // Write out new DBG_VALUE instructions.
 
     // We only do this if ClearVirtRegs is specified since this should be the
@@ -288,8 +312,130 @@ bool VirtRegRewriter::runOnMachineFunction(MachineFunction &fn) {
     MRI->clearVirtRegs();
   }
 
+  postOptimization(); // INTEL
+
   return true;
 }
+
+#if INTEL_CUSTOMIZATION
+bool VirtRegRewriter::postOptimization() {
+  if (skipFunction(MF->getFunction()))
+    return false;
+
+  // Only enable it under -X for pulldown simpler.
+  if (!MF->getTarget().Options.IntelAdvancedOptim)
+    return false;
+
+  if (!TII->getUniqueDefIdxForReload(nullptr))
+    return false;
+
+  bool Changed = false;
+  for (MachineBasicBlock &MBB : *MF) {
+    Changed |= redundantReloadsElimination(MBB);
+  }
+  return Changed;
+}
+
+bool VirtRegRewriter::redundantReloadsElimination(MachineBasicBlock &MBB) {
+  struct LiveRegInfo {
+    Register Reg;
+    int Slot;
+    MachineOperand *FirstDef;
+    MachineOperand *LastUse;
+
+    LiveRegInfo() {
+      Reg = 0;
+      Slot = INT_MIN;
+      FirstDef = nullptr;
+      LastUse = nullptr;
+    }
+
+    LiveRegInfo(Register Reg, int Slot, MachineOperand *FirstDef)
+        : Reg(Reg), Slot(Slot), FirstDef(FirstDef), LastUse(nullptr) {}
+  };
+
+  bool Changed = false;
+  DenseMap<MCRegister, LiveRegInfo> LiveRegs;
+  DenseMap<int, MCRegister> Slot2MCReg;
+  const MachineFrameInfo &MFI = MBB.getParent()->getFrameInfo();
+  unsigned DefOp = 0;
+  TII->getUniqueDefIdxForReload(&DefOp);
+
+  auto GetRootReg = [&](Register Reg) {
+    MCRegister RootReg = Reg.asMCReg();
+    for (auto SuperReg : TRI->superregs(Reg.asMCReg()))
+      RootReg = SuperReg;
+    return RootReg;
+  };
+
+  for (MachineInstr &MI : llvm::make_early_inc_range(MBB)) {
+    int FI = 0;
+    Register LoadReg = TII->isLoadFromStackSlot(MI, FI);
+    if (LoadReg && MFI.isSpillSlotObjectIndex(FI)) {
+      MCRegister RootReg = GetRootReg(LoadReg);
+      LiveRegInfo &LiveReg = LiveRegs[RootReg];
+
+      if (LoadReg == LiveReg.Reg && FI == LiveReg.Slot) {
+        MI.eraseFromParent();
+        if (LiveReg.FirstDef->isDead())
+          LiveReg.FirstDef->setIsDead(false);
+        if (LiveReg.LastUse && LiveReg.LastUse->isKill())
+          LiveReg.LastUse->setIsKill(false);
+
+        Changed = true;
+        NumReloadElim++;
+      } else if (LoadReg == LiveReg.Reg) {
+        Slot2MCReg[LiveReg.Slot] = MCRegister::NoRegister;
+        Slot2MCReg[FI] = RootReg;
+
+        LiveRegs[RootReg] = LiveRegInfo(LoadReg, FI, &MI.getOperand(DefOp));
+      } else if (FI == LiveReg.Slot) {
+        auto Id = Slot2MCReg[FI];
+        if (Id != MCRegister::NoRegister)
+          LiveRegs[Id] = LiveRegInfo();
+
+        LiveRegs[RootReg] = LiveRegInfo(LoadReg, FI, &MI.getOperand(DefOp));
+        Slot2MCReg[FI] = RootReg;
+      } else {
+        LiveRegs[RootReg] = LiveRegInfo(LoadReg, FI, &MI.getOperand(DefOp));
+        Slot2MCReg[FI] = RootReg;
+      }
+    } else {
+      if (MI.mayStore()) {
+        int FI = 0;
+        if (TII->isFrameOperand(MI, FI) && MFI.isSpillSlotObjectIndex(FI)) {
+          auto Id = Slot2MCReg[FI];
+          if (Id != MCRegister::NoRegister)
+            LiveRegs[Id] = LiveRegInfo();
+          Slot2MCReg[FI] = MCRegister::NoRegister;
+        }
+      }
+
+      for (MachineOperand &MO : MI.operands()) {
+        if (MO.isRegMask()) {
+          LiveRegs.clear();
+          Slot2MCReg.clear();
+        } else if (MO.isReg()) {
+          Register Reg = MO.getReg();
+          if (!Reg.isPhysical())
+            continue;
+
+          MCRegister RootReg = GetRootReg(Reg);
+          LiveRegInfo &LiveReg = LiveRegs[RootReg];
+          if (TRI->regsOverlap(LiveReg.Reg, Reg)) {
+            if (MO.isDef()) {
+              Slot2MCReg[LiveReg.Slot] = MCRegister::NoRegister;
+              LiveRegs[RootReg] = LiveRegInfo();
+            } else
+              LiveReg.LastUse = &MO;
+          }
+        }
+      }
+    }
+  }
+  return Changed;
+}
+#endif // INTEL_CUSTOMIZATION
 
 void VirtRegRewriter::addLiveInsForSubRanges(const LiveInterval &LI,
                                              MCRegister PhysReg) const {
@@ -311,8 +457,8 @@ void VirtRegRewriter::addLiveInsForSubRanges(const LiveInterval &LI,
   }
 
   // Check all mbb start positions between First and Last while
-  // simulatenously advancing an iterator for each subrange.
-  for (SlotIndexes::MBBIndexIterator MBBI = Indexes->findMBBIndex(First);
+  // simultaneously advancing an iterator for each subrange.
+  for (SlotIndexes::MBBIndexIterator MBBI = Indexes->getMBBLowerBound(First);
        MBBI != Indexes->MBBIndexEnd() && MBBI->first <= Last; ++MBBI) {
     SlotIndex MBBBegin = MBBI->first;
     // Advance all subrange iterators so that their end position is just
@@ -363,7 +509,7 @@ void VirtRegRewriter::addMBBLiveIns() {
       // sorted by slot indexes.
       SlotIndexes::MBBIndexIterator I = Indexes->MBBIndexBegin();
       for (const auto &Seg : LI) {
-        I = Indexes->advanceMBBIndex(I, Seg.start);
+        I = Indexes->getMBBLowerBound(I, Seg.start);
         for (; I != Indexes->MBBIndexEnd() && I->first < Seg.end; ++I) {
           MachineBasicBlock *MBB = I->second;
           MBB->addLiveIn(PhysReg);

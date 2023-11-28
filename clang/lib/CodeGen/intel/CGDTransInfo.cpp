@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_DTRANS
 //==--- CGDTransInfo.cpp - DTrans Type Info Codegen ------------*- C++ -*---==//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -630,7 +630,7 @@ QualType DTransInfoGenerator::FixupPaddingType(llvm::Type *LLVMType) {
         /*signed*/ 0);
     return CGM.getContext().getConstantArrayType(
         ElemTy, llvm::APInt(64, LLVMType->getArrayNumElements()), nullptr,
-        clang::ArrayType::Normal, 0);
+        clang::ArraySizeModifier::Normal, 0);
   }
   llvm_unreachable("Unknown padding type");
 }
@@ -1108,8 +1108,9 @@ llvm::MDNode *DTransInfoGenerator::CreateVectorTypeMD(QualType ClangType,
     EltTy = VTy->getElementType();
   } else if (const auto *ATy =
                  CGM.getContext().getAsConstantArrayType(ClangType)) {
-    assert(ATy->getSize() == VT->getNumElements() &&
-           "Mismatched array-to-vector size");
+    // Could be an array of the vector type or an array of a complex
+    // of the vector type. Additionally we don't know which since it could be
+    // hidden under an ugly templated Record type.
     EltTy = ATy->getElementType();
   } else {
     const auto *CplxTy = ClangType->castAs<ComplexType>();
@@ -1263,9 +1264,25 @@ llvm::MDNode *DTransInfoGenerator::CreateArrayTypeMD(QualType ClangType,
     // initializer.
   }
 
+  auto GetArrayDecayCastedStringLiteral = [](const Expr *E) -> const Expr * {
+    while (const auto *CE = dyn_cast<CastExpr>(E)) {
+      if (CE->getCastKind() == CK_ArrayToPointerDecay)
+        return dyn_cast<StringLiteral>(CE->getSubExpr());
+      E = CE->getSubExpr();
+    }
+    return nullptr;
+  };
+
+  QualType ClangElemType = ClangType->castAsArrayTypeUnsafe()->getElementType();
+
+  // Special case for array to pointer decayed string literals.
+  if (CurInit) {
+    if (const Expr *SL = GetArrayDecayCastedStringLiteral(CurInit))
+      ClangElemType = CGM.getContext().getPointerType(SL->getType());
+  }
+
   ArrMD.push_back(
-      CreateTypeMD(ClangType->castAsArrayTypeUnsafe()->getElementType(),
-                   LLVMType->getArrayElementType(), CurInit));
+      CreateTypeMD(ClangElemType, LLVMType->getArrayElementType(), CurInit));
   return llvm::MDNode::get(Ctx, ArrMD);
 }
 

@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorConstProp.cpp --------------------------------===//
 //
-// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -60,22 +60,19 @@ static cl::opt<unsigned> MinNumInlineTileMVCalls("dvcp-tile-mv-min-calls",
 
 //
 // Return 'true' if the formal argument 'Arg' of Function 'F' is a pointer
-// to a dope vector of rank 'ArrayRank' and 'ElementType', and has at least
-// one provably constant value for its lower bound 'LB', stride 'ST', or
-// extent 'EX'. The values in 'LB', 'ST', and 'EX' are stored in small
-// vectors of size 'ArrayRank', and are set on return from this function,
-// if the function returns 'true'. Optional values are used because a
-// provably constant value may not be found for all values of LB, ST, and
-// EX.
+// to a dope vector of rank 'ArrayRank', and has at least one provably constant
+// value for its lower bound 'LB', stride 'ST', or extent 'EX'. The values in
+// 'LB', 'ST', and 'EX' are stored in small vectors of size 'ArrayRank', and
+// are set on return from this function, if the function returns 'true'.
+// Optional values are used because a provably constant value may not be found
+// for all values of LB, ST, and EX.
 //
-static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
-                                   const uint32_t ArrayRank,
-                                   const Type *ElementType,
-                                   SmallVectorImpl<std::optional<uint64_t>> &LB,
-                                   SmallVectorImpl<std::optional<uint64_t>> &ST,
-                                   SmallVectorImpl<std::optional<uint64_t>> &EX,
-                                   std::function<const TargetLibraryInfo &
-                                      (Function &F)> &GetTLI) {
+static bool hasDopeVectorConstants(
+    const Function &F, const Argument &Arg, const uint32_t ArrayRank,
+    SmallVectorImpl<std::optional<uint64_t>> &LB,
+    SmallVectorImpl<std::optional<uint64_t>> &ST,
+    SmallVectorImpl<std::optional<uint64_t>> &EX,
+    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
 
   // Map 'V' to its potential integer constant value.
   auto OValue = [](Value *V) -> std::optional<uint64_t> {
@@ -107,7 +104,6 @@ static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
   // corresponding to 'Arg'.
   for (const User *U : F.users()) {
     uint32_t ArRank;
-    Type *ElemType = nullptr;
     auto CB = cast<CallBase>(U);
     Value *V = CB->getArgOperand(Arg.getArgNo());
     // Each actual must be a pointer to a dope vector of the same expected
@@ -115,19 +111,10 @@ static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
     Type *VTy = V->getType();
     if (!VTy->isPointerTy())
       return false;
-    if (VTy->getContext().supportsTypedPointers()) {
-      VTy = VTy->getNonOpaquePointerElementType();
-      if (!isDopeVectorType(VTy, DL, &ArRank, &ElemType))
-        return false;
-      assert(ElemType &&
-             "Pointer address not collected when checking for constants");
-    }
-    else {
-      VTy = inferPtrElementType(*V);
-      if (!VTy || !isDopeVectorType(VTy, DL, &ArRank, &ElemType))
-        return false;
-    }
-    if (ArRank != ArrayRank || ElemType != ElementType)
+    VTy = inferPtrElementType(*V);
+    if (!VTy || !isDopeVectorType(VTy, DL, &ArRank))
+      return false;
+    if (ArRank != ArrayRank)
       return false;
     // Use the dope analyzer to get the value of the dope vector constants.
     DopeVectorAnalyzer DVAActual(V, nullptr, GetTLI);
@@ -177,13 +164,13 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   // bound, extent, and stride information.
   auto ReplaceField = [&](SmallVectorImpl<std::optional<uint64_t>> &Values,
                           DopeVectorAnalyzer::DopeVectorRankFields RFT,
-                          GetElementPtrInst &GEP) -> bool {
+                          GEPOperator &GEP) -> bool {
     bool Change = false;
     // Get the base of the lower bound, stride, or extent array.
     auto FR = DVAFormal.findPerDimensionArrayFieldGEP(GEP, RFT);
-    GetElementPtrInst *GEP2 = FR.first;
+    GEPOperator *GEP2 = FR.first;
     if (!GEP2 || FR.second == DopeVectorAnalyzer::FindResult::FR_Invalid)
-       return Change;
+      return Change;
     for (unsigned I = 0; I < ArrayRank; I++) {
       if (!Values[I].has_value())
         continue;
@@ -220,12 +207,12 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   // vector, use 'DVAFormal' and the lower bound 'LB', stride 'ST', and
   // extent 'EX' to replace loads of these fields with constants.  Return
   // 'true' if at least one field is replaced.
-  auto ReplaceFieldsForGEP = [&ReplaceField]
-                             (GetElementPtrInst *GEP,
-                              SmallVectorImpl<std::optional<uint64_t>> &LB,
-                              SmallVectorImpl<std::optional<uint64_t>> &ST,
-                              SmallVectorImpl<std::optional<uint64_t>> &EX,
-                              DopeVectorAnalyzer &DVAFormal) -> bool {
+  auto ReplaceFieldsForGEP =
+      [&ReplaceField](GEPOperator *GEP,
+                      SmallVectorImpl<std::optional<uint64_t>> &LB,
+                      SmallVectorImpl<std::optional<uint64_t>> &ST,
+                      SmallVectorImpl<std::optional<uint64_t>> &EX,
+                      DopeVectorAnalyzer &DVAFormal) -> bool {
     bool Change = false;
     // Find the GEP accessing the array of lower bounds, strides, and extents
     // in the dope vector.
@@ -246,7 +233,7 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   // is a dummy argument that is a pointer to a dope vector.
   bool Change = false;
   for (User *U : Arg.users()) {
-    auto GEP = dyn_cast<GetElementPtrInst>(U);
+    auto GEP = dyn_cast<GEPOperator>(U);
     if (!GEP)
       continue;
     // If GEP points at the dope vector per dimension array, replace
@@ -276,11 +263,6 @@ static bool replaceDopeVectorConstants(Argument &Arg,
     // 'CF' is a contained function. Its 0th argument will be a pointer
     // to a structure, each field of which points to an uplevel variable.
     assert(CF->arg_size() != 0 && "Expecting at least one arg");
-    if (CF->getContext().supportsTypedPointers())
-      assert(CF->getArg(0)->getType()->isPointerTy() &&
-          isUplevelVarType(
-          CF->getArg(0)->getType()->getNonOpaquePointerElementType()) &&
-          "Expecting pointer to uplevel type");
     // Identify GEPs that refer to the dope vector uplevel variable.
     Argument *Arg = CF->getArg(0);
     for (User *V : Arg->users()) {
@@ -301,7 +283,7 @@ static bool replaceDopeVectorConstants(Argument &Arg,
         if (!LI || LI->getPointerOperand() != GEP)
           continue;
         for (User *X : LI->users()) {
-          auto GEPDV = dyn_cast<GetElementPtrInst>(X);
+          auto GEPDV = dyn_cast<GEPOperator>(X);
           if (!GEPDV)
             continue;
           // If GEPDV points at the dope vector per dimension array, replace
@@ -752,33 +734,17 @@ static bool DopeVectorConstPropImpl(
       for (Argument &Arg : F.args()) {
         // Find if Arg is a pointer to a dope vector.
         uint32_t ArRank;
-        Type *ElemType;
         const Type *Ty = Arg.getType();
         if (!Ty->isPointerTy())
           continue;
-        if (Ty->getContext().supportsTypedPointers()) {
-          Ty = Ty->getNonOpaquePointerElementType();
-          if (!isDopeVectorType(Ty, DL, &ArRank, &ElemType))
-             continue;
-        } else {
-          Ty = inferPtrElementType(Arg);
-          if (!Ty || !isDopeVectorType(Ty, DL, &ArRank, &ElemType))
-            continue;
-        }
+        Ty = inferPtrElementType(Arg);
+        if (!Ty || !isDopeVectorType(Ty, DL, &ArRank))
+          continue;
 
         LLVM_DEBUG({
-          // NOTE: This needs to be updated when opaque pointers support is
-          // enabled.
-          if (Ty->getContext().supportsTypedPointers())
-            assert(ElemType &&
-                   "Pointer address not collected for debugging");
-
           dbgs() << "DV FOUND: ARG #" << Arg.getArgNo() << " "
                  << F.getName() << " " << ArRank << " x ";
-          if (ElemType)
-            ElemType->dump();
-          else
-            dbgs() << "<UNKNOWN ELEMENT TYPE>\n";
+          dbgs() << "<UNKNOWN ELEMENT TYPE>\n";
         });
         DopeVectorAnalyzer DVAFormal(&Arg, Ty, GetTLI);
         DVAFormal.analyze(false);
@@ -795,8 +761,8 @@ static bool DopeVectorConstPropImpl(
         SmallVector<std::optional<uint64_t>, 3> LowerBound;
         SmallVector<std::optional<uint64_t>, 3> Stride;
         SmallVector<std::optional<uint64_t>, 3> Extent;
-        if (!hasDopeVectorConstants(F, Arg, ArRank, ElemType,
-            LowerBound, Stride, Extent, GetTLI)) {
+        if (!hasDopeVectorConstants(F, Arg, ArRank, LowerBound, Stride, Extent,
+                                    GetTLI)) {
           LLVM_DEBUG(dbgs() << "NO CONSTANT DOPE VECTOR FIELDS\n");
           continue;
         }
@@ -836,23 +802,13 @@ static bool DopeVectorConstPropImpl(
         continue;
 
       uint32_t ArRank;
-      Type *ElemType;
       Type *Ty = AllocI->getAllocatedType();
-      if (!isDopeVectorType(Ty, DL, &ArRank, &ElemType))
+      if (!isDopeVectorType(Ty, DL, &ArRank))
         continue;
       LLVM_DEBUG({
-        // NOTE: This needs to be updated when opaque pointers support is
-        // enabled.
-        if (Ty->getContext().supportsTypedPointers())
-          assert(ElemType &&
-                 "Pointer address not collected for debugging AllocaInst");
-
         dbgs() << "  LOCAL DV FOUND: " << *AllocI
                << "\n    RANK: " << ArRank << "\n    TYPE: ";
-        if (ElemType)
-          ElemType->dump();
-        else
-          dbgs() << "<UNKNOWN ELEMENT TYPE>\n";
+        dbgs() << "<UNKNOWN ELEMENT TYPE>\n";
       });
 
       DopeVectorAnalyzer DVALocal(AllocI, Ty, GetTLI);

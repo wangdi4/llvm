@@ -1,6 +1,6 @@
 //===-- CSAOpInfo.cpp ---------------------------------------------*-C++-*-===//
 //
-//   Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -32,7 +32,7 @@ std::unique_ptr<TargetMachine> createTargetMachine() {
 
   return std::unique_ptr<TargetMachine>(
       TheTarget->createTargetMachine(TT, "", "", TargetOptions(), None,
-                                     CodeModel::Large, CodeGenOpt::Default));
+                                     CodeModel::Large, CodeGenOptLevel::Default));
 }
 
 std::unique_ptr<CSAInstrInfo> createInstrInfo(TargetMachine *TM) {

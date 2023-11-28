@@ -25,12 +25,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPBasicBlock.h"
+#include "HIR/IntelVPOCodeGenHIR.h"
 #include "IntelVPLoopAnalysis.h"
-#include "IntelVPOCodeGen.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanDominatorTree.h"
-#include "IntelVPlanVLSAnalysis.h" // We might need to add in in VPlanHIR/IntelVPOCodeGenHIR.h
-#include "VPlanHIR/IntelVPOCodeGenHIR.h"
+#include "IntelVPlanVLSAnalysis.h" // We might need to add in in HIR/IntelVPOCodeGenHIR.h
+#include "LLVM/CodeGenLLVM.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #define DEBUG_TYPE "VPBasicBlock"

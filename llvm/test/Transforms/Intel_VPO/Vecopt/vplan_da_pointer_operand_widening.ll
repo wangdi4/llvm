@@ -10,32 +10,30 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %Struct = type { <3 x i32>, i32 }
 
-define void @foo_c(%Struct* %a) {
+define void @foo_c(ptr %a) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]]<latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB4:BB[0-9]+]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 32] %Struct* [[VP_BASE:%.*]] = getelementptr %Struct* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 32] <3 x i32>* [[VP_PTR:%.*]] = getelementptr inbounds %Struct* [[VP_BASE]] i32 0 i32 0
-; CHECK-NEXT:  Divergent: [Shape: Random] <3 x i32> [[VP_LD:%.*]] = load <3 x i32>* [[VP_PTR]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 32] ptr [[VP_BASE:%.*]] = getelementptr [[STRUCT0:%.*]], ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:  Divergent: [Shape: Random] <3 x i32> [[VP_LD:%.*]] = load ptr [[VP_BASE]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD_0:%.*]] = extractelement <3 x i32> [[VP_LD]] i32 0
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMP:%.*]] = icmp eq i32 [[VP_LD_0]] i32 42
 ; CHECK-NEXT:  Divergent: [Shape: Random] br i1 [[VP_CMP]], [[BB2]], [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 32] <3 x i32>* [[VP_PTR2:%.*]] = getelementptr inbounds %Struct* [[VP_BASE]] i32 1 i32 0
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 32] ptr [[VP_PTR2:%.*]] = getelementptr inbounds [[STRUCT0]], ptr [[VP_BASE]] i32 1 i32 0
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 32] <3 x i32>* [[VP_PTR1:%.*]] = getelementptr inbounds %Struct* [[VP_BASE]] i32 0 i32 0
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
-; CHECK-NEXT:  Divergent: [Shape: Random] <3 x i32>* [[VP_PHI:%.*]] = phi  [ <3 x i32>* [[VP_PTR1]], [[BB2]] ],  [ <3 x i32>* [[VP_PTR2]], [[BB1]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] store <3 x i32> [[VP_LD]] <3 x i32>* [[VP_PHI]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_PHI:%.*]] = phi  [ ptr [[VP_BASE]], [[BB2]] ],  [ ptr [[VP_PTR2]], [[BB1]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] store <3 x i32> [[VP_LD]] ptr [[VP_PHI]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB0]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -50,24 +48,22 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %IfElseEnd ]
-  %base = getelementptr %Struct, %Struct* %a, i64 %indvars.iv
-  %ptr = getelementptr inbounds %Struct, %Struct* %base, i32 0, i32 0
-  %ld = load <3 x i32>, <3 x i32>* %ptr
+  %base = getelementptr %Struct, ptr %a, i64 %indvars.iv
+  %ld = load <3 x i32>, ptr %base
   %ld.0 = extractelement <3 x i32> %ld, i32 0
   %cmp = icmp eq i32 %ld.0, 42
   br i1 %cmp, label %block1, label %block2
 
 block1:
-  %ptr1 = getelementptr inbounds %Struct, %Struct* %base, i32 0, i32 0
   br label %IfElseEnd
 
 block2:
-  %ptr2 = getelementptr inbounds %Struct, %Struct* %base, i32 1, i32 0
+  %ptr2 = getelementptr inbounds %Struct, ptr %base, i32 1, i32 0
   br label %IfElseEnd
 
 IfElseEnd:
-  %phi = phi <3 x i32>* [ %ptr1, %block1 ], [ %ptr2, %block2 ]
-  store <3 x i32> %ld, <3 x i32>* %phi
+  %phi = phi ptr [ %base, %block1 ], [ %ptr2, %block2 ]
+  store <3 x i32> %ld, ptr %phi
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.end, label %for.body

@@ -148,6 +148,8 @@ void nu(int &i) {
 void tb1(int &i) {
   // CHECK-LABEL: define{{.*}}tb1
   // INTEL_CUSTOMIZATION
+  // Checks removed.
+  // end INTEL_CUSTOMIZATION
   // CHECK: br {{.*}}end{{$}}
   // CHECK: br {{.*}} !prof [[BW_LIKELY]]
   if (__builtin_expect(a() ? b() : c(), 1)) {
@@ -160,6 +162,8 @@ void tb1(int &i) {
 void tl(int &i) {
   // CHECK-LABEL: define{{.*}}tl
   // INTEL_CUSTOMIZATION
+  // Checks removed.
+  // end INTEL_CUSTOMIZATION
   // CHECK: br {{.*}}end{{$}}
   // CHECK: br {{.*}} !prof [[BW_LIKELY]]
   if (bool d = a() ? b() : c()) [[likely]] {
@@ -184,6 +188,8 @@ void tl2(int &i) {
 void tb0(int &i) {
   // CHECK-LABEL: define{{.*}}tb0
   // INTEL_CUSTOMIZATION
+  // Check removed.
+  // end INTEL_CUSTOMIZATION
   // CHECK: br {{.*}}end{{$}}
   // CHECK: br {{.*}}end{{$}}
   // CHECK: br {{.*}} !prof [[BW_UNLIKELY]]
@@ -197,6 +203,8 @@ void tb0(int &i) {
 void tu(int &i) {
   // CHECK-LABEL: define{{.*}}tu
   // INTEL_CUSTOMIZATION
+  // Checks removed.
+  // end INTEL_CUSTOMIZATION
   // CHECK: br {{.*}}end{{$}}
   // CHECK: br {{.*}} !prof [[BW_UNLIKELY]]
   if (bool d = a() ? b() : c()) [[unlikely]] {

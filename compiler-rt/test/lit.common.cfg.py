@@ -268,6 +268,9 @@ config.available_features.add("host-byteorder-" + sys.byteorder + "-endian")
 if config.have_zlib:
     config.available_features.add("zlib")
 
+if config.have_internal_symbolizer:
+    config.available_features.add("internal_symbolizer")
+
 # Use ugly construction to explicitly prohibit "clang", "clang++" etc.
 # in RUN lines.
 config.substitutions.append(
@@ -930,6 +933,16 @@ if config.host_os == "Darwin":
 # preempt something we're looking to trap (e.g. _FORTIFY_SOURCE vs our ASAN).
 config.environment["CLANG_NO_DEFAULT_CONFIG"] = "1"
 
+if config.has_compiler_rt_libatomic:
+  base_lib = os.path.join(config.compiler_rt_libdir, "libclang_rt.atomic%s.so"
+                          % config.target_suffix)
+  if sys.platform in ['win32'] and execute_external:
+    # Don't pass dosish path separator to msys bash.exe.
+    base_lib = base_lib.replace('\\', '/')
+  config.substitutions.append(("%libatomic", base_lib + f" -Wl,-rpath,{config.compiler_rt_libdir}"))
+else:
+  config.substitutions.append(("%libatomic", "-latomic"))
+
 # Set LD_LIBRARY_PATH to pick dynamic runtime up properly.
 push_dynamic_library_lookup_path(config, config.compiler_rt_libdir)
 
@@ -938,3 +951,11 @@ if config.compiler_id == "GNU":
     gcc_dir = os.path.dirname(config.clang)
     libasan_dir = os.path.join(gcc_dir, "..", "lib" + config.bits)
     push_dynamic_library_lookup_path(config, libasan_dir)
+
+# INTEL_CUSTOMIZATION
+# JIRA: CMPLRLLVM-52386, CMPLRLLVM-42781
+# This flag will help solve runtime problems with i386 on zsc16(or any systems 
+# that have too many files)
+if "-m32" in shlex.split(config.target_cflags):
+    config.target_cflags += " -D_FILE_OFFSET_BITS=64 "
+# end INTEL_CUSTOMIZATION

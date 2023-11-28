@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers < %s -passes=openmp-opt -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=openmp-opt -S 2>&1 | FileCheck %s
 
 @0 = internal unnamed_addr constant i32 0
 @"@tid.addr" = external global i32

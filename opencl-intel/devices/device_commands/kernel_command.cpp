@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -32,9 +32,7 @@ KernelCommand::AddChildKernelToLists(const SharedPtr<KernelCommand> &child,
 
   // TODO: Use tbb::scalable_allocator
   CommandToExecuteList_t *pNewKernel = new CommandToExecuteList_t;
-  if (nullptr == pNewKernel) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+
   child->AddDependency();
   pNewKernel->command = child;
 
@@ -236,9 +234,7 @@ int KernelCommand::ReleaseEvent(clk_event_t event) {
 
 clk_event_t KernelCommand::CreateUserEvent(int *piErrcodeRet) {
   UserEvent *pUserEvent = UserEvent::Allocate();
-  if (nullptr != pUserEvent) {
-    pUserEvent->IncRefCnt();
-  }
+  pUserEvent->IncRefCnt();
   if (nullptr != piErrcodeRet) {
     *piErrcodeRet =
         (nullptr != pUserEvent) ? CL_SUCCESS : CL_EVENT_ALLOCATION_FAILURE;

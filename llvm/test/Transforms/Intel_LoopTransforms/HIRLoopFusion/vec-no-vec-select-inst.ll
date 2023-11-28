@@ -1,5 +1,5 @@
 
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-fusion" -disable-output -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-fusion" -disable-output -print-after=hir-loop-fusion < %s 2>&1 | FileCheck %s
 
 ; The first loop have no vectorization preventing edges. Second loop has a vectorization
 ; preventing flow edge due to select instruction. Test checks that the flow edges caused by
@@ -54,7 +54,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @"cortesa_$VEL" = external hidden global [3000001 x float], align 16, !llfort.type_idx !1
 
 ; Function Attrs: nofree nounwind uwtable
-define hidden fastcc void @foo(i32 %arg, float* noalias nocapture writeonly dereferenceable(4) %arg1, float %arg2) unnamed_addr #0 !llfort.type_idx !5 {
+define hidden fastcc void @foo(i32 %arg, ptr noalias nocapture writeonly dereferenceable(4) %arg1, float %arg2) unnamed_addr #0 !llfort.type_idx !5 {
 bb:
   %i = alloca [8 x i64], align 16, !llfort.type_idx !6
   %i3 = alloca i32, align 16
@@ -72,8 +72,8 @@ bb:
   br i1 %i14, label %bb15, label %bb17
 
 bb15:                                             ; preds = %bb
-  %i16 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull elementtype(i32) %i3, i64 1), !llfort.type_idx !13
-  store i32 1, i32* %i16, align 4, !tbaa !14
+  %i16 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %i3, i64 1), !llfort.type_idx !13
+  store i32 1, ptr %i16, align 4, !tbaa !14
   br label %bb49
 
 bb17:                                             ; preds = %bb
@@ -82,32 +82,32 @@ bb17:                                             ; preds = %bb
 
 bb19:                                             ; preds = %bb19, %bb17
   %i20 = phi i64 [ %i31, %bb19 ], [ 1, %bb17 ]
-  %i21 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) getelementptr inbounds ([3000001 x float], [3000001 x float]* @"cortesa_$DX", i64 0, i64 0), i64 %i20), !llfort.type_idx !18
-  %i22 = load float, float* %i21, align 1, !tbaa !19, !llfort.type_idx !18
-  %i23 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) getelementptr inbounds ([3000001 x float], [3000001 x float]* @"cortesa_$VEL", i64 0, i64 0), i64 %i20), !llfort.type_idx !21
-  %i24 = load float, float* %i23, align 1, !tbaa !22, !llfort.type_idx !21
+  %i21 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) @"cortesa_$DX", i64 %i20), !llfort.type_idx !18
+  %i22 = load float, ptr %i21, align 1, !tbaa !19, !llfort.type_idx !18
+  %i23 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) @"cortesa_$VEL", i64 %i20), !llfort.type_idx !21
+  %i24 = load float, ptr %i23, align 1, !tbaa !22, !llfort.type_idx !21
   %i25 = tail call fast float @llvm.fabs.f32(float %i24), !llfort.type_idx !24
-  %i26 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) getelementptr inbounds ([3000001 x float], [3000001 x float]* @"cortesa_$SOUND", i64 0, i64 0), i64 %i20), !llfort.type_idx !25
-  %i27 = load float, float* %i26, align 1, !tbaa !26, !llfort.type_idx !25
+  %i26 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) @"cortesa_$SOUND", i64 %i20), !llfort.type_idx !25
+  %i27 = load float, ptr %i26, align 1, !tbaa !26, !llfort.type_idx !25
   %i28 = fadd fast float %i25, %i27
   %i29 = fdiv fast float %i22, %i28
-  %i30 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %i13, i64 %i20), !llfort.type_idx !28
-  store float %i29, float* %i30, align 4, !tbaa !29
+  %i30 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %i13, i64 %i20), !llfort.type_idx !28
+  store float %i29, ptr %i30, align 4, !tbaa !29
   %i31 = add nuw nsw i64 %i20, 1
   %i32 = icmp eq i64 %i31, %i18
   br i1 %i32, label %bb33, label %bb19
 
 bb33:                                             ; preds = %bb19
-  %i34 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull elementtype(i32) %i3, i64 1), !llfort.type_idx !13
-  store i32 1, i32* %i34, align 4, !tbaa !14
+  %i34 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %i3, i64 1), !llfort.type_idx !13
+  store i32 1, ptr %i34, align 4, !tbaa !14
   br label %bb35
 
 bb35:                                             ; preds = %bb35, %bb33
   %i36 = phi float [ %i44, %bb35 ], [ 0x7FF0000000000000, %bb33 ]
   %i37 = phi i64 [ %i45, %bb35 ], [ 1, %bb33 ]
   %i38 = phi i32 [ %i43, %bb35 ], [ 1, %bb33 ]
-  %i39 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %i13, i64 %i37), !llfort.type_idx !31
-  %i40 = load float, float* %i39, align 4, !tbaa !29, !llfort.type_idx !31
+  %i39 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %i13, i64 %i37), !llfort.type_idx !31
+  %i40 = load float, ptr %i39, align 4, !tbaa !29, !llfort.type_idx !31
   %i41 = fcmp fast olt float %i40, %i36
   %i42 = trunc i64 %i37 to i32
   %i43 = select i1 %i41, i32 %i42, i32 %i38
@@ -125,19 +125,18 @@ bb49:                                             ; preds = %bb47, %bb15
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 ; Function Attrs: nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
 
 ; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
 declare !llfort.type_idx !55 !llfort.intrin_id !56 float @llvm.fabs.f32(float) #2
 
 ; Function Attrs: nofree
-declare !llfort.type_idx !57 !llfort.intrin_id !58 dso_local i32 @for_write_seq_fmt(i8*, i32, i64, i8*, i8*, i8*, ...) local_unnamed_addr #3
+declare !llfort.type_idx !57 !llfort.intrin_id !58 dso_local i32 @for_write_seq_fmt(ptr, i32, i64, ptr, ptr, ptr, ...) local_unnamed_addr #3
 
 ; Function Attrs: nofree
-declare !llfort.type_idx !59 !llfort.intrin_id !60 dso_local i32 @for_write_seq_fmt_xmit(i8* nocapture readonly, i8* nocapture readonly, i8*) local_unnamed_addr #3
+declare !llfort.type_idx !59 !llfort.intrin_id !60 dso_local i32 @for_write_seq_fmt_xmit(ptr nocapture readonly, ptr nocapture readonly, ptr) local_unnamed_addr #3
 
 attributes #0 = { nofree nounwind uwtable "denormal-fp-math"="preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 attributes #1 = { nounwind readnone speculatable }

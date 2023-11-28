@@ -8,16 +8,16 @@
 #ifndef TESTRUNNER_H_
 #define TESTRUNNER_H_
 
+#include "../KernelExecutor/Execution.h"
+#include "../KernelExecutor/RegularParameter.h"
+#include "../RandomInputGenerator/RandomInputGenerator.h"
+#include "TestFailedException.h"
+
 #include <exception>
 #include <list>
 #include <set>
 #include <string>
 #include <vector>
-
-#include "../KernelExecutor/Execution.h"
-#include "../KernelExecutor/RegularParameter.h"
-#include "../RandomInputGenerator/RandomInputGenerator.h"
-#include "TestFailedException.h"
 
 using std::list;
 using std::set;

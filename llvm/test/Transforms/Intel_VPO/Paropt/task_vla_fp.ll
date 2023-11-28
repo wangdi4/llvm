@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 ;
 ; Test src:
 ; #include <stdio.h>
@@ -19,32 +19,29 @@
 ; //   foo(10);
 ; // }
 
-; ModuleID = 'task_vla_fp.c'
-source_filename = "task_vla_fp.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @.str = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1
 ; Check for the space allocated for the private copy.
-; CHECK: %__struct.kmp_privates.t = type { i16*, i64, i64 }
+; CHECK: %__struct.kmp_privates.t = type { ptr, i64, i64 }
 
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @foo(i32 %n) #0 {
+define dso_local void @foo(i32 %n) {
 entry:
   %n.addr = alloca i32, align 4
-  %saved_stack = alloca i8*, align 8
+  %saved_stack = alloca ptr, align 8
   %__vla_expr0 = alloca i64, align 8
   %omp.vla.tmp = alloca i64, align 8
-  store i32 %n, i32* %n.addr, align 4
-  %0 = load i32, i32* %n.addr, align 4
+  store i32 %n, ptr %n.addr, align 4
+  %0 = load i32, ptr %n.addr, align 4
   %1 = zext i32 %0 to i64
-  %2 = call i8* @llvm.stacksave()
-  store i8* %2, i8** %saved_stack, align 8
+  %2 = call ptr @llvm.stacksave()
+  store ptr %2, ptr %saved_stack, align 8
   %vla = alloca i16, i64 %1, align 16
-  store i64 %1, i64* %__vla_expr0, align 8
-  %arrayidx = getelementptr inbounds i16, i16* %vla, i64 1
-  store i16 1, i16* %arrayidx, align 2
-  store i64 %1, i64* %omp.vla.tmp, align 8
+  store i64 %1, ptr %__vla_expr0, align 8
+  %arrayidx = getelementptr inbounds i16, ptr %vla, i64 1
+  store i16 1, ptr %arrayidx, align 2
+  store i64 %1, ptr %omp.vla.tmp, align 8
 
 ; Check for computation of VLA size in bytes
 ; CHECK: %vla = alloca i16, i64 [[NUM_ELEMENTS:%[^, ]+]]
@@ -52,78 +49,60 @@ entry:
 
 ; Check that we call _task_alloc with total size of task_t_with_privates + vla_size
 ; CHECK: [[TOTAL_SIZE:%[^ ]+]] = add i64 96, [[VLA_SIZE_IN_BYTES]]
-; CHECK: [[TASK_ALLOC:[^ ]+]] = call i8* @__kmpc_omp_task_alloc({{.*}}i64 [[TOTAL_SIZE]]{{.*}})
+; CHECK: [[TASK_ALLOC:[^ ]+]] = call ptr @__kmpc_omp_task_alloc({{.*}}i64 [[TOTAL_SIZE]]{{.*}})
 
 ; Check that VLA size and offset are stored in the thunk
-; CHECK: [[VLA_SIZE_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %{{[^ ]+}}, i32 0, i32 1
-; CHECK: store i64 [[VLA_SIZE_IN_BYTES]], i64* [[VLA_SIZE_GEP]]
-; CHECK: [[VLA_OFFSET_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %{{[^ ]+}}, i32 0, i32 2
-; CHECK: store i64 96, i64* [[VLA_OFFSET_GEP]]
+; CHECK: [[VLA_SIZE_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, ptr %{{[^ ]+}}, i32 0, i32 1
+; CHECK: store i64 [[VLA_SIZE_IN_BYTES]], ptr [[VLA_SIZE_GEP]]
+; CHECK: [[VLA_OFFSET_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, ptr %{{[^ ]+}}, i32 0, i32 2
+; CHECK: store i64 96, ptr [[VLA_OFFSET_GEP]]
 
 ; Check that the local buffer space for %vla, allocated with __kmpc_alloc, is initialized (as it is firstprivate).
-; CHECK: [[VLA_BUFFER:%[^ ]+]] = getelementptr i8, i8* [[TASK_ALLOC]], i64 96
-; CHECK: [[VLA_CAST:%[^ ]+]] = bitcast i16* %vla to i8*
-; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 2 [[VLA_BUFFER]], i8* align 2 [[VLA_CAST]], i64 [[VLA_SIZE_IN_BYTES]], i1 false)
+; CHECK: [[VLA_BUFFER:%[^ ]+]] = getelementptr i8, ptr [[TASK_ALLOC]], i64 96
+; CHECK: call void @llvm.memcpy.p0.p0.i64(ptr align 2 [[VLA_BUFFER]], ptr align 2 %vla, i64 [[VLA_SIZE_IN_BYTES]], i1 false)
 
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.FIRSTPRIVATE"(i16* %vla), "QUAL.OMP.SHARED"(i64* %omp.vla.tmp) ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %vla, i16 0, i64 %1),
+    "QUAL.OMP.SHARED:TYPED"(ptr %omp.vla.tmp, i64 0, i32 1) ]
 
-; Inside the outlined function, check that the i16* in the privates thunk is linked to the array allocated in the buffer at the end.
+; Inside the outlined function, check that the gep in the privates thunk is linked to the array allocated in the buffer at the end.
 ; CHECK: define internal void @{{.*}}DIR.OMP.TASK{{.*}}
-; CHECK: [[VLA_PRIV_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %{{[^, ]+}}, i32 0, i32 0
-; CHECK: [[VLA_OFFSET_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %{{[^, ]+}}, i32 0, i32 2
-; CHECK: [[VLA_OFFSET:%[^ ]+]] = load i64, i64* [[VLA_OFFSET_GEP]]
-; CHECK: [[THUNK_BASE_PTR:%[^ ]+]] = bitcast %__struct.kmp_task_t_with_privates* {{[^, ]+}} to i8*
-; CHECK: [[VLA_DATA:%[^ ]+]]  = getelementptr i8, i8* [[THUNK_BASE_PTR]], i64 [[VLA_OFFSET]]
-; CHECK: [[VLA_PRIV_GEP_CAST:[^ ]+]] = bitcast i16** [[VLA_PRIV_GEP]] to i8**
-; CHECK: store i8* [[VLA_DATA]], i8** [[VLA_PRIV_GEP_CAST]]
+; CHECK: %.privates = getelementptr inbounds %__struct.kmp_task_t_with_privates, ptr %taskt.withprivates, i32 0, i32 1
+; CHECK: [[VLA_PRIV_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, ptr %.privates, i32 0, i32 0
+; CHECK: [[VLA_OFFSET_GEP:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, ptr %.privates, i32 0, i32 2
+; CHECK: [[VLA_OFFSET:%[^ ]+]] = load i64, ptr [[VLA_OFFSET_GEP]]
+; CHECK: [[VLA_DATA:%[^ ]+]]  = getelementptr i8, ptr %taskt.withprivates, i64 [[VLA_OFFSET]]
+; CHECK: store ptr [[VLA_DATA]], ptr [[VLA_PRIV_GEP]]
 
-; Check that a load from VLA_PRIV_GEP is done to get an i16*, which replaces %vla inside the region.
-; CHECK: [[VLA_PRIV_GEP1:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %{{[^ ,]+}}, i32 0, i32 0
-; CHECK: [[VLA_NEW:%[^ ]+]] = load i16*, i16** [[VLA_PRIV_GEP1]]
-; CHECK: [[GEP1:%[^ ]+]] = getelementptr inbounds i16, i16* [[VLA_NEW]], i64 1
-; CHECK: [[GEP2:%[^ ]+]] = getelementptr inbounds i16, i16* [[VLA_NEW]], i64 1
-; CHECK: store i16 2, i16* [[GEP2]]
+; Check that a load from VLA_PRIV_GEP is done to get the private copy of %vla, which replaces it inside the region.
+; CHECK: [[VLA_PRIV_GEP1:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, ptr %{{[^ ,]+}}, i32 0, i32 0
+; CHECK: [[VLA_NEW:%[^ ]+]] = load ptr, ptr [[VLA_PRIV_GEP1]]
+; CHECK: [[GEP1:%[^ ]+]] = getelementptr inbounds i16, ptr [[VLA_NEW]], i64 1
+; CHECK: [[GEP2:%[^ ]+]] = getelementptr inbounds i16, ptr [[VLA_NEW]], i64 1
+; CHECK: store i16 2, ptr [[GEP2]]
 
 
-  %4 = load i64, i64* %omp.vla.tmp, align 8
-  %arrayidx1 = getelementptr inbounds i16, i16* %vla, i64 1
-  %5 = load i16, i16* %arrayidx1, align 2
+  %4 = load i64, ptr %omp.vla.tmp, align 8
+  %arrayidx1 = getelementptr inbounds i16, ptr %vla, i64 1
+  %5 = load i16, ptr %arrayidx1, align 2
   %conv = sext i16 %5 to i32
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32 %conv)
-  %arrayidx2 = getelementptr inbounds i16, i16* %vla, i64 1
-  store i16 2, i16* %arrayidx2, align 2
+  %call = call i32 (ptr, ...) @printf(ptr @.str, i32 %conv)
+  %arrayidx2 = getelementptr inbounds i16, ptr %vla, i64 1
+  store i16 2, ptr %arrayidx2, align 2
 
   call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.TASK"() ]
 
-  %arrayidx3 = getelementptr inbounds i16, i16* %vla, i64 1
-  %6 = load i16, i16* %arrayidx3, align 2
+  %arrayidx3 = getelementptr inbounds i16, ptr %vla, i64 1
+  %6 = load i16, ptr %arrayidx3, align 2
   %conv4 = sext i16 %6 to i32
-  %call5 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32 %conv4)
-  %7 = load i8*, i8** %saved_stack, align 8
-  call void @llvm.stackrestore(i8* %7)
+  %call5 = call i32 (ptr, ...) @printf(ptr @.str, i32 %conv4)
+  %7 = load ptr, ptr %saved_stack, align 8
+  call void @llvm.stackrestore(ptr %7)
   ret void
 }
 
-; Function Attrs: nounwind
-declare i8* @llvm.stacksave() #1
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-declare dso_local i32 @printf(i8*, ...) #2
-
-; Function Attrs: nounwind
-declare void @llvm.stackrestore(i8*) #1
-
-attributes #0 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind }
-attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 9.0.0"}
+declare ptr @llvm.stacksave()
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
+declare dso_local i32 @printf(ptr, ...)
+declare void @llvm.stackrestore(ptr)

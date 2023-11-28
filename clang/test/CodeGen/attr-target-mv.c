@@ -1,9 +1,9 @@
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-linux-gnu -emit-llvm %s -o - | FileCheck %s --check-prefix=LINUX
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-windows-pc -emit-llvm %s -o - | FileCheck %s --check-prefix=WINDOWS
-// if INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-linux-gnu -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefix=LINUX
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-windows-pc -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefix=WINDOWS
-// endif // INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -triple x86_64-linux-gnu -emit-llvm %s -o - | FileCheck %s --check-prefix=LINUX
+// RUN: %clang_cc1 -triple x86_64-windows-pc -emit-llvm %s -o - | FileCheck %s --check-prefix=WINDOWS
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -triple x86_64-linux-gnu -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefix=LINUX
+// RUN: %clang_cc1 -triple x86_64-windows-pc -fintel-compatibility -emit-llvm %s -o - | FileCheck %s --check-prefix=WINDOWS
+// end INTEL_CUSTOMIZATION
 
 int __attribute__((target("sse4.2"))) foo(void) { return 0; }
 int __attribute__((target("arch=sandybridge"))) foo(void);
@@ -19,7 +19,6 @@ int __attribute__((target("arch=sapphirerapids"))) foo(void) {return 10;}
 int __attribute__((target("arch=alderlake"))) foo(void) {return 11;}
 int __attribute__((target("arch=rocketlake"))) foo(void) {return 12;}
 int __attribute__((target("arch=core2"))) foo(void) {return 13;}
-int __attribute__((target("arch=gracemont"))) foo(void) {return 16;}  // INTEL
 int __attribute__((target("arch=raptorlake"))) foo(void) {return 14;}
 int __attribute__((target("arch=meteorlake"))) foo(void) {return 15;}
 int __attribute__((target("arch=sierraforest"))) foo(void) {return 16;}
@@ -30,10 +29,20 @@ int __attribute__((target("arch=graniterapids-d"))) foo(void) {return 20;}
 int __attribute__((target("arch=arrowlake"))) foo(void) {return 21;}
 int __attribute__((target("arch=arrowlake-s"))) foo(void) {return 22;}
 int __attribute__((target("arch=lunarlake"))) foo(void) {return 23;}
+int __attribute__((target("arch=gracemont"))) foo(void) {return 24;}
+int __attribute__((target("arch=pantherlake"))) foo(void) {return 25;}
+int __attribute__((target("arch=clearwaterforest"))) foo(void) {return 26;}
 int __attribute__((target("default"))) foo(void) { return 2; }
 
 int bar(void) {
   return foo();
+}
+
+static int __attribute__((target("arch=meteorlake"))) foo_internal(void) {return 15;}
+static int __attribute__((target("default"))) foo_internal(void) { return 2; }
+
+int bar1(void) {
+  return foo_internal();
 }
 
 inline int __attribute__((target("sse4.2"))) foo_inline(void) { return 0; }
@@ -132,6 +141,7 @@ void calls_pr50025c(void) { pr50025c(); }
 
 
 // LINUX: @foo.ifunc = weak_odr ifunc i32 (), ptr @foo.resolver
+// LINUX: @foo_internal.ifunc = internal ifunc i32 (), ptr @foo_internal.resolver
 // LINUX: @foo_inline.ifunc = weak_odr ifunc i32 (), ptr @foo_inline.resolver
 // LINUX: @foo_decls.ifunc = weak_odr ifunc void (), ptr @foo_decls.resolver
 // LINUX: @foo_multi.ifunc = weak_odr ifunc void (i32, double), ptr @foo_multi.resolver
@@ -164,10 +174,6 @@ void calls_pr50025c(void) { pr50025c(); }
 // LINUX: ret i32 12
 // LINUX: define{{.*}} i32 @foo.arch_core2()
 // LINUX: ret i32 13
-// if INTEL_CUSTOMIZATION
-// LINUX: define{{.*}} i32 @foo.arch_gracemont()
-// LINUX: ret i32 16
-// endif // INTEL_CUSTOMIZATION
 // LINUX: define{{.*}} i32 @foo.arch_raptorlake()
 // LINUX: ret i32 14
 // LINUX: define{{.*}} i32 @foo.arch_meteorlake()
@@ -188,6 +194,12 @@ void calls_pr50025c(void) { pr50025c(); }
 // LINUX: ret i32 22
 // LINUX: define{{.*}} i32 @foo.arch_lunarlake()
 // LINUX: ret i32 23
+// LINUX: define{{.*}} i32 @foo.arch_gracemont()
+// LINUX: ret i32 24
+// LINUX: define{{.*}} i32 @foo.arch_pantherlake()
+// LINUX: ret i32 25
+// LINUX: define{{.*}} i32 @foo.arch_clearwaterforest()
+// LINUX: ret i32 26
 // LINUX: define{{.*}} i32 @foo()
 // LINUX: ret i32 2
 // LINUX: define{{.*}} i32 @bar()
@@ -219,10 +231,6 @@ void calls_pr50025c(void) { pr50025c(); }
 // WINDOWS: ret i32 12
 // WINDOWS: define dso_local i32 @foo.arch_core2()
 // WINDOWS: ret i32 13
-// if INTEL_CUSTOMIZATION
-// WINDOWS: define{{.*}} dso_local i32 @foo.arch_gracemont()
-// WINDOWS: ret i32 16
-// endif // INTEL_CUSTOMIZATION
 // WINDOWS: define dso_local i32 @foo.arch_raptorlake()
 // WINDOWS: ret i32 14
 // WINDOWS: define dso_local i32 @foo.arch_meteorlake()
@@ -243,6 +251,12 @@ void calls_pr50025c(void) { pr50025c(); }
 // WINDOWS: ret i32 22
 // WINDOWS: define dso_local i32 @foo.arch_lunarlake()
 // WINDOWS: ret i32 23
+// WINDOWS: define dso_local i32 @foo.arch_gracemont()
+// WINDOWS: ret i32 24
+// WINDOWS: define dso_local i32 @foo.arch_pantherlake()
+// WINDOWS: ret i32 25
+// WINDOWS: define dso_local i32 @foo.arch_clearwaterforest()
+// WINDOWS: ret i32 26
 // WINDOWS: define dso_local i32 @foo()
 // WINDOWS: ret i32 2
 // WINDOWS: define dso_local i32 @bar()
@@ -261,6 +275,11 @@ void calls_pr50025c(void) { pr50025c(); }
 // WINDOWS: call i32 @foo.arch_ivybridge
 // WINDOWS: call i32 @foo.sse4.2
 // WINDOWS: call i32 @foo
+
+/// Internal linkage resolvers do not use comdat.
+// LINUX: define internal ptr @foo_internal.resolver() {
+
+// WINDOWS: define internal i32 @foo_internal.resolver() {
 
 // LINUX: define{{.*}} i32 @bar2()
 // LINUX: call i32 @foo_inline.ifunc()

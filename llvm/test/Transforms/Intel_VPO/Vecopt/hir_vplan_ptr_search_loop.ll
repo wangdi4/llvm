@@ -2,7 +2,7 @@
 ; struct. That's unnecessary and impossible to check for with opaque pointers.
 ; This test verifies the latter scenario works.
 
-; RUN: opt -xmain-opt-level=3 -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -opaque-pointers -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

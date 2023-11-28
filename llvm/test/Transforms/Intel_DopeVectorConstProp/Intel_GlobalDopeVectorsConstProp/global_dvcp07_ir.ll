@@ -133,7 +133,7 @@
 ; CHECK:   %i9 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i8, i64 0, i32 1
 ; CHECK:   %i10 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i8, i64 0, i32 2
 ; CHECK:   %i11 = bitcast ptr %i8 to ptr
-; CHECK:   tail call void @arr_mod_mp_print_info_(ptr undef, ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.1, ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.1, ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.1, ptr %i11, ptr nonnull %i9, ptr nonnull %i10) #5, !noalias !9
+; CHECK:   tail call void @arr_mod_mp_print_info_(ptr undef, ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.1, ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.1, ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.1, ptr %i11, ptr nonnull %i9, ptr nonnull %i10) #5
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -567,6 +567,7 @@ attributes #5 = { nounwind }
 
 !omp_offload.info = !{}
 !llvm.module.flags = !{!0, !1, !2}
+!ifx.types.dv = !{!110, !111, !112, !113}
 
 !0 = !{i32 1, !"ThinLTO", i32 0}
 !1 = !{i32 1, !"EnableSplitLTOUnit", i32 1}
@@ -578,3 +579,8 @@ attributes #5 = { nounwind }
 !7 = distinct !{!7, !5, !"arr_mod_mp_print_arr_: %M"}
 !8 = distinct !{!8, !5, !"arr_mod_mp_print_arr_: %O"}
 !9 = !{!4}
+!110 = !{%"QNCA_a0$float*$rank1$" zeroinitializer, float 0.000000e+00}
+!111 = !{%"QNCA_a0$float*$rank2$" zeroinitializer, float 0.000000e+00}
+!112 = !{%"QNCA_a0$float*$rank3$" zeroinitializer, float 0.000000e+00}
+!113 = !{%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$" zeroinitializer, %"ARR_MOD$.btT_TESTTYPE" zeroinitializer}
+

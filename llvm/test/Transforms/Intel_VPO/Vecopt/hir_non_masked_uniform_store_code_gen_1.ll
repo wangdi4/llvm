@@ -29,22 +29,33 @@
 ; CHECK: END LOOP
 
 ; Check LLVM-IR
-; CHECK: [[ALoad:%.*]] = load <4 x i32>, ptr {{%.*}}, align 4
-; CHECK-NEXT: store <4 x i32> [[ALoad]], ptr {{%.*}}
-; CHECK-NEXT: [[L0:%.*]] = load ptr, ptr [[ArrB:%.*]]
-; CHECK-NEXT: store i32 0, ptr [[L0]], align 4
-; CHECK-NEXT: [[L1:%.*]] = load ptr, ptr [[ArrB]]
-; CHECK-NEXT: [[GEP1:%.*]] = getelementptr inbounds i32, ptr [[L1]], i64 1
-; CHECK-NEXT: store i32 1, ptr [[GEP1]], align 4
-; CHECK-NEXT: [[L2:%.*]] = load ptr, ptr [[ArrB]]
-; CHECK-NEXT: [[GEP2:%.*]] = getelementptr inbounds i32, ptr [[L2]], i64 2
-; CHECK-NEXT: store i32 2, ptr [[GEP2]], align 4
-; CHECK-NEXT: [[L3:%.*]] = load ptr, ptr [[ArrB]]
-; CHECK-NEXT: [[GEP3:%.*]] = getelementptr inbounds i32, ptr [[L3]], i64 3
-; CHECK-NEXT: store i32 3, ptr [[GEP3]], align 4
-; CHECK-NEXT: [[L4:%.*]] = load ptr, ptr [[ArrB]]
-; CHECK-NEXT: [[GEP4:%.*]] = getelementptr inbounds i32, ptr [[L4]], i64 4
-; CHECK-NEXT: store i32 4, ptr [[GEP4]], align 4
+
+; The invariant GEPs from vector and remainder loops are hoisted outside the
+; loops by HIRCodeGen. Hence we check that we have two sets of scalar GEPs
+; and stores.
+
+; Outer loop start
+; CHECK: loop.{{.*}}:
+
+; CHECK: [[GEPR1:%.*]] = getelementptr inbounds i32, ptr {{.*}}, i64 1
+; CHECK: [[GEPR2:%.*]] = getelementptr inbounds i32, ptr {{.*}}, i64 2
+; CHECK: [[GEPR3:%.*]] = getelementptr inbounds i32, ptr {{.*}}, i64 3
+; CHECK: [[GEPR4:%.*]] = getelementptr inbounds i32, ptr {{.*}}, i64 4
+
+; CHECK: [[GEPV1:%.*]] = getelementptr inbounds i32, ptr {{.*}}, i64 1
+; CHECK: [[GEPV2:%.*]] = getelementptr inbounds i32, ptr {{.*}}, i64 2
+; CHECK: [[GEPV3:%.*]] = getelementptr inbounds i32, ptr {{.*}}, i64 3
+; CHECK: [[GEPV4:%.*]] = getelementptr inbounds i32, ptr {{.*}}, i64 4
+
+; CHECK: store i32 1, ptr [[GEPV1]], align 4
+; CHECK: store i32 2, ptr [[GEPV2]], align 4
+; CHECK: store i32 3, ptr [[GEPV3]], align 4
+; CHECK: store i32 4, ptr [[GEPV4]], align 4
+
+; CHECK: store i32 1, ptr [[GEPR1]], align 4
+; CHECK: store i32 2, ptr [[GEPR2]], align 4
+; CHECK: store i32 3, ptr [[GEPR3]], align 4
+; CHECK: store i32 4, ptr [[GEPR4]], align 4
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

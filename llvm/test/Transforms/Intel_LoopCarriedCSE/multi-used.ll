@@ -19,13 +19,13 @@
 ;   }
 ;}
 ;
-; RUN: opt -opaque-pointers=0 -passes="loop-carried-cse" -S 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="loop-carried-cse" -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: %1 = add i32 %gepload, %gepload48
 ; CHECK: %t36.0 = phi i32
 ; CHECK: %t34.0.lccse = phi i32 [ %1, %for.body.preheader ], [ %4, %loop.28 ]
 ; CHECK-NOT: %t34.0 = phi i32
-; CHECK: store i32 %t34.0.lccse, i32* %arrayIdx, align 4
+; CHECK: store i32 %t34.0.lccse, ptr %arrayIdx, align 4
 ;
 ; ModuleID = 't.c'
 source_filename = "t.c"
@@ -46,8 +46,8 @@ entry:
 
 for.body.preheader:                               ; preds = %entry
   %wide.trip.count = sext i32 %n to i64
-  %gepload = load i32, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @B, i64 0, i64 0), align 4, !tbaa !2
-  %gepload48 = load i32, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @C, i64 0, i64 0), align 4, !tbaa !2
+  %gepload = load i32, ptr getelementptr inbounds ([1000 x i32], ptr @B, i64 0, i64 0), align 4, !tbaa !2
+  %gepload48 = load i32, ptr getelementptr inbounds ([1000 x i32], ptr @C, i64 0, i64 0), align 4, !tbaa !2
   %0 = add i64 %wide.trip.count, -1
   br label %loop.28
 
@@ -58,23 +58,23 @@ loop.28:                                          ; preds = %loop.28, %for.body.
   %i1.i64.0 = phi i64 [ 0, %for.body.preheader ], [ %2, %loop.28 ]
   %t36.0 = phi i32 [ %gepload48, %for.body.preheader ], [ %gepload52, %loop.28 ]
   %t34.0 = phi i32 [ %gepload, %for.body.preheader ], [ %gepload50, %loop.28 ]
-  %arrayIdx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %i1.i64.0
+  %arrayIdx = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %i1.i64.0
   %1 = add i32 %t34.0, %t36.0
-  store i32 %1, i32* %arrayIdx, align 4, !tbaa !2
+  store i32 %1, ptr %arrayIdx, align 4, !tbaa !2
   %2 = add i64 %i1.i64.0, 1
-  %arrayIdx49 = getelementptr inbounds [1000 x i32], [1000 x i32]* @B, i64 0, i64 %2
-  %gepload50 = load i32, i32* %arrayIdx49, align 4, !tbaa !2
-  %arrayIdx51 = getelementptr inbounds [1000 x i32], [1000 x i32]* @C, i64 0, i64 %2
-  %gepload52 = load i32, i32* %arrayIdx51, align 4, !tbaa !2
-  %arrayIdx53 = getelementptr inbounds [1000 x i32], [1000 x i32]* @m, i64 0, i64 %i1.i64.0
-  %gepload54 = load i32, i32* %arrayIdx53, align 4, !tbaa !2
+  %arrayIdx49 = getelementptr inbounds [1000 x i32], ptr @B, i64 0, i64 %2
+  %gepload50 = load i32, ptr %arrayIdx49, align 4, !tbaa !2
+  %arrayIdx51 = getelementptr inbounds [1000 x i32], ptr @C, i64 0, i64 %2
+  %gepload52 = load i32, ptr %arrayIdx51, align 4, !tbaa !2
+  %arrayIdx53 = getelementptr inbounds [1000 x i32], ptr @m, i64 0, i64 %i1.i64.0
+  %gepload54 = load i32, ptr %arrayIdx53, align 4, !tbaa !2
   %3 = sext i32 %gepload54 to i64
-  %arrayIdx55 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %3
+  %arrayIdx55 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %3
   %4 = add i32 %gepload50, %gepload52
-  store i32 %4, i32* %arrayIdx55, align 4, !tbaa !2
-  %arrayIdx56 = getelementptr inbounds [1000 x i32], [1000 x i32]* @D, i64 0, i64 %i1.i64.0
+  store i32 %4, ptr %arrayIdx55, align 4, !tbaa !2
+  %arrayIdx56 = getelementptr inbounds [1000 x i32], ptr @D, i64 0, i64 %i1.i64.0
   %5 = add i32 %t36.0, %gepload52
-  store i32 %5, i32* %arrayIdx56, align 4, !tbaa !2
+  store i32 %5, ptr %arrayIdx56, align 4, !tbaa !2
   %condloop.28 = icmp sle i64 %2, %0
   br i1 %condloop.28, label %loop.28, label %for.end, !llvm.loop !7
 }

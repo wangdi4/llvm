@@ -1,33 +1,61 @@
 ; REQUIRES: asserts
-; RUN: opt -passes="vplan-vec,print" -disable-output -debug-only=vploop-analysis -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec,print" -disable-output -debug-only=vploop-analysis -vplan-force-vf=2 < %s 2>&1 | FileCheck %s --check-prefixes=LLVM-CHECK
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -debug-only=vploop-analysis -vplan-force-vf=2 -vplan-enable-hir-f90-dv < %s 2>&1 | FileCheck %s --check-prefixes=HIR-CHECK
+; NOTE: Check whether aliases are properly collected for Fortran private dope vector.
+; NOTE: In this test %"C1.addr_a0$_fetch.22" is the alias that is required to be processed.
 
-; CHECK:      Aliases:
-; CHECK-NEXT: ptr %"C1.dim_info$.spacing$"
-; CHECK-NEXT:   %"C1.dim_info$.spacing$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %C1.priv, i64 0, i32 6, i64 0, i32 1
-; CHECK-NEXT: ptr [[VPTMP1:%.*]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr [[VPTMP2:%.*]] i64 0 i32 6 i64 0 i32 1
-; CHECK-EMPTY:
-; CHECK-NEXT: ptr %"C1.addr_a0$"
-; CHECK-NEXT:   %"C1.addr_a0$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %C1.priv, i64 0, i32 0
-; CHECK-NEXT: ptr [[VPTMP3:%.*]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr [[VPTMP2]] i64 0 i32 0
-; CHECK-EMPTY:
-; CHECK-NEXT: ptr %"C1.addr_a0$_fetch.22"
-; CHECK-NEXT:   %"C1.addr_a0$_fetch.22" = load ptr, ptr %"C1.addr_a0$", align 8
-; CHECK-NEXT: ptr [[VPTMP4:%.*]] = load ptr [[VPTMP3]]
-; CHECK-EMPTY:
-; CHECK-NEXT: i64 %"C1.dim_info$.spacing$[]_fetch.23"
-; CHECK-NEXT:   %"C1.dim_info$.spacing$[]_fetch.23" = load i64, ptr %"C1.dim_info$.spacing$", align 8
-; CHECK-NEXT: i64 [[VPTMP5:%.*]] = load ptr [[VPTMP1]]
+; LLVM-CHECK:      Aliases:
+; LLVM-CHECK-NEXT: ptr %"C1.dim_info$.spacing$"
+; LLVM-CHECK-NEXT:   %"C1.dim_info$.spacing$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %C1.priv, i64 0, i32 6, i64 0, i32 1
+; LLVM-CHECK-NEXT: ptr [[VPTMP1:%.*]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr [[VPTMP2:%.*]] i64 0 i32 6 i64 0 i32 1
+; LLVM-CHECK-EMPTY:
+; LLVM-CHECK-NEXT: ptr %"C1.addr_a0$"
+; LLVM-CHECK-NEXT:   %"C1.addr_a0$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr %C1.priv, i64 0, i32 0
 
-; CHECK:       %C1.priv.vec = alloca [2 x %"QNCA_a0$i32*$rank1$"], align 8
-; CHECK-NEXT:  %C1.priv.vec.base.addr = getelementptr %"QNCA_a0$i32*$rank1$", ptr %C1.priv.vec, <2 x i32> <i32 0, i32 1>
+; LLVM-CHECK-NEXT: ptr [[VPTMP3:%.*]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$", ptr [[VPTMP2]] i64 0 i32 0
+; LLVM-CHECK-EMPTY:
+; LLVM-CHECK-NEXT: ptr %"C1.addr_a0$_fetch.22"
+; LLVM-CHECK-NEXT:   %"C1.addr_a0$_fetch.22" = load ptr, ptr %"C1.addr_a0$", align 8
+; LLVM-CHECK-NEXT: ptr [[VPTMP4:%.*]] = load ptr [[VPTMP3]]
+; LLVM-CHECK-EMPTY:
+; LLVM-CHECK-NEXT: i64 %"C1.dim_info$.spacing$[]_fetch.23"
+; LLVM-CHECK-NEXT:   %"C1.dim_info$.spacing$[]_fetch.23" = load i64, ptr %"C1.dim_info$.spacing$", align 8
+; LLVM-CHECK-NEXT: i64 [[VPTMP5:%.*]] = load ptr [[VPTMP1]]
 
-; CHECK:       VPlannedBB4:                                      ; preds = %VPlannedBB3, %VPlannedBB2
-; CHECK-NEXT:    %mm_vectorGEP6 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", <2 x ptr> %C1.priv.vec.base.addr, <2 x i64> zeroinitializer, <2 x i32> <i32 6, i32 6>, <2 x i64> zeroinitializer, <2 x i32> <i32 1, i32 1>
-; CHECK-NEXT:    %mm_vectorGEP7 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", <2 x ptr> %C1.priv.vec.base.addr, <2 x i64> zeroinitializer, <2 x i32> zeroinitializer
-; CHECK-NEXT:    %wide.masked.gather = call <2 x ptr> @llvm.masked.gather.v2p0.v2p0(<2 x ptr> %mm_vectorGEP7, i32 8, <2 x i1> <i1 true, i1 true>, <2 x ptr> poison)
-; CHECK-NEXT:    %wide.masked.gather8 = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> %mm_vectorGEP6, i32 8, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
-; CHECK-NEXT:    %10 = and i64 %0, 4294967294
-; CHECK-NEXT:    br label %vector.body
+; LLVM-CHECK:       %C1.priv.vec = alloca [2 x %"QNCA_a0$i32*$rank1$"], align 8
+; LLVM-CHECK-NEXT:  %C1.priv.vec.base.addr = getelementptr %"QNCA_a0$i32*$rank1$", ptr %C1.priv.vec, <2 x i32> <i32 0, i32 1>
+
+; LLVM-CHECK:       VPlannedBB4:                                      ; preds = %VPlannedBB3, %VPlannedBB2
+; LLVM-CHECK-NEXT:    %mm_vectorGEP = getelementptr inbounds %"QNCA_a0$i32*$rank1$", <2 x ptr> %C1.priv.vec.base.addr, <2 x i64> zeroinitializer, <2 x i32> <i32 6, i32 6>, <2 x i64> zeroinitializer, <2 x i32> <i32 1, i32 1>
+; LLVM-CHECK-NEXT:    %mm_vectorGEP6 = getelementptr inbounds %"QNCA_a0$i32*$rank1$", <2 x ptr> %C1.priv.vec.base.addr, <2 x i64> zeroinitializer, <2 x i32> zeroinitializer
+; LLVM-CHECK-NEXT:    %wide.masked.gather = call <2 x ptr> @llvm.masked.gather.v2p0.v2p0(<2 x ptr> %mm_vectorGEP6, i32 8, <2 x i1> <i1 true, i1 true>, <2 x ptr> poison)
+; LLVM-CHECK-NEXT:    %wide.masked.gather7 = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> %mm_vectorGEP, i32 8, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
+; LLVM-CHECK-NEXT:    %10 = and i64 %0, 4294967294
+; LLVM-CHECK-NEXT:    br label %vector.body
+
+; HIR-CHECK:        Aliases:
+; HIR-CHECK-NEXT:    ptr %"C1.addr_a0$_fetch.22"
+; HIR-CHECK-NEXT:    <6>          %"C1.addr_a0$_fetch.22" = (%C1.priv)[0].0;
+; HIR-CHECK-NEXT:    ptr [[VP_TMP1:%.*]] = load ptr [[VP_TMP2:%.*]]
+; HIR-CHECK-EMPTY:
+; HIR-CHECK-NEXT:    i64 %"C1.dim_info$.spacing$[]_fetch.23"
+; HIR-CHECK-NEXT:    <8>          %"C1.dim_info$.spacing$[]_fetch.23" = (%C1.priv)[0].6[0].1;
+; HIR-CHECK-NEXT:    i64 [[VP_TMP3:%.*]] = load ptr [[VP_TMP4:%.*]]
+; HIR-CHECK-EMPTY:
+; HIR-CHECK-NEXT:    i64 %"C1.dim_info$.extent$[]_fetch.24"
+; HIR-CHECK-NEXT:    <10>         %"C1.dim_info$.extent$[]_fetch.24" = (i64*)(%C1.priv)[0].6;
+; HIR-CHECK-NEXT:    i64 [[VP_TMP5:%.*]] = load ptr [[VP_TMP6:%.*]]
+
+; HIR-CHECK:       %priv.mem.bc = &((%"QNCA_a0$i32*$rank1$"*)(%priv.mem)[0]);
+; HIR-CHECK:       %nsbgepcopy = &((<2 x ptr>)(%priv.mem.bc)[<i32 0, i32 1>]);
+; HIR-CHECK:       %.vec12 = (<2 x ptr>*)(%nsbgepcopy)[0].0;
+; HIR-CHECK:       %.vec15 = (<2 x i64>*)(%nsbgepcopy13)[0].6[0].1;
+
+; HIR-CHECK:       + DO i1 = 0, %loop.ub, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; HIR-CHECK-NEXT:  |   %.vec21 = %.vec15  *  i1 + <i64 0, i64 1>;
+; HIR-CHECK-NEXT:  |   %.vec22 = (<2 x i32>*)(%.vec12)[%.vec21];
+; HIR-CHECK-NEXT:  |   (<2 x i32>*)(%.vec12)[%.vec21] = %.vec22;
+; HIR-CHECK-NEXT:  + END LOOP
 
 ; ModuleID = '<stdin>'
 source_filename = "priv_dope_fixed.f90"

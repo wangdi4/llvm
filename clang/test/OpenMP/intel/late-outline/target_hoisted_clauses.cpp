@@ -1,11 +1,6 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-version=50 -fopenmp-late-outline -fopenmp-typed-clauses \
-// RUN:  -triple x86_64-unknown-linux-gnu %s | \
-// RUN:  FileCheck --check-prefixes CHECK,CHECK-NEW %s
-
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-version=50 -fopenmp-late-outline -fopenmp-typed-clauses \
-// RUN:  -triple x86_64-unknown-linux-gnu %s -fno-openmp-new-depend-ir | \
-// RUN:  FileCheck --check-prefixes CHECK,CHECK-OLD %s
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-version=50 -fopenmp-late-outline \
+// RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 //CHECK-LABEL: foo_target_teams
 void foo_target_teams(long long int n)
@@ -172,12 +167,11 @@ void barfoo()
   //CHECK: [[LB:%.omp.lb]] = alloca i32,
   //CHECK: [[UB:%.omp.ub]] = alloca i32,
   //CHECK: [[I:%i]] = alloca i32,
-  //CHECK-NEW: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
+  //CHECK: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
   //CHECK: "DIR.OMP.TASK"()
   //CHECK-SAME: "QUAL.OMP.IF"
   //CHECK-SAME: "QUAL.OMP.TARGET.TASK"()
-  //CHECK-OLD-SAME: "QUAL.OMP.DEPEND.IN"(ptr [[LO]])
-  //CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DARR]])
+  //CHECK-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DARR]])
   //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[CAP1]]
   //CHECK: "DIR.OMP.TARGET"()
   //CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 12)

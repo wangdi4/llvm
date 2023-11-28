@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------ Intel_PartialInlineAnalysis.cpp ------------------------------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -29,7 +29,7 @@ using namespace llvm;
 
 // Limit of basic blocks in a function that will be partially inlined by
 // this pass
-static cl::opt<unsigned> IntelPILimitBB("intel-pi-limit-bb", cl::init(10),
+static cl::opt<unsigned> IntelPILimitBB("intel-pi-limit-bb", cl::init(20),
                                         cl::ReallyHidden);
 
 namespace llvm {
@@ -218,8 +218,8 @@ static void identifyEntryArguments(Function &F,
   }
 }
 
-// Return true if the the input function has at least one argument
-// that will be used to iterate through a loop and exit. In simple
+// Return true if the input function has at least one argument
+// that will be used to iterate through a loop and exit. In other
 // words, this function looks something like this:
 //
 // define i1 @foo(%"struct.pov::Object_Struct"*) {
@@ -275,19 +275,17 @@ static bool checkFunctionProperties(Function &F) {
   //
   //  always inline
   //  no inline
-  //  inline
   //  always inline recursive                (Intel specific)
   //  inline recursive                       (Intel specific)
   //  preferred for partial inlining         (Intel specific)
   //  outline function from partial inlining (Intel specific)
   auto CheckAttributes = [](const AttributeList &AttrList) {
     if (AttrList.hasFnAttr(Attribute::AlwaysInline) ||
-      AttrList.hasFnAttr(Attribute::NoInline) ||
-      AttrList.hasFnAttr(Attribute::InlineHint) ||
-      AttrList.hasFnAttr(Attribute::AlwaysInlineRecursive) ||
-      AttrList.hasFnAttr(Attribute::InlineHintRecursive) ||
-      AttrList.hasFnAttr("prefer-partial-inline-inlined-clone") ||
-      AttrList.hasFnAttr("prefer-partial-inline-outlined-func"))
+        AttrList.hasFnAttr(Attribute::NoInline) ||
+        AttrList.hasFnAttr(Attribute::AlwaysInlineRecursive) ||
+        AttrList.hasFnAttr(Attribute::InlineHintRecursive) ||
+        AttrList.hasFnAttr("prefer-partial-inline-inlined-clone") ||
+        AttrList.hasFnAttr("prefer-partial-inline-outlined-func"))
       return true;
     return false;
   };

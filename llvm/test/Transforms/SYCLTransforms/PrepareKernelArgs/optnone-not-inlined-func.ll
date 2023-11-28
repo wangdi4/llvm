@@ -1,7 +1,7 @@
 ; RUN: opt -passes='sycl-kernel-add-implicit-args,sycl-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes='sycl-kernel-add-implicit-args,sycl-kernel-prepare-args' -S %s | FileCheck %s --check-prefixes CHECK,CHECK-ARG
-; RUN: opt -sycl-kernel-enable-tls-globals -passes='sycl-kernel-add-tls-globals,sycl-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY-TLS %s
-; RUN: opt -sycl-kernel-enable-tls-globals -passes='sycl-kernel-add-tls-globals,sycl-kernel-prepare-args' -S %s | FileCheck %s --check-prefixes CHECK,CHECK-TLS
+; RUN: opt -passes='sycl-kernel-add-tls-globals,sycl-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY-TLS %s
+; RUN: opt -passes='sycl-kernel-add-tls-globals,sycl-kernel-prepare-args' -S %s | FileCheck %s --check-prefixes CHECK,CHECK-TLS
 
 ; This test checks that kernel with optnone are properly inlined into wrapper
 ; kernel.
@@ -130,9 +130,9 @@ attributes #3 = { convergent }
 !15 = !{i32 12}
 !16 = !{i32 1}
 !17 = !{i32 56}
-!18 = !{i32 addrspace(1)* null, i32 0}
+!18 = !{ptr addrspace(1) null, i32 0}
 !19 = !{!"int*", !"int", !"long"}
-!20 = !{i32 addrspace(1)* null, i32 0, i64 0}
+!20 = !{ptr addrspace(1) null, i32 0, i64 0}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-32: WARNING: Instruction with empty DebugLoc in function test {{.*}}

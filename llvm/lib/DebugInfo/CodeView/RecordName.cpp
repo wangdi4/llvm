@@ -283,6 +283,19 @@ Error TypeNameComputer::visitKnownRecord(CVType &CVR,
                                          DimConLURecord &DimConLU) {
   return Error::success();
 }
+
+Error TypeNameComputer::visitKnownRecord(CVType &CVR, RefSymRecord &RefSym) {
+  return Error::success();
+}
+
+Error TypeNameComputer::visitKnownRecord(CVType &CVR, DimVarURecord &DimVarU) {
+  return Error::success();
+}
+
+Error TypeNameComputer::visitKnownRecord(CVType &CVR,
+                                         DimVarLURecord &DimVarLU) {
+  return Error::success();
+}
 #endif //INTEL_CUSTOMIZATION
 
 std::string llvm::codeview::computeTypeName(TypeCollection &Types,
@@ -358,7 +371,7 @@ StringRef llvm::codeview::getSymbolName(CVSymbol Sym) {
   if (Sym.kind() == SymbolKind::S_CONSTANT) {
     // S_CONSTANT is preceded by an APSInt, which has a variable length.  So we
     // have to do a full deserialization.
-    BinaryStreamReader Reader(Sym.content(), llvm::support::little);
+    BinaryStreamReader Reader(Sym.content(), llvm::endianness::little);
     // The container doesn't matter for single records.
     SymbolRecordMapping Mapping(Reader, CodeViewContainer::ObjectFile);
     ConstantSym Const(SymbolKind::S_CONSTANT);

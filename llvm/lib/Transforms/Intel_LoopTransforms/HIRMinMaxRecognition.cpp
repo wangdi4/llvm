@@ -1,6 +1,6 @@
 // ===- HIRMinMaxRecognition.cpp - Implement HIR MinMaxRecognition pass --===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -359,39 +359,4 @@ PreservedAnalyses HIRMinMaxRecognitionPass::runImpl(
   ModifiedHIR = HIRMinMaxRecognition(HIRF).run();
 
   return PreservedAnalyses::all();
-}
-
-class HIRMinMaxRecognitionLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRMinMaxRecognitionLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRMinMaxRecognitionLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRMinMaxRecognition(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
-        .run();
-  }
-};
-
-char HIRMinMaxRecognitionLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRMinMaxRecognitionLegacyPass, "hir-minmax-recognition",
-                      "HIR MinMax Recognition", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRMinMaxRecognitionLegacyPass, "hir-minmax-recognition",
-                    "HIR MinMax Recognition", false, false)
-
-FunctionPass *llvm::createHIRMinMaxRecognitionPass() {
-  return new HIRMinMaxRecognitionLegacyPass();
 }

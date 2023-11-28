@@ -36,21 +36,18 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -intel-opt-report=low < %s -S | FileCheck %s --check-prefix=MERGED-CFG
 
 ; MERGED-CFG: [[M1:!.*]] = distinct !{[[M1]]{{.*}}[[M2:!.*]]{{.*}}}
-; MERGED-CFG: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
-; MERGED-CFG: [[M3]] = distinct !{!"intel.optreport", [[M10:!.*]], [[M4:!.*]]}
+; MERGED-CFG: [[M2]] = distinct !{!"intel.optreport", [[M10:!.*]], [[M4:!.*]]}
 ; MERGED-CFG: [[M10]] = !{!"intel.optreport.next_sibling", [[M11:!.*]]}
-; MERGED-CFG: [[M11]] = distinct !{!"intel.optreport.rootnode", [[M12:!.*]]}
-; MERGED-CFG: [[M12]] = distinct !{!"intel.optreport", [[M13:!.*]]}
+; MERGED-CFG: [[M11]] = distinct !{!"intel.optreport", [[M13:!.*]]}
 ; MERGED-CFG: [[M13]] = !{!"intel.optreport.remarks", [[M14:!.*]]}
-; MERGED-CFG: [[M14]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
+; MERGED-CFG: [[M14]] = !{!"intel.optreport.remark", i32 25436, i32 10}
 ; MERGED-CFG: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]], [[M6:!.*]]}
-; MERGED-CFG: [[M5]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
-; MERGED-CFG: [[M6]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", {{.*}}}
+; MERGED-CFG: [[M5]] = !{!"intel.optreport.remark", i32 15300}
+; MERGED-CFG: [[M6]] = !{!"intel.optreport.remark", i32 15305, {{.*}}}
 ; MERGED-CFG: [[M7:!.*]] = distinct !{[[M7]]{{.*}}[[M8:!.*]]{{.*}}}
-; MERGED-CFG: [[M8]] = distinct !{!"intel.optreport.rootnode", [[M9:!.*]]}
-; MERGED-CFG: [[M9]] = distinct !{!"intel.optreport", [[M15:!.*]]}
+; MERGED-CFG: [[M8]] = distinct !{!"intel.optreport", [[M15:!.*]]}
 ; MERGED-CFG: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
-; MERGED-CFG: [[M16]] = !{!"intel.optreport.remark", i32 25519, !"Remainder loop for vectorization"}
+; MERGED-CFG: [[M16]] = !{!"intel.optreport.remark", i32 25519}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

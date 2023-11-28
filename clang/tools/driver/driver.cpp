@@ -112,9 +112,9 @@ static const char *GetStableCStr(std::set<std::string> &SavedStrings,
   return SavedStrings.insert(std::string(S)).first->c_str();
 }
 
-/// ApplyQAOverride - Apply a list of edits to the input argument lists.
+/// ApplyOneQAOverride - Apply a list of edits to the input argument lists.
 ///
-/// The input string is a space separate list of edits to perform,
+/// The input string is a space separated list of edits to perform,
 /// they are applied in order to the input argument lists. Edits
 /// should be one of the following forms:
 ///
@@ -210,7 +210,7 @@ static void ApplyOneQAOverride(raw_ostream &OS,
   }
 }
 
-/// ApplyQAOverride - Apply a comma separate list of edits to the
+/// ApplyQAOverride - Apply a space separated list of edits to the
 /// input argument lists. See ApplyOneQAOverride.
 static void ApplyQAOverride(SmallVectorImpl<const char*> &Args,
                             const char *OverrideStr,
@@ -429,7 +429,7 @@ int clang_main(int Argc, char **Argv, const llvm::ToolContext &ToolContext) {
 #if INTEL_CUSTOMIZATION
   std::string Msg("PLEASE append the compiler options ");
   Msg += ClangCLMode ? "\"/Qsave-temps -v\"" : "\"-save-temps -v\"";
-  Msg += ", rebuild the application to to get the full command which is "
+  Msg += ", rebuild the application to get the full command which is "
          "failing and submit a bug report to " BUG_REPORT_URL " which includes "
          "the failing command, input files for the command and the crash "
          "backtrace (if any).\n";

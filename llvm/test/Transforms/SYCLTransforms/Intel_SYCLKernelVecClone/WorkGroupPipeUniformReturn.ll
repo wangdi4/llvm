@@ -38,9 +38,9 @@ attributes #0 = { convergent }
 !1 = !{i32 4}
 !2 = !{ptr @test_pipe_workgroup_write_int, ptr @test_pipe_workgroup_read_int}
 !3 = !{!"int*", !"int"}
-!4 = !{i32 addrspace(1)* null, target("spirv.Pipe", 1) zeroinitializer}
+!4 = !{ptr addrspace(1) null, target("spirv.Pipe", 1) zeroinitializer}
 !5 = !{!"int", !"int*"}
-!6 = !{target("spirv.Pipe", 0) zeroinitializer, i32 addrspace(1)* null}
+!6 = !{target("spirv.Pipe", 0) zeroinitializer, ptr addrspace(1) null}
 
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_write_int {{.*}} br

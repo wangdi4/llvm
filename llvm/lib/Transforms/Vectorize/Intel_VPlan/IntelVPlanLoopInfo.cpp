@@ -1,6 +1,6 @@
 //===-- IntelVPlanLoopInfo.cpp ------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -195,6 +195,25 @@ VPLoop::getLoopUpperBound(bool AssumeNormalizedIV, bool GetOrig) const {
   return std::make_pair<VPValue *, VPCmpInst *>(nullptr, nullptr);
 }
 
+// We look for the following pattern -
+// %cond = phi/blend [ %cmp, BB1 ], [ false, BB2 ] (or)
+// %cond = phi/blend [ false, BB2 ], [ %cmp, BB1 ]
+//
+// and return %cmp if matched. Return nullptr otherwise.
+template <typename InstTy>
+static VPCmpInst *getCompareInstFromPhiOrBlend(InstTy *I) {
+  if (I->getNumIncomingValues() == 2) {
+    auto *IV0 = I->getIncomingValue(0u);
+    auto *IV1 = I->getIncomingValue(1u);
+    if (isa<VPCmpInst>(IV0) && isa<VPConstant>(IV1))
+      return cast<VPCmpInst>(IV0);
+    else if (isa<VPConstant>(IV0) && isa<VPCmpInst>(IV1))
+      return cast<VPCmpInst>(IV1);
+  }
+
+  return nullptr;
+}
+
 VPCmpInst *VPLoop::getLatchComparison() const {
   // The loop latch comparison is a VPCmpInst instruction which is normally
   // found as: latch block  -> terminator -> condition. Thus if we found it
@@ -202,13 +221,39 @@ VPCmpInst *VPLoop::getLatchComparison() const {
   // If we have masked mode loop vectorization, the original latch condition
   // may have been replaced with AllZeroCheck instruction. The instruction
   // checks for mask bits and is emitted in place of the original latch
-  // condition. The original latch condition in such a case is its operand.
+  // condition. The original latch condition in such a case is its operand. In
+  // case of early-exit loops latch condition is a phi/blend, so we recur into
+  // the phi/blend operands to identify the compare instruction.
   VPValue *CondBit = getLoopLatch()->getTerminator()->getCondition();
   if (auto *CmpInst = dyn_cast<VPCmpInst>(CondBit))
     return CmpInst;
   auto *AllZeroCheck = dyn_cast<VPInstruction>(CondBit);
-  if (AllZeroCheck && AllZeroCheck->getOpcode() == VPInstruction::AllZeroCheck)
-    return dyn_cast<VPCmpInst>(AllZeroCheck->getOperand(0));
+  if (AllZeroCheck &&
+      AllZeroCheck->getOpcode() == VPInstruction::AllZeroCheck) {
+    if (auto *CmpInst = dyn_cast<VPCmpInst>(AllZeroCheck->getOperand(0)))
+      return CmpInst;
+    else {
+      auto *AZCheckOp = AllZeroCheck->getOperand(0);
+      auto *Not = dyn_cast<VPInstruction>(AZCheckOp);
+      if (Not && Not->getOpcode() == VPInstruction::Not)
+        AZCheckOp = Not->getOperand(0);
+      CondBit = AZCheckOp;
+    }
+  }
+  auto *PhiOrBlend = dyn_cast<VPInstruction>(CondBit);
+  // Check if condition is phi/blend. We recur on the incoming values in such
+  if (PhiOrBlend && isa<VPPHINode>(PhiOrBlend)) {
+    auto *Phi = cast<VPPHINode>(PhiOrBlend);
+    if (auto *CmpI = getCompareInstFromPhiOrBlend<VPPHINode>(Phi))
+      return CmpI;
+  }
+  if (PhiOrBlend && isa<VPBlendInst>(PhiOrBlend)) {
+    auto *Blend = cast<VPBlendInst>(PhiOrBlend);
+    if (auto *CmpI = getCompareInstFromPhiOrBlend<VPBlendInst>(Blend))
+      return CmpI;
+  }
+
+  // All checks failed.
   return nullptr;
 }
 
@@ -312,7 +357,7 @@ bool VPLoop::isRecursivelyLCSSAForm(const VPLoopInfo &LI) const {
   });
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI,
                        unsigned Indent) const {
   ReversePostOrderTraversal<
@@ -343,7 +388,7 @@ void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI,
   }
   OS << "\n";
 }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void VPLoop::setTripCountInfo(TripCountInfo TCInfo) {
   VPBasicBlock *Latch = getLoopLatch();
@@ -363,7 +408,22 @@ TripCountInfo VPLoop::getTripCountInfo() const {
   return DefaultTC;
 }
 
+VPLoop *VPLoopInfo::AllocateLoop(VPLoop *SrcLoop) {
+  VPLoop *TheLoop = Base::AllocateLoop();
+  if (SrcLoop) {
+    TheLoop->setUnderlyingLoop(SrcLoop->getUnderlyingLoop());
+    TheLoop->setDebugLoc(SrcLoop->getDebugLoc());
+  }
+  return TheLoop;
+}
+
 void VPLoopInfo::analyze(const VPDominatorTree &DomTree) {
   assert(begin() == end() && "VPLoopInfo has already been run!");
   Base::analyze(DomTree);
+}
+
+void VPLoopInfo::invalidateUnderlyingLoops() {
+  for (VPLoop *OuterLoop : *this)
+    for (auto *VLP : post_order(OuterLoop))
+      VLP->setUnderlyingLoop(nullptr);
 }

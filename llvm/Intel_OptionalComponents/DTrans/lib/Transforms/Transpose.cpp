@@ -1,6 +1,6 @@
 //===--------------- Transpose.cpp - DTransTransposePass------------------===//
 //
-// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -102,8 +102,8 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         ElementSize(ElementSize),
 #endif
-        ElementType(ElementType), GetTLI(GetTLI), IsGlobalDV(DVI),
-        NestedFieldNumber(NestedFieldNum), IsValid(false), IsProfitable(false) {
+        GetTLI(GetTLI), IsGlobalDV(DVI), NestedFieldNumber(NestedFieldNum),
+        IsValid(false), IsProfitable(false) {
     assert(ArrayRank > 0 && ArrayRank <= FortranMaxRank && "Invalid Rank");
     uint64_t Stride = ElementSize;
     for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum) {
@@ -457,9 +457,8 @@ public:
   // candidate variable.
   bool isDopeVectorType(const llvm::Type *Ty, const DataLayout &DL) {
     uint32_t ArRank;
-    Type *ElemType;
-    return llvm::dvanalysis::isDopeVectorType(Ty, DL, &ArRank, &ElemType)
-        && ArRank == ArrayRank && (!ElemType || ElemType == ElementType);
+    return llvm::dvanalysis::isDopeVectorType(Ty, DL, &ArRank) &&
+           ArRank == ArrayRank;
   }
 
   // A dope vector passed to a function is allowed to have the following uses:
@@ -859,7 +858,6 @@ public:
     OS << "Type         : " << *GV->getType() << "\n";
     OS << "Rank         : " << ArrayRank << "\n";
     OS << "Element size : " << ElementSize << "\n";
-    OS << "Element type : " << *ElementType << "\n";
     OS << "Dope vector  : " << (IsGlobalDV ? true : false) << "\n";
     if (getNestedFieldNumber())
       OS << "Nested Field Number : " << *getNestedFieldNumber() << "\n";
@@ -898,9 +896,6 @@ private:
   // Size of one element in the array, in bytes.
   uint64_t ElementSize;
 #endif
-
-  // Element type in the array
-  llvm::Type *ElementType;
 
   dtrans::TransposeTLIType GetTLI;
 
@@ -1193,18 +1188,9 @@ private:
       return Name.substr(StartIndex, Size).equals(MatchString);
     };
 
-    auto GetElemTypeSize = [&TestString](const DataLayout &DL,
-                                         LLVMContext &C,
-                                         DopeVectorInfo *DVI,
-                                         llvm::Type *&ElemType,
-                                         uint64_t &ElemSize) -> bool {
-      // For the typed pointer case, 'ElemType' should not be nullptr.
-      if (ElemType) {
-        if (!ElemType->isIntegerTy() && !ElemType->isFloatingPointTy())
-          return false;
-        ElemSize = DL.getTypeStoreSize(ElemType);
-        return true;
-      }
+    auto GetElemTypeSize =
+        [&TestString](const DataLayout &DL, LLVMContext &C, DopeVectorInfo *DVI,
+                      llvm::Type *&ElemType, uint64_t &ElemSize) -> bool {
       // For the opaque pointer case, we will not have the pointer type in
       // the IR, use the struct name to get it. Handle a few important cases
       // for now.
@@ -1293,7 +1279,7 @@ private:
       uint32_t ArrayRank = 0;
       llvm::Type *ElemType = nullptr;
       LLVMContext &C = GV->getParent()->getContext();
-      if (!isDopeVectorType(GV->getValueType(), DL, &ArrayRank, &ElemType))
+      if (!isDopeVectorType(GV->getValueType(), DL, &ArrayRank))
         return false;
       // In the future, it may be possible to transform some of the nested
       // dope vectors, but not all. For now, the GlobalDopeVector analysis
@@ -1308,11 +1294,10 @@ private:
           if (NestDVI->getAnalysisResult() !=
              DopeVectorInfo::AnalysisResult::AR_Pass)
            continue;
-          // Use isDopeVectorType() to get 'NVArrayRank' and 'NVElemType'.
+          // Use isDopeVectorType() to get 'NVArrayRank'.
           uint32_t NVArrayRank = 0;
           llvm::Type *NVElemType = nullptr;
-          if (!isDopeVectorType(NestDVI->getLLVMStructType(), DL,
-              &NVArrayRank, &NVElemType))
+          if (!isDopeVectorType(NestDVI->getLLVMStructType(), DL, &NVArrayRank))
             continue;
           SmallVector<uint64_t, 4> NVArrayLength;
           uint64_t NVElemSize = 0;

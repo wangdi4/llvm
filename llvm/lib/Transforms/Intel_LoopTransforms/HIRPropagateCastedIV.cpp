@@ -1,7 +1,7 @@
 //===- HIRPropagateCastedIV.cpp - Implements PropagateCastedIV class
 //------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -321,40 +321,4 @@ PreservedAnalyses HIRPropagateCastedIVPass::runImpl(
       HIRPropagateCastedIV(HIRF, &AM.getResult<HIRLoopStatisticsAnalysis>(F))
           .run();
   return PreservedAnalyses::all();
-}
-
-class HIRPropagateCastedIVLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRPropagateCastedIVLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRPropagateCastedIVLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRPropagateCastedIV(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                                nullptr)
-        .run();
-  }
-};
-
-char HIRPropagateCastedIVLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRPropagateCastedIVLegacyPass, OPT_SWITCH, OPT_DESC,
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRPropagateCastedIVLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIRPropagateCastedIVPass() {
-  return new HIRPropagateCastedIVLegacyPass();
 }

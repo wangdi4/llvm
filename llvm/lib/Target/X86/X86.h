@@ -1,3 +1,4 @@
+/* INTEL_CUSTOMIZATION */
 /*
  * INTEL CONFIDENTIAL
  *
@@ -13,6 +14,7 @@
  * or implied warranties, other than those that are expressly stated in the
  * License.
  */
+/* end INTEL_CUSTOMIZATION */
 //===-- X86.h - Top-level interface for X86 representation ------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -45,8 +47,7 @@ class ModulePass;
 
 /// This pass converts a legalized DAG into a X86-specific DAG, ready for
 /// instruction scheduling.
-FunctionPass *createX86ISelDag(X86TargetMachine &TM,
-                               CodeGenOpt::Level OptLevel);
+FunctionPass *createX86ISelDag(X86TargetMachine &TM, CodeGenOptLevel OptLevel);
 
 /// This pass initializes a global base register for PIC on x86-32.
 FunctionPass *createX86GlobalBaseRegPass();
@@ -88,10 +89,8 @@ FunctionPass *createX86VecSpillPass();
 /// This pass performs x86 intrinsics lowering right before ISel.
 ModulePass *createX86PreISelIntrinsicLoweringPass();
 FunctionPass *createX86StackRealignPass();
-#if INTEL_FEATURE_ISA_APX_F
 /// This pass performs CCMP optimization.
 FunctionPass *createX86ConditionalCompares();
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
@@ -201,6 +200,8 @@ FunctionPass *createX86InstCombinePass();
 
 extern char &X86InstCombineID;
 
+FunctionPass *createX86TransformToLibmSinCosCallPass();
+
 /// Return a pass that generate amx intrinsics for matrix intrinsics.
 FunctionPass *createX86LowerMatrixIntrinsicsPass();
 
@@ -269,7 +270,6 @@ void initializeX86LowerAMXTypeLegacyPassPass(PassRegistry &);
 void initializeX86LowerTileCopyPass(PassRegistry &);
 void initializeX86OptimizeLEAPassPass(PassRegistry &);
 void initializeX86PartialReductionPass(PassRegistry &);
-void initializeX86PreAMXConfigPassPass(PassRegistry &);
 void initializeX86PreTileConfigPass(PassRegistry &);
 void initializeX86ReturnThunksPass(PassRegistry &);
 void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
@@ -278,15 +278,14 @@ void initializeX86TileConfigPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
 void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
+void initializeX86TransformToLibmSinCosCallPassPass(PassRegistry &);
 void initializeX86LowerMatrixIntrinsicsPassPass(PassRegistry &);
 void initializeX86AvoidMRNBPassPass(PassRegistry &);
 void initializeX86InstCombinePass(PassRegistry &);
 void initializeX86SplitLongBlockPassPass(PassRegistry &);
 void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);
 void initializeX86StackRealignPass(PassRegistry &);
-#if INTEL_FEATURE_ISA_APX_F
 void initializeX86ConditionalComparesPass(PassRegistry &);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 namespace X86AS {

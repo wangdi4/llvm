@@ -1,6 +1,6 @@
 //===------------ Intel_VPOParoptSharedPrivatization.cpp ------------------===//
 //
-//   Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -67,8 +67,8 @@ static bool privatizeSharedItems(Function &F, WRegionInfo &WI,
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),
                         WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                        WI.getAliasAnalysis(), Mode & OmpOffload, ORVerbosity,
-                        ORE, 2, false);
+                        WI.getAliasAnalysis(), /*MemorySSA=*/nullptr,
+                        Mode & OmpOffload, ORVerbosity, ORE, 2, false);
 
   Changed |= VP.privatizeSharedItems();
 
@@ -589,8 +589,6 @@ static bool cleanupItem(
   if (!ToPrivatize.count(V)) {
     if (Item->getIsTyped())
       ToPrivatize.insert({V, getTypedClauseInfoForTypedItem(Item)});
-    else if (!V->getType()->isOpaquePointerTy())
-      ToPrivatize.insert({V, std::nullopt});
     else if (auto *AI = dyn_cast<AllocaInst>(V))
       ToPrivatize.insert({AI, VPOUtils::getTypedClauseInfoForAlloca(AI)});
     else

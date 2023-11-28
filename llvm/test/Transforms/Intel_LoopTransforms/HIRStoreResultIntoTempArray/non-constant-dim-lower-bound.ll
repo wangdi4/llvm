@@ -1,7 +1,7 @@
 ; The transformation cannot be triggered if the dim lower bounds are non-constant
 ; (%"jacobian_$Q")[i1+2][%mod][%mod27] has dim lower bound [%sext:%mod:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)]
 ;
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ; *** IR Dump After HIR Store Result Into Temp Array ***
@@ -56,22 +56,22 @@ source_filename = "j.f90"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @jacobian_(double* noalias nocapture readonly %"jacobian_$Q", i32* noalias nocapture readonly %"jacobian_$NX", i32* noalias nocapture readonly %"jacobian_$NY", i32* noalias nocapture readonly %"jacobian_$NZ") local_unnamed_addr #0 !dbg !5 {
+define void @jacobian_(ptr noalias nocapture readonly %"jacobian_$Q", ptr noalias nocapture readonly %"jacobian_$NX", ptr noalias nocapture readonly %"jacobian_$NY", ptr noalias nocapture readonly %"jacobian_$NZ") local_unnamed_addr #0 !dbg !5 {
 alloca_0:
   %"var$1" = alloca [8 x i64], align 16
   %addressof = alloca [4 x i8], align 1, !dbg !8
   %ARGBLOCK_0 = alloca { double }, align 8, !dbg !8
-  call void @llvm.dbg.declare(metadata double* %"jacobian_$Q", metadata !9, metadata !DIExpression()), !dbg !8
-  call void @llvm.dbg.declare(metadata i32* %"jacobian_$NX", metadata !11, metadata !DIExpression()), !dbg !13
-  call void @llvm.dbg.declare(metadata i32* %"jacobian_$NY", metadata !14, metadata !DIExpression()), !dbg !15
-  call void @llvm.dbg.declare(metadata i32* %"jacobian_$NZ", metadata !16, metadata !DIExpression()), !dbg !17
-  %"jacobian_$NX_fetch" = load i32, i32* %"jacobian_$NX", align 1, !dbg !18
-  %"jacobian_$NY_fetch" = load i32, i32* %"jacobian_$NY", align 1, !dbg !18
+  call void @llvm.dbg.declare(metadata ptr %"jacobian_$Q", metadata !9, metadata !DIExpression()), !dbg !8
+  call void @llvm.dbg.declare(metadata ptr %"jacobian_$NX", metadata !11, metadata !DIExpression()), !dbg !13
+  call void @llvm.dbg.declare(metadata ptr %"jacobian_$NY", metadata !14, metadata !DIExpression()), !dbg !15
+  call void @llvm.dbg.declare(metadata ptr %"jacobian_$NZ", metadata !16, metadata !DIExpression()), !dbg !17
+  %"jacobian_$NX_fetch" = load i32, ptr %"jacobian_$NX", align 1, !dbg !18
+  %"jacobian_$NY_fetch" = load i32, ptr %"jacobian_$NY", align 1, !dbg !18
   %int_sext = sext i32 %"jacobian_$NX_fetch" to i64, !dbg !19
   %mul = mul nsw i64 %int_sext, 40, !dbg !19
   %int_sext28 = sext i32 %"jacobian_$NY_fetch" to i64, !dbg !19
   %mul29 = mul nsw i64 %mul, %int_sext28, !dbg !19
-  %"jacobian_$NZ_fetch1" = load i32, i32* %"jacobian_$NZ", align 1, !dbg !20
+  %"jacobian_$NZ_fetch1" = load i32, ptr %"jacobian_$NZ", align 1, !dbg !20
   %rel = icmp slt i32 %"jacobian_$NZ_fetch1", 2, !dbg !21
   %rel4 = icmp slt i32 %"jacobian_$NY_fetch", 2, !dbg !22
   %or.cond = or i1 %rel4, %rel, !dbg !21
@@ -95,9 +95,9 @@ bb21:                                             ; preds = %bb21.preheader, %bb
   call void @llvm.dbg.value(metadata i64 %indvars.iv362, metadata !32, metadata !DIExpression()), !dbg !31
   call void @llvm.dbg.value(metadata i32 1, metadata !33, metadata !DIExpression()), !dbg !31
   %indvars.iv.next363 = add nuw nsw i64 %indvars.iv362, 1, !dbg !26
-  %"jacobian_$Q[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul29, double* elementtype(double) %"jacobian_$Q", i64 %indvars.iv.next363), !dbg !19
+  %"jacobian_$Q[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %mul29, ptr elementtype(double) %"jacobian_$Q", i64 %indvars.iv.next363), !dbg !19
   %2 = add nuw nsw i64 %indvars.iv362, 2, !dbg !34
-  %"jacobian_$Q[]120" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul29, double* elementtype(double) %"jacobian_$Q", i64 %2), !dbg !34
+  %"jacobian_$Q[]120" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %mul29, ptr elementtype(double) %"jacobian_$Q", i64 %2), !dbg !34
   br label %bb30.preheader, !dbg !35
 
 bb30.preheader:                                   ; preds = %bb31, %bb21
@@ -112,9 +112,9 @@ bb30.preheader:                                   ; preds = %bb31, %bb21
   %4 = add i32 %3, 2, !dbg !38
   %mod = srem i32 %4, %add20, !dbg !38
   call void @llvm.dbg.value(metadata i32 %mod, metadata !36, metadata !DIExpression()), !dbg !31
-  %"jacobian_$Q[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* elementtype(double) %"jacobian_$Q[]", i64 %indvars.iv357), !dbg !19
+  %"jacobian_$Q[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul, ptr elementtype(double) %"jacobian_$Q[]", i64 %indvars.iv357), !dbg !19
   %int_sext161 = zext i32 %mod to i64, !dbg !34
-  %"jacobian_$Q[]120[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 %sext, i64 %mul, double* elementtype(double) %"jacobian_$Q[]120", i64 %int_sext161), !dbg !34
+  %"jacobian_$Q[]120[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 %sext, i64 %mul, ptr elementtype(double) %"jacobian_$Q[]120", i64 %int_sext161), !dbg !34
   br label %bb30, !dbg !28
 
 bb30:                                             ; preds = %bb30.preheader, %bb30
@@ -126,15 +126,15 @@ bb30:                                             ; preds = %bb30.preheader, %bb
   %5 = trunc i64 %indvars.iv.next to i32, !dbg !40
   %mod27 = srem i32 %5, %"jacobian_$NX_fetch", !dbg !40
   call void @llvm.dbg.value(metadata i32 %mod27, metadata !41, metadata !DIExpression()), !dbg !31
-  %"jacobian_$Q[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) %"jacobian_$Q[][]", i64 %indvars.iv), !dbg !19
-  %"jacobian_$Q[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[][][]", i64 2), !dbg !19
-  %"jacobian_$Q[][][][]_fetch" = load double, double* %"jacobian_$Q[][][][]", align 1, !dbg !19
-  %"jacobian_$Q[]53[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[][][]", i64 1), !dbg !19
-  %"jacobian_$Q[]53[][][]_fetch" = load double, double* %"jacobian_$Q[]53[][][]", align 1, !dbg !19
+  %"jacobian_$Q[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) %"jacobian_$Q[][]", i64 %indvars.iv), !dbg !19
+  %"jacobian_$Q[][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"jacobian_$Q[][][]", i64 2), !dbg !19
+  %"jacobian_$Q[][][][]_fetch" = load double, ptr %"jacobian_$Q[][][][]", align 1, !dbg !19
+  %"jacobian_$Q[]53[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"jacobian_$Q[][][]", i64 1), !dbg !19
+  %"jacobian_$Q[]53[][][]_fetch" = load double, ptr %"jacobian_$Q[]53[][][]", align 1, !dbg !19
   %div = fdiv double %"jacobian_$Q[][][][]_fetch", %"jacobian_$Q[]53[][][]_fetch", !dbg !42
   call void @llvm.dbg.value(metadata double %div, metadata !43, metadata !DIExpression()), !dbg !31
-  %"jacobian_$Q[]64[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[][][]", i64 3), !dbg !44
-  %"jacobian_$Q[]64[][][]_fetch" = load double, double* %"jacobian_$Q[]64[][][]", align 1, !dbg !44
+  %"jacobian_$Q[]64[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"jacobian_$Q[][][]", i64 3), !dbg !44
+  %"jacobian_$Q[]64[][][]_fetch" = load double, ptr %"jacobian_$Q[]64[][][]", align 1, !dbg !44
   %div87 = fdiv double %"jacobian_$Q[]64[][][]_fetch", %"jacobian_$Q[]53[][][]_fetch", !dbg !45
   call void @llvm.dbg.value(metadata double %div87, metadata !46, metadata !DIExpression()), !dbg !31
   %mul99 = fmul double %div, %div, !dbg !47
@@ -149,15 +149,15 @@ bb30:                                             ; preds = %bb30.preheader, %bb
   call void @llvm.dbg.value(metadata double %func_result, metadata !56, metadata !DIExpression()), !dbg !31
   %add157 = add nuw nsw i32 %mod27, 1, !dbg !34
   %int_sext158 = zext i32 %add157 to i64, !dbg !34
-  %"jacobian_$Q[]120[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) %"jacobian_$Q[]120[]", i64 %int_sext158), !dbg !34
-  %"jacobian_$Q[]120[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[]120[][]", i64 2), !dbg !34
-  %"jacobian_$Q[]120[][][]_fetch" = load double, double* %"jacobian_$Q[]120[][][]", align 1, !dbg !34
-  %"jacobian_$Q[]147[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[]120[][]", i64 1), !dbg !34
-  %"jacobian_$Q[]147[][][]_fetch" = load double, double* %"jacobian_$Q[]147[][][]", align 1, !dbg !34
+  %"jacobian_$Q[]120[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) %"jacobian_$Q[]120[]", i64 %int_sext158), !dbg !34
+  %"jacobian_$Q[]120[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"jacobian_$Q[]120[][]", i64 2), !dbg !34
+  %"jacobian_$Q[]120[][][]_fetch" = load double, ptr %"jacobian_$Q[]120[][][]", align 1, !dbg !34
+  %"jacobian_$Q[]147[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"jacobian_$Q[]120[][]", i64 1), !dbg !34
+  %"jacobian_$Q[]147[][][]_fetch" = load double, ptr %"jacobian_$Q[]147[][][]", align 1, !dbg !34
   %div155 = fdiv double %"jacobian_$Q[]120[][][]_fetch", %"jacobian_$Q[]147[][][]_fetch", !dbg !57
   call void @llvm.dbg.value(metadata double %div155, metadata !58, metadata !DIExpression()), !dbg !31
-  %"jacobian_$Q[]169[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[]120[][]", i64 3), !dbg !59
-  %"jacobian_$Q[]169[][][]_fetch" = load double, double* %"jacobian_$Q[]169[][][]", align 1, !dbg !59
+  %"jacobian_$Q[]169[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"jacobian_$Q[]120[][]", i64 3), !dbg !59
+  %"jacobian_$Q[]169[][][]_fetch" = load double, ptr %"jacobian_$Q[]169[][][]", align 1, !dbg !59
   %div208 = fdiv double %"jacobian_$Q[]169[][][]_fetch", %"jacobian_$Q[]147[][][]_fetch", !dbg !60
   call void @llvm.dbg.value(metadata double %div208, metadata !61, metadata !DIExpression()), !dbg !31
   %mul221 = fmul double %div155, %div155, !dbg !62
@@ -199,19 +199,15 @@ bb133:                                            ; preds = %bb26
   call void @llvm.dbg.value(metadata double %add252.lcssa.lcssa.lcssa, metadata !29, metadata !DIExpression()), !dbg !31
   call void @llvm.dbg.value(metadata double %add252.lcssa.lcssa.lcssa, metadata !29, metadata !DIExpression()), !dbg !31
   call void @llvm.dbg.value(metadata double %add252.lcssa.lcssa.lcssa, metadata !29, metadata !DIExpression()), !dbg !31
-  %.fca.0.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 0, !dbg !74
-  store i8 48, i8* %.fca.0.gep, align 1, !dbg !74
-  %.fca.1.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 1, !dbg !74
-  store i8 1, i8* %.fca.1.gep, align 1, !dbg !74
-  %.fca.2.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 2, !dbg !74
-  store i8 1, i8* %.fca.2.gep, align 1, !dbg !74
-  %.fca.3.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 3, !dbg !74
-  store i8 0, i8* %.fca.3.gep, align 1, !dbg !74
-  %BLKFIELD_ = getelementptr inbounds { double }, { double }* %ARGBLOCK_0, i64 0, i32 0, !dbg !74
-  store double %add252.lcssa.lcssa.lcssa, double* %BLKFIELD_, align 8, !dbg !74
-  %ptr_cast = bitcast [8 x i64]* %"var$1" to i8*, !dbg !74
-  %ptr_cast286 = bitcast { double }* %ARGBLOCK_0 to i8*, !dbg !74
-  %func_result288 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %ptr_cast, i32 -1, i64 1239157112576, i8* nonnull %.fca.0.gep, i8* nonnull %ptr_cast286), !dbg !74
+  store i8 48, ptr %addressof, align 1, !dbg !74
+  %.fca.1.gep = getelementptr inbounds [4 x i8], ptr %addressof, i64 0, i64 1, !dbg !74
+  store i8 1, ptr %.fca.1.gep, align 1, !dbg !74
+  %.fca.2.gep = getelementptr inbounds [4 x i8], ptr %addressof, i64 0, i64 2, !dbg !74
+  store i8 1, ptr %.fca.2.gep, align 1, !dbg !74
+  %.fca.3.gep = getelementptr inbounds [4 x i8], ptr %addressof, i64 0, i64 3, !dbg !74
+  store i8 0, ptr %.fca.3.gep, align 1, !dbg !74
+  store double %add252.lcssa.lcssa.lcssa, ptr %ARGBLOCK_0, align 8, !dbg !74
+  %func_result288 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %"var$1", i32 -1, i64 1239157112576, ptr nonnull %addressof, ptr nonnull %ARGBLOCK_0), !dbg !74
   br label %bb1, !dbg !75
 
 bb1:                                              ; preds = %alloca_0, %bb133
@@ -222,12 +218,12 @@ bb1:                                              ; preds = %alloca_0, %bb133
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #2
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #2
 
 ; Function Attrs: nounwind readnone speculatable willreturn
 declare double @llvm.pow.f64(double, double) #1
 
-declare i32 @for_write_seq_lis(i8*, i32, i64, i8*, i8*, ...) local_unnamed_addr
+declare i32 @for_write_seq_lis(ptr, i32, i64, ptr, ptr, ...) local_unnamed_addr
 
 ; Function Attrs: nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata) #1

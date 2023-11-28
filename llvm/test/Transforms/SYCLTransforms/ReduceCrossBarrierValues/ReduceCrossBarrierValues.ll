@@ -1,10 +1,10 @@
-; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes="sycl-kernel-reduce-cross-barrier-values,adce" %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes="sycl-kernel-reduce-cross-barrier-values,adce" %s | FileCheck %s
-; TODO: Remove -adce pass when this pass can eliminate dead instructions.
+; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes=sycl-kernel-reduce-cross-barrier-values %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes=sycl-kernel-reduce-cross-barrier-values %s | FileCheck %s
+; RUN: opt -S -sycl-barrier-copy-instruction-threshold=3 -passes=sycl-kernel-reduce-cross-barrier-values %s -pass-remarks=sycl-kernel-reduce-cross-barrier-values -disable-output 2>&1 | FileCheck -check-prefix=REMARK %s
 
 declare void @_Z7barrierj(i32)
-declare i64 @_Z13get_global_idj(i32) #0
-declare i64 @_Z12get_local_idj(i32) #0
+declare i64 @_Z13get_global_idj(i32)
+declare i64 @_Z12get_local_idj(i32)
 declare i64 @foo()
 
 define void @test_basic(ptr %dst) !kernel_arg_base_type !0 !arg_type_null_val !1 {
@@ -426,9 +426,23 @@ ed:
   ret void
 }
 
-attributes #0 = { convergent nounwind readnone willreturn }
-
 !0 = !{!"char*"}
 !1 = !{ptr null}
 
+; REMARK: remark: {{.*}} 2 cross-barrier uses are erased in function test_basic
+; REMARK: remark: {{.*}} 8 cross-barrier uses are erased in function test_barrier_region
+; REMARK: remark: {{.*}} 3 cross-barrier uses are erased in function test_multiple_uses
+; REMARK: remark: {{.*}} 2 cross-barrier uses are erased in function test_phi
+; REMARK: remark: {{.*}} 3 cross-barrier uses are erased in function test_dom_frontier
+; REMARK: remark: {{.*}} 3 cross-barrier uses are erased in function test_dom_frontier_in_loop
+
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: WARNING: Missing line 1
+; DEBUGIFY: WARNING: Missing line 2
+; DEBUGIFY: WARNING: Missing line 3
+; DEBUGIFY: WARNING: Missing line 4
+; DEBUGIFY: WARNING: Missing line 53
+; DEBUGIFY: WARNING: Missing line 69
+; DEBUGIFY: WARNING: Missing line 94
+; DEBUGIFY: WARNING: Missing line 106
 ; DEBUGIFY-NOT: WARNING

@@ -1,7 +1,7 @@
 //===--- HIRScalarReplArray.cpp -Loop Scalar Replacement Impl -*- C++ -*---===//
 // Implement HIR Loop Scalar Replacement of Array Access Transformation
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1290,14 +1290,12 @@ static bool isValid(RefGroupTy &Group, unsigned LoopLevel) {
   // We should move FloatToInt pass after LoopOpt to minimize such cases.
   //
   // Also reject the group if any ref has the following properties:
-  // - volatile
   // - fake ddref
   // - masked ddref
   //
-  auto *BitCastTy = FirstRef->getBitCastDestVecOrElemType();
+  auto *DestTy = FirstRef->getDestType();
   for (auto *Ref : Group) {
-    if (Ref->isFake() || Ref->isMasked() ||
-        (BitCastTy != Ref->getBitCastDestVecOrElemType())) {
+    if (Ref->isFake() || Ref->isMasked() || (DestTy != Ref->getDestType())) {
       return false;
     }
   }
@@ -1396,12 +1394,6 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp) {
 
   assert(Transformed && "At least one transformed group expected!");
 
-  // Loop independent scalar replacement happens early in the pipeline so
-  // cleaning up temps helps downstream optimizations.
-  if (LoopIndependentReplOnly) {
-    HIRTransformUtils::doConstantAndCopyPropagation(Lp);
-  }
-
   OptReportBuilder &ORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
@@ -1417,6 +1409,13 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp) {
   Lp->getParentRegion()->setGenCode();
   HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(Lp);
+
+  // Loop independent scalar replacement happens early in the pipeline so
+  // cleaning up temps helps downstream optimizations.
+  if (LoopIndependentReplOnly) {
+    HIRTransformUtils::doConstantAndCopyPropagation(Lp);
+    HLNodeUtils::removeRedundantNodes(Lp);
+  }
 }
 
 void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
@@ -1609,46 +1608,4 @@ PreservedAnalyses HIRLoopIndependentScalarReplPass::runImpl(
           .run();
 
   return PreservedAnalyses::all();
-}
-
-class HIRScalarReplArrayLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRScalarReplArrayLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRScalarReplArrayLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRScalarReplArray(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(), false)
-        .run();
-  }
-};
-
-char HIRScalarReplArrayLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRScalarReplArrayLegacyPass, "hir-scalarrepl-array",
-                      "HIR Scalar Replacement of Array ", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRScalarReplArrayLegacyPass, "hir-scalarrepl-array",
-                    "HIR Scalar Replacement of Array ", false, false)
-
-FunctionPass *llvm::createHIRScalarReplArrayPass() {
-  return new HIRScalarReplArrayLegacyPass();
 }

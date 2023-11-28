@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,14 +16,13 @@
 #include "SATest.h"
 #include "SATestException.h"
 #include "exceptions.h"
-#include "llvm/Support/DataTypes.h"
-
-#include <iostream>
-#include <string>
-#include <time.h>
-
 // Command line options
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/DataTypes.h"
+#include <iostream>
+#include <memory>
+#include <string>
+#include <time.h>
 
 using namespace llvm;
 using namespace Validation;
@@ -247,12 +246,12 @@ int main(int argc, char *argv[]) {
       throw Exception::GeneralException("no input files");
 
     // Run test
-    IRunConfiguration *runConfig =
-        RunnerFactory::GetInstance().CreateRunConfiguration();
+    std::unique_ptr<IRunConfiguration> runConfig(
+        RunnerFactory::GetInstance().CreateRunConfiguration());
     runConfig->InitFromCommandLine();
 
-    SATest test(ConfigFile, BaseDirectory, runConfig);
-    test.Run(TestMode, runConfig);
+    SATest test(ConfigFile, BaseDirectory, runConfig.get());
+    test.Run(TestMode, runConfig.get());
     return 0;
   } catch (Exception::InvalidEnvironmentException &e) {
     // Exception of invalid execution environment of SATest

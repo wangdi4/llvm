@@ -1,6 +1,6 @@
 //==----- Passes.h - SYCL Kernel transforms pass headers -------*- C++ -*-===//
 //
-// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -26,6 +26,8 @@
 #include "llvm/Transforms/SYCLTransforms/CleanupWrappedKernel.h"
 #include "llvm/Transforms/SYCLTransforms/CoerceTypes.h"
 #include "llvm/Transforms/SYCLTransforms/CoerceWin64Types.h"
+#include "llvm/Transforms/SYCLTransforms/DataPerBarrierPass.h"
+#include "llvm/Transforms/SYCLTransforms/DataPerValuePass.h"
 #include "llvm/Transforms/SYCLTransforms/DeduceMaxWGDim.h"
 #include "llvm/Transforms/SYCLTransforms/DetectRecursion.h"
 #include "llvm/Transforms/SYCLTransforms/DuplicateCalledKernelsPass.h"
@@ -56,6 +58,7 @@
 #include "llvm/Transforms/SYCLTransforms/RedundantPhiNodePass.h"
 #include "llvm/Transforms/SYCLTransforms/RelaxedMath.h"
 #include "llvm/Transforms/SYCLTransforms/RemoveAtexit.h"
+#include "llvm/Transforms/SYCLTransforms/RemoveDeviceLibAssertFallback.h"
 #include "llvm/Transforms/SYCLTransforms/RemoveDuplicatedBarrier.h"
 #include "llvm/Transforms/SYCLTransforms/ReplaceScalarWithMask.h"
 #include "llvm/Transforms/SYCLTransforms/ReqdSubGroupSize.h"

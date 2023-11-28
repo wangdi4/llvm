@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2021 Intel Corporation.
+// Copyright 2007 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,17 +12,17 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "cl_amx_syscall.h"
+
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-
-#include "cl_amx_syscall.h"
 #include <sys/auxv.h>
 #include <sys/mman.h>
 #include <sys/signal.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 
 using namespace Intel::OpenCL::Utils;
 #define XFEATURE_XTILECFG 17

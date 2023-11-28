@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -switch-to-offload -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; The test IR is a hand-modified version obtained from the following,
 ; to check whether a chain of addrspace casts from 1 -> 4 -> 1 can

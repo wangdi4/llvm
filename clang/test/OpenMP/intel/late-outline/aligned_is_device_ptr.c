@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -isystem %S/Inputs -emit-llvm -o - -fopenmp \
+// RUN: %clang_cc1 -isystem %S/Inputs -emit-llvm -o - -fopenmp \
 // RUN: -fopenmp-late-outline -fopenmp-version=50 \
 // RUN: -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 

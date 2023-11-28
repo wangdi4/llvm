@@ -122,8 +122,7 @@ llvm::PointerType *CGOpenCLRuntime::getPointerType(const Type *T,
   llvm::LLVMContext &Ctx = CGM.getLLVMContext();
   uint32_t AddrSpc = CGM.getContext().getTargetAddressSpace(
       CGM.getContext().getOpenCLTypeAddrSpace(T));
-  auto *PTy =
-      llvm::PointerType::get(llvm::StructType::create(Ctx, Name), AddrSpc);
+  auto *PTy = llvm::PointerType::get(Ctx, AddrSpc);
   CachedTys[Name] = PTy;
   return PTy;
 }
@@ -141,10 +140,9 @@ llvm::Type *CGOpenCLRuntime::getPipeType(const PipeType *T) {
 llvm::Type *CGOpenCLRuntime::getPipeType(const PipeType *T, StringRef Name,
                                          llvm::Type *&PipeTy) {
   if (!PipeTy)
-    PipeTy = llvm::PointerType::get(llvm::StructType::create(
-      CGM.getLLVMContext(), Name),
-      CGM.getContext().getTargetAddressSpace(
-          CGM.getContext().getOpenCLTypeAddrSpace(T)));
+    PipeTy = llvm::PointerType::get(
+        CGM.getLLVMContext(), CGM.getContext().getTargetAddressSpace(
+                                  CGM.getContext().getOpenCLTypeAddrSpace(T)));
   return PipeTy;
 }
 
@@ -156,10 +154,10 @@ llvm::Type *CGOpenCLRuntime::getSamplerType(const Type *T) {
           CGM, CGM.getContext().OCLSamplerTy.getTypePtr()))
     SamplerTy = TransTy;
   else
+    // struct opencl.sampler_t*
     SamplerTy = llvm::PointerType::get(
-        llvm::StructType::create(CGM.getLLVMContext(), "opencl.sampler_t"),
-        CGM.getContext().getTargetAddressSpace(
-            CGM.getContext().getOpenCLTypeAddrSpace(T)));
+        CGM.getLLVMContext(), CGM.getContext().getTargetAddressSpace(
+                                  CGM.getContext().getOpenCLTypeAddrSpace(T)));
   return SamplerTy;
 }
 
@@ -224,7 +222,7 @@ llvm::Value *CGOpenCLRuntime::getPipeElemAlign(const Expr *PipeArg) {
 
 llvm::PointerType *CGOpenCLRuntime::getGenericVoidPointerType() {
   assert(CGM.getLangOpts().OpenCL);
-  return llvm::IntegerType::getInt8PtrTy(
+  return llvm::PointerType::get(
       CGM.getLLVMContext(),
       CGM.getContext().getTargetAddressSpace(LangAS::opencl_generic));
 }

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -18,11 +18,10 @@
 
 #include "cl_utils.h"
 
+#include "CL/cl.h"
+#include "CL/cl_ext.h"
+#include "CL/cl_gl.h"
 #include "cl_sys_info.h"
-
-#include <CL/cl.h>
-#include <CL/cl_ext.h>
-#include <CL/cl_gl.h>
 #include <cassert>
 #include <stdint.h>
 #include <sys/stat.h>

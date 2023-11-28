@@ -91,7 +91,7 @@
 ; OPTRPT-NEXT:        #25600:   %13 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.0.0)
 ;
 ; OPTRPT:             LOOP BEGIN at fma.cpp (16, 9)
-; OPTRPT:                 remark: LLorg: Loop has been completely unrolled
+; OPTRPT:                 remark #25603: Loop has been completely unrolled by LLVM LoopUnroll
 ; OPTRPT:             LOOP END
 ; OPTRPT:         LOOP END
 ; OPTRPT:     LOOP END
@@ -263,7 +263,7 @@ attributes #1 = { mustprogress nocallback nofree nosync nounwind readnone specul
 !llvm.module.flags = !{!2, !3, !4}
 !llvm.ident = !{!5}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus_14, file: !1, producer: "clang based Intel(R) oneAPI DPC++/C++ Compiler 2023.0.0 (2023.x.0.YYYYMMDD)", isOptimized: true, flags: " --driver-mode=g++ -c -S fma.cpp -mavx2 -mfma -O3 -emit-llvm -Xclang -opaque-pointers -mllvm -opaque-pointers -o dummy.ll -mllvm -tight-loop-emitter-run=remark -qopt-report=3", runtimeVersion: 0, emissionKind: LineTablesOnly, splitDebugInlining: false, nameTableKind: None)
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus_14, file: !1, producer: "clang based Intel(R) oneAPI DPC++/C++ Compiler 2023.0.0 (2023.x.0.YYYYMMDD)", isOptimized: true, flags: " --driver-mode=g++ -c -S fma.cpp -mavx2 -mfma -O3 -emit-llvm -o dummy.ll -mllvm -tight-loop-emitter-run=remark -qopt-report=3", runtimeVersion: 0, emissionKind: LineTablesOnly, splitDebugInlining: false, nameTableKind: None)
 !1 = !DIFile(filename: "fma.cpp", directory: "/localdisk2/yoonseoc/royal")
 !2 = !{i32 2, !"Debug Info Version", i32 3}
 !3 = !{i32 1, !"wchar_size", i32 4}
@@ -299,16 +299,14 @@ attributes #1 = { mustprogress nocallback nofree nosync nounwind readnone specul
 !33 = distinct !{!33, !19, !34, !35, !36}
 !34 = !DILocation(line: 20, column: 7, scope: !6)
 !35 = !{!"llvm.loop.mustprogress"}
-!36 = distinct !{!"intel.optreport.rootnode", !37}
-!37 = distinct !{!"intel.optreport", !38, !39}
+!36 = distinct !{!"intel.optreport", !38, !39}
 !38 = !{!"intel.optreport.debug_location", !19}
 !39 = !{!"intel.optreport.first_child", !40}
-!40 = distinct !{!"intel.optreport.rootnode", !41}
-!41 = distinct !{!"intel.optreport", !42, !44}
+!40 = distinct !{!"intel.optreport", !42, !44}
 !42 = !{!"intel.optreport.debug_location", !43}
 !43 = !DILocation(line: 16, column: 9, scope: !6)
 !44 = !{!"intel.optreport.remarks", !45}
-!45 = !{!"intel.optreport.remark", i32 0, !"LLorg: Loop has been completely unrolled"}
+!45 = !{!"intel.optreport.remark", i32 25603}
 !72 = !DILocation(line: 23, column: 9, scope: !6)
 !73 = !DILocation(line: 9, column: 30, scope: !6)
 !74 = !DILocation(line: 9, column: 23, scope: !6)

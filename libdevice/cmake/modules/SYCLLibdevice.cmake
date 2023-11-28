@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2022-2023 Intel Corporation
+# Modifications, Copyright (C) 2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -54,18 +54,10 @@ set(compile_opts
   -sycl-std=2020
   )
 
-if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
-  list(APPEND compile_opts "-Xclang" "-no-opaque-pointers")
-endif()
-
 set(SYCL_LIBDEVICE_GCC_TOOLCHAIN "" CACHE PATH "Path to GCC installation")
 
 if (NOT SYCL_LIBDEVICE_GCC_TOOLCHAIN STREQUAL "")
   list(APPEND compile_opts "--gcc-toolchain=${SYCL_LIBDEVICE_GCC_TOOLCHAIN}")
-endif()
-
-if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
-  list(APPEND compile_opts "-Xclang" "-no-opaque-pointers")
 endif()
 
 if ("NVPTX" IN_LIST LLVM_TARGETS_TO_BUILD)
@@ -111,7 +103,7 @@ function(add_devicelib_spv spv_filename)
   cmake_parse_arguments(SPV  "" "" "SRC;DEP;EXTRA_ARGS" ${ARGN})
   set(devicelib-spv-file ${spv_binary_dir}/${spv_filename}.spv)
   add_custom_command(OUTPUT ${devicelib-spv-file}
-                     COMMAND ${clang} -fsycl-device-only -fno-sycl-use-bitcode
+                     COMMAND ${clang} -fsycl-device-only -fsycl-device-obj=spirv
                              ${compile_opts} ${SPV_EXTRA_ARGS}
                              ${CMAKE_CURRENT_SOURCE_DIR}/${SPV_SRC}
                              -o ${devicelib-spv-file}
@@ -135,9 +127,12 @@ endfunction()
 set(crt_obj_deps wrapper.h device.h spirv_vars.h sycl-compiler)
 set(complex_obj_deps device_complex.h device.h sycl-compiler)
 set(cmath_obj_deps device_math.h device.h sycl-compiler)
-set(imf_obj_deps device_imf.hpp imf_half.hpp imf_bf16.hpp device.h sycl-compiler)
+set(imf_obj_deps device_imf.hpp imf_half.hpp imf_bf16.hpp imf_rounding_op.hpp imf_impl_utils.hpp device.h sycl-compiler)
 set(itt_obj_deps device_itt.h spirv_vars.h device.h sycl-compiler)
 set(bfloat16_obj_deps sycl-headers sycl-compiler)
+if (NOT MSVC)
+  set(sanitizer_obj_deps device.h sycl-compiler)
+endif()
 
 add_devicelib_obj(libsycl-itt-stubs SRC itt_stubs.cpp DEP ${itt_obj_deps})
 add_devicelib_obj(libsycl-itt-compiler-wrappers SRC itt_compiler_wrappers.cpp DEP ${itt_obj_deps})
@@ -154,6 +149,8 @@ add_devicelib_obj(libsycl-imf-bf16 SRC imf_wrapper_bf16.cpp DEP ${imf_obj_deps})
 add_devicelib_obj(libsycl-bfloat16 SRC bfloat16_wrapper.cpp DEP ${cmath_obj_deps} )
 if(MSVC)
 add_devicelib_obj(libsycl-msvc-math SRC msvc_math.cpp DEP ${cmath_obj_deps})
+else()
+add_devicelib_obj(libsycl-sanitizer SRC sanitizer_utils.cpp DEP ${sanitizer_obj_deps})
 endif()
 
 add_fallback_devicelib(libsycl-fallback-cassert SRC fallback-cassert.cpp DEP ${crt_obj_deps} EXTRA_ARGS -fno-sycl-instrument-device-code)
@@ -168,7 +165,7 @@ add_fallback_devicelib(libsycl-native-bfloat16 SRC bfloat16_wrapper.cpp DEP ${bf
 file(MAKE_DIRECTORY ${obj_binary_dir}/libdevice)
 set(imf_fallback_src_dir ${obj_binary_dir}/libdevice)
 set(imf_src_dir ${CMAKE_CURRENT_SOURCE_DIR})
-set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
+set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp imf_rounding_op.hpp imf_impl_utils.hpp
                            imf_utils/integer_misc.cpp
                            imf_utils/float_convert.cpp
                            imf_utils/half_convert.cpp
@@ -253,13 +250,16 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/i1_s_ep.cpp
                            imf/intel/j0_s_ep.cpp
                            imf/intel/j1_s_ep.cpp
+                           imf/intel/jn_s_ep.cpp
                            imf/intel/y0_s_ep.cpp
                            imf/intel/y1_s_ep.cpp
+                           imf/intel/yn_s_ep.cpp
                            imf/intel/pown_s_ep.cpp
                            # end INTEL_CUSTOMIZATION
+                           imf_utils/fp32_round.cpp
                            imf/imf_inline_fp32.cpp
                            imf/imf_fp32_dl.cpp)
-set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
+set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp imf_rounding_op.hpp imf_impl_utils.hpp
                            imf_utils/double_convert.cpp
                            # INTEL_CUSTOMIZATION
                            imf/_imf_include_fp64.hpp
@@ -337,6 +337,7 @@ set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/y1_d_ep.cpp
                            imf/intel/pown_d_la.cpp
                            # end INTEL_CUSTOMIZATION
+                           imf_utils/fp64_round.cpp
                            imf/imf_inline_fp64.cpp
                            imf/imf_fp64_dl.cpp)
 set(imf_fallback_bf16_deps device.h device_imf.hpp imf_bf16.hpp
@@ -435,7 +436,7 @@ add_custom_command(OUTPUT ${spv_binary_dir}/libsycl-imf-dl-fp64.spv
 
 add_custom_target(get_imf_fallback_fp32  DEPENDS ${imf_fp32_fallback_src})
 add_custom_command(OUTPUT ${spv_binary_dir}/libsycl-fallback-imf.spv
-                   COMMAND ${clang} -fsycl-device-only -fno-sycl-use-bitcode
+                   COMMAND ${clang} -fsycl-device-only -fsycl-device-obj=spirv
                            ${compile_opts} -I ${CMAKE_CURRENT_SOURCE_DIR}/imf
                            ${imf_fp32_fallback_src}
                            -o ${spv_binary_dir}/libsycl-fallback-imf.spv
@@ -460,7 +461,7 @@ add_custom_command(OUTPUT ${obj_binary_dir}/fallback-imf-fp32-host.${lib-suffix}
 
 add_custom_target(get_imf_fallback_fp64  DEPENDS ${imf_fp64_fallback_src})
 add_custom_command(OUTPUT ${spv_binary_dir}/libsycl-fallback-imf-fp64.spv
-                   COMMAND ${clang} -fsycl-device-only -fno-sycl-use-bitcode
+                   COMMAND ${clang} -fsycl-device-only -fsycl-device-obj=spirv
                            ${compile_opts} -I ${CMAKE_CURRENT_SOURCE_DIR}/imf
                            ${imf_fp64_fallback_src}
                            -o ${spv_binary_dir}/libsycl-fallback-imf-fp64.spv
@@ -485,7 +486,7 @@ add_custom_command(OUTPUT ${obj_binary_dir}/fallback-imf-fp64-host.${lib-suffix}
 
 add_custom_target(get_imf_fallback_bf16  DEPENDS ${imf_bf16_fallback_src})
 add_custom_command(OUTPUT ${spv_binary_dir}/libsycl-fallback-imf-bf16.spv
-                   COMMAND ${clang} -fsycl-device-only -fno-sycl-use-bitcode
+                   COMMAND ${clang} -fsycl-device-only -fsycl-device-obj=spirv
                            ${compile_opts} -I ${CMAKE_CURRENT_SOURCE_DIR}/imf
                            ${imf_bf16_fallback_src}
                            -o ${spv_binary_dir}/libsycl-fallback-imf-bf16.spv

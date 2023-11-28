@@ -11,11 +11,9 @@
 #ifndef __BASE_FIXTURE_H__
 #define __BASE_FIXTURE_H__
 
-#include "pretty_printers.h"
-
+#include "CL/cl_ext.h"
 #include "gtest_wrapper.h"
-#include <CL/cl.h>
-#include <CL/cl_ext.h>
+#include "pretty_printers.h"
 
 #include <string>
 #include <type_traits>

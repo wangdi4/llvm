@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -34,7 +34,6 @@
 #include "X86Subtarget.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -638,17 +637,12 @@ void X86DomainReassignment::initConverters() {
   };
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   bool HasEGPR = STI->hasEGPR();
   bool HasNDD = STI->hasNDD();
   createReplacerDstCOPY(X86::MOVZX32rm16,
                         HasEGPR ? X86::KMOVWkm_EVEX : X86::KMOVWkm);
   createReplacerDstCOPY(X86::MOVZX64rm16,
                         HasEGPR ? X86::KMOVWkm_EVEX : X86::KMOVWkm);
-#else // INTEL_FEATURE_ISA_APX_F
-  createReplacerDstCOPY(X86::MOVZX32rm16, X86::KMOVWkm);
-  createReplacerDstCOPY(X86::MOVZX64rm16, X86::KMOVWkm);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   createReplacerDstCOPY(X86::MOVZX32rr16, X86::KMOVWkk);
@@ -662,18 +656,12 @@ void X86DomainReassignment::initConverters() {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     createReplacerDstCOPY(X86::MOVZX16rm8,
                           HasEGPR ? X86::KMOVBkm_EVEX : X86::KMOVBkm);
     createReplacerDstCOPY(X86::MOVZX32rm8,
                           HasEGPR ? X86::KMOVBkm_EVEX : X86::KMOVBkm);
     createReplacerDstCOPY(X86::MOVZX64rm8,
                           HasEGPR ? X86::KMOVBkm_EVEX : X86::KMOVBkm);
-#else // INTEL_FEATURE_ISA_APX_F
-    createReplacerDstCOPY(X86::MOVZX16rm8, X86::KMOVBkm);
-    createReplacerDstCOPY(X86::MOVZX32rm8, X86::KMOVBkm);
-    createReplacerDstCOPY(X86::MOVZX64rm8, X86::KMOVBkm);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
     createReplacerDstCOPY(X86::MOVZX16rr8, X86::KMOVBkk);
@@ -686,7 +674,6 @@ void X86DomainReassignment::initConverters() {
   };
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   createReplacer(X86::MOV16rm, HasEGPR ? X86::KMOVWkm_EVEX : X86::KMOVWkm);
   createReplacer(X86::MOV16mr, HasEGPR ? X86::KMOVWmk_EVEX : X86::KMOVWmk);
   if (HasNDD) {
@@ -697,10 +684,6 @@ void X86DomainReassignment::initConverters() {
     createReplacer(X86::AND16rr_ND, X86::KANDWrr);
     createReplacer(X86::XOR16rr_ND, X86::KXORWrr);
   }
-#else // INTEL_FEATURE_ISA_APX_F
-  createReplacer(X86::MOV16rm, X86::KMOVWkm);
-  createReplacer(X86::MOV16mr, X86::KMOVWmk);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   createReplacer(X86::MOV16rr, X86::KMOVWkk);
   createReplacer(X86::SHR16ri, X86::KSHIFTRWri);
@@ -789,6 +772,22 @@ void X86DomainReassignment::initConverters() {
 
     createReplacer(X86::XOR32rr, X86::KXORDrr);
     createReplacer(X86::XOR64rr, X86::KXORQrr);
+    if (HasNDD) {
+      createReplacer(X86::SHR32ri_ND, X86::KSHIFTRDri);
+      createReplacer(X86::SHL32ri_ND, X86::KSHIFTLDri);
+      createReplacer(X86::ADD32rr_ND, X86::KADDDrr);
+      createReplacer(X86::NOT32r_ND, X86::KNOTDrr);
+      createReplacer(X86::OR32rr_ND, X86::KORDrr);
+      createReplacer(X86::AND32rr_ND, X86::KANDDrr);
+      createReplacer(X86::XOR32rr_ND, X86::KXORDrr);
+      createReplacer(X86::SHR64ri_ND, X86::KSHIFTRQri);
+      createReplacer(X86::SHL64ri_ND, X86::KSHIFTLQri);
+      createReplacer(X86::ADD64rr_ND, X86::KADDQrr);
+      createReplacer(X86::NOT64r_ND, X86::KNOTQrr);
+      createReplacer(X86::OR64rr_ND, X86::KORQrr);
+      createReplacer(X86::AND64rr_ND, X86::KANDQrr);
+      createReplacer(X86::XOR64rr_ND, X86::KXORQrr);
+    }
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 
@@ -801,6 +800,10 @@ void X86DomainReassignment::initConverters() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
   if (STI->hasDQI() || STI->hasAVX256P()) {
+#else  // INTEL_FEATURE_ISA_AVX256P
+  if (STI->hasDQI()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     if (HasNDD) {
       createReplacer(X86::ADD8rr_ND, X86::KADDBrr);
       createReplacer(X86::ADD16rr_ND, X86::KADDWrr);
@@ -811,23 +814,14 @@ void X86DomainReassignment::initConverters() {
       createReplacer(X86::SHL8ri_ND, X86::KSHIFTLBri);
       createReplacer(X86::XOR8rr_ND, X86::KXORBrr);
     }
-#else  // INTEL_FEATURE_ISA_AVX256P
-  if (STI->hasDQI()) {
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
     createReplacer(X86::ADD8rr, X86::KADDBrr);
     createReplacer(X86::ADD16rr, X86::KADDWrr);
 
     createReplacer(X86::AND8rr, X86::KANDBrr);
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
     createReplacer(X86::MOV8rm, HasEGPR ? X86::KMOVBkm_EVEX : X86::KMOVBkm);
     createReplacer(X86::MOV8mr, HasEGPR ? X86::KMOVBmk_EVEX : X86::KMOVBmk);
-#else // INTEL_FEATURE_ISA_APX_F
-    createReplacer(X86::MOV8rm, X86::KMOVBkm);
-    createReplacer(X86::MOV8mr, X86::KMOVBmk);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     createReplacer(X86::MOV8rr, X86::KMOVBkk);
 

@@ -268,7 +268,7 @@ public:
 #else
 #define NOINLINEW32
 #endif
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// If a load has multiple candidates associated (i.e. different
   /// stores), it means that it could be forwarding from multiple stores
@@ -471,8 +471,8 @@ public:
         Cand.Load->getType(), InitialPtr, "load_initial",
         /* isVolatile */ false, Cand.Load->getAlign(), PH->getTerminator());
 
-    PHINode *PHI = PHINode::Create(Initial->getType(), 2, "store_forwarded",
-                                   &L->getHeader()->front());
+    PHINode *PHI = PHINode::Create(Initial->getType(), 2, "store_forwarded");
+    PHI->insertBefore(L->getHeader()->begin());
     PHI->addIncoming(Initial, PH);
 
     Type *LoadType = Initial->getType();

@@ -1,6 +1,6 @@
 //===-- HIRParVecAnalysis.cpp ---------------------------------------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -566,7 +566,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
     return;
   }
 
-  if (Info->isVectorMode() && DDA.isRefinableDepAtLevel(Edge, NestLevel)) {
+  if (Info->isVectorMode()) {
     DDRef *SinkRef = Edge->getSink();
 
     // Compute the deepest common level.
@@ -608,7 +608,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
     }
     LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize\n");
   } else {
-    LLVM_DEBUG(dbgs() << "\tDV is not refinable - unsafe to vectorize\n");
+    LLVM_DEBUG(dbgs() << "\tis unsafe to parallelize\n");
   }
 
   Info->setVecType(ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE);
@@ -758,26 +758,6 @@ public:
     }
 
     GotoSeen = true;
-
-    bool HasUniqueExit = false;
-    if (Goto->isExternal()) {
-      // When goto is external, check that the loop is last child of the region
-      // and target of goto is the region's successor block.
-      auto *LoopParent = Loop->getParentRegion();
-      HasUniqueExit = (LoopParent->getLastChild() == Loop) &&
-                      (Goto->getTargetBBlock() == LoopParent->getSuccBBlock());
-    } else {
-      // When goto is not external check that target label immediately succeeds
-      // the loop.
-      HasUniqueExit = Goto->getTargetLabel() == Loop->getNextNode();
-    }
-    if (!HasUniqueExit) {
-      LLVM_DEBUG(
-          dbgs()
-          << "EarlyExitVecSafety: Non-unique exit blocks are not supported.\n");
-      IsSafe = false;
-      return;
-    }
 
     auto *EarlyExitCond = dyn_cast<HLIf>(Goto->getParent());
     if (!EarlyExitCond) {
@@ -1637,7 +1617,8 @@ HIRIdiomAnalyzer::collectLoadsStores(const SetVector<HLInst *> &Increments) {
 
         DDEdge *NonLinBlobEdge = *DDG.incoming_edges_begin(BlobRef);
         HLDDNode *NonLinBlobDefNode = NonLinBlobEdge->getSrc()->getHLDDNode();
-        if (HLNodeUtils::isInTopSortNumRange(NonLinBlobDefNode, Node, SinkNode))
+        if ((Node->getTopSortNum() <= SinkNode->getTopSortNum()) &&
+            HLNodeUtils::isInTopSortNumRange(NonLinBlobDefNode, Node, SinkNode))
           return Failure("Data-dependency on redefined index found", SinkRef);
       }
 

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,7 +17,6 @@
 
 #include "Exception.h"
 #include "OpenCLRunConfiguration.h"
-
 #include "cl_dev_backend_api.h"
 #include <assert.h>
 #include <stdio.h>

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2022 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,10 +15,10 @@
 #ifndef __OCL_BUILDER_H__
 #define __OCL_BUILDER_H__
 
+#include "BE_DynamicLib.h"
+#include "CommonOCLBuilder.h"
+#include "Exception.h"
 #include "frontend_api.h"
-#include <BE_DynamicLib.h>
-#include <CommonOCLBuilder.h>
-#include <Exception.h>
 
 namespace Validation {
 

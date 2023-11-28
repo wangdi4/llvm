@@ -1,17 +1,17 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN: -triple x86_64-unknown-linux-gnu %s | FileCheck \
 // RUN: --check-prefixes=CHECK,INSTR %s
 //
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN: -triple x86_64-unknown-linux-gnu -DCOMBINED %s | \
 // RUN: FileCheck --check-prefixes=CHECK,INSTR %s
 //
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN: -fintel-openmp-region-atomic -triple x86_64-unknown-linux-gnu %s | \
 // RUN: FileCheck --check-prefixes=CHECK,REGION %s
 //
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN: -fintel-openmp-region-atomic -triple x86_64-unknown-linux-gnu \
 // RUN: -DCOMBINED %s | FileCheck --check-prefixes=CHECK,REGION %s
 

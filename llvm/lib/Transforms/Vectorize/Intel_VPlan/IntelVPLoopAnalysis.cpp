@@ -585,7 +585,7 @@ VPCompressExpandIdiom *VPLoopEntityList::addCompressExpandIdiom(
   VPCompressExpandIdiom *CEIdiom =
       new VPCompressExpandIdiom(RecurrentPhi, LiveIn, LiveOut, TotalStride,
                                 Increments, Stores, Loads, Indices);
-  ComressExpandIdiomList.emplace_back(CEIdiom);
+  CompressExpandIdiomList.emplace_back(CEIdiom);
 
   linkValue(CEIdiom, RecurrentPhi);
   linkValue(CEIdiom, LiveIn);
@@ -660,8 +660,8 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
     case RecurKind::FMax:
     case RecurKind::FMinimum:
     case RecurKind::FMaximum:
-    case RecurKind::SelectICmp:
-    case RecurKind::SelectFCmp:
+    case RecurKind::IAnyOf:
+    case RecurKind::FAnyOf:
     case RecurKind::Udr:
       return Red->getRecurrenceStartValue();
     case RecurKind::None:
@@ -790,8 +790,8 @@ void VPLoopEntityList::dump(raw_ostream &OS,
       dumpList("\nInduction list\n", InductionList, OS);
     if (!PrivatesList.empty())
       dumpList("\nPrivate list\n", PrivatesList, OS);
-    if (!ComressExpandIdiomList.empty())
-      dumpList("\nCompress/expand idiom list\n", ComressExpandIdiomList, OS);
+    if (!CompressExpandIdiomList.empty())
+      dumpList("\nCompress/expand idiom list\n", CompressExpandIdiomList, OS);
     OS << "\n";
   }
 }
@@ -839,7 +839,7 @@ static void createLifetimeMarker(VPBuilder &Builder, VPlanVector &Plan,
 
     VPValue *LMOp = PrivateMem;
     Type *PrivateMemTy = PrivateMem->getType();
-    if (!PrivateMemTy->isOpaquePointerTy()) {
+    if (!PrivateMemTy->isPointerTy()) {
       PrivateMemTy =
           llvm::PointerType::get(Type::getIntNTy(*Plan.getLLVMContext(), 8), 0);
       LMOp =
@@ -1255,7 +1255,7 @@ void VPLoopEntityList::processRunningInscanArrReduction(
   assert(PrivateMem && "Private memory expected for array inscan reduction.");
 
   // Add memory aliases (if any) collected for this array inscan reduction.
-  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  SmallSet<UnderlyingInstruction, 4> AddedAliasInstrs;
   insertEntityMemoryAliases(ArrInscanRed, Preheader, AddedAliasInstrs, Builder);
 
   // Replace all uses of original array with private memory.
@@ -1285,7 +1285,7 @@ void VPLoopEntityList::processRunningInscanArrReduction(
          "Fence BB expected to have only terminator instruction.");
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
-  VPLoop *ArrRednLoop = VPLI->AllocateLoop();
+  VPLoop *ArrRednLoop = VPLI->AllocateLoop(nullptr);
   Loop.addChildLoop(ArrRednLoop);
   VPLI->changeLoopFor(FenceBlock, ArrRednLoop);
   ArrRednLoop->addBlockEntry(FenceBlock);
@@ -1510,7 +1510,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI, Preheader);
 
   // Add memory aliases (if any) collected for this reduction.
-  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  SmallSet<UnderlyingInstruction, 4> AddedAliasInstrs;
   if (PrivateMem)
     insertEntityMemoryAliases(Reduction, Preheader, AddedAliasInstrs, Builder);
 
@@ -1590,8 +1590,8 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     Exit = Builder.createLoad(Ty, PrivateMem);
 
   VPValue *ChangeValue = nullptr;
-  if (Reduction->isSelectCmp()) {
-    // A simple SelectICmp or SelectFCmp pattern has a select for the Exit
+  if (Reduction->isAnyOf()) {
+    // A simple IAnyOf or FAnyOf pattern has a select for the Exit
     // instruction.  In more complex cases the Exit instruction is a PHI.
     // The PHI may have any number of predecessors, but only one of them
     // is a select; the rest produce the PHI recurrence from the loop
@@ -1650,7 +1650,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
           "red.final.cmplx", Reduction->getRecurrenceType(),
           ArrayRef<VPValue *>{PrivateMem, AI}, Reduction->getReductionOpcode());
   } else {
-      if (Reduction->isSelectCmp())
+      if (Reduction->isAnyOf())
       Final = Builder.create<VPReductionFinal>(
           FinName, Reduction->getReductionOpcode(), Exit,
           Reduction->getRecurrenceStartValue(), ChangeValue,
@@ -1729,7 +1729,7 @@ void VPLoopEntityList::insertUDRVPInstructions(
   assert(PrivateMem && "Private memory is expected for UDR.");
 
   // Add memory aliases (if any) collected for this array reduction.
-  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  SmallSet<UnderlyingInstruction, 4> AddedAliasInstrs;
   insertEntityMemoryAliases(UDR, Preheader, AddedAliasInstrs, Builder);
 
   AI->replaceAllUsesWithInBlock(PrivateMem, *Preheader);
@@ -1786,12 +1786,11 @@ void VPLoopEntityList::insertUDRVPInstructions(
 // of representing memory aliases in VPlan.
 void VPLoopEntityList::insertEntityMemoryAliases(
     VPLoopEntity *Entity, VPBasicBlock *Preheader,
-    SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs, VPBuilder &Builder) {
+    SmallSet<UnderlyingInstruction, 4> &AddedAliasInstrs, VPBuilder &Builder) {
   // Insert the aliases into the preheader in the regular order first.
   for (auto const &ValInstPair : Entity->aliases()) {
-    const Instruction *Inst = ValInstPair.second.second;
     VPInstruction *VPInst = ValInstPair.second.first;
-    if (AddedAliasInstrs.insert(Inst).second) {
+    if (AddedAliasInstrs.insert(ValInstPair.second.second).second) {
       VPBuilder::InsertPointGuard Guard(Builder);
       for (auto &PhInst : *Preheader) {
         // The aliases for one entity may contain uses of aliases of another.
@@ -1802,7 +1801,15 @@ void VPLoopEntityList::insertEntityMemoryAliases(
           break;
         }
       }
-      Builder.insert(VPInst);
+      if (auto *TmpBB = VPInst->getParent()) {
+        assert(TmpBB->getParent() == nullptr && "Expected standalone BB");
+        Preheader->getInstructions().splice(
+            Builder.getInsertPoint(), TmpBB->getInstructions(),
+            TmpBB->getInstructions().begin(),
+            TmpBB->getTerminator()->getIterator());
+        delete TmpBB;
+      } else
+        Builder.insert(VPInst);
     }
   }
 }
@@ -1812,18 +1819,17 @@ void VPLoopEntityList::insertEntityMemoryAliases(
 // part of Phase 2 of representing memory aliases in VPlan.
 void VPLoopEntityList::replaceUsesOfExtDefWithMemoryAliases(
     VPLoopEntity *Entity, VPBasicBlock *Preheader, VPLoop &Loop,
-    SmallPtrSet<const Instruction *, 4> &AddedAliasInstrs) {
+    SmallSet<UnderlyingInstruction, 4> &AddedAliasInstrs) {
   // Now do the replacement of aliases. We first replace all instances of
   // VPOperand with VPInst within the preheader, where all aliases have been
   // inserted. Then replace all instances of VPOperand with VPInst in the loop.
   LLVM_DEBUG(dbgs() << "Aliases:\n");
   for (auto const &ValInstPair : Entity->aliases()) {
     auto *VPOperand = ValInstPair.first;
-    const Instruction *Inst = ValInstPair.second.second;
     VPInstruction *VPInst = ValInstPair.second.first;
-    LLVM_DEBUG(VPOperand->dump(); Inst->dump(); VPInst->dump();
-               dbgs() << "\n";);
-    if (AddedAliasInstrs.find(Inst) != AddedAliasInstrs.end()) {
+    LLVM_DEBUG(VPOperand->dump(); ValInstPair.second.second->dump();
+               VPInst->dump(); dbgs() << "\n";);
+    if (AddedAliasInstrs.count(ValInstPair.second.second)) {
       VPOperand->replaceAllUsesWithInBlock(VPInst, *Preheader);
       VPOperand->replaceAllUsesWithInLoop(VPInst, Loop);
     }
@@ -1864,7 +1870,7 @@ void VPLoopEntityList::insertArrayRedVPInstructions(
   assert(PrivateMem && "Private memory is expected for array reduction.");
 
   // Add memory aliases (if any) collected for this array reduction.
-  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  SmallSet<UnderlyingInstruction, 4> AddedAliasInstrs;
   insertEntityMemoryAliases(ArrRed, Preheader, AddedAliasInstrs, Builder);
 
   // Replace all uses of original array reduction variable with private memory.
@@ -2320,7 +2326,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
                         : ExitInstr;
     auto *Final =
         IsExtract && Exit
-            ? Builder.create<VPInductionFinal>(Name + ".ind.final", Exit)
+            ? Builder.create<VPInductionFinal>(Name + ".ind.final", Exit, Opc)
             : Builder.create<VPInductionFinal>(Name + ".ind.final", Start, Step,
                                                Opc);
     // Check if induction's last value is live-out of penultimate loop
@@ -2547,7 +2553,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
   // Keep track of already added aliases. We can have two
   // different aliases for the same Instruciton (coming from
   // different privates) and we should not create those duplicates.
-  SmallPtrSet<const Instruction*, 4> AddedAliasInstrs;
+  SmallSet<UnderlyingInstruction, 4> AddedAliasInstrs;
 
   // Process the list of Privates.
   for (VPPrivate *Private : vpprivates()) {
@@ -2695,7 +2701,9 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
     } else if (auto *PrivateF90DV = dyn_cast<VPPrivateF90DV>(Private)) {
       VPInstruction *VPStackSave = nullptr;
       auto *I64 = Type::getInt64Ty(*Plan.getLLVMContext());
-      auto *ptrI8 = Type::getInt8PtrTy(*Plan.getLLVMContext());
+      auto *ptrI8 = PointerType::getUnqual(*Plan.getLLVMContext());
+      auto *StackSavePtrTy =
+          Plan.getDataLayout()->getAllocaPtrType(*Plan.getLLVMContext());
       FunctionType *NewFnTy = FunctionType::get(I64, {ptrI8, ptrI8}, false);
       FunctionCallee FnC = Plan.getModule()->getOrInsertFunction(
           "_f90_dope_vector_init2", NewFnTy);
@@ -2706,7 +2714,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       VPValue *i8PrivateMem = PrivateMem;
       // If AI is not opaque pointer and it's not i8* we need to convert it to
       // this type.
-      if (!AITy->isOpaquePointerTy() && AITy != ptrI8) {
+      if (!AITy->isPointerTy() && AITy != ptrI8) {
         i8AI = Builder.createNaryOp(Instruction::BitCast, ptrI8, {AI});
         i8PrivateMem =
             Builder.createNaryOp(Instruction::BitCast, ptrI8, {PrivateMem});
@@ -2715,8 +2723,8 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
 
       // Emit StackSave only single time
       if (!GeneratedSSForDV) {
-        Function *StackSaveFunc =
-            Intrinsic::getDeclaration(Plan.getModule(), Intrinsic::stacksave);
+        Function *StackSaveFunc = Intrinsic::getDeclaration(
+            Plan.getModule(), Intrinsic::stacksave, {StackSavePtrTy});
         VPStackSave = Builder.createCall(StackSaveFunc, {});
       }
 
@@ -2747,7 +2755,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPoint(PostExit);
         Function *StackRestoreFunc = Intrinsic::getDeclaration(
-            Plan.getModule(), Intrinsic::stackrestore);
+            Plan.getModule(), Intrinsic::stackrestore, {StackSavePtrTy});
         Builder.createCall(StackRestoreFunc, {VPStackSave});
         GeneratedSSForDV = true;
       }
@@ -2821,6 +2829,9 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
         VPLoadStoreInst *CompressExpand = Builder.create<VPLoadStoreInst>(
             "", Opcode, LoadStore->getType(),
             ArrayRef<VPValue *>(LoadStore->op_begin(), LoadStore->op_end()));
+        if (MDNode *const Nontemporal =
+                LoadStore->getMetadata(LLVMContext::MD_nontemporal))
+          CompressExpand->setMetadata(LLVMContext::MD_nontemporal, Nontemporal);
         LoadStore->replaceAllUsesWith(CompressExpand);
 
         if (IsPtrInc)
@@ -3260,7 +3271,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
       assert(Opc == Instruction::GetElementPtr &&
              "GEP opcode expected for pointer induction.");
       Type *ElementType = nullptr;
-      ElementType = getInt8OrPointerElementTy(Phi->getType());
+      ElementType = getInt8(Phi->getType());
       auto *GEP =
           Builder.createGEP(ElementType, ElementType, Phi, Step, nullptr);
       GEP->setIsInBounds(true); // TODO: Why is that correct?
@@ -3658,57 +3669,61 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   VPReduction *VPRed = nullptr;
 
   // FastMathFlags for this reduction maybe attached to Exit or any of the
-  // LinkedVPValues.
+  // LinkedVPValues. Collect the flags only if recurrence type of the reduction
+  // is or uses FP type.
   FastMathFlags RedFMF;
-  if (Exit && Exit->hasFastMathFlags())
-    RedFMF = Exit->getFastMathFlags();
-  else {
-    for (auto *V : LinkedVPVals) {
-      if (auto *VPI = dyn_cast<VPInstruction>(V))
-        if (VPI->hasFastMathFlags()) {
-          RedFMF = VPI->getFastMathFlags();
-          break;
-        }
-    }
-    if (RedFMF.none() && AllocaInst) {
-      // For in-memory reductions, analyze the stored values using a worklist
-      // approach.
-      SmallVector<VPValue *, 4> Worklist;
-      Worklist.push_back(AllocaInst);
-
-      while (!Worklist.empty()) {
-        auto *CurrVal = Worklist.pop_back_val();
-
-        for (auto *User : CurrVal->users()) {
-          // If user is a memory alias, add the corresponding external def to
-          // the worklist.
-          if (auto *UserI = dyn_cast<VPInstruction>(User)) {
-            for (auto &KeyValPair : MemAliases) {
-              if (UserI == KeyValPair.second.first)
-                Worklist.push_back(KeyValPair.first);
-            }
+  if (isOrUsesFPTy(getRecType())) {
+    if (Exit && Exit->hasFastMathFlags())
+      RedFMF = Exit->getFastMathFlags();
+    else {
+      for (auto *V : LinkedVPVals) {
+        if (auto *VPI = dyn_cast<VPInstruction>(V))
+          if (VPI->hasFastMathFlags()) {
+            RedFMF = VPI->getFastMathFlags();
+            break;
           }
+      }
+      if (RedFMF.none() && AllocaInst) {
+        // For in-memory reductions, analyze the stored values using a worklist
+        // approach.
+        SmallVector<VPValue *, 4> Worklist;
+        Worklist.push_back(AllocaInst);
 
-          // If we encounter a GEP/subscript operating on alloca, then add to
-          // worklist.
-          if (auto *VPGEP = dyn_cast<VPGEPInstruction>(User))
-            Worklist.push_back(VPGEP);
-          if (auto *VPSub = dyn_cast<VPSubscriptInst>(User))
-            Worklist.push_back(VPSub);
+        while (!Worklist.empty()) {
+          auto *CurrVal = Worklist.pop_back_val();
 
-          auto *VPLS = dyn_cast<VPLoadStoreInst>(User);
-          if (!VPLS)
-            continue;
-          // Look through the stores that store into the alloca or gep that
-          // operates on alloca.
-          if (VPLS->getOpcode() != Instruction::Store)
-            continue;
-          if (CurrVal == VPLS->getPointerOperand())
-            if (auto *StoredVal = dyn_cast<VPInstruction>(VPLS->getOperand(0)))
-              if (StoredVal->hasFastMathFlags()) {
-                RedFMF = StoredVal->getFastMathFlags();
-                break;
+          for (auto *User : CurrVal->users()) {
+            // If user is a memory alias, add the corresponding external def to
+            // the worklist.
+            if (auto *UserI = dyn_cast<VPInstruction>(User)) {
+              for (auto &KeyValPair : MemAliases) {
+                if (UserI == KeyValPair.second.first)
+                  Worklist.push_back(KeyValPair.first);
               }
+            }
+
+            // If we encounter a GEP/subscript operating on alloca, then add to
+            // worklist.
+            if (auto *VPGEP = dyn_cast<VPGEPInstruction>(User))
+              Worklist.push_back(VPGEP);
+            if (auto *VPSub = dyn_cast<VPSubscriptInst>(User))
+              Worklist.push_back(VPSub);
+
+            auto *VPLS = dyn_cast<VPLoadStoreInst>(User);
+            if (!VPLS)
+              continue;
+            // Look through the stores that store into the alloca or gep that
+            // operates on alloca.
+            if (VPLS->getOpcode() != Instruction::Store)
+              continue;
+            if (CurrVal == VPLS->getPointerOperand())
+              if (auto *StoredVal =
+                      dyn_cast<VPInstruction>(VPLS->getOperand(0)))
+                if (StoredVal->hasFastMathFlags()) {
+                  RedFMF = StoredVal->getFastMathFlags();
+                  break;
+                }
+          }
         }
       }
     }
@@ -4424,3 +4439,12 @@ void CompressExpandIdiomDescr::passToVPlan(VPlanVector *Plan,
   LE->addCompressExpandIdiom(RecurrentPhi, LiveIn, LiveOut, TotalStride,
                              Increments, Stores, Loads, Indices);
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void UnderlyingInstruction::dump() const {
+  if (is<const Instruction *>())
+    get<const Instruction *>()->dump();
+  else
+    get<const loopopt::HLDDNode *>()->dump();
+}
+#endif

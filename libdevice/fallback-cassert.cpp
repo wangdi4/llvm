@@ -1,15 +1,32 @@
 //==--- fallback-cassert.cpp - device agnostic implementation of C assert --==//
 //
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+// Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
-#if !INTEL_COLLAB || !OMP_LIBDEVICE
+#if !INTEL_COLLAB || !OMP_LIBDEVICE // INTEL
 #include "atomic.hpp"
 #include "include/assert-happened.hpp"
-#endif // !INTEL_COLLAB || !OMP_LIBDEVICE
+#endif // !INTEL_COLLAB || !OMP_LIBDEVICE // INTEL
 #include "wrapper.h"
 
 #ifdef __SPIR__
@@ -25,7 +42,7 @@
 
 #endif // INTEL_COLLAB
 
-#if !INTEL_COLLAB || !OMP_LIBDEVICE
+#if !INTEL_COLLAB || !OMP_LIBDEVICE // INTEL
 #define ASSERT_NONE 0
 #define ASSERT_START 1
 #define ASSERT_FINISH 2
@@ -48,7 +65,7 @@ DEVICE_EXTERN_C void __devicelib_assert_read(void *_Dst) {
 
   *Dst = SPIR_AssertHappenedMem;
 }
-#endif // !INTEL_COLLAB || !OMP_LIBDEVICE
+#endif // !INTEL_COLLAB || !OMP_LIBDEVICE // INTEL
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
@@ -88,7 +105,7 @@ DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
 #endif // OMP_LIBDEVICE
 #endif // INTEL_COLLAB
 
-#if !INTEL_COLLAB || !OMP_LIBDEVICE
+#if !INTEL_COLLAB || !OMP_LIBDEVICE // INTEL
   int Expected = ASSERT_NONE;
   int Desired = ASSERT_START;
 
@@ -142,7 +159,7 @@ DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
     // Show we've done copying
     atomicStore(&SPIR_AssertHappenedMem.Flag, ASSERT_FINISH);
   }
-#endif // !INTEL_COLLAB || !OMP_LIBDEVICE
+#endif // !INTEL_COLLAB || !OMP_LIBDEVICE // INTEL
 
   // FIXME: call SPIR-V unreachable instead
   // volatile int *die = (int *)0x0;

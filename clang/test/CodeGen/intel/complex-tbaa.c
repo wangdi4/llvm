@@ -1,8 +1,8 @@
 // RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -O1 \
-// RUN:-no-struct-path-tbaa -disable-llvm-optzns %s -opaque-pointers -emit-llvm -o - | \
+// RUN:-no-struct-path-tbaa -disable-llvm-optzns %s -emit-llvm -o - | \
 // RUN:FileCheck %s
 // RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -O1 \
-// RUN:                     -disable-llvm-optzns %s -opaque-pointers -emit-llvm -o - | \
+// RUN:                     -disable-llvm-optzns %s -emit-llvm -o - | \
 // RUN:FileCheck %s -check-prefix=PATH
 void foo(_Complex double *dest) {
   long l1;

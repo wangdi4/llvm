@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2013-2018 Intel Corporation.
+// Copyright 2013 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,10 +15,9 @@
 #ifndef __DATAVERSION_H__
 #define __DATAVERSION_H__
 
-#include <iomanip>
-
 #include "IBufferContainerList.h"
 #include "llvm/IR/Metadata.h"
+#include <iomanip>
 
 namespace Validation {
 struct DataVersion {

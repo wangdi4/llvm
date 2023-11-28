@@ -1,10 +1,10 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S -o %t1.ll <%s
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -early-cse -instcombine -vpo-restore-operands -S %t1.ll -o %t2.ll
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S %t2.ll | FileCheck %s -check-prefix=TFORM
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S -o %t1.ll <%s
+; RUN: opt -bugpoint-enable-legacy-pm -early-cse -instcombine -vpo-restore-operands -S %t1.ll -o %t2.ll
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S %t2.ll | FileCheck %s -check-prefix=TFORM
 
-; RUN: opt -opaque-pointers=1 -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare)" -S -o %t1.ll <%s
-; RUN: opt -opaque-pointers=1 -passes="function(early-cse,instcombine,vpo-restore-operands)" -S %t1.ll -o %t2.ll
-; RUN: opt -opaque-pointers=1 -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %t2.ll | FileCheck %s -check-prefix=TFORM
+; RUN: opt -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare)" -S -o %t1.ll <%s
+; RUN: opt -passes="function(early-cse,instcombine,vpo-restore-operands)" -S %t1.ll -o %t2.ll
+; RUN: opt -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %t2.ll | FileCheck %s -check-prefix=TFORM
 
 ; The test IR was hand-generated to simulate uses of constexprs offsets into an
 ; array as clause operands. A source program equivalent of the IR

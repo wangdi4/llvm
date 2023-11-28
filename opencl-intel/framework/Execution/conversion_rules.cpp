@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,6 +17,11 @@
  * the spec. See also 5.3.1.1 (Image Format Descriptor) for channel data type,
  * and order.
  */
+
+#include "cl_sys_defines.h"
+#include "cl_types.h"
+#include "cl_utils.h"
+#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 #include <assert.h>
 #include <math.h>
@@ -51,15 +56,8 @@
 #endif
 #endif
 
-#include <cl_types.h>
-
-#include "cl_sys_defines.h"
-
-#include "cl_utils.h"
-
+// has dependency on <Xmmintrin.h>
 #include "conversion_rules.h"
-
-#include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 // to overcome WinDef.h problem of min/max macro:
 #define OCL_MIN(x, y) (x < y) ? x : y

@@ -21,6 +21,29 @@ entry:
   ret void
 }
 
+; The function would be extended to accept one more arg: 'vf', as it's called by two different kernels.
+; CHECK: define [[TYPE:i.*]] @slice_length_caller([[TYPE]] %vf)
+define i64 @slice_length_caller() {
+entry:
+; CHECK-NOT: @get_sub_group_slice_length.
+; CHECK: [[TMP0:%.*]] = add nuw nsw [[TYPE]] %vf, 143
+; CHECK-NEXT: udiv [[TYPE]] [[TMP0]], %vf
+  %call = tail call i64 @get_sub_group_slice_length.(i32 144)
+  ret i64 %call
+}
+
+define void @kernel1() !vectorized_width !{i32 16} {
+entry:
+  %call = tail call i64 @slice_length_caller()
+  ret void
+}
+
+define void @kernel2() !vectorized_width !{i32 32} {
+entry:
+  %call = tail call i64 @slice_length_caller()
+  ret void
+}
+
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-sign
 ed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
@@ -37,7 +60,7 @@ ed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-siz
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 1, i32 2}
 !2 = !{}
-!3 = !{ptr @testKernel}
+!3 = !{ptr @testKernel, ptr @kernel1, ptr @kernel2}
 !11 = !{i32 1}
 !12 = !{!"none"}
 !13 = !{!"uint*"}

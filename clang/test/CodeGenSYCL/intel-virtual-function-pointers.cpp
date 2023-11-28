@@ -1,11 +1,11 @@
 // RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -fsycl-is-device \
-// RUN: -fenable-variant-function-pointers -O0 -no-opaque-pointers \
+// RUN: -fenable-variant-function-pointers -O0 \
 // RUN: -fenable-variant-virtual-calls \
 // RUN:  -triple spir64-unknown-linux %s | FileCheck %s
 
-// CHECK: @"_ZN1C3zooEv$SIMDTable" = weak global [1 x void (%struct.C addrspace(4)*)*] [void (%struct.C addrspace(4)*)* @_ZN1C3zooEv], align 8
-// CHECK: @_ZTV4Base = linkonce_odr unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [{{.+}} null, {{.+}} ({{.+}}({{.+}} @"_ZN4Base1fEi$SIMDTable" to i8*) {{.+}})] }
-// CHECK: @"_ZN4Base1fEi$SIMDTable" =  weak global [1 x void (%struct.Base addrspace(4)*, i32)*] [void (%struct.Base addrspace(4)*, i32)* @_ZN4Base1fEi]
+// CHECK: @"_ZN1C3zooEv$SIMDTable" = weak global [1 x ptr] [ptr @_ZN1C3zooEv], align 8
+// CHECK: @_ZTV4Base = linkonce_odr unnamed_addr constant { [3 x ptr addrspace(4)] } { [3 x ptr addrspace(4)] [{{.+}} null, {{.+}} ({{.+}} @"_ZN4Base1fEi$SIMDTable" to ptr addrspace(4))] }
+// CHECK: @"_ZN4Base1fEi$SIMDTable" =  weak global [1 x ptr] [ptr @_ZN4Base1fEi]
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
   kernelFunc();
@@ -74,27 +74,27 @@ int main() {
 // CHECK: call spir_func void @_ZN4Base1fEi({{.+}}, i32 noundef 10000)
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 2)
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 3)
-// CHECK: store { i64, i64 } { i64 ptrtoint ([1 x void (%struct.C addrspace(4)*)*]* @"_ZN1C3zooEv$SIMDTable" to i64), i64 0 }, { i64, i64 } addrspace(4)* %pf.ascast.i, align 8
+// CHECK: store { i64, i64 } { i64 ptrtoint (ptr @"_ZN1C3zooEv$SIMDTable" to i64), i64 0 }, ptr addrspace(4) %pf.ascast.i, align 8
 // CHECK: ret void
 
-// CHECK: define dso_local spir_func void{{.+}}aoo{{.+}}
+// CHECK: define linkonce_odr spir_func void{{.+}}aoo{{.+}}
 // CHECK: call spir_func void @_ZN4Base1fEi({{.+}}, i32 noundef 10)
 // CHECK: ret void
 
-// CHECK: define dso_local spir_func void {{.+}}bar{{.+}}
+// CHECK: define linkonce_odr spir_func void {{.+}}bar{{.+}}
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 20)
 // CHECK: ret void
 
-// CHECK: define dso_local spir_func void {{.+}}zoo{{.+}}
+// CHECK: define linkonce_odr spir_func void {{.+}}zoo{{.+}}
 // CHECK: call void @__intel_indirect_call_0({{.+}}, i32 30)
 // CHECK: ret void
 
-// CHECK: define dso_local spir_func void {{.+}}test_1{{.+}}
+// CHECK: define linkonce_odr spir_func void {{.+}}test_1{{.+}}
 // CHECK: call void @__intel_indirect_call_1(
 // CHECK: ret void
 
-// CHECK: define dso_local spir_func void {{.+}}test_2{{.+}}
-// CHECK: [[L10:%.*]] = phi void (%struct.C addrspace(4)*)* [ %memptr.virtualfn, %memptr.virtual ], [ %memptr.nonvirtualfn, %memptr.nonvirtual ]
-// CHECK: [[L11:%.*]] = addrspacecast void (%struct.C addrspace(4)*)* [[L10]] to void (%struct.C addrspace(4)*)* addrspace(4)*
-// CHECK: call void @__intel_indirect_call_1({{.+}}[[L11]], %struct.C addrspace(4)* %this.adjusted)
+// CHECK: define linkonce_odr spir_func void {{.+}}test_2{{.+}}
+// CHECK: [[L10:%.*]] = phi ptr [ %memptr.virtualfn, %memptr.virtual ], [ %memptr.nonvirtualfn, %memptr.nonvirtual ]
+// CHECK: [[L11:%.*]] = addrspacecast ptr [[L10]] to ptr addrspace(4)
+// CHECK: call void @__intel_indirect_call_1({{.+}}[[L11]], ptr addrspace(4) [[GEP:%.*]])
 // CHECK: ret void

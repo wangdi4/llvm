@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -262,7 +262,7 @@ public:
 #include "llvm/IR/Instruction.def"
 
   static BinaryOperator *
-  CreateWithCopiedFlags(BinaryOps Opc, Value *V1, Value *V2, Instruction *CopyO,
+  CreateWithCopiedFlags(BinaryOps Opc, Value *V1, Value *V2, Value *CopyO,
                         const Twine &Name = "",
                         Instruction *InsertBefore = nullptr) {
     BinaryOperator *BO = Create(Opc, V1, V2, Name, InsertBefore);
@@ -704,6 +704,20 @@ public:
   static bool classof(const Instruction *I) {
     return I->isCast();
   }
+  static bool classof(const Value *V) {
+    return isa<Instruction>(V) && classof(cast<Instruction>(V));
+  }
+};
+
+/// Instruction that can have a nneg flag (only zext).
+class PossiblyNonNegInst : public CastInst {
+public:
+  enum { NonNeg = (1 << 0) };
+
+  static bool classof(const Instruction *I) {
+    return I->getOpcode() == Instruction::ZExt;
+  }
+
   static bool classof(const Value *V) {
     return isa<Instruction>(V) && classof(cast<Instruction>(V));
   }
@@ -1522,6 +1536,15 @@ public:
            "Use CallBase::isNoBuiltin() to check for Attribute::NoBuiltin");
     return hasFnAttrImpl(Kind);
   }
+
+#if INTEL_CUSTOMIZATION
+  //
+  bool hasFnAttrOnCallsite(Attribute::AttrKind Kind) const {
+    assert(Kind != Attribute::NoBuiltin &&
+           "Use CallBase::isNoBuiltin() to check for Attribute::NoBuiltin");
+    return hasFnAttrOnCallsiteImpl(Kind);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Determine whether this call has the given attribute. If it does not
   /// then determine if the called function has the attribute, but only if
@@ -2348,12 +2371,18 @@ private:
   template <typename AttrKind> bool hasFnAttrImpl(AttrKind Kind) const {
     if (Attrs.hasFnAttr(Kind))
       return true;
-
     return hasFnAttrOnCalledFunction(Kind);
   }
   template <typename AK> Attribute getFnAttrOnCalledFunction(AK Kind) const;
 
 #if INTEL_CUSTOMIZATION
+  template <typename AttrKind>
+  bool hasFnAttrOnCallsiteImpl(AttrKind Kind) const {
+    if (Attrs.hasFnAttr(Kind))
+      return true;
+    return false;
+  }
+
   template <typename AttrKind>
   Attribute getCallSiteOrFuncAttrImpl(AttrKind Kind) const {
     if (Attrs.hasFnAttr(Kind))

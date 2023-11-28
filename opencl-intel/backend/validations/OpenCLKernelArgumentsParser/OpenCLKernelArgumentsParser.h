@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,6 +14,7 @@
 
 #ifndef __OPENCL_KERNEL_ARGUMENTS_PARSER__
 #define __OPENCL_KERNEL_ARGUMENTS_PARSER__
+
 #include "Exception.h"
 #include "IMemoryObjectDesc.h"
 #include "IOpenCLKernelArgumentsParser.h"

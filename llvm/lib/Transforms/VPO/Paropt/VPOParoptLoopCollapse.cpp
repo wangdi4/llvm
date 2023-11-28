@@ -39,7 +39,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -96,11 +96,13 @@ static bool collapseLoops(
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),
                         WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                        WI.getAliasAnalysis(), OmpNoFECollapse,
 #if INTEL_CUSTOMIZATION
-                        OptReportVerbosity::None,
-#endif  // INTEL_CUSTOMIZATION
-                        ORE, 2, false);
+                        WI.getAliasAnalysis(),
+                        /*MemorySSA=*/nullptr, OmpNoFECollapse,
+                        OptReportVerbosity::None, ORE, 2, false);
+#else
+                        WI.getAliasAnalysis(), OmpNoFECollapse, ORE, 2, false);
+#endif // INTEL_CUSTOMIZATION
 
   Changed |= VP.paroptTransforms();
 
@@ -160,4 +162,4 @@ PreservedAnalyses VPOParoptLoopCollapsePass::run(
 
   return PA;
 }
-#endif  // INTEL_COLLAB
+#endif // INTEL_COLLAB

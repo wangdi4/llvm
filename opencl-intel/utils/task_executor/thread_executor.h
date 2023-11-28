@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,15 +16,15 @@
 
 #ifdef __THREAD_EXECUTOR__
 
-#ifdef _WIN32
-#include <Windows.h>
-#endif
-
 #include "cl_synch_objects.h"
 #include "task_executor.h"
 
 #include <list>
 #include <queue>
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 #define MAX_WORKING_THREADS_COUNT                                              \
   128 // We're assuming that there won't be more than 128 working

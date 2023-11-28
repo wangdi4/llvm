@@ -164,6 +164,9 @@ def "DIR.OMP.END.SCOPE" : Directive;
 def "DIR.OMP.TILE" : Directive;
 def "DIR.OMP.END.TILE" : Directive;
 
+def "DIR.OMP.INTERLEAVE" : Directive;
+def "DIR.OMP.END.INTERLEAVE" : Directive;
+
 def "DIR.OMP.SCAN" : Directive;
 def "DIR.OMP.END.SCAN" : Directive;
 
@@ -218,6 +221,7 @@ def "QUAL.OMP.UPDATE" : Clause;
 def "QUAL.OMP.UPDATE.SEQ_CST" : Clause;
 def "QUAL.OMP.CAPTURE" : Clause;
 def "QUAL.OMP.CAPTURE.SEQ_CST" : Clause;
+def "QUAL.OMP.PROC_BIND.PRIMARY" : Clause;
 def "QUAL.OMP.PROC_BIND.MASTER" : Clause;
 def "QUAL.OMP.PROC_BIND.CLOSE" : Clause;
 def "QUAL.OMP.PROC_BIND.SPREAD" : Clause;
@@ -342,6 +346,7 @@ def "QUAL.OMP.NOCONTEXT" : Clause;
 def "QUAL.OMP.NOVARIANTS" : Clause;
 def "QUAL.OMP.DATA" : Clause;
 def "QUAL.OMP.SIZES" : Clause;
+def "QUAL.OMP.STRIDES" : Clause;
 def "QUAL.OMP.INTEROP" : Clause;
 def "QUAL.OMP.INCLUSIVE" : Clause;
 def "QUAL.OMP.EXCLUSIVE" : Clause;
@@ -371,6 +376,7 @@ def "QUAL.OMP.OFFLOAD.ENTRY.IDX" : Clause;
 def "QUAL.OMP.OFFLOAD.NDRANGE" : Clause;
 def "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE" : Clause;
 def "QUAL.OMP.OFFLOAD.HAS.TEAMS.REDUCTION" : Clause;
+def "QUAL.OMP.PERFECTLY.NESTED" : Clause;
 
 // =====================================================================
 // * Begin Non-OpenMP Clauses

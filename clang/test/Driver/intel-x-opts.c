@@ -225,11 +225,35 @@
 // RUN:  | FileCheck -check-prefixes=XMETEORLAKE,ADV_OPT %s
 // XMETEORLAKE: "-target-cpu" "meteorlake"
 
+// RUN: %clang -### -c -xARROWLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XARROWLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxARROWLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XARROWLAKE,ADV_OPT %s
+// XARROWLAKE: "-target-cpu" "arrowlake"
+
+// RUN: %clang -### -c -xARROWLAKE-S %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XARROWLAKE-S,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxARROWLAKE-S %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XARROWLAKE-S,ADV_OPT %s
+// XARROWLAKE-S: "-target-cpu" "arrowlake-s"
+
+// RUN: %clang -### -c -xLUNARLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XLUNARLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxLUNARLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XLUNARLAKE,ADV_OPT %s
+// XLUNARLAKE: "-target-cpu" "lunarlake"
+
 // RUN: %clang -### -c -xGRANITERAPIDS %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XGRANITERAPIDS,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxGRANITERAPIDS %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XGRANITERAPIDS,ADV_OPT %s
 // XGRANITERAPIDS: "-target-cpu" "graniterapids"
+
+// RUN: %clang -### -c -xGRANITERAPIDS-D %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XGRANITERAPIDS-D,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxGRANITERAPIDS-D %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XGRANITERAPIDS-D,ADV_OPT %s
+// XGRANITERAPIDS-D: "-target-cpu" "graniterapids-d"
 
 // RUN: %clang -### -c -xSIERRAFOREST %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XSIERRAFOREST,ADV_OPT %s
@@ -248,6 +272,18 @@
 // RUN: %clang_cl -### -c /QxEMERALDRAPIDS %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XEMERALDRAPIDS,ADV_OPT %s
 // XEMERALDRAPIDS: "-target-cpu" "emeraldrapids"
+
+// RUN: %clang -### -c -xPANTHERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XPANTHERLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxPANTHERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XPANTHERLAKE,ADV_OPT %s
+// XPANTHERLAKE: "-target-cpu" "pantherlake"
+
+// RUN: %clang -### -c -xCLEARWATERFOREST %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XCLEARWATERFOREST,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxCLEARWATERFOREST %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XCLEARWATERFOREST,ADV_OPT %s
+// XCLEARWATERFOREST: "-target-cpu" "clearwaterforest"
 
 // RUN: %clang -### -c -xHOST %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XHOST,ADV_OPT %s

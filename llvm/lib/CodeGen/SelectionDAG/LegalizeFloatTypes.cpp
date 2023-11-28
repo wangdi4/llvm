@@ -66,8 +66,7 @@ static RTLIB::Libcall GetFPLibCall(EVT VT,
 //===----------------------------------------------------------------------===//
 
 void DAGTypeLegalizer::SoftenFloatResult(SDNode *N, unsigned ResNo) {
-  LLVM_DEBUG(dbgs() << "Soften float result " << ResNo << ": "; N->dump(&DAG);
-             dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "Soften float result " << ResNo << ": "; N->dump(&DAG));
   SDValue R = SDValue();
 
   switch (N->getOpcode()) {
@@ -76,7 +75,8 @@ void DAGTypeLegalizer::SoftenFloatResult(SDNode *N, unsigned ResNo) {
     dbgs() << "SoftenFloatResult #" << ResNo << ": ";
     N->dump(&DAG); dbgs() << "\n";
 #endif
-    llvm_unreachable("Do not know how to soften the result of this operator!");
+    report_fatal_error("Do not know how to soften the result of this "
+                       "operator!");
 
     case ISD::ARITH_FENCE: R = SoftenFloatRes_ARITH_FENCE(N); break;
     case ISD::MERGE_VALUES:R = SoftenFloatRes_MERGE_VALUES(N, ResNo); break;
@@ -108,6 +108,7 @@ void DAGTypeLegalizer::SoftenFloatResult(SDNode *N, unsigned ResNo) {
     case ISD::FEXP:        R = SoftenFloatRes_FEXP(N); break;
     case ISD::STRICT_FEXP2:
     case ISD::FEXP2:       R = SoftenFloatRes_FEXP2(N); break;
+    case ISD::FEXP10:      R = SoftenFloatRes_FEXP10(N); break;
     case ISD::STRICT_FFLOOR:
     case ISD::FFLOOR:      R = SoftenFloatRes_FFLOOR(N); break;
     case ISD::STRICT_FLOG:
@@ -362,7 +363,7 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_FATAN2(SDNode *N) {
                                            RTLIB::ATAN2_PPCF128),
                          NVT, Ops, CallOptions, SDLoc(N)).first;
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 SDValue DAGTypeLegalizer::SoftenFloatRes_FCBRT(SDNode *N) {
   return SoftenFloatRes_Unary(N, GetFPLibCall(N->getValueType(0),
@@ -464,6 +465,13 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_FEXP2(SDNode *N) {
                                               RTLIB::EXP2_F80,
                                               RTLIB::EXP2_F128,
                                               RTLIB::EXP2_PPCF128));
+}
+
+SDValue DAGTypeLegalizer::SoftenFloatRes_FEXP10(SDNode *N) {
+  return SoftenFloatRes_Unary(
+      N,
+      GetFPLibCall(N->getValueType(0), RTLIB::EXP10_F32, RTLIB::EXP10_F64,
+                   RTLIB::EXP10_F80, RTLIB::EXP10_F128, RTLIB::EXP10_PPCF128));
 }
 
 SDValue DAGTypeLegalizer::SoftenFloatRes_FFLOOR(SDNode *N) {
@@ -821,7 +829,7 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_FTAN(SDNode *N) {
                                            RTLIB::TAN_PPCF128),
                          NVT, Op, CallOptions, SDLoc(N)).first;
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 SDValue DAGTypeLegalizer::SoftenFloatRes_FTRUNC(SDNode *N) {
   return SoftenFloatRes_Unary(N, GetFPLibCall(N->getValueType(0),
@@ -957,8 +965,7 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_VECREDUCE_SEQ(SDNode *N) {
 //===----------------------------------------------------------------------===//
 
 bool DAGTypeLegalizer::SoftenFloatOperand(SDNode *N, unsigned OpNo) {
-  LLVM_DEBUG(dbgs() << "Soften float operand " << OpNo << ": "; N->dump(&DAG);
-             dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "Soften float operand " << OpNo << ": "; N->dump(&DAG));
   SDValue Res = SDValue();
 
   switch (N->getOpcode()) {
@@ -967,7 +974,7 @@ bool DAGTypeLegalizer::SoftenFloatOperand(SDNode *N, unsigned OpNo) {
     dbgs() << "SoftenFloatOperand Op #" << OpNo << ": ";
     N->dump(&DAG); dbgs() << "\n";
 #endif
-    llvm_unreachable("Do not know how to soften this operator's operand!");
+    report_fatal_error("Do not know how to soften this operator's operand!");
 
   case ISD::BITCAST:     Res = SoftenFloatOp_BITCAST(N); break;
   case ISD::BR_CC:       Res = SoftenFloatOp_BR_CC(N); break;
@@ -1325,7 +1332,7 @@ SDValue DAGTypeLegalizer::SoftenFloatOp_LLRINT(SDNode *N) {
 /// have invalid operands or may have other results that need promotion, we just
 /// know that (at least) one result needs expansion.
 void DAGTypeLegalizer::ExpandFloatResult(SDNode *N, unsigned ResNo) {
-  LLVM_DEBUG(dbgs() << "Expand float result: "; N->dump(&DAG); dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "Expand float result: "; N->dump(&DAG));
   SDValue Lo, Hi;
   Lo = Hi = SDValue();
 
@@ -1339,7 +1346,8 @@ void DAGTypeLegalizer::ExpandFloatResult(SDNode *N, unsigned ResNo) {
     dbgs() << "ExpandFloatResult #" << ResNo << ": ";
     N->dump(&DAG); dbgs() << "\n";
 #endif
-    llvm_unreachable("Do not know how to expand the result of this operator!");
+    report_fatal_error("Do not know how to expand the result of this "
+                       "operator!");
 
   case ISD::UNDEF:        SplitRes_UNDEF(N, Lo, Hi); break;
   case ISD::SELECT:       SplitRes_Select(N, Lo, Hi); break;
@@ -1363,7 +1371,7 @@ void DAGTypeLegalizer::ExpandFloatResult(SDNode *N, unsigned ResNo) {
 #if INTEL_CUSTOMIZATION
   case ISD::FATAN:      ExpandFloatRes_FATAN(N, Lo, Hi); break;
   case ISD::FATAN2:     ExpandFloatRes_FATAN2(N, Lo, Hi); break;
-#endif
+#endif // INTEL_CUSTOMIZATION
   case ISD::FCBRT:      ExpandFloatRes_FCBRT(N, Lo, Hi); break;
   case ISD::STRICT_FCEIL:
   case ISD::FCEIL:      ExpandFloatRes_FCEIL(N, Lo, Hi); break;
@@ -1376,6 +1384,7 @@ void DAGTypeLegalizer::ExpandFloatResult(SDNode *N, unsigned ResNo) {
   case ISD::FEXP:       ExpandFloatRes_FEXP(N, Lo, Hi); break;
   case ISD::STRICT_FEXP2:
   case ISD::FEXP2:      ExpandFloatRes_FEXP2(N, Lo, Hi); break;
+  case ISD::FEXP10:     ExpandFloatRes_FEXP10(N, Lo, Hi); break;
   case ISD::STRICT_FFLOOR:
   case ISD::FFLOOR:     ExpandFloatRes_FFLOOR(N, Lo, Hi); break;
   case ISD::STRICT_FLOG:
@@ -1416,7 +1425,7 @@ void DAGTypeLegalizer::ExpandFloatResult(SDNode *N, unsigned ResNo) {
   case ISD::FTRUNC:     ExpandFloatRes_FTRUNC(N, Lo, Hi); break;
 #if INTEL_CUSTOMIZATION
   case ISD::FTAN:       ExpandFloatRes_FTAN(N, Lo, Hi); break;
-#endif
+#endif // INTEL_CUSTOMIZATION
   case ISD::LOAD:       ExpandFloatRes_LOAD(N, Lo, Hi); break;
   case ISD::STRICT_SINT_TO_FP:
   case ISD::STRICT_UINT_TO_FP:
@@ -1530,7 +1539,7 @@ void DAGTypeLegalizer::ExpandFloatRes_FATAN2(SDNode *N,
                                         RTLIB::ATAN2_F80, RTLIB::ATAN2_F128,
                                         RTLIB::ATAN2_PPCF128), Lo, Hi);
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 void DAGTypeLegalizer::ExpandFloatRes_FCBRT(SDNode *N, SDValue &Lo,
                                             SDValue &Hi) {
@@ -1590,6 +1599,15 @@ void DAGTypeLegalizer::ExpandFloatRes_FEXP2(SDNode *N,
                                        RTLIB::EXP2_F32, RTLIB::EXP2_F64,
                                        RTLIB::EXP2_F80, RTLIB::EXP2_F128,
                                        RTLIB::EXP2_PPCF128), Lo, Hi);
+}
+
+void DAGTypeLegalizer::ExpandFloatRes_FEXP10(SDNode *N, SDValue &Lo,
+                                             SDValue &Hi) {
+  ExpandFloatRes_Unary(N,
+                       GetFPLibCall(N->getValueType(0), RTLIB::EXP10_F32,
+                                    RTLIB::EXP10_F64, RTLIB::EXP10_F80,
+                                    RTLIB::EXP10_F128, RTLIB::EXP10_PPCF128),
+                       Lo, Hi);
 }
 
 void DAGTypeLegalizer::ExpandFloatRes_FFLOOR(SDNode *N,
@@ -1801,7 +1819,7 @@ void DAGTypeLegalizer::ExpandFloatRes_FTAN(SDNode *N,
                                        RTLIB::TAN_F80, RTLIB::TAN_F128,
                                        RTLIB::TAN_PPCF128), Lo, Hi);
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 void DAGTypeLegalizer::ExpandFloatRes_FTRUNC(SDNode *N,
                                              SDValue &Lo, SDValue &Hi) {
@@ -1954,7 +1972,7 @@ void DAGTypeLegalizer::ExpandFloatRes_XINT_TO_FP(SDNode *N, SDValue &Lo,
 /// types of the node are known to be legal, but other operands of the node may
 /// need promotion or expansion as well as the specified one.
 bool DAGTypeLegalizer::ExpandFloatOperand(SDNode *N, unsigned OpNo) {
-  LLVM_DEBUG(dbgs() << "Expand float operand: "; N->dump(&DAG); dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "Expand float operand: "; N->dump(&DAG));
   SDValue Res = SDValue();
 
   // See if the target wants to custom expand this node.
@@ -1967,7 +1985,7 @@ bool DAGTypeLegalizer::ExpandFloatOperand(SDNode *N, unsigned OpNo) {
     dbgs() << "ExpandFloatOperand Op #" << OpNo << ": ";
     N->dump(&DAG); dbgs() << "\n";
 #endif
-    llvm_unreachable("Do not know how to expand this operator's operand!");
+    report_fatal_error("Do not know how to expand this operator's operand!");
 
   case ISD::BITCAST:         Res = ExpandOp_BITCAST(N); break;
   case ISD::BUILD_VECTOR:    Res = ExpandOp_BUILD_VECTOR(N); break;
@@ -2268,8 +2286,7 @@ static ISD::NodeType GetPromotionOpcode(EVT OpVT, EVT RetVT) {
 }
 
 bool DAGTypeLegalizer::PromoteFloatOperand(SDNode *N, unsigned OpNo) {
-  LLVM_DEBUG(dbgs() << "Promote float operand " << OpNo << ": "; N->dump(&DAG);
-             dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "Promote float operand " << OpNo << ": "; N->dump(&DAG));
   SDValue R = SDValue();
 
   if (CustomLowerNode(N, N->getOperand(OpNo).getValueType(), false)) {
@@ -2282,18 +2299,21 @@ bool DAGTypeLegalizer::PromoteFloatOperand(SDNode *N, unsigned OpNo) {
   // to use the promoted float operand.  Nodes that produce at least one
   // promotion-requiring floating point result have their operands legalized as
   // a part of PromoteFloatResult.
+  // clang-format off
   switch (N->getOpcode()) {
     default:
   #ifndef NDEBUG
       dbgs() << "PromoteFloatOperand Op #" << OpNo << ": ";
       N->dump(&DAG); dbgs() << "\n";
   #endif
-      llvm_unreachable("Do not know how to promote this operator's operand!");
+      report_fatal_error("Do not know how to promote this operator's operand!");
 
     case ISD::BITCAST:    R = PromoteFloatOp_BITCAST(N, OpNo); break;
     case ISD::FCOPYSIGN:  R = PromoteFloatOp_FCOPYSIGN(N, OpNo); break;
     case ISD::FP_TO_SINT:
-    case ISD::FP_TO_UINT: R = PromoteFloatOp_FP_TO_XINT(N, OpNo); break;
+    case ISD::FP_TO_UINT:
+    case ISD::LRINT:
+    case ISD::LLRINT:     R = PromoteFloatOp_UnaryOp(N, OpNo); break;
     case ISD::FP_TO_SINT_SAT:
     case ISD::FP_TO_UINT_SAT:
                           R = PromoteFloatOp_FP_TO_XINT_SAT(N, OpNo); break;
@@ -2302,6 +2322,7 @@ bool DAGTypeLegalizer::PromoteFloatOperand(SDNode *N, unsigned OpNo) {
     case ISD::SETCC:      R = PromoteFloatOp_SETCC(N, OpNo); break;
     case ISD::STORE:      R = PromoteFloatOp_STORE(N, OpNo); break;
   }
+  // clang-format on
 
   if (R.getNode())
     ReplaceValueWith(SDValue(N, 0), R);
@@ -2335,7 +2356,7 @@ SDValue DAGTypeLegalizer::PromoteFloatOp_FCOPYSIGN(SDNode *N, unsigned OpNo) {
 }
 
 // Convert the promoted float value to the desired integer type
-SDValue DAGTypeLegalizer::PromoteFloatOp_FP_TO_XINT(SDNode *N, unsigned OpNo) {
+SDValue DAGTypeLegalizer::PromoteFloatOp_UnaryOp(SDNode *N, unsigned OpNo) {
   SDValue Op = GetPromotedFloat(N->getOperand(0));
   return DAG.getNode(N->getOpcode(), SDLoc(N), N->getValueType(0), Op);
 }
@@ -2407,8 +2428,7 @@ SDValue DAGTypeLegalizer::PromoteFloatOp_STORE(SDNode *N, unsigned OpNo) {
 //===----------------------------------------------------------------------===//
 
 void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
-  LLVM_DEBUG(dbgs() << "Promote float result " << ResNo << ": "; N->dump(&DAG);
-             dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "Promote float result " << ResNo << ": "; N->dump(&DAG));
   SDValue R = SDValue();
 
   // See if the target wants to custom expand this node.
@@ -2427,7 +2447,7 @@ void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
       dbgs() << "PromoteFloatResult #" << ResNo << ": ";
       N->dump(&DAG); dbgs() << "\n";
 #endif
-      llvm_unreachable("Do not know how to promote this operator's result!");
+      report_fatal_error("Do not know how to promote this operator's result!");
 
     case ISD::BITCAST:    R = PromoteFloatRes_BITCAST(N); break;
     case ISD::ConstantFP: R = PromoteFloatRes_ConstantFP(N); break;
@@ -2439,12 +2459,13 @@ void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
     case ISD::FABS:
 #if INTEL_CUSTOMIZATION
     case ISD::FATAN:
-#endif
+#endif // INTEL_CUSTOMIZATION
     case ISD::FCBRT:
     case ISD::FCEIL:
     case ISD::FCOS:
     case ISD::FEXP:
     case ISD::FEXP2:
+    case ISD::FEXP10:
     case ISD::FFLOOR:
     case ISD::FLOG:
     case ISD::FLOG2:
@@ -2457,7 +2478,7 @@ void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
     case ISD::FSIN:
 #if INTEL_CUSTOMIZATION
     case ISD::FTAN:
-#endif
+#endif // INTEL_CUSTOMIZATION
     case ISD::FSQRT:
     case ISD::FTRUNC:
     case ISD::FCANONICALIZE: R = PromoteFloatRes_UnaryOp(N); break;
@@ -2466,7 +2487,7 @@ void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
     case ISD::FADD:
 #if INTEL_CUSTOMIZATION
     case ISD::FATAN2:
-#endif
+#endif // INTEL_CUSTOMIZATION
     case ISD::FDIV:
     case ISD::FMAXIMUM:
     case ISD::FMINIMUM:
@@ -2799,7 +2820,7 @@ SDValue DAGTypeLegalizer::BitcastToInt_ATOMIC_SWAP(SDNode *N) {
 
 void DAGTypeLegalizer::SoftPromoteHalfResult(SDNode *N, unsigned ResNo) {
   LLVM_DEBUG(dbgs() << "Soft promote half result " << ResNo << ": ";
-             N->dump(&DAG); dbgs() << "\n");
+             N->dump(&DAG));
   SDValue R = SDValue();
 
   // See if the target wants to custom expand this node.
@@ -2814,7 +2835,8 @@ void DAGTypeLegalizer::SoftPromoteHalfResult(SDNode *N, unsigned ResNo) {
     dbgs() << "SoftPromoteHalfResult #" << ResNo << ": ";
     N->dump(&DAG); dbgs() << "\n";
 #endif
-    llvm_unreachable("Do not know how to soft promote this operator's result!");
+    report_fatal_error("Do not know how to soft promote this operator's "
+                       "result!");
 
   case ISD::BITCAST:    R = SoftPromoteHalfRes_BITCAST(N); break;
   case ISD::ConstantFP: R = SoftPromoteHalfRes_ConstantFP(N); break;
@@ -2831,6 +2853,7 @@ void DAGTypeLegalizer::SoftPromoteHalfResult(SDNode *N, unsigned ResNo) {
   case ISD::FCOS:
   case ISD::FEXP:
   case ISD::FEXP2:
+  case ISD::FEXP10:
   case ISD::FFLOOR:
   case ISD::FLOG:
   case ISD::FLOG2:
@@ -3106,7 +3129,7 @@ SDValue DAGTypeLegalizer::SoftPromoteHalfRes_VECREDUCE_SEQ(SDNode *N) {
 
 bool DAGTypeLegalizer::SoftPromoteHalfOperand(SDNode *N, unsigned OpNo) {
   LLVM_DEBUG(dbgs() << "Soft promote half operand " << OpNo << ": ";
-             N->dump(&DAG); dbgs() << "\n");
+             N->dump(&DAG));
   SDValue Res = SDValue();
 
   if (CustomLowerNode(N, N->getOperand(OpNo).getValueType(), false)) {
@@ -3125,7 +3148,8 @@ bool DAGTypeLegalizer::SoftPromoteHalfOperand(SDNode *N, unsigned OpNo) {
     dbgs() << "SoftPromoteHalfOperand Op #" << OpNo << ": ";
     N->dump(&DAG); dbgs() << "\n";
   #endif
-    llvm_unreachable("Do not know how to soft promote this operator's operand!");
+    report_fatal_error("Do not know how to soft promote this operator's "
+                       "operand!");
 
   case ISD::BITCAST:    Res = SoftPromoteHalfOp_BITCAST(N); break;
   case ISD::FCOPYSIGN:  Res = SoftPromoteHalfOp_FCOPYSIGN(N, OpNo); break;

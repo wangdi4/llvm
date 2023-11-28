@@ -1,6 +1,6 @@
 //===- DTransOptUtils.cpp - Common utility functions for DTrans transforms-===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,7 +14,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTrans.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
 

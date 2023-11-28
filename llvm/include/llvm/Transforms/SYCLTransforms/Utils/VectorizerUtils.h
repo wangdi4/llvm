@@ -1,6 +1,6 @@
 //===-- VectorizerUtils.h - Vectorizer utilities --------------------------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -55,11 +55,6 @@ Instruction *createBroadcast(Value *V, unsigned VectorWidth,
 /// \param InsertPoint instruction to insert before.
 Instruction *extendValToType(Value *Orig, Type *TargetType,
                              Instruction *InsertPoint);
-
-/// Check if both types are pointer to opaque types.
-/// \param X type 1
-/// \param Y type 2
-bool isOpaquePtrPair(Type *X, Type *Y);
 
 /// Follow thru a function input argument, until finding the root
 //   (where its type matches the "expected" type).

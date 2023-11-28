@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp  \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp  \
 // RUN:  -fopenmp-late-outline -verify -triple x86_64-unknown-linux-gnu  \
 // RUN:  -Wno-openmp-groupprivate %s | FileCheck %s -check-prefix HOST
 
@@ -8,7 +8,7 @@
 // RUN:  -fopenmp-late-outline -Werror -Wsource-uses-openmp -o \
 // RUN:  %t_host.bc %s
 
-// RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+// RUN: %clang_cc1 -triple spir64 \
 // RUN:  -aux-triple x86_64-unknown-linux-gnu \
 // RUN:  -emit-llvm -disable-llvm-passes \
 // RUN:  -fopenmp -fopenmp-targets=spir64 -fopenmp-late-outline\
@@ -49,7 +49,7 @@ int main() {
 //HOST: @y = target_declare global i32 0, align 4
 //HOST: @x_gp = global i32 0, align 4
 //HOST: @_ZZL5test1vE1x = internal global i32 0, align 4
-//TARG: @y = target_declare addrspace(3) global i32 0, align 4
+//TARG: @y = {{.*}}target_declare addrspace(3) global i32 0, align 4
 //TARG: @x_gp = external addrspace(3) global i32, align 4
 //TARG: @_ZZL5test1vE1x = internal addrspace(3) global i32 undef, align 4
 //TARG-NOT: {i32 1, !"_Z1y", i32 0, i32 0, ptr addrspace(3) @y}

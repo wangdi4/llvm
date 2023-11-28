@@ -1,6 +1,6 @@
 //===--------------- Intel_AggInliner.cpp --------------------------------===//
 //
-// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,10 +15,13 @@
 //
 //===----------------------------------------------------------------------===//
 #include "llvm/Transforms/IPO/Intel_AggInliner.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -57,6 +60,27 @@ static cl::opt<uint64_t> InlineAggressiveInstLimit("inline-agg-inst-limit",
                                                    cl::init(0x3000),
                                                    cl::ReallyHidden);
 
+// Minimum number of calls for a consecutive call chain to be considered a long
+// consecutive call chain.
+static cl::opt<unsigned> InlineAggressiveLongConsecutiveCallChainSize(
+    "inline-agg-long-consecutive-call-chain-size", cl::init(6),
+    cl::ReallyHidden);
+
+// Force inlining of all calls to functions found in long consecutive call
+// chains, without profitability analysis.
+static cl::opt<bool>
+    InlineAggressiveLongConsecutiveCallChainIgnoreProfitability(
+        "inline-agg-long-consecutive-call-chain-ignore-profitability",
+        cl::init(false), cl::ReallyHidden);
+
+// Bail out if trip count comparison can't complete in the specified number of
+// iterations during profitability analysis of long consecutive call chain
+// inlining.
+static cl::opt<unsigned>
+    InlineAggressiveLongConsecutiveCallChainTripCountEqualIterations(
+        "inline-agg-long-consecutive-call-chain-trip-count-equal-iterations",
+        cl::init(16), cl::ReallyHidden);
+
 // Maximum number of Global variable's uses allowed.
 static const unsigned MaxNumGVUses = 16;
 
@@ -74,8 +98,564 @@ static const unsigned MaxNumBBInlineLimit = 32;
 // this limit.
 static const unsigned MaxNumBBTinyFuncLimit = 1;
 
-InlineAggressiveInfo::InlineAggressiveInfo(AggInlGetTLITy GetTLI)
-    : GetTLI(GetTLI) {
+// This class implements the long-consecutive-call-chain heuristic.
+// It tries to find a function that is called consecutively for many times, and
+// find all call sites of all functions that appear inside the same call
+// chain to find inlining opportunities that is likely to facilitate potential
+// future optimization, e.g. loop fusion.
+//
+// For example, if code like below appears inside the source:
+//
+//   ... // Not adjacent to another function call
+//   func_a(data);
+//   func_b(data);
+//   func_c(data);
+//   func_c(data);
+//   func_c(data);
+//   func_c(data);
+//   func_d(data);
+//   ... // Not adjacent to another function call
+//
+// And our threshold for "long consecutive call chain" is less than 5, every
+// call to func_a(), func_b(), func_c() and func_d() will be checked for
+// profitability and, if passed, be inlined.
+//
+// In detail:
+// Not all functions are eligible to be inside a long consecutive call chain. We
+// only handle functions whose performance is likely to be optimized in later
+// passes. Such function is called a "candidate leaf function".
+// A "call chain" is a series of call instructions residing in the same basic
+// block, inside which each call must be a direct call to a candidate leaf
+// function.
+// If all calls inside a call chain has the same callee, the chain is called a
+// "consecutive call chain" (abbreviated "CCChain" in the source). A consecutive
+// call chain with length above a certain threshold is called a "long
+// consecutive call chain".
+// We find all chains containing a long consecutive call chain, and check
+// whether it's profitable to inline these calls. If so, All callees of these
+// call chains are promoted from "candidate leaf function" to "leaf function"
+// (related to a long consecutive call chain). Bail out if any chain is not
+// profitable.
+// These leaf functions may also be called in a chained fashion elsewhere, these
+// chains don't satisfy the conditions of a long consecutive call chain, but
+// can usually be optimized in a similar manner. We also find these chains and
+// check them for profitability. In this step, non-profitable calls are allowed,
+// but they'll not be inlined.
+class LongConsecutiveCallChainHeuristic {
+  // A call chain is identified by two instructions: the Start and the End. It's
+  // an [closed, open) interval, the End is not included in the chain.
+  // Every instruction in a call chain must be a direct call to a candidate
+  // leaf function. Since a call instruction is not a terminator, End is
+  // guaranteed to be non-null.
+  // A Length is also stored for convenience.
+  struct CallChain {
+    CallInst *Start;
+    Instruction *End;
+    unsigned Length;
+    const Function *getCaller() const { return Start->getCaller(); }
+    CallChain(CallInst *Start, Instruction *End, unsigned Length)
+        : Start(Start), End(End), Length(Length) {
+      assert(Start->getParent() == End->getParent() &&
+             "A call chain must be contained in one basic block");
+      assert(Length >= 1 && "Empty call chain is not allowed");
+    }
+    bool operator<(const CallChain &Other) const {
+      assert(!(Start == Other.Start ^ End == Other.End) &&
+             "A call instruction may be covered by at most one call chain");
+      return Start < Other.Start;
+    }
+  };
+
+  // Determining whether a function is a valid candidate for a call chain
+  // requires some analysis, we cache the result with the Loop required by its
+  // definition. The function can't be part of a call chain if the loop is
+  // nullptr.
+  std::map<Function *, Loop *> LeafFunctionCandidacyCache;
+  // All call chains found in the module
+  std::set<CallChain> CallChains;
+  // Map from a call to the call chain it belongs to. It's guaranteed that every
+  // call chain in CallChains has all of its call instructions present in the
+  // map.
+  std::map<CallInst *, const CallChain *> CallToChainMap;
+  Module &M;
+  std::function<void(CallBase &)> SetInline;
+  std::function<void(CallBase &)> SetNoInline;
+  AggInlGetLITy GetLI;
+  AggInlGetSETy GetSE;
+
+  // Determine whether a function is a valid leaf function candidate.
+  bool isLeafFunctionCandidate(Function *F);
+  // Analyze the module, find all long consecutive call chains, store them in a
+  // set and return.
+  DenseSet<const CallChain *> findChainsWithLongConsecutiveCallChain();
+  // Given two calls, determine whether inlining them is profitable. CallA and
+  // CallB must be two adjacent calls in the same call chain.
+  bool isProfitableToInlineCallPair(CallInst *CallA, CallInst *CallB);
+  // Add a custom "lccc-call-in-leaf" attribute to every direct call in leaf
+  // functions that is not in a loop.
+  // If there are function calls outside of the loop we're targeting in the leaf
+  // function, it's likely they'll interfere with optimizations like loop
+  // fusion. The attribute can tell later passes (e.g. partial inlining) to
+  // optimize these calls more aggressively and hopefully eliminate them.
+  // Note we put the attribute on the instructions instead of the leaf function
+  // itself, or the callers of inlined call chains. Though the latter approach
+  // is simpler, the attribute would be lost when the function carrying it is
+  // inlined.
+  void markCallsInLeafFunctions(const DenseSet<Function *> &LeafFunctions);
+
+public:
+  // This class uses SetInline and SetNoInline callback to mark call sites to be
+  // or not to be inlined.
+  LongConsecutiveCallChainHeuristic(Module &M,
+                                    std::function<void(CallBase &)> SetInline,
+                                    std::function<void(CallBase &)> SetNoInline,
+                                    AggInlGetLITy GetLI, AggInlGetSETy GetSE)
+      : M(M), SetInline(SetInline), SetNoInline(SetNoInline), GetLI(GetLI),
+        GetSE(GetSE) {}
+
+  bool run();
+};
+
+// A SimpleValueMap is just a map from Value to Value. It's used to help doing
+// argument substitution for analysis of call sites. Because the IR is not
+// changed during analysis there is no need to use a ValueMap.
+using SimpleValueMap = DenseMap<Value *, Value *>;
+
+// Return the mapped value of V in Map if exists, or V itself if not.
+static const Value *tryMapValue(const Value *V, const SimpleValueMap &Map) {
+  auto It = Map.find(V);
+  if (It == Map.end())
+    return V;
+  return It->second;
+}
+
+// Given ArgMapLHS and ArgMapRHS constructed from two function call sites in
+// Caller function, and two values LHS and RHS extracted from their callees, try
+// to determine whether they're possibly equal by traversing the instructions
+// producing LHS and RHS recursively and comparing them.
+// The length of traversal is limited by the Iterations variable.
+// Currently it covers constants, arguments, GEPs, and loads. Potential mutation
+// of memory between loads is not taken into consideration.
+static bool checkValueStructuralEqualityAcrossCall(
+    const Value *LHS, const Value *RHS, const SimpleValueMap &ArgMapLHS,
+    const SimpleValueMap &ArgMapRHS, unsigned &Iterations, Function *Caller) {
+  if (Iterations == 0)
+    return false;
+  Iterations -= 1;
+
+  if (LHS->getType() != RHS->getType())
+    return false;
+
+  LHS = tryMapValue(LHS, ArgMapLHS);
+  RHS = tryMapValue(RHS, ArgMapRHS);
+
+  auto LI = dyn_cast<Instruction>(LHS);
+  auto RI = dyn_cast<Instruction>(RHS);
+
+  if (LHS == RHS) {
+    if (isa<Constant>(LHS))
+      return true;
+    if (LI && LI->getFunction() == Caller)
+      return true;
+    if (auto LArg = dyn_cast<Argument>(LHS))
+      if (LArg->getParent() == Caller)
+        return true;
+  }
+
+  if (!LI || !RI || LI->getOpcode() != RI->getOpcode())
+    return false;
+
+  if (auto LGEP = dyn_cast<GetElementPtrInst>(LI)) {
+    auto RGEP = cast<GetElementPtrInst>(RI);
+    if (LGEP->getNumIndices() != RGEP->getNumIndices() ||
+        LGEP->isInBounds() != RGEP->isInBounds())
+      return false;
+    for (const auto &It : llvm::zip_equal(LGEP->indices(), RGEP->indices()))
+      if (!checkValueStructuralEqualityAcrossCall(
+              std::get<0>(It), std::get<1>(It), ArgMapLHS, ArgMapRHS,
+              Iterations, Caller))
+        return false;
+    return checkValueStructuralEqualityAcrossCall(
+        LGEP->getPointerOperand(), RGEP->getPointerOperand(), ArgMapLHS,
+        ArgMapRHS, Iterations, Caller);
+  }
+
+  if (auto LLoad = dyn_cast<LoadInst>(LI))
+    return checkValueStructuralEqualityAcrossCall(
+        LLoad->getPointerOperand(), cast<LoadInst>(RI)->getPointerOperand(),
+        ArgMapLHS, ArgMapRHS, Iterations, Caller);
+
+  return false;
+}
+
+// Given ArgMapLHS and ArgMapRHS constructed from two function call sites in
+// Caller function, and two SCEVs LHS and RHS constructed from their callees,
+// try to determine whether they're possibly equal by comparing the expression
+// structure of the two SCEVs.
+// The length of the process is limited by the Iterations variable.
+// Currently it covers SCEVConstant, SCEVCast, and SCEVCommutativeExpr, and uses
+// checkValueStructuralEqualityAcrossCall for SCEVUnknown.
+// Note it's only intended for simple cases of comparing trip counts. Against
+// SCEVCommutativeExpr we just check for the equality of nth operand of LHS with
+// the nth operand of RHS. We don't really check commutatively for simplicity.
+static bool checkSCEVStructuralEqualityAcrossCall(
+    const SCEV *LHS, const SCEV *RHS, const SimpleValueMap &ArgMapLHS,
+    const SimpleValueMap &ArgMapRHS, unsigned &Iterations, Function *Caller) {
+  if (Iterations == 0)
+    return false;
+  Iterations -= 1;
+
+  if (isa<SCEVCouldNotCompute>(LHS) || isa<SCEVCouldNotCompute>(RHS))
+    return false;
+
+  if (LHS->getSCEVType() != RHS->getSCEVType() ||
+      LHS->getType() != RHS->getType())
+    return false;
+
+  if (auto LConstant = dyn_cast<SCEVConstant>(LHS))
+    return LConstant->getAPInt() == cast<SCEVConstant>(RHS)->getAPInt();
+
+  if (auto LUnknown = dyn_cast<SCEVUnknown>(LHS))
+    return checkValueStructuralEqualityAcrossCall(
+        LUnknown->getValue(), cast<SCEVUnknown>(RHS)->getValue(), ArgMapLHS,
+        ArgMapRHS, Iterations, Caller);
+
+  if (auto LCast = dyn_cast<SCEVCastExpr>(LHS))
+    return checkSCEVStructuralEqualityAcrossCall(
+        LCast->getOperand(), cast<SCEVCastExpr>(RHS)->getOperand(), ArgMapLHS,
+        ArgMapRHS, Iterations, Caller);
+
+  if (auto LComm = dyn_cast<SCEVCommutativeExpr>(LHS)) {
+    auto RComm = cast<SCEVCommutativeExpr>(RHS);
+    if (LComm->getNumOperands() != RComm->getNumOperands() ||
+        LComm->getNoWrapFlags() != RComm->getNoWrapFlags())
+      return false;
+    for (const auto &It : llvm::zip_equal(LComm->operands(), RComm->operands()))
+      if (!checkSCEVStructuralEqualityAcrossCall(std::get<0>(It),
+                                                 std::get<1>(It), ArgMapLHS,
+                                                 ArgMapRHS, Iterations, Caller))
+        return false;
+    return true;
+  }
+
+  return false;
+}
+
+// Construct a SimpleValueMap containing the mapping of formal parameter to
+// actual parameter for a function call.
+static void populateArgumentMapping(SimpleValueMap &Out, CallInst *CI) {
+  Function *Fn = CI->getCalledFunction();
+  assert(!Fn->isVarArg() && "Unexpected callee with varargs");
+  assert(Fn->arg_size() == CI->arg_size() &&
+         "A call instruction should have the same number of arguments as its "
+         "callee");
+  for (const auto &It : llvm::zip_equal(Fn->args(), CI->args()))
+    Out[&std::get<0>(It)] = std::get<1>(It);
+}
+
+bool LongConsecutiveCallChainHeuristic::isProfitableToInlineCallPair(
+    CallInst *CallA, CallInst *CallB) {
+  if (InlineAggressiveLongConsecutiveCallChainIgnoreProfitability)
+    return true;
+
+  // By definition, both calls must call a leaf function, every leaf function
+  // must have one and only one top-level loop. Get the trip counts of the
+  // loops, represented in SCEV, and use checkSCEVStructuralEqualityAcrossCall
+  // to check whether they're equal.
+  assert(CallA->getNextNonDebugInstruction() == CallB &&
+         "Calls in a call chain should be adjacent to each other");
+  Function *ParentFn = CallA->getCaller();
+  Function *FnA = CallA->getCalledFunction();
+  Loop *LoopA = LeafFunctionCandidacyCache[FnA];
+  Function *FnB = CallB->getCalledFunction();
+  Loop *LoopB = LeafFunctionCandidacyCache[FnB];
+  assert(LoopA && LoopB && "Functions in a call chain should've been cached");
+
+  ScalarEvolution &SEA = GetSE(*FnA);
+  const SCEV *TCA =
+      SEA.getTripCountFromExitCount(SEA.getBackedgeTakenCount(LoopA));
+  ScalarEvolution &SEB = GetSE(*FnB);
+  const SCEV *TCB =
+      SEB.getTripCountFromExitCount(SEB.getBackedgeTakenCount(LoopB));
+  SimpleValueMap ArgMapA;
+  populateArgumentMapping(ArgMapA, CallA);
+  SimpleValueMap ArgMapB;
+  populateArgumentMapping(ArgMapB, CallB);
+
+  unsigned Iterations =
+      InlineAggressiveLongConsecutiveCallChainTripCountEqualIterations;
+  bool Result = checkSCEVStructuralEqualityAcrossCall(
+      TCA, TCB, ArgMapA, ArgMapB, Iterations, ParentFn);
+  LLVM_DEBUG(dbgs() << "AggInl: In function " << ParentFn->getName()
+                    << ", profitability " << Result
+                    << " to inline pair of calls:\n"
+                    << *CallA << "\n"
+                    << *CallB << "\nSCEV for trip counts " << *TCA << " AND "
+                    << *TCB << "\n");
+  return Result;
+}
+
+bool LongConsecutiveCallChainHeuristic::isLeafFunctionCandidate(Function *F) {
+  auto CacheIt = LeafFunctionCandidacyCache.find(F);
+  if (CacheIt != LeafFunctionCandidacyCache.end())
+    return CacheIt->second;
+
+  // Current qualification for a candidate leaf function is very naive. More
+  // analysis is done when checking for the profitability of inlining each call
+  // chain.
+  // Functions with variadic arguments are not accepted because they're rare and
+  // make later analysis more complex.
+  if (F->isDeclaration() || F->isVarArg()) {
+    LeafFunctionCandidacyCache[F] = nullptr;
+    return false;
+  }
+  const LoopInfo &LI = GetLI(*F);
+  // The function should have one and only one top-level loop.
+  if (LI.size() != 1) {
+    LeafFunctionCandidacyCache[F] = nullptr;
+    return false;
+  }
+
+  LeafFunctionCandidacyCache[F] = *LI.begin();
+  return true;
+}
+
+DenseSet<const LongConsecutiveCallChainHeuristic::CallChain *>
+LongConsecutiveCallChainHeuristic::findChainsWithLongConsecutiveCallChain() {
+  DenseSet<const CallChain *> Result;
+  // For every candidate leaf function in the module, build call chains by
+  // finding all its call sites and then finding their adjacent calls.
+  for (auto &F : M) {
+    if (!isLeafFunctionCandidate(&F))
+      continue;
+
+    for (User *U : F.users()) {
+      auto CI = dyn_cast<CallInst>(U);
+      if (!CI || CI->getCalledFunction() != &F)
+        continue;
+      // Skip if the call chain it belongs to is already constructed (i.e. the
+      // call has been visited before)
+      if (CallToChainMap.find(CI) != CallToChainMap.end())
+        continue;
+
+      auto IsEligibleInstForCallChain = [this](Instruction *I) {
+        auto CI = dyn_cast<CallInst>(I);
+        if (!CI)
+          return false;
+        auto Callee = CI->getCalledFunction();
+        if (!Callee || !isLeafFunctionCandidate(Callee))
+          return false;
+        return true;
+      };
+
+      // Start from the call, walk its adjacent instructions in both directions
+      // to build its call chain.
+      unsigned ChainLength = 1;
+      CallInst *ChainStart = CI;
+      while (Instruction *Prev = ChainStart->getPrevNonDebugInstruction()) {
+        if (!IsEligibleInstForCallChain(Prev))
+          break;
+        assert(CallToChainMap.find(CI) == CallToChainMap.end() &&
+               "The same call is visited twice while building call chain");
+        ChainLength += 1;
+        ChainStart = cast<CallInst>(Prev);
+      }
+      Instruction *ChainEnd = CI;
+      while (Instruction *Next = ChainEnd->getNextNonDebugInstruction()) {
+        if (!IsEligibleInstForCallChain(Next))
+          break;
+        assert(CallToChainMap.find(CI) == CallToChainMap.end() &&
+               "The same call is visited twice while building call chain");
+        ChainLength += 1;
+        ChainEnd = Next;
+      }
+      ChainEnd = ChainEnd->getNextNonDebugInstruction();
+      const CallChain &Chain =
+          *CallChains.emplace(ChainStart, ChainEnd, ChainLength).first;
+
+      // Compute the length for the longest consecutive call chain inside the
+      // chain. Put it into Result if the length is above a threshold.
+      Function *CalleeWithLongestCCChain = nullptr;
+      // The variable is only for debug message
+      (void)CalleeWithLongestCCChain;
+      unsigned LongestCCChainLength = 0;
+      Function *CalleeForCurrentCCChain = nullptr;
+      unsigned CurrentCCChainLength = 0;
+      for (Instruction *Curr = ChainStart; Curr != ChainEnd;
+           Curr = Curr->getNextNonDebugInstruction()) {
+        auto CurrCall = cast<CallInst>(Curr);
+        auto Callee = CurrCall->getCalledFunction();
+        assert(Callee &&
+               "An instruction in a call chain must be a direct call");
+        if (Callee != CalleeForCurrentCCChain) {
+          if (LongestCCChainLength < CurrentCCChainLength) {
+            CalleeWithLongestCCChain = CalleeForCurrentCCChain;
+            LongestCCChainLength = CurrentCCChainLength;
+          }
+          CalleeForCurrentCCChain = Callee;
+          CurrentCCChainLength = 1;
+        } else {
+          CurrentCCChainLength += 1;
+        }
+        CallToChainMap.emplace(CurrCall, &Chain);
+      }
+      if (LongestCCChainLength < CurrentCCChainLength) {
+        CalleeWithLongestCCChain = CalleeForCurrentCCChain;
+        LongestCCChainLength = CurrentCCChainLength;
+      }
+
+      if (LongestCCChainLength >=
+          InlineAggressiveLongConsecutiveCallChainSize) {
+        LLVM_DEBUG(
+            dbgs() << "AggInl: long consecutive call chain located inside "
+                   << CI->getFunction()->getName() << ", total length "
+                   << ChainLength << ", the longest consecutive chain has "
+                   << LongestCCChainLength << " calls to "
+                   << CalleeWithLongestCCChain->getName()
+                   << ", chain starts from " << *ChainStart << "\n");
+        Result.insert(&Chain);
+      }
+    }
+  }
+  return Result;
+}
+
+void LongConsecutiveCallChainHeuristic::markCallsInLeafFunctions(
+    const DenseSet<Function *> &LeafFunctions) {
+  for (auto F : LeafFunctions) {
+    Loop *L = LeafFunctionCandidacyCache[F];
+    assert(L && "Leaf functions should've been cached");
+    for (auto &BB : *F) {
+      if (L->contains(&BB))
+        continue;
+      for (auto &I : BB) {
+        auto CI = dyn_cast<CallInst>(&I);
+        if (CI && CI->getCalledFunction())
+          CI->addFnAttr("lccc-call-in-leaf");
+      }
+    }
+  }
+}
+
+bool LongConsecutiveCallChainHeuristic::run() {
+  LLVM_DEBUG(dbgs() << "AggInl: LongConsecutiveCallChainHeuristic\n");
+  // First, find all long consecutive call chains.
+  DenseSet<const CallChain *> ChainsWithLCCC =
+      findChainsWithLongConsecutiveCallChain();
+  if (ChainsWithLCCC.empty())
+    return false;
+
+  // Every callee function in the long chains is a leaf function.
+  DenseSet<Function *> LeafFunctions;
+  // Store all call sites to be inlined.
+  // Their callers are also stored to help determine whether to call chains with
+  // a single call.
+  DenseSet<CallInst *> InlinedCallSites;
+  DenseSet<const Function *> CallersOfInlinedCallSites;
+
+  // Find all profitable pairs to inline in a call chain and do the bookkeeping.
+  auto CheckProfitabilityForCallChain =
+      [this, &InlinedCallSites,
+       &CallersOfInlinedCallSites](const CallChain *Chain) {
+        unsigned NumInlinedPairs = 0;
+        for (CallInst *Curr = Chain->Start;
+             Curr->getNextNonDebugInstruction() != Chain->End;
+             Curr = cast<CallInst>(Curr->getNextNonDebugInstruction())) {
+          auto NextCI = cast<CallInst>(Curr->getNextNonDebugInstruction());
+          if (!isProfitableToInlineCallPair(Curr, NextCI))
+            continue;
+          NumInlinedPairs += 1;
+          InlinedCallSites.insert(Curr);
+          InlinedCallSites.insert(NextCI);
+        }
+        if (NumInlinedPairs)
+          CallersOfInlinedCallSites.insert(Chain->getCaller());
+        LLVM_DEBUG(dbgs() << "AggInl: LCCC in " << Chain->getCaller()->getName()
+                          << ", found " << NumInlinedPairs
+                          << " profitable pairs among " << Chain->Length
+                          << " calls in call chain from " << *Chain->Start
+                          << " TO " << *Chain->End << "\n");
+        return NumInlinedPairs;
+      };
+
+  // Then check every long chain found above for profitability. If there are
+  // multiple long chains, every chain needs to be profitable for the heuristic
+  // to continue.
+  DenseSet<const CallChain *> VisitedCallChains;
+  for (auto Chain : ChainsWithLCCC) {
+    VisitedCallChains.insert(Chain);
+    for (Instruction *I = Chain->Start; I != Chain->End;
+         I = I->getNextNonDebugInstruction())
+      LeafFunctions.insert(cast<CallInst>(I)->getCalledFunction());
+    if (CheckProfitabilityForCallChain(Chain) != Chain->Length - 1)
+      return false;
+  }
+
+  markCallsInLeafFunctions(LeafFunctions);
+
+  // We've found the leaf functions from the long chains. Check profitability of
+  // inlining for every call chain that calls a leaf function.
+  // The profitability check requires at least two calls, if there is only one
+  // call, we then check whether there is any other call chain that passes the
+  // check in the same function.
+  DenseSet<CallInst *> SoleLeafCalls;
+  for (auto LeafFunction : LeafFunctions)
+    for (auto U : LeafFunction->users()) {
+      auto CI = dyn_cast<CallInst>(U);
+      if (!CI || CI->getCalledFunction() != LeafFunction)
+        continue;
+      const CallChain *Chain = CallToChainMap[CI];
+      assert(
+          Chain &&
+          "Expected call chain to be present for every call of leaf function");
+
+      if (VisitedCallChains.find(Chain) != VisitedCallChains.end())
+        continue;
+      VisitedCallChains.insert(Chain);
+
+      if (Chain->Length == 1)
+        SoleLeafCalls.insert(CI);
+      else
+        CheckProfitabilityForCallChain(Chain);
+    }
+  for (auto CI : SoleLeafCalls)
+    if (CallersOfInlinedCallSites.find(CI->getCaller()) !=
+        CallersOfInlinedCallSites.end())
+      InlinedCallSites.insert(CI);
+
+  for (CallInst *CI : InlinedCallSites)
+    SetInline(*CI);
+
+  // It's possible that a leaf function becomes recursive after inlining. The
+  // default setting of LLVM's inliner forbids all inlining of all recursive
+  // functions. To ensure more leaf functions are inlined, detect recursive
+  // call chains like func_a() -> func_b() -> func_a() and prevent inlining
+  // of func_b().
+  // A complete analysis would build the SCC of leaf functions, but that's
+  // too heavy for our current need. For the time being we just check one level
+  // upward.
+  for (auto LeafFunction : LeafFunctions) {
+    for (auto U : LeafFunction->users()) {
+      auto CI = dyn_cast<CallInst>(U);
+      if (!CI || CI->getCalledFunction() != LeafFunction)
+        continue;
+      Function *Caller = CI->getCaller();
+      for (auto UOfCaller : Caller->users()) {
+        auto CallOfCaller = dyn_cast<CallInst>(UOfCaller);
+        if (CallOfCaller && CallOfCaller->getCalledFunction() == Caller &&
+            CallOfCaller->getCaller() == LeafFunction)
+          SetNoInline(*CallOfCaller);
+      }
+    }
+  }
+
+  return true;
+}
+
+InlineAggressiveInfo::InlineAggressiveInfo(AggInlGetTLITy GetTLI,
+                                           AggInlGetLITy GetLI,
+                                           AggInlGetSETy GetSE)
+    : GetTLI(GetTLI), GetLI(GetLI), GetSE(GetSE) {
   AggInlCalls.clear();
 }
 
@@ -396,8 +976,10 @@ bool InlineAggressiveInfo::trackUsesOfAGVs(std::vector<GlobalVariable *> &GVs) {
 
 InlineAggressiveInfo InlineAggressiveInfo::runImpl(Module &M,
                                                    WholeProgramInfo &WPI,
-                                                   AggInlGetTLITy GetTLI) {
-  InlineAggressiveInfo Result(GetTLI);
+                                                   AggInlGetTLITy GetTLI,
+                                                   AggInlGetLITy GetLI,
+                                                   AggInlGetSETy GetSE) {
+  InlineAggressiveInfo Result(GetTLI, GetLI, GetSE);
   if (!WPI.isWholeProgramSafe()) {
     LLVM_DEBUG(dbgs() << " Skipped AggInl ... Whole Program NOT safe\n");
     return Result;
@@ -900,6 +1482,16 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
     addInliningAttributes();
     return true;
   }
+  LongConsecutiveCallChainHeuristic LCCCA(
+      M,
+      [this](CallBase &CB) {
+        setAggInlInfoForCallSite(CB, false /*Recursive*/);
+      },
+      [](CallBase &CB) { CB.setIsNoInline(); }, GetLI, GetSE);
+  if (LCCCA.run()) {
+    addInliningAttributes();
+    return true;
+  }
   return false;
 }
 
@@ -918,7 +1510,14 @@ PreservedAnalyses AggInlinerPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
   };
+  auto GetLI = [&FAM](const Function &F) -> LoopInfo & {
+    return FAM.getResult<LoopAnalysis>(*(const_cast<Function *>(&F)));
+  };
+  auto GetSE = [&FAM](const Function &F) -> ScalarEvolution & {
+    return FAM.getResult<ScalarEvolutionAnalysis>(
+        *(const_cast<Function *>(&F)));
+  };
   Result.reset(new InlineAggressiveInfo(InlineAggressiveInfo::runImpl(
-      M, AM.getResult<WholeProgramAnalysis>(M), GetTLI)));
+      M, AM.getResult<WholeProgramAnalysis>(M), GetTLI, GetLI, GetSE)));
   return PreservedAnalyses::all();
 }

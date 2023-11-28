@@ -1,7 +1,7 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-restore-operands -S %s | FileCheck %s -check-prefixes=RESTR,ALL
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-restore-operands)' -S %s | FileCheck %s -check-prefixes=RESTR,ALL
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefixes=TFORM,ALL
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefixes=TFORM,ALL
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-restore-operands -S %s | FileCheck %s -check-prefixes=RESTR,ALL
+; RUN: opt -passes='function(vpo-restore-operands)' -S %s | FileCheck %s -check-prefixes=RESTR,ALL
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefixes=TFORM,ALL
+; RUN: opt -passes='function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefixes=TFORM,ALL
 
 ; Test src:
 

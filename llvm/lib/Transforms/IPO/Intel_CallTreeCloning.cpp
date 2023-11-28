@@ -1,6 +1,6 @@
 //===---------- Intel_CallTreeCloning.cpp - Call Tree Cloning -------------===//
 //
-// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -2603,8 +2603,9 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
     }
   }
   assert(NewArgs.size() == (NumArgs - NumConstArgs) && "arg num mismatch");
-  assert(!Call->hasOperandBundles() && "TODO: support operand bundles");
-  CallInst *NewCall = CallInst::Create(Clone, NewArgs, "", Call);
+  SmallVector<OperandBundleDef, 1> OpBundles;
+  Call->getOperandBundlesAsDefs(OpBundles);
+  CallInst *NewCall = CallInst::Create(Clone, NewArgs, OpBundles, "", Call);
   getInlineReport()->replaceCallBaseWithCallBase(Call, NewCall);
   getMDInlineReport()->replaceCallBaseWithCallBase(Call, NewCall);
   NewCall->setCallingConv(Call->getCallingConv());
@@ -3077,9 +3078,6 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
   SmallVector<ReturnInst *, 8> Rets;
   CloneFunctionInto(Clone, F, Old2New,
                     CloneFunctionChangeType::LocalChangesOnly, Rets);
-  getInlineReport()->initFunctionClosure(F);
-  getInlineReport()->cloneFunction(F, Clone, Old2New);
-  getMDInlineReport()->cloneFunction(F, Clone, Old2New);
 
   // Redirect the calls in the input map to the cloned functions they map to.
   // Also fix the actual parameter lists removing the constants
@@ -4477,7 +4475,7 @@ extern "C" void dump_nodeset(const std::set<const DCGNode *> &NodeSet) {
     dbgs() << X->toString() << " ";
   dbgs() << "\n";
 }
-extern "C" void dump_nodev(SmallVectorImpl<const DCGNode *> NodeV) {
+extern "C" void dump_nodev(SmallVectorImpl<const DCGNode *> &NodeV) {
 
   for (const auto X : NodeV)
     dbgs() << X->toString() << " ";

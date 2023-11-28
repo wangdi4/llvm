@@ -1,4 +1,4 @@
-/* INTEL_CUSTOMIZATION */
+#if INTEL_CUSTOMIZATION
 /*
  * INTEL CONFIDENTIAL
  *
@@ -6,16 +6,14 @@
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise, you may not
- * use, modify, copy, publish, distribute, disclose or transmit this software or
- * the related documents without Intel's prior written permission.
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
  * This software and the related documents are provided as is, with no express
  * or implied warranties, other than those that are expressly stated in the
  * License.
  */
-/* end INTEL_CUSTOMIZATION */
-#if INTEL_COLLAB
 //===--- omptarget-opencl.h - header for the OpenCL device RTL ------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -142,18 +140,16 @@
 #define PRINT0(Fmt) printf(Fmt)
 #define PRINT1(Fmt, Arg0) printf(Fmt, Arg0)
 #else
-#if INTEL_CUSTOMIZATION
 // Leaving Fmt string since one of the tests hang with empty PRINT*().
-#endif // INTEL_CUSTOMIZATION
 #define PRINT0(Fmt) (void)(Fmt)
 #define PRINT1(Fmt, Arg0) (void)(Fmt)
 #endif
-
 
 ///
 /// Types
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 typedef struct kmp_barrier_counting {
   atomic_uint count;
   atomic_uint go;
@@ -222,6 +218,7 @@ typedef enum omp_sched_t {
   omp_sched_guided = 0x3,
   omp_sched_auto = 0x4,
 } omp_sched_t;
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 typedef enum omp_pause_resource_t {
   omp_pause_soft = 1,
@@ -239,6 +236,7 @@ typedef struct __omp_offloading_fptr_map_t {
 /// Task state
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 enum {
   TASK_SCHED_MASK = (0x1 | 0x2 | 0x3), // for runtime schedule
   TASK_IN_PARALLEL = 0x10, // has encountered at least one parallel region
@@ -318,6 +316,14 @@ typedef struct kmp_local_state {
   ushort spmd_num_threads;
 } kmp_local_state_t;
 
+/// Global state
+typedef struct kmp_global_state {
+  kmp_barrier_t g_barrier;     // global barrier
+  int assume_simple_spmd_mode; // assume simple SPMD mode
+  int spmd_num_threads;        // for __kmpc_spmd_push/pop_num_threads
+} kmp_global_state_t;
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
+
 /// Dynamic memory heap type
 typedef struct kmp_mem_heap {
   uintptr_t alloc_base;
@@ -352,14 +358,6 @@ typedef struct kmp_program_data {
   int teams_thread_limit;
 } kmp_program_data_t;
 
-/// Global state
-typedef struct kmp_global_state {
-  kmp_barrier_t g_barrier;         // global barrier
-  int assume_simple_spmd_mode;     // assume simple SPMD mode
-  int spmd_num_threads;            // for __kmpc_spmd_push/pop_num_threads
-} kmp_global_state_t;
-
-
 ///
 /// Types from host runtime
 ///
@@ -379,17 +377,19 @@ typedef struct ident {
 /// Program-scope global data
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Global state
 EXTERN kmp_global_state_t __omp_spirv_global_data;
-
-/// Program data initialized by runtime
-EXTERN kmp_program_data_t __omp_spirv_program_data;
 
 /// Per-team state
 EXTERN kmp_local_state_t __omp_spirv_local_data[KMP_MAX_NUM_GROUPS];
 
 /// Per-thread state for all work groups
 EXTERN kmp_thread_state_t __omp_spirv_thread_data[KMP_MAX_NUM_GROUPS];
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
+
+/// Program data initialized by runtime
+EXTERN kmp_program_data_t __omp_spirv_program_data;
 
 /// Per-team SPMD num threads
 /// We only support correct push/pop_spmd_num_threads behavior up to
@@ -930,4 +930,4 @@ EXTERN void *__kmpc_target_translate_fptr(ulong FnPtr);
 ///
 /// Some of the global states
 #endif // OMPTARGET_OPENCL_H
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION

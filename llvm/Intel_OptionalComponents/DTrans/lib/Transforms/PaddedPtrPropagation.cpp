@@ -1,6 +1,6 @@
 //===---------------- Intel_PaddedPtrPropagation.cpp ----------------------===//
 //
-// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -169,21 +169,6 @@ bool isPaddedMarkUpAnnotation(Value *V, int &Padding) {
     }
   }
   return false;
-}
-
-// Helper function returning true if a type referred to by T is a pointer to an
-// integer or floating-point type.
-bool isSupportedPointerType(Type *T) {
-  auto *PT = dyn_cast<PointerType>(T);
-  if (!PT)
-    return false;
-
-  // Temporarily bailout until the pass is fully ported.
-  if (PT->isOpaque())
-    return false;
-
-  auto *ET = PT->getNonOpaquePointerElementType();
-  return ET->isIntegerTy() || ET->isFloatingPointTy();
 }
 
 // Set of functions merging padded Values passed as function inputs
@@ -505,10 +490,10 @@ void insertPaddedMarkUpInt(IRBuilder<> &Builder, Value *V, int Padding,
   Value *MarkupStrPtr = Builder.CreateGlobalStringPtr(MarkupStr);
   Value *File = Builder.CreateGlobalStringPtr(M->getSourceFileName());
   Constant *LNum = Constant::getIntegerValue(I32Ty, APInt(32, 0, false));
-  ConstantPointerNull *CPN = ConstantPointerNull::get(Type::getInt8PtrTy(Ctx));
+  ConstantPointerNull *CPN = ConstantPointerNull::get(PointerType::getUnqual(Ctx));
   auto *F =
       Intrinsic::getDeclaration(M, Intrinsic::ptr_annotation,
-                                {PType, Type::getInt8PtrTy(M->getContext())});
+                                {PType, PointerType::getUnqual(M->getContext())});
   assert(F && "Can't find appropriate ptr_annotation intrinsic");
   auto *A = Builder.CreateCall(F, {V, MarkupStrPtr, File, LNum, CPN},
       V->getName());
@@ -939,39 +924,22 @@ bool PaddedPtrPropImpl<InfoClass>::run(Module &M, WholeProgramInfo &WPInfo) {
   // Find all the functions which have pointer annotations inside and
   // include them into initial work set
 
-  Function *Annotations[] = {
+  Function *Annotation =
       Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {Type::getInt8PtrTy(M.getContext()),
-                                 Type::getInt8PtrTy(M.getContext())}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {Type::getInt16PtrTy(M.getContext()),
-                                 Type::getInt8PtrTy(M.getContext())}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {Type::getInt32PtrTy(M.getContext()),
-                                 Type::getInt8PtrTy(M.getContext())}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {Type::getInt64PtrTy(M.getContext()),
-                                 Type::getInt8PtrTy(M.getContext())}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {Type::getFloatPtrTy(M.getContext()),
-                                 Type::getInt8PtrTy(M.getContext())}),
-      Intrinsic::getDeclaration(&M, Intrinsic::ptr_annotation,
-                                {Type::getDoublePtrTy(M.getContext()),
-                                 Type::getInt8PtrTy(M.getContext())})};
+                                {PointerType::getUnqual(M.getContext()),
+                                 PointerType::getUnqual(M.getContext())});
 
-  for (auto AFunc : Annotations) {
-    for (auto U : AFunc->users()) {
-      CallInst *Call = cast<CallInst>(U);
-      Function *Caller = Call->getParent()->getParent();
+  for (auto U : Annotation->users()) {
+    CallInst *Call = cast<CallInst>(U);
+    Function *Caller = Call->getParent()->getParent();
 
-      int Padding;
-      if (!isPaddedMarkUpAnnotation(U, Padding))
-        continue;
+    int Padding;
+    if (!isPaddedMarkUpAnnotation(U, Padding))
+      continue;
 
-      auto &FPInfo = getFuncPadInfo(Caller);
-      FPInfo.setPaddingForValue(U, Padding);
-      WorkSet.insert(Caller);
-    }
+    auto &FPInfo = getFuncPadInfo(Caller);
+    FPInfo.setPaddingForValue(U, Padding);
+    WorkSet.insert(Caller);
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

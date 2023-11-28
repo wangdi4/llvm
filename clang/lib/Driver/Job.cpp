@@ -406,6 +406,74 @@ void Command::PrintFileNames() const {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+llvm::sys::ProcessInfo
+Command::ExecuteAsync(ArrayRef<std::optional<StringRef>> Redirects,
+                      std::string *ErrMsg, bool *ExecutionFailed) const {
+  PrintFileNames();
+
+  SmallVector<const char *, 128> Argv;
+  if (ResponseFile == nullptr) {
+    Argv.push_back(Executable);
+    if (PrependArg)
+      Argv.push_back(PrependArg);
+    Argv.append(Arguments.begin(), Arguments.end());
+    Argv.push_back(nullptr);
+  } else {
+    // If the command is too large, we need to put arguments in a response file.
+    std::string RespContents;
+    llvm::raw_string_ostream SS(RespContents);
+
+    // Write file contents and build the Argv vector
+    writeResponseFile(SS);
+    buildArgvForResponseFile(Argv);
+    Argv.push_back(nullptr);
+    SS.flush();
+
+    // Save the response file in the appropriate encoding
+    if (std::error_code EC = writeFileWithEncoding(
+            ResponseFile, RespContents, ResponseSupport.ResponseEncoding)) {
+      if (ErrMsg)
+        *ErrMsg = EC.message();
+      if (ExecutionFailed)
+        *ExecutionFailed = true;
+      // Return -1 by convention (see llvm/include/llvm/Support/Program.h) to
+      // indicate the requested executable cannot be started.
+      llvm::sys::ProcessInfo Res;
+      Res.ReturnCode = -1;
+      return Res;
+    }
+  }
+
+  std::optional<ArrayRef<StringRef>> Env;
+  std::vector<StringRef> ArgvVectorStorage;
+  if (!Environment.empty()) {
+    assert(Environment.back() == nullptr &&
+           "Environment vector should be null-terminated by now");
+    ArgvVectorStorage = llvm::toStringRefArray(Environment.data());
+    Env = ArrayRef(ArgvVectorStorage);
+  }
+
+  auto Args = llvm::toStringRefArray(Argv.data());
+
+  // Use Job-specific redirect files if they are present.
+  if (!RedirectFiles.empty()) {
+    std::vector<std::optional<StringRef>> RedirectFilesOptional;
+    for (const auto &Ele : RedirectFiles)
+      if (Ele)
+        RedirectFilesOptional.push_back(std::optional<StringRef>(*Ele));
+      else
+        RedirectFilesOptional.push_back(std::nullopt);
+
+    return llvm::sys::ExecuteNoWait(Executable, Args, Env,
+                                    ArrayRef(RedirectFilesOptional),
+                                    /*memoryLimit=*/0, ErrMsg, ExecutionFailed);
+  }
+  return llvm::sys::ExecuteNoWait(Executable, Args, Env, Redirects,
+                                  /*memoryLimit*/ 0, ErrMsg, ExecutionFailed);
+}
+#endif // INTEL_CUSTOMIZATION
+
 int Command::Execute(ArrayRef<std::optional<StringRef>> Redirects,
                      std::string *ErrMsg, bool *ExecutionFailed) const {
   PrintFileNames();

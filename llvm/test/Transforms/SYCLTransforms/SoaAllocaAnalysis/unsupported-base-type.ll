@@ -56,4 +56,4 @@ attributes #2 = { convergent nounwind readnone willreturn }
 !11 = !{!"Simple C/C++ TBAA"}
 !12 = !{!13, !13, i64 0}
 !13 = !{!"int", !10, i64 0}
-!14 = !{i32 addrspace(1)* null}
+!14 = !{ptr addrspace(1) null}

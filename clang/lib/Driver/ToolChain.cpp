@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -110,10 +110,15 @@ ToolChain::ToolChain(const Driver &D, const llvm::Triple &T,
       List.push_back(Path);
   };
 
-  for (const auto &Path : getRuntimePaths())
-    addIfExists(getLibraryPaths(), Path);
-  for (const auto &Path : getStdlibPaths())
-    addIfExists(getFilePaths(), Path);
+  if (std::optional<std::string> Path = getRuntimePath())
+    getLibraryPaths().push_back(*Path);
+  if (std::optional<std::string> Path = getStdlibPath())
+    getFilePaths().push_back(*Path);
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  addIfExists(getFilePaths(), getUnifiedLayoutV2LibCXXPath());
+#endif // #if INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // #if INTEL_CUSTOMIZATION
   for (const auto &Path : getArchSpecificLibPaths())
     addIfExists(getFilePaths(), Path);
 }
@@ -451,6 +456,12 @@ ToolChain::getDefaultUnwindTableLevel(const ArgList &Args) const {
   return UnwindTableLevel::None;
 }
 
+unsigned ToolChain::GetDefaultDwarfVersion() const {
+#if INTEL_CUSTOMIZATION
+  return 4;
+#endif // INTEL_CUSTOMIZATION
+}
+
 Tool *ToolChain::getClang() const {
   if (!Clang)
     Clang.reset(new tools::Clang(*this, useIntegratedBackend()));
@@ -772,15 +783,63 @@ const char *ToolChain::getCompilerRTArgString(const llvm::opt::ArgList &Args,
   return Args.MakeArgString(getCompilerRT(Args, Component, Type));
 }
 
-ToolChain::path_list ToolChain::getRuntimePaths() const {
-  path_list Paths;
-  auto addPathForTriple = [this, &Paths](const llvm::Triple &Triple) {
-    SmallString<128> P(D.ResourceDir);
-    llvm::sys::path::append(P, "lib", Triple.str());
-    Paths.push_back(std::string(P.str()));
+// Android target triples contain a target version. If we don't have libraries
+// for the exact target version, we should fall back to the next newest version
+// or a versionless path, if any.
+std::optional<std::string>
+ToolChain::getFallbackAndroidTargetPath(StringRef BaseDir) const {
+  llvm::Triple TripleWithoutLevel(getTriple());
+  TripleWithoutLevel.setEnvironmentName("android"); // remove any version number
+  const std::string &TripleWithoutLevelStr = TripleWithoutLevel.str();
+  unsigned TripleVersion = getTriple().getEnvironmentVersion().getMajor();
+  unsigned BestVersion = 0;
+
+  SmallString<32> TripleDir;
+  bool UsingUnversionedDir = false;
+  std::error_code EC;
+  for (llvm::vfs::directory_iterator LI = getVFS().dir_begin(BaseDir, EC), LE;
+       !EC && LI != LE; LI = LI.increment(EC)) {
+    StringRef DirName = llvm::sys::path::filename(LI->path());
+    StringRef DirNameSuffix = DirName;
+    if (DirNameSuffix.consume_front(TripleWithoutLevelStr)) {
+      if (DirNameSuffix.empty() && TripleDir.empty()) {
+        TripleDir = DirName;
+        UsingUnversionedDir = true;
+      } else {
+        unsigned Version;
+        if (!DirNameSuffix.getAsInteger(10, Version) && Version > BestVersion &&
+            Version < TripleVersion) {
+          BestVersion = Version;
+          TripleDir = DirName;
+          UsingUnversionedDir = false;
+        }
+      }
+    }
+  }
+
+  if (TripleDir.empty())
+    return {};
+
+  SmallString<128> P(BaseDir);
+  llvm::sys::path::append(P, TripleDir);
+  if (UsingUnversionedDir)
+    D.Diag(diag::warn_android_unversioned_fallback) << P << getTripleString();
+  return std::string(P);
+}
+
+std::optional<std::string>
+ToolChain::getTargetSubDirPath(StringRef BaseDir) const {
+  auto getPathForTriple =
+      [&](const llvm::Triple &Triple) -> std::optional<std::string> {
+    SmallString<128> P(BaseDir);
+    llvm::sys::path::append(P, Triple.str());
+    if (getVFS().exists(P))
+      return std::string(P);
+    return {};
   };
 
-  addPathForTriple(getTriple());
+  if (auto Path = getPathForTriple(getTriple()))
+    return *Path;
 
   // When building with per target runtime directories, various ways of naming
   // the Arm architecture may have been normalised to simply "arm".
@@ -800,39 +859,39 @@ ToolChain::path_list ToolChain::getRuntimePaths() const {
   if (getTriple().getArch() == Triple::arm && !getTriple().isArmMClass()) {
     llvm::Triple ArmTriple = getTriple();
     ArmTriple.setArch(Triple::arm);
-    addPathForTriple(ArmTriple);
+    if (auto Path = getPathForTriple(ArmTriple))
+      return *Path;
   }
 
-  // Android targets may include an API level at the end. We still want to fall
-  // back on a path without the API level.
-  if (getTriple().isAndroid() &&
-      getTriple().getEnvironmentName() != "android") {
-    llvm::Triple TripleWithoutLevel = getTriple();
-    TripleWithoutLevel.setEnvironmentName("android");
-    addPathForTriple(TripleWithoutLevel);
-  }
+  if (getTriple().isAndroid())
+    return getFallbackAndroidTargetPath(BaseDir);
 
-  return Paths;
+  return {};
 }
 
-ToolChain::path_list ToolChain::getStdlibPaths() const {
-  path_list Paths;
-  SmallString<128> P(D.Dir);
-  llvm::sys::path::append(P, "..", "lib", getTripleString());
-  Paths.push_back(std::string(P.str()));
+std::optional<std::string> ToolChain::getRuntimePath() const {
+  SmallString<128> P(D.ResourceDir);
+  llvm::sys::path::append(P, "lib");
+  return getTargetSubDirPath(P);
+}
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
+std::string ToolChain::getUnifiedLayoutV2LibCXXPath() const {
   // JIRA: CMPLRLLVM-49229
   // Adding libc++ path for unified layout v2
   SmallString<128> PLibcxx(D.Dir);
   llvm::sys::path::append(PLibcxx, "..", "..", "opt");
   llvm::sys::path::append(PLibcxx, "compiler", "lib", getTripleString());
-  Paths.push_back(std::string(PLibcxx.str()));
+  return std::string(PLibcxx);
+}
 #endif // #if INTEL_DEPLOY_UNIFIED_LAYOUT
 #endif // #if INTEL_CUSTOMIZATION
 
-  return Paths;
+std::optional<std::string> ToolChain::getStdlibPath() const {
+  SmallString<128> P(D.Dir);
+  llvm::sys::path::append(P, "..", "lib");
+  return getTargetSubDirPath(P);
 }
 
 ToolChain::path_list ToolChain::getArchSpecificLibPaths() const {
@@ -1605,11 +1664,13 @@ void ToolChain::AddTBBLibPath(const ArgList &Args, ArgStringList &CmdArgs,
   if (getTriple().getArch() == llvm::Triple::x86)
     P += "32";
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
   // FIXME - this only handles Linux and Windows for now
   if (getTriple().isWindowsMSVCEnvironment())
     llvm::sys::path::append(P, "vc14");
   else
     llvm::sys::path::append(P, "gcc4.8");
+#endif // !INTEL_DEPLOY_UNIFIED_LAYOUT
   if (getTriple().isWindowsMSVCEnvironment()) {
     llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
   }
@@ -1941,7 +2002,8 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
       getTriple().getArch() == llvm::Triple::arm || getTriple().isWasm() ||
-      getTriple().isAArch64() || getTriple().isRISCV())
+      getTriple().isAArch64() || getTriple().isRISCV() ||
+      getTriple().isLoongArch64())
     Res |= SanitizerKind::CFIICall;
   if (getTriple().getArch() == llvm::Triple::x86_64 ||
 #if INTEL_CUSTOMIZATION
@@ -2046,8 +2108,12 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     if (A->getOption().matches(options::OPT_m_Group)) {
       // AMD GPU is a special case, as -mcpu is required for the device
       // compilation, except for SYCL which uses --offload-arch.
-      if (SameTripleAsHost || (getTriple().getArch() == llvm::Triple::amdgcn &&
-                               DeviceOffloadKind != Action::OFK_SYCL)) {
+      // Pass code object version to device toolchain
+      // to correctly set metadata in intermediate files.
+      if (SameTripleAsHost ||
+          A->getOption().matches(options::OPT_mcode_object_version_EQ) ||
+          (getTriple().getArch() == llvm::Triple::amdgcn &&
+           DeviceOffloadKind != Action::OFK_SYCL)) {
         DAL->append(A);
         continue;
       }
@@ -2200,20 +2266,16 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
       llvm::BumpPtrAllocator BPA;
       llvm::StringSaver S(BPA);
       llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
-      // Setup masks so Windows options aren't picked up for parsing
+      // Setup visibility so Windows options aren't picked up for parsing
       // Linux options
-      unsigned IncludedFlagsBitmask = 0;
-      unsigned ExcludedFlagsBitmask = options::NoDriverOption;
-      if (getDriver().IsCLMode()) {
-        // Include CL and Core options.
-        IncludedFlagsBitmask |= options::CLOption;
-        IncludedFlagsBitmask |= options::CoreOption;
-      } else
-        ExcludedFlagsBitmask |= options::CLOption;
+      const auto Visibility =
+          getDriver().IsCLMode()
+              ? llvm::opt::Visibility(options::ClangOption | options::CLOption |
+                                      options::DXCOption)
+              : llvm::opt::Visibility(options::ClangOption);
       unsigned MissingArgIndex, MissingArgCount;
-      InputArgList NewArgs =
-          Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount,
-                         IncludedFlagsBitmask, ExcludedFlagsBitmask);
+      InputArgList NewArgs = Opts.ParseArgs(TargetArgs, MissingArgIndex,
+                                            MissingArgCount, Visibility);
       for (Arg *NA : NewArgs) {
         // Add the new arguments.
         Arg *OffloadArg;

@@ -381,6 +381,14 @@ static void discoverTypeIndices(ArrayRef<uint8_t> Content, TypeLeafKind Kind,
   case TypeLeafKind::LF_DIMCONLU:
     Refs.push_back({TiRefKind::TypeRef, 0, 1});
     break;
+  case TypeLeafKind::LF_DIMVARU:
+    Count = support::endian::read32le(Content.data());
+    Refs.push_back({TiRefKind::TypeRef, 4, Count + 1});
+    break;
+  case TypeLeafKind::LF_DIMVARLU:
+    Count = support::endian::read32le(Content.data());
+    Refs.push_back({TiRefKind::TypeRef, 4, (Count * 2) + 1});
+    break;
 #endif //INTEL_CUSTOMIZATION
   default:
     break;
@@ -472,6 +480,7 @@ static bool discoverTypeIndices(ArrayRef<uint8_t> Content, SymbolKind Kind,
   case SymbolKind::S_THUNK32:
   case SymbolKind::S_FRAMECOOKIE:
   case SymbolKind::S_UNAMESPACE:
+  case SymbolKind::S_ARMSWITCHTABLE:
     break;
   // Scope ending symbols.
   case SymbolKind::S_END:
@@ -499,7 +508,7 @@ static void resolveTypeIndexReferences(ArrayRef<uint8_t> RecordData,
 
   RecordData = RecordData.drop_front(sizeof(RecordPrefix));
 
-  BinaryStreamReader Reader(RecordData, support::little);
+  BinaryStreamReader Reader(RecordData, llvm::endianness::little);
   for (const auto &Ref : Refs) {
     Reader.setOffset(Ref.Offset);
     FixedStreamArray<TypeIndex> Run;

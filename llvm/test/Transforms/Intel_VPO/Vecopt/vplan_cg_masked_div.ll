@@ -3,25 +3,24 @@
 ; RUN: opt < %s -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high -disable-output -vplan-enable-int-divrem-blend-with-safe-value=0 2>&1 | FileCheck %s -check-prefixes=OPTREPORT
 
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -vplan-force-vf=2 -print-after=hir-vplan-vec -vplan-enable-int-divrem-blend-with-safe-value=0 -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-optreport-emitter" -vplan-force-vf=2   -intel-opt-report=high -vplan-enable-int-divrem-blend-with-safe-value=0 -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR-OPTREPORT
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -vplan-force-vf=2   -intel-opt-report=high -vplan-enable-int-divrem-blend-with-safe-value=0 -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR-OPTREPORT
 
 ; RUN: opt < %s -passes=vplan-vec -vplan-force-vf=2  -S | FileCheck %s -check-prefixes=BLENDED
 ; RUN: opt < %s -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high -disable-output  2>&1 | FileCheck %s -check-prefixes=OPTREPORT-BLENDED
 
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -vplan-force-vf=2 -print-after=hir-vplan-vec  -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR-BLENDED
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-optreport-emitter" -vplan-force-vf=2   -intel-opt-report=high  -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR-OPTREPORT-BLENDED
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -vplan-force-vf=2   -intel-opt-report=high  -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR-OPTREPORT-BLENDED
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @masked_divergent_div(i32 *%p, i64 %n) {
-; CHECK:  define void @masked_divergent_div(i32* [[P0:%.*]], i64 [[N0:%.*]]) {
+define void @masked_divergent_div(ptr %p, i64 %n) {
+; CHECK:  define void @masked_divergent_div(ptr [[P0:%.*]], i64 [[N0:%.*]]) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP18:%.*]], [[VPLANNEDBB60:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP17:%.*]], [[VPLANNEDBB60]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[P0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, ptr [[P0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, ptr [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 1
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], zeroinitializer
@@ -38,7 +37,7 @@ define void @masked_divergent_div(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <2 x i32> undef, i32 [[TMP7]], i32 0
 ; CHECK-NEXT:    br label [[TMP9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  9:
+; CHECK-NEXT:  8:
 ; CHECK-NEXT:    [[TMP10:%.*]] = phi <2 x i32> [ undef, [[VPLANNEDBB40]] ], [ [[TMP8]], [[PRED_SDIV_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
@@ -52,13 +51,12 @@ define void @masked_divergent_div(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP13:%.*]] = insertelement <2 x i32> [[TMP10]], i32 [[TMP12]], i32 1
 ; CHECK-NEXT:    br label [[TMP14]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  14:
+; CHECK-NEXT:  13:
 ; CHECK-NEXT:    [[TMP15:%.*]] = phi <2 x i32> [ [[TMP10]], [[PRED_SDIV_CONTINUE0]] ], [ [[TMP13]], [[PRED_SDIV_IF130]] ]
 ; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE140:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.sdiv.continue14:
-; CHECK-NEXT:    [[TMP16:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP15]], <2 x i32>* [[TMP16]], i32 4, <2 x i1> [[TMP5]])
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[TMP15]], ptr [[SCALAR_GEP0]], i32 4, <2 x i1> [[TMP5]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB60]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
@@ -96,8 +94,7 @@ define void @masked_divergent_div(i32 *%p, i64 %n) {
 ; BLENDED-LABEL:  define void @masked_divergent_div
 ; BLENDED:         [[TMP6:%.*]] = select <2 x i1> [[TMP5:%.*]], <2 x i32> [[WIDE_LOAD0:%.*]], <2 x i32> <i32 1, i32 1>
 ; BLENDED-NEXT:    [[TMP7:%.*]] = sdiv <2 x i32> <i32 42, i32 42>, [[TMP6]]
-; BLENDED-NEXT:    [[TMP8:%.*]] = bitcast i32* [[SCALAR_GEP0:%.*]] to <2 x i32>*
-; BLENDED-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP7]], <2 x i32>* [[TMP8]], i32 4, <2 x i1> [[TMP5]])
+; BLENDED-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[TMP7]], ptr [[SCALAR_GEP0:%.*]], i32 4, <2 x i1> [[TMP5]])
 ;
 ; OPTREPORT-BLENDED-LABEL:  Global optimization report for : masked_divergent_div
 ; OPTREPORT-BLENDED:       =================================================================
@@ -110,7 +107,7 @@ define void @masked_divergent_div(i32 *%p, i64 %n) {
 ; HIR-BLENDED-NEXT:        |   (<2 x i32>*)([[P0:%.*]])[i1] = [[DOTVEC70]], Mask = @{[[DOTVEC50]]}
 ; HIR-BLENDED-NEXT:        + END LOOP
 ;
-; HIR-OPTREPORT-BLENDED-LABEL:  Report from: HIR Loop optimizations framework for : masked_divergent_div
+; HIR-OPTREPORT-BLENDED-LABEL:  Global optimization report for : masked_divergent_div
 ; HIR-OPTREPORT-BLENDED:       =================================================================
 ;
 entry:
@@ -119,14 +116,14 @@ entry:
 
 header:
   %iv = phi i64 [ %iv.next, %latch ], [ 0, %entry ]
-  %gep = getelementptr inbounds i32, i32 *%p, i64 %iv
-  %ld = load i32, i32* %gep
+  %gep = getelementptr inbounds i32, ptr %p, i64 %iv
+  %ld = load i32, ptr %gep
   %cond = icmp eq i32 %ld, 0
   br i1 %cond, label %latch, label %masked
 
 masked:
   %div = sdiv i32 42, %ld
-  store i32 %div, i32 *%gep
+  store i32 %div, ptr %gep
   br label %latch
 
 latch:
@@ -139,14 +136,13 @@ loopexit:
   ret void
 }
 
-define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
-; CHECK:  define void @masked_uniform_div(i32* [[P0:%.*]], i64 [[N0:%.*]], i32 [[VAL0:%.*]]) {
+define void @masked_uniform_div(ptr %p, i64 %n, i32 %val) {
+; CHECK:  define void @masked_uniform_div(ptr [[P0:%.*]], i64 [[N0:%.*]], i32 [[VAL0:%.*]]) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP15:%.*]], [[VPLANNEDBB70:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP14:%.*]], [[VPLANNEDBB70]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[P0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, ptr [[P0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, ptr [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i32 [[VAL0]], 0
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i1> poison, i1 [[TMP4]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT0]], <2 x i1> poison, <2 x i32> zeroinitializer
@@ -165,14 +161,13 @@ define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT50:%.*]] = insertelement <2 x i32> poison, i32 [[TMP10]], i64 0
 ; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  11:
+; CHECK-NEXT:  10:
 ; CHECK-NEXT:    [[TMP12:%.*]] = phi <2 x i32> [ poison, [[VPLANNEDBB40]] ], [ [[BROADCAST_SPLATINSERT50]], [[PRED_SDIV_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.sdiv.continue:
 ; CHECK-NEXT:    [[BROADCAST_SPLAT60:%.*]] = shufflevector <2 x i32> [[TMP12]], <2 x i32> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP13:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[BROADCAST_SPLAT60]], <2 x i32>* [[TMP13]], i32 4, <2 x i1> [[TMP7]])
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[BROADCAST_SPLAT60]], ptr [[SCALAR_GEP0]], i32 4, <2 x i1> [[TMP7]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB70]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB7:
@@ -204,14 +199,13 @@ define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
 ; BLENDED-NEXT:    [[BROADCAST_SPLATINSERT50:%.*]] = insertelement <2 x i32> poison, i32 [[TMP10]], i64 0
 ; BLENDED-NEXT:    br label [[TMP11]]
 ; BLENDED-EMPTY:
-; BLENDED-NEXT:  11:
+; BLENDED-NEXT:  10:
 ; BLENDED-NEXT:    [[TMP12:%.*]] = phi <2 x i32> [ poison, [[VPLANNEDBB40:%.*]] ], [ [[BROADCAST_SPLATINSERT50]], [[PRED_SDIV_IF0:%.*]] ]
 ; BLENDED-NEXT:    br label [[PRED_SDIV_CONTINUE0:%.*]]
 ; BLENDED-EMPTY:
 ; BLENDED-NEXT:  pred.sdiv.continue:
 ; BLENDED-NEXT:    [[BROADCAST_SPLAT60:%.*]] = shufflevector <2 x i32> [[TMP12]], <2 x i32> poison, <2 x i32> zeroinitializer
-; BLENDED-NEXT:    [[TMP13:%.*]] = bitcast i32* [[SCALAR_GEP0:%.*]] to <2 x i32>*
-; BLENDED-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[BROADCAST_SPLAT60]], <2 x i32>* [[TMP13]], i32 4, <2 x i1> [[TMP7]])
+; BLENDED-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[BROADCAST_SPLAT60]], ptr [[SCALAR_GEP0:%.*]], i32 4, <2 x i1> [[TMP7]])
 ;
 ; OPTREPORT-BLENDED-LABEL:  Global optimization report for : masked_uniform_div
 ; OPTREPORT-BLENDED:       =================================================================
@@ -227,7 +221,7 @@ define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
 ; HIR-BLENDED-NEXT:        |   (<2 x i32>*)([[P0:%.*]])[i1] = [[DOTSCAL0]], Mask = @{[[DOTVEC80:%.*]]}
 ; HIR-BLENDED-NEXT:        + END LOOP
 ;
-; HIR-OPTREPORT-BLENDED-LABEL:  Report from: HIR Loop optimizations framework for : masked_uniform_div
+; HIR-OPTREPORT-BLENDED-LABEL:  Global optimization report for : masked_uniform_div
 ; HIR-OPTREPORT-BLENDED:       =================================================================
 ;
 entry:
@@ -236,8 +230,8 @@ entry:
 
 header:
   %iv = phi i64 [ %iv.next, %latch ], [ 0, %entry ]
-  %gep = getelementptr inbounds i32, i32 *%p, i64 %iv
-  %ld = load i32, i32* %gep
+  %gep = getelementptr inbounds i32, ptr %p, i64 %iv
+  %ld = load i32, ptr %gep
   %cond = icmp eq i32 %val, 0
   %cond2 = icmp eq i32 %ld, 42
   %or = or i1 %cond, %cond2
@@ -245,7 +239,7 @@ header:
 
 masked:
   %div = sdiv i32 42, %val
-  store i32 %div, i32 *%gep
+  store i32 %div, ptr %gep
   br label %latch
 
 latch:
@@ -258,22 +252,20 @@ loopexit:
   ret void
 }
 
-define void @masked_safe_speculation_div(i32 *%p, i64 %n, i32 %m) {
-; CHECK:  define void @masked_safe_speculation_div(i32* [[P0:%.*]], i64 [[N0:%.*]], i32 [[M0:%.*]]) {
+define void @masked_safe_speculation_div(ptr %p, i64 %n, i32 %m) {
+; CHECK:  define void @masked_safe_speculation_div(ptr [[P0:%.*]], i64 [[N0:%.*]], i32 [[M0:%.*]]) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP9:%.*]], [[VPLANNEDBB50:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP8:%.*]], [[VPLANNEDBB50]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[P0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, ptr [[P0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, ptr [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], [[BROADCAST_SPLAT0]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = xor <2 x i1> [[TMP4]], <i1 true, i1 true>
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
 ; CHECK-NEXT:    [[TMP6:%.*]] = sdiv <2 x i32> [[WIDE_LOAD0]], <i32 42, i32 42>
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP6]], <2 x i32>* [[TMP7]], i32 4, <2 x i1> [[TMP5]])
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[TMP6]], ptr [[SCALAR_GEP0]], i32 4, <2 x i1> [[TMP5]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
@@ -294,8 +286,7 @@ define void @masked_safe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; BLENDED-LABEL:  define void @masked_safe_speculation_div
 ; BLENDED:       VPlannedBB4:
 ; BLENDED-NEXT:    [[TMP6:%.*]] = sdiv <2 x i32> [[WIDE_LOAD0:%.*]], <i32 42, i32 42>
-; BLENDED-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP0:%.*]] to <2 x i32>*
-; BLENDED-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP6]], <2 x i32>* [[TMP7]], i32 4, <2 x i1> [[TMP5:%.*]])
+; BLENDED-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[TMP6]], ptr [[SCALAR_GEP0:%.*]], i32 4, <2 x i1> [[TMP5:%.*]])
 ;
 ; OPTREPORT-BLENDED-LABEL:  Global optimization report for : masked_safe_speculation_div
 ; OPTREPORT-BLENDED:       =================================================================
@@ -308,7 +299,7 @@ define void @masked_safe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; HIR-BLENDED-NEXT:        |   (<2 x i32>*)([[P0]])[i1] = [[DOTVEC60]], Mask = @{[[DOTVEC50]]}
 ; HIR-BLENDED-NEXT:        + END LOOP
 ;
-; HIR-OPTREPORT-BLENDED-LABEL:  Report from: HIR Loop optimizations framework for : masked_safe_speculation_div
+; HIR-OPTREPORT-BLENDED-LABEL:  Global optimization report for : masked_safe_speculation_div
 ; HIR-OPTREPORT-BLENDED:       =================================================================
 ;
 entry:
@@ -317,15 +308,15 @@ entry:
 
 header:
   %iv = phi i64 [ %iv.next, %latch ], [ 0, %entry ]
-  %gep = getelementptr inbounds i32, i32 *%p, i64 %iv
-  %ld = load i32, i32* %gep
+  %gep = getelementptr inbounds i32, ptr %p, i64 %iv
+  %ld = load i32, ptr %gep
   %cond = icmp eq i32 %ld, %m
   br i1 %cond, label %latch, label %masked
 
 masked:
   ; Safe to speculate
   %div = sdiv i32 %ld, 42
-  store i32 %div, i32 *%gep
+  store i32 %div, ptr %gep
   br label %latch
 
 latch:
@@ -338,14 +329,13 @@ loopexit:
   ret void
 }
 
-define void @masked_unsafe_speculation_div(i32 *%p, i64 %n, i32 %m) {
-; CHECK:  define void @masked_unsafe_speculation_div(i32* [[P0:%.*]], i64 [[N0:%.*]], i32 [[M0:%.*]]) {
+define void @masked_unsafe_speculation_div(ptr %p, i64 %n, i32 %m) {
+; CHECK:  define void @masked_unsafe_speculation_div(ptr [[P0:%.*]], i64 [[N0:%.*]], i32 [[M0:%.*]]) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP18:%.*]], [[VPLANNEDBB60:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP17:%.*]], [[VPLANNEDBB60]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[P0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, ptr [[P0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, ptr [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 1
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], [[BROADCAST_SPLAT0]]
@@ -362,7 +352,7 @@ define void @masked_unsafe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <2 x i32> undef, i32 [[TMP7]], i32 0
 ; CHECK-NEXT:    br label [[TMP9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  9:
+; CHECK-NEXT:  8:
 ; CHECK-NEXT:    [[TMP10:%.*]] = phi <2 x i32> [ undef, [[VPLANNEDBB40]] ], [ [[TMP8]], [[PRED_SDIV_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
@@ -376,13 +366,12 @@ define void @masked_unsafe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; CHECK-NEXT:    [[TMP13:%.*]] = insertelement <2 x i32> [[TMP10]], i32 [[TMP12]], i32 1
 ; CHECK-NEXT:    br label [[TMP14]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  14:
+; CHECK-NEXT:  13:
 ; CHECK-NEXT:    [[TMP15:%.*]] = phi <2 x i32> [ [[TMP10]], [[PRED_SDIV_CONTINUE0]] ], [ [[TMP13]], [[PRED_SDIV_IF130]] ]
 ; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE140:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.sdiv.continue14:
-; CHECK-NEXT:    [[TMP16:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP15]], <2 x i32>* [[TMP16]], i32 4, <2 x i1> [[TMP5]])
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[TMP15]], ptr [[SCALAR_GEP0]], i32 4, <2 x i1> [[TMP5]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB60]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
@@ -421,8 +410,7 @@ define void @masked_unsafe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; BLENDED:       VPlannedBB4:
 ; BLENDED-NEXT:    [[TMP6:%.*]] = select <2 x i1> [[TMP5:%.*]], <2 x i32> <i32 -1, i32 -1>, <2 x i32> <i32 1, i32 1>
 ; BLENDED-NEXT:    [[TMP7:%.*]] = sdiv <2 x i32> [[WIDE_LOAD0:%.*]], [[TMP6]]
-; BLENDED-NEXT:    [[TMP8:%.*]] = bitcast i32* [[SCALAR_GEP0:%.*]] to <2 x i32>*
-; BLENDED-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP7]], <2 x i32>* [[TMP8]], i32 4, <2 x i1> [[TMP5:%.*]])
+; BLENDED-NEXT:    call void @llvm.masked.store.v2i32.p0(<2 x i32> [[TMP7]], ptr [[SCALAR_GEP0:%.*]], i32 4, <2 x i1> [[TMP5:%.*]])
 ;
 ; OPTREPORT-BLENDED-LABEL:  Global optimization report for : masked_unsafe_speculation_div
 ; OPTREPORT-BLENDED:       =================================================================
@@ -436,7 +424,7 @@ define void @masked_unsafe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; HIR-BLENDED-NEXT:        |   (<2 x i32>*)([[P0:%.*]])[i1] = [[DOTVEC70]], Mask = @{[[DOTVEC50]]}
 ; HIR-BLENDED-NEXT:        + END LOOP
 ;
-; HIR-OPTREPORT-BLENDED-LABEL:  Report from: HIR Loop optimizations framework for : masked_unsafe_speculation_div
+; HIR-OPTREPORT-BLENDED-LABEL:  Global optimization report for : masked_unsafe_speculation_div
 ; HIR-OPTREPORT-BLENDED:       =================================================================
 ;
 entry:
@@ -445,15 +433,15 @@ entry:
 
 header:
   %iv = phi i64 [ %iv.next, %latch ], [ 0, %entry ]
-  %gep = getelementptr inbounds i32, i32 *%p, i64 %iv
-  %ld = load i32, i32* %gep
+  %gep = getelementptr inbounds i32, ptr %p, i64 %iv
+  %ld = load i32, ptr %gep
   %cond = icmp eq i32 %ld, %m
   br i1 %cond, label %latch, label %masked
 
 masked:
   ; Unsafe to speculate (i.e. INT_MIN sdiv -1 would overflow, which is UB)
   %div = sdiv i32 %ld, -1
-  store i32 %div, i32 *%gep
+  store i32 %div, ptr %gep
   br label %latch
 
 latch:

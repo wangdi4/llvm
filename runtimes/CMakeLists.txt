@@ -1,5 +1,32 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 # This file handles building LLVM runtime sub-projects.
 cmake_minimum_required(VERSION 3.20.0)
+
+# INTEL_CUSTOMIZATION
+# JIRA: CMPLRLLVM-49965
+# Copy some Intel predefined variables from llvm/CMakeLists.txt
+# Because the dafault build lack of many flags/variables from llvm/CMakeFiles.txt
+set(INTEL_CUSTOMIZATION ON)
+set(INTEL_DEPLOY_UNIFIED_LAYOUT ON CACHE BOOL "Build with unified flat layout")
+set(LLVM_ENABLE_PIC ON)
+# end INTEL_CUSTIMIZATION
 
 # Add path for custom and the LLVM build's modules to the CMake module path.
 set(LLVM_COMMON_CMAKE_UTILS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
@@ -160,8 +187,15 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 # Host triple is used by tests to check if they are running natively.
 include(GetHostTriple)
 get_host_triple(LLVM_HOST_TRIPLE)
+message(STATUS "LLVM host triple: ${LLVM_HOST_TRIPLE}")
+
+# TODO: We shouldn't be using LLVM_DEFAULT_TARGET_TRIPLE for runtimes since we
+# aren't generating code, LLVM_TARGET_TRIPLE is a better fit.
 set(LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_HOST_TRIPLE}" CACHE STRING
-  "Default target for which the runtimes will be built.")
+    "Default target for which the runtimes will be built.")
+message(STATUS "LLVM default target triple: ${LLVM_DEFAULT_TARGET_TRIPLE}")
+
+set(LLVM_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
 
 option(LLVM_INCLUDE_TESTS "Generate build targets for the runtimes unit tests." ON)
 option(LLVM_INCLUDE_DOCS "Generate build targets for the runtimes documentation." ON)
@@ -174,9 +208,6 @@ endif()
 
 # This can be used to detect whether we're in the runtimes build.
 set(LLVM_RUNTIMES_BUILD ON)
-
-include(SetTargetTriple)
-set_llvm_target_triple()
 
 foreach(entry ${runtimes})
   get_filename_component(projName ${entry} NAME)
@@ -210,23 +241,6 @@ if(LLVM_INCLUDE_TESTS)
   set(LLVM_LIT_ARGS "${LIT_ARGS_DEFAULT}" CACHE STRING "Default options for lit")
 
   umbrella_lit_testsuite_begin(check-runtimes)
-endif()
-
-# llvm-libgcc incorporates both compiler-rt and libunwind as subprojects with very
-# specific flags, which causes clashes when they're independently built too.
-if("llvm-libgcc" IN_LIST runtimes)
-  if("compiler-rt" IN_LIST runtimes OR "compiler-rt" IN_LIST LLVM_ENABLE_PROJECTS)
-    message(FATAL_ERROR
-      "Attempting to build both compiler-rt and llvm-libgcc will cause irreconcilable "
-      "target clashes. Please choose one or the other, but not both.")
-  endif()
-
-  if("libunwind" IN_LIST runtimes)
-    message(
-      FATAL_ERROR
-      "Attempting to build both libunwind and llvm-libgcc will cause irreconcilable "
-      "target clashes. Please choose one or the other, but not both.")
-  endif()
 endif()
 
 # We do this in two loops so that HAVE_* is set for each runtime before the

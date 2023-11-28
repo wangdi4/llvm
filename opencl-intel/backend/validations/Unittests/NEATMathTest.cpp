@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,18 +12,15 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "gtest_wrapper.h" // Test framework
-
+#include "ALUTest.h"
 #include "DGHelper.h"
 #include "DataGenerator.h"
-
 #include "NEATALU.h"
+#include "NEATALUUtils.h"
 #include "NEATValue.h"
 #include "NEATVector.h"
 #include "RefALU.h"
-
-#include "ALUTest.h"
-#include "NEATALUUtils.h"
+#include "gtest_wrapper.h" // Test framework
 #include "llvm/Support/DataTypes.h"
 
 using namespace Validation;
@@ -4392,6 +4389,7 @@ TYPED_TEST(NEATMathTestOneArg, pown) {
       PownIntervalTest<sT>(refMin, refMax, x[i], testVec[i], yVec[i]);
     }
   }
+  free(Arg2);
 }
 
 template <typename T>

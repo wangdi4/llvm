@@ -15,7 +15,7 @@
 ;   process(dst, x, &lid);
 ; }
 ;
-; RUN: opt -enable-native-debug=true  -passes=sycl-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt  -passes=sycl-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=sycl-kernel-barrier %s -S | FileCheck %s
 ;
 
@@ -45,10 +45,9 @@ entry:
   br label %"Barrier BB1"
 
 ; CHECK-LABEL: SyncBB2:
-; CHECK: load i64, ptr %pCurrSBIndex
-; CHECK: load i64, ptr %pCurrSBIndex
-; CHECK: [[SBIndex0:%SBIndex[0-9]+]] = load i64, ptr %pCurrSBIndex
-; CHECK-NEXT: [[Offset0:%SB_LocalId_Offset[0-9]+]] = add nuw i64 [[SBIndex0]], 16
+; CHECK: [[SBIndex:%SBIndex[0-9]+]] = load i64, ptr %pCurrSBIndex
+; CHECK-NOT: load i64, ptr %pCurrSBIndex
+; CHECK: [[Offset0:%SB_LocalId_Offset[0-9]+]] = add nuw i64 [[SBIndex]], 16
 ; CHECK-NEXT: [[GEP0:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset0]]
 ; CHECK-NEXT: store ptr [[GEP0]], ptr %lid.addr.addr
 ; CHECK-NEXT: [[L0:%[0-9]+]] = load ptr, ptr %lid.addr.addr

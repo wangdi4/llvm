@@ -27,7 +27,7 @@
 ; CHECK: |   %limm = 2 * i1 + %pgocount.i346435454 + 2;
 ; CHECK: |   if (%t108 != 95)
 ; CHECK: |   {
-; CHECK: |      (i64*)(@__profc__ZNK4llvm9StringRef5emptyEv)[0] = %limm;
+; CHECK: |      (@__profc__ZNK4llvm9StringRef5emptyEv)[0][0] = %limm;
 ; CHECK: |      %name.sroa.23.0438.out = -1 * i1 + %conv.i;
 ; CHECK: |      %pgocount.i346439.out = 2 * i1 + %pgocount.i346435454;
 ; CHECK: |      goto early.exit;
@@ -35,7 +35,7 @@
 ; CHECK: + END LOOP
 ; CHECK:   %t116 = 2 * %conv.i + %pgocount.i346435454 + -2  +  3;
 ; CHECK:   %limm = 2 * %conv.i + %pgocount.i346435454 + 1;
-; CHECK:   (@__profc__ZNK4llvm9StringRef5emptyEv)[0] = %limm;
+; CHECK:   (@__profc__ZNK4llvm9StringRef5emptyEv)[0][0] = %limm;
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

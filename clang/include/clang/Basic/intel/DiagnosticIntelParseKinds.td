@@ -1,6 +1,6 @@
 //===--- DiagnosticIntelParseKinds.td - Intel libparse diagnostics --------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -16,6 +16,35 @@
 let Component = "Parse" in {
 
 let CategoryName = "Parse Issue" in {
+
+def err_no_arith_type : Error <"expression must have an arithmetic type">;
+
+def warn_attributes_ignored_after_init
+    : Warning<"variable attributes appearing after a parenthesized initializer "
+              "are ignored">,
+      InGroup<IgnoredAttributes>;
+
+// CQ#410305 ignore declare target directive inside function.
+def warn_omp_ignore_unexpected_directive : Warning<
+  "ignoring unexpected OpenMP directive %select{|'#pragma omp %1'}0">,
+  InGroup<IntelCompat>;
+
+def err_expected_three : Error<"expected %0, %1 or %2">;
+def err_omp_unknown_lastprivate_modifier : Error<
+  "incorrect lastprivate modifier, expected 'conditional'">;
+def err_omp_expected_identifier_for_ompx_processor : Error<
+  "expected identifier in 'ompx_processor' clause">;
+
+#if INTEL_FEATURE_CSA
+def err_omp_unknown_dataflow_modifier : Error<
+  "unexpected 'dataflow' modifier, expected 'static', 'num_workers'"
+  " or 'pipeline'">;
+def err_omp_conflicting_dataflow_num_workers_modifier: Error<
+  "'num_workers' modifier of 'dataflow' clause conflicts with 'num_threads'"
+  " clause">;
+def note_omp_conflicting_dataflow_num_workers_modifier: Note<
+  "conflicting entry is here">;
+#endif // INTEL_FEATURE_CSA
 
 // Warn if '#pragma ivdep' is used for FPGA emulator
 def warn_pragma_ivdep_is_used_for_emulator : Warning<
@@ -53,6 +82,12 @@ def warn_pragma_vector_invalid_option
               "%select{expected always|always must precede assert qualifier}0 "
               "- ignored">,
       InGroup<IgnoredPragmas>;
+def warn_pragma_vector_conflicting_aligned_unaligned
+    : Warning<"%select{'aligned'|'unaligned'}0 clause conflicts with "
+              "%select{'unaligned'|'aligned'}0 clause">,
+      InGroup<IgnoredPragmas>;
+def note_pragma_vector_conflicting_aligned_unaligned
+    : Note<"%select{'aligned'|'unaligned'}0 is used here">;
 def warn_pragma_block_loop_invalid_option : Warning<
   "invalid option%select{ %1|}0; expected factor, level or private - ignored">,
   InGroup<IgnoredPragmas>;

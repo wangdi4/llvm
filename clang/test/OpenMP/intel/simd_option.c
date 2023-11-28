@@ -1,19 +1,19 @@
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -DONE -fopenmp-simd -Werror \
-// RUN:  -Wsource-uses-openmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -DONE -fopenmp-simd -Werror \
+// RUN:  -Wsource-uses-openmp -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s -check-prefix=CHECK-ONE
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o %t.ll -DTWO -fopenmp-simd -Wsource-uses-openmp \
-// RUN:  -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o %t.ll -DTWO -fopenmp-simd -Wsource-uses-openmp \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu -verify %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -DTHREE -fopenmp -fno-openmp-simd \
-// RUN:  -Wsource-uses-openmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -DTHREE -fopenmp -fno-openmp-simd \
+// RUN:  -Wsource-uses-openmp -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu -verify %s \
 // RUN:  | FileCheck %s -check-prefix=CHECK-THREE
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -DFOUR -fopenmp-simd -Werror \
-// RUN:  -Wsource-uses-openmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -DFOUR -fopenmp-simd -Werror \
+// RUN:  -Wsource-uses-openmp -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu -x c++ %s \
 // RUN:  | FileCheck %s -check-prefix=CHECK-FOUR
 

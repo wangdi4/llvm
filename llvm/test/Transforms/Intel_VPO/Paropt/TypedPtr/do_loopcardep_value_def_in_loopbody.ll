@@ -161,8 +161,7 @@ DIR.OMP.END.LOOP.4:                               ; preds = %DIR.OMP.END.LOOP.3
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C++ TBAA"}
 !6 = distinct !{!6, !7}
-!7 = distinct !{!"intel.optreport.rootnode", !8}
-!8 = distinct !{!"intel.optreport", !9}
+!7 = distinct !{!"intel.optreport", !9}
 !9 = !{!"intel.optreport.remarks", !10}
 !10 = !{!"intel.optreport.remark", !"OpenMP: Worksharing loop"}
 

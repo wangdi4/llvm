@@ -1,15 +1,15 @@
 ; RUN: opt < %s -passes="print<hir-region-identification>" -disable-output 2>&1 | FileCheck %s
 
-; Verify that we create 2 regions with entry blocks bb404 and bb455 belonging to
+; Verify that we create 2 regions with entry blocks bb401 and bb359 belonging to
 ; 2 different loops. Previously, we were tracing back to bb339 to associate the
 ; same region entry directive with both loops.
 
 
 ; CHECK: Region 1
-; CHECK: EntryBB: %bb404
+; CHECK: EntryBB: %bb401
 
 ; CHECK: Region 2
-; CHECK: EntryBB: %bb455
+; CHECK: EntryBB: %bb359
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

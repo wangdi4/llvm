@@ -124,13 +124,12 @@ class X86AsmParser : public MCTargetAsmParser {
   DispEncoding ForcedDispEncoding = DispEncoding_Default;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   // Is this instruction explicitly required not to update flags?
   bool ForcedNoFlag = false;
+#endif // INTEL_CUSTOMIZATION
+
   // Does this instruction use apx extended register?
   bool UseApxExtendedReg = false;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
 
 private:
   SMLoc consumeToken() {
@@ -1146,9 +1145,7 @@ private:
   bool ParseMasmOperator(unsigned OpKind, int64_t &Val);
   bool ParseRoundingModeOp(SMLoc Start, OperandVector &Operands);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   bool parseCFlagsOp(OperandVector &Operands);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   bool ParseIntelNamedOperator(StringRef Name, IntelExprStateMachine &SM,
                                bool &ParseError, SMLoc &End);
@@ -1303,10 +1300,9 @@ public:
     setAvailableFeatures(ComputeAvailableFeatures(getSTI().getFeatureBits()));
   }
 
-  bool parseRegister(MCRegister &RegNo, SMLoc &StartLoc,
-                     SMLoc &EndLoc) override;
-  OperandMatchResultTy tryParseRegister(MCRegister &RegNo, SMLoc &StartLoc,
-                                        SMLoc &EndLoc) override;
+  bool parseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) override;
+  ParseStatus tryParseRegister(MCRegister &Reg, SMLoc &StartLoc,
+                               SMLoc &EndLoc) override;
 
   bool parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc) override;
 
@@ -1442,12 +1438,8 @@ bool X86AsmParser::MatchRegisterByName(MCRegister &RegNo, StringRef RegName,
     }
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   if (X86II::isApxExtendedReg(RegNo))
     UseApxExtendedReg = true;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
 
   // If this is "db[0-15]", match it as an alias
   // for dr[0-15].
@@ -1614,23 +1606,21 @@ bool X86AsmParser::ParseRegister(MCRegister &RegNo, SMLoc &StartLoc,
   return false;
 }
 
-bool X86AsmParser::parseRegister(MCRegister &RegNo, SMLoc &StartLoc,
+bool X86AsmParser::parseRegister(MCRegister &Reg, SMLoc &StartLoc,
                                  SMLoc &EndLoc) {
-  return ParseRegister(RegNo, StartLoc, EndLoc, /*RestoreOnFailure=*/false);
+  return ParseRegister(Reg, StartLoc, EndLoc, /*RestoreOnFailure=*/false);
 }
 
-OperandMatchResultTy X86AsmParser::tryParseRegister(MCRegister &RegNo,
-                                                    SMLoc &StartLoc,
-                                                    SMLoc &EndLoc) {
-  bool Result =
-      ParseRegister(RegNo, StartLoc, EndLoc, /*RestoreOnFailure=*/true);
+ParseStatus X86AsmParser::tryParseRegister(MCRegister &Reg, SMLoc &StartLoc,
+                                           SMLoc &EndLoc) {
+  bool Result = ParseRegister(Reg, StartLoc, EndLoc, /*RestoreOnFailure=*/true);
   bool PendingErrors = getParser().hasPendingError();
   getParser().clearPendingErrors();
   if (PendingErrors)
-    return MatchOperand_ParseFail;
+    return ParseStatus::Failure;
   if (Result)
-    return MatchOperand_NoMatch;
-  return MatchOperand_Success;
+    return ParseStatus::NoMatch;
+  return ParseStatus::Success;
 }
 
 std::unique_ptr<X86Operand> X86AsmParser::DefaultMemSIOperand(SMLoc Loc) {
@@ -2335,7 +2325,6 @@ bool X86AsmParser::ParseRoundingModeOp(SMLoc Start, OperandVector &Operands) {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 /// Parse condtional flags for CCMP/CTEST, e.g {of,sf,zf,cf} right after
 /// mnemonic.
 bool X86AsmParser::parseCFlagsOp(OperandVector &Operands) {
@@ -2387,7 +2376,6 @@ bool X86AsmParser::parseCFlagsOp(OperandVector &Operands) {
   }
   llvm_unreachable("Unexpected control flow");
 }
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 /// Parse the '.' operator.
@@ -3182,11 +3170,9 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
   ForcedVEXEncoding = VEXEncoding_Default;
   ForcedDispEncoding = DispEncoding_Default;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   ForcedNoFlag = false;
-  UseApxExtendedReg = false;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+  UseApxExtendedReg = false;
 
   // Parse pseudo prefixes.
   while (true) {
@@ -3212,10 +3198,8 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
       else if (Prefix == "disp32")
         ForcedDispEncoding = DispEncoding_Disp32;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
       else if (Prefix == "nf")
         ForcedNoFlag = true;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       else
         return Error(NameLoc, "unknown prefix");
@@ -3548,12 +3532,10 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   // Parse condtional flags after mnemonic.
   if ((Name.startswith("ccmp") || Name.startswith("ctest")) &&
       parseCFlagsOp(Operands))
     return true;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   // This does the actual operand parsing.  Don't parse any more if we have a
@@ -3873,8 +3855,8 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     }
   }
 
-  switch (Inst.getOpcode()) {
 #if INTEL_CUSTOMIZATION
+  switch (Inst.getOpcode()) {
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   //E11x
   case X86::TPERMBrr:
@@ -3919,9 +3901,8 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     break;
   }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#endif // INTEL_CUSTOMIZATION
   }
-
+#endif // INTEL_CUSTOMIZATION
   // Check that we aren't mixing AH/BH/CH/DH with REX prefix. We only need to
   // check this with the legacy encoding, VEX/EVEX/XOP don't use REX.
   if ((TSFlags & X86II::EncodingMask) == 0) {
@@ -4144,13 +4125,12 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
   const MCInstrDesc &MCID = MII.get(Opc);
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   if (ForcedNoFlag && !(MCID.TSFlags & X86II::EVEX_NF))
     return Match_Unsupported;
+#endif // INTEL_CUSTOMIZATION
+
   if (UseApxExtendedReg && !X86II::canUseApxExtendedReg(MCID))
     return Match_Unsupported;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
 
   if (ForcedVEXEncoding == VEXEncoding_EVEX &&
       (MCID.TSFlags & X86II::EncodingMask) != X86II::EVEX)

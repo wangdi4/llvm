@@ -1,6 +1,6 @@
 //===------------ MemManageTransOP.cpp - DTransMemManageTransPass ---------===//
 //
-// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8450,13 +8450,6 @@ namespace dtransOP {
 
 bool MemManageTransOPPass::runImpl(Module &M, WholeProgramInfo &WPInfo,
                                    MemManageTransOPPass::MemTLITy GetTLI) {
-  if (!dtrans::shouldRunOpaquePointerPasses(M)) {
-    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
-                    dbgs() << "MemManageTransOP inhibited: opaque pointer "
-                              "passes NOT in use\n");
-    return false;
-  }
-
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
     DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,

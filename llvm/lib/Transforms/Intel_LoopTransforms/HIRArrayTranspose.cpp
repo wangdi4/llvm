@@ -1,6 +1,6 @@
 //===--------- HIRArrayTranspose.cpp - Implements array transpose ---------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1073,39 +1073,4 @@ PreservedAnalyses HIRArrayTransposePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   ModifiedHIR = HIRArrayTranspose(HIRF).run();
   return PreservedAnalyses::all();
-}
-
-class HIRArrayTransposeLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRArrayTransposeLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRArrayTransposeLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      LLVM_DEBUG(dbgs() << "HIR array transpose skipped\n");
-      return false;
-    }
-
-    return HIRArrayTranspose(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
-        .run();
-  }
-};
-
-char HIRArrayTransposeLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRArrayTransposeLegacyPass, "hir-array-transpose",
-                      "HIR Array Transpose", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_END(HIRArrayTransposeLegacyPass, "hir-array-transpose",
-                    "HIR Array Transpose", false, false)
-
-FunctionPass *llvm::createHIRArrayTransposePass() {
-  return new HIRArrayTransposeLegacyPass();
 }

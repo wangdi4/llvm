@@ -49,8 +49,7 @@ L3B:
 ; CHECK: [[SBINDEX1:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex
 ; CHECK: [[SB_LOCALID_OFFSET1:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX1]], 16
 ; CHECK: [[GEP1:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LOCALID_OFFSET1]]
-; CHECK: [[SBINDEX2:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex
-; CHECK: [[SB_LOCALID_OFFSET2:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX2]], 0
+; CHECK: [[SB_LOCALID_OFFSET2:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX1]], 0
 ; CHECK: [[GEP2:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LOCALID_OFFSET2]]
 ; CHECK: [[LOADED_VALUE2:%loadedValue[0-9]*]] = load i64, ptr [[GEP2]]
 ; CHECK: store i64 [[LOADED_VALUE2]], ptr [[GEP1]]
@@ -62,23 +61,21 @@ L3B:
 ; CHECK-NOT: @dummy_barrier.
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: SyncBB3:                                          ; preds = %Dispatch{{[0-9]*}}, %L2A
-; CHECK: [[SBINDEX3:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex
-; CHECK: [[SB_LOCALID_OFFSET3:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX3]], 24
+; CHECK: [[SBINDEX2:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex
+; CHECK: [[SB_LOCALID_OFFSET3:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX2]], 24
 ; CHECK: [[GEP3:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LOCALID_OFFSET3]]
 ; CHECK: [[LOADED_VALUE3:%loadedValue[0-9]*]] = load i64, ptr [[GEP3]]
-; CHECK: [[SBINDEX4:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex
-; CHECK: [[SB_LOCALID_OFFSET4:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX4]], 8
+; CHECK: [[SB_LOCALID_OFFSET4:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX2]], 8
 ; CHECK: [[GEP4:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LOCALID_OFFSET4]]
 ; CHECK: store i64 [[LOADED_VALUE3]], ptr [[GEP4]]
 ; CHECK: br label %L3
 ;;;; TODO: add regular expression for the below values.
 ; CHECK: L3:
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; CHECK: [[SBINDEX4:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex
-; CHECK: [[SB_LOCALID_OFFSET4:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX4]], 16
+; CHECK: [[SBINDEX3:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex
+; CHECK: [[SB_LOCALID_OFFSET4:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX3]], 16
 ; CHECK: [[GEP4:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LOCALID_OFFSET4]]
-; CHECK: [[SBINDEX5:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex
-; CHECK: [[SB_LOCALID_OFFSET5:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX5]], 8
+; CHECK: [[SB_LOCALID_OFFSET5:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[SBINDEX3]], 8
 ; CHECK: [[GEP5:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[SB_LOCALID_OFFSET5]]
 ; CHECK: [[LOADED_VALUE6:%loadedValue[0-9]*]] = load i64, ptr [[GEP5]]
 ; CHECK: store i64 [[LOADED_VALUE6]], ptr [[GEP4]]
@@ -110,8 +107,7 @@ L2:
 ; CHECK: [[GEP0:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 %SB_LocalId_Offset
 ; CHECK: %loadedValue = load i64, ptr [[GEP0]]
 ; CHECK: %y = xor i64 %loadedValue, %loadedValue
-; CHECK: %SBIndex1 = load i64, ptr %pCurrSBIndex
-; CHECK: %SB_LocalId_Offset2 = add nuw i64 %SBIndex1, 24
+; CHECK: %SB_LocalId_Offset2 = add nuw i64 %SBIndex, 24
 ; CHECK: [[GEP1:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 %SB_LocalId_Offset2
 ; CHECK: store i64 %y, ptr [[GEP1]]
 ; CHECK: br label %L2

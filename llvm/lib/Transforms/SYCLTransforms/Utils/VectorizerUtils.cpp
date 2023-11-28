@@ -1,6 +1,6 @@
 //===-- VectorizerUtils.cpp - Vectorizer utilities --------------*- C++ -*-===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -409,38 +409,12 @@ Instruction *extendValToType(Value *Orig, Type *TargetType,
   return bitCastValToType(Orig, TargetType, InsertPoint);
 }
 
-bool isOpaquePtrPair(Type *X, Type *Y) {
-  PointerType *XPtr = dyn_cast<PointerType>(X);
-  PointerType *YPtr = dyn_cast<PointerType>(Y);
-  if (XPtr && YPtr) {
-    StructType *XStructEl =
-        dyn_cast<StructType>(XPtr->getNonOpaquePointerElementType());
-    StructType *YStructEl =
-        dyn_cast<StructType>(YPtr->getNonOpaquePointerElementType());
-    if (XStructEl && YStructEl) {
-      return ( // in apple the samplers have slightly differnet function names
-               // between rt module and kernels IR so I skip checking that name
-               // is the same.
-               // XStructEl->getName() == YStructEl->getName() && // have the
-               // same name
-          XStructEl->isEmptyTy() && // X is emptY
-          YStructEl->isEmptyTy());  // Y is emptY
-    }
-  }
-  return false;
-}
-
 Value *rootInputArgument(Value *Arg, Type *RootTy, CallInst *CI) {
   LLVMContext &Ctx = CI->getContext();
   // Is the argument already in the correct type?
   Type *ArgTy = Arg->getType();
   if (ArgTy == RootTy)
     return Arg;
-
-  if (isOpaquePtrPair(ArgTy, RootTy)) {
-    // incase of pointer to opaque type bitcast
-    return CastInst::CreatePointerCast(Arg, RootTy, "bitcast.opaque.ptr", CI);
-  }
 
   if (isa<PointerType>(ArgTy)) {
     // If the function argument is in Pointer type, we expect to find the origin
@@ -566,8 +540,13 @@ Value *rootInputArgument(Value *Arg, Type *RootTy, CallInst *CI) {
       // The type sizes mismatch. BitCast to int and resize.
       ConstVal =
           ConstantExpr::getBitCast(ConstVal, IntegerType::get(Ctx, SourceSize));
-      ConstVal = ConstantExpr::getIntegerCast(
-          ConstVal, IntegerType::get(Ctx, TargetSize), false);
+      if (SourceSize > TargetSize) {
+        ConstVal = ConstantExpr::getTrunc(ConstVal, IntegerType::get(Ctx, TargetSize));
+      }
+      else {
+        ConstVal = ConstantInt::get(Ctx,
+          cast<ConstantInt>(ConstVal)->getValue().zext(TargetSize));
+      }
     }
     // Now the sizes match. Bitcast to the desired type.
     CurrVal = ConstantExpr::getBitCast(ConstVal, RootTy);

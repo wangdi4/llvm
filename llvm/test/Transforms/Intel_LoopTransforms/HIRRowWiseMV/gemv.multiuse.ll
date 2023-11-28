@@ -95,7 +95,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
-define double @gemv(double* %A1, double* %A2, double* %b) #0 {
+define double @gemv(ptr %A1, ptr %A2, ptr %b) #0 {
 entry:
   br label %L1
 
@@ -109,12 +109,12 @@ L2:
   %j = phi i32 [ 0, %L1 ], [ %j.next, %L2 ]
   %sum.L2 = phi double [ %sum, %L1 ], [ %sum.next, %L2 ]
   %A_ind = add nuw nsw i32 %A_row, %j
-  %A1ijp = getelementptr inbounds double, double* %A1, i32 %A_ind
-  %A1ij = load double, double* %A1ijp
-  %A2ijp = getelementptr inbounds double, double* %A2, i32 %A_ind
-  %A2ij = load double, double* %A2ijp
-  %bjp = getelementptr inbounds double, double* %b, i32 %j
-  %bj = load double, double* %bjp
+  %A1ijp = getelementptr inbounds double, ptr %A1, i32 %A_ind
+  %A1ij = load double, ptr %A1ijp
+  %A2ijp = getelementptr inbounds double, ptr %A2, i32 %A_ind
+  %A2ij = load double, ptr %A2ijp
+  %bjp = getelementptr inbounds double, ptr %b, i32 %j
+  %bj = load double, ptr %bjp
   %A1ijbj = fmul nnan nsz arcp afn reassoc double %A1ij, %bj
   %A2ijbj = fmul nnan nsz arcp afn reassoc double %A2ij, %bj
   %Aijbjsum = fadd double %A1ijbj, %A2ijbj

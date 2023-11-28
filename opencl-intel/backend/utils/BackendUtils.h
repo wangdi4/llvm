@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2022 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -18,7 +18,7 @@
 #define __BACKEND_UTILS_H__
 
 #include "llvm/IR/Module.h"
-
+#include "llvm/Passes/OptimizationLevel.h"
 #include <vector>
 
 namespace Intel {
@@ -27,8 +27,14 @@ namespace DeviceBackend {
 
 namespace BackendUtils {
 
+/// Get optimization level based on
+/// * module compile flag.
+/// * kernel function attributes: optnone and sycl-optlevel.
+llvm::OptimizationLevel getOptLevel(bool HasDisableOptFlag, llvm::Module &M);
+
 void recordGlobalCtorDtors(llvm::Module &M, std::vector<std::string> &CtorNames,
                            std::vector<std::string> &DtorNames);
+
 } // namespace BackendUtils
 
 } // namespace DeviceBackend

@@ -1,6 +1,6 @@
 //==== DTransNormalizeOP.cpp - Normalize IR for the DTransSafetyAnalyzer ====//
 //
-// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -87,6 +87,8 @@ public:
           checkGEPInst(GEPI);
         } else if (auto *CB = dyn_cast<CallBase>(I)) {
           checkCallBase(CB);
+        } else if (auto *Int2Ptr = dyn_cast<IntToPtrInst>(I)) {
+          checkInt2Ptr(Int2Ptr);
         }
       }
     }
@@ -94,7 +96,7 @@ public:
     if (InstructionsToGepify.empty() && PHIsToGepify.empty() &&
         ReturnsToGepify.empty() && PHIReturnsGepify.empty() &&
         GEPsToGepify.empty() && CallBaseArgsGepify.empty() &&
-        StoreValueGepify.empty())
+        StoreValueGepify.empty() && AddGepify.empty())
       return false;
 
     for (auto &KV : InstructionsToGepify)
@@ -117,6 +119,10 @@ public:
 
     for (auto &KV : StoreValueGepify)
       gepifyStoreValue(KV.first, KV.second);
+
+    for (auto &KV : AddGepify)
+      gepifyAdd(std::get<0>(KV), std::get<1>(KV), std::get<2>(KV),
+                std::get<3>(KV), std::get<4>(KV), std::get<5>(KV));
 
     return true;
   }
@@ -1012,6 +1018,153 @@ private:
     PHIN->replaceUsesOfWith(PHIN->getIncomingValue(Num), GEP);
   }
 
+  // Pointer type analyzer and safety analyzer don't handle ADD
+  // but GEP instruction for pointer, this function tries to convert ADD
+  // instruction to GEP instruction when there are 2 same type' pointers,
+  // and one unknown type's pointer:
+  // Check if the unknown type's pointer is in a positive position first.
+  // If yes, then the other 2 same type's pointers make up subtraction, and
+  // can be evenly divided by their type. So we finally can convert
+  // "inttoptr(undef-b+c)" to "GEP type, ptr undef, (c-b)/type_size".
+  //
+  // Example:
+  // From:
+  //   %alloc_ptr = tail call ptr @realloc(ptr noundef %net_arcs, i64 1024)
+  //   %alloc = ptrtoint ptr %alloc_ptr to i64
+  //   %a = ptrtoint ptr %a_ptr to i64
+  //   %b = ptrtoint ptr %b_ptr to i64
+  //   %off = sub i64 %alloc, %a
+  //   %c = add i64 %off, %b
+  //   %c_ptr = inttoptr i64 %c to ptr
+  // To:
+  //   %alloc_ptr = tail call ptr @realloc(ptr noundef %net_arcs, i64 1024)
+  //   %alloc = ptrtoint ptr %alloc_ptr to i64
+  //   %a = ptrtoint ptr %a_ptr to i64
+  //   %b = ptrtoint ptr %b_ptr to i64
+  //   %off = sub i64 %b, %a
+  //   %idx = sdiv i64 %off, 64
+  //   %ptr = getelementptr %arc, ptr %alloc_ptr, i64 %idx
+  void checkInt2Ptr(IntToPtrInst *Int2Ptr) {
+    auto IsLegalPtr = [&](PtrToIntInst *PtrToInt, DTransType *&Ty) {
+      Value *Ptr = PtrToInt->getOperand(0);
+      ValueTypeInfo *PtrInfo = PtrAnalyzer.getValueTypeInfo(Ptr);
+      if (!PtrInfo)
+        return false;
+      if (PtrInfo->getUnhandled() || PtrInfo->getDependsOnUnhandled())
+        return false;
+
+      auto &UseAliases =
+          PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+      if (UseAliases.size() != 1)
+        return false;
+
+      Ty = *UseAliases.begin();
+      if (!Ty->isPointerTy())
+        return false;
+
+      return Ty->getPointerElementType()->isStructTy();
+    };
+
+    auto *Add = dyn_cast<BinaryOperator>(Int2Ptr->getOperand(0));
+    if (!Add || Add->getOpcode() != Instruction::Add || !Add->hasOneUse())
+      return;
+
+    int SubIdx = 0;
+    // Find the first available sub instruction.
+    auto *Sub = dyn_cast<BinaryOperator>(Add->getOperand(SubIdx));
+    if (!Sub || Sub->getOpcode() != Instruction::Sub || !Sub->hasOneUse()) {
+      SubIdx = 1;
+      Sub = dyn_cast<BinaryOperator>(Add->getOperand(SubIdx));
+      if (!Sub || Sub->getOpcode() != Instruction::Sub || !Sub->hasOneUse())
+        return;
+    }
+
+    // Get the two positive pointers, one comes from 'add' instruction,
+    // another comes from 'sub's first operand.
+    PtrToIntInst *PosPtr[2] = {nullptr};
+    PosPtr[0] = dyn_cast<PtrToIntInst>(Add->getOperand(1 - SubIdx));
+    if (!PosPtr[0] || !PosPtr[0]->hasOneUse())
+      return;
+
+    PosPtr[1] = dyn_cast<PtrToIntInst>(Sub->getOperand(0));
+    if (!PosPtr[1] || !PosPtr[1]->hasOneUse())
+      return;
+
+    // Get the negative pointer.
+    auto *NegPtr = dyn_cast<PtrToIntInst>(Sub->getOperand(1));
+    if (!NegPtr || !NegPtr->hasOneUse())
+      return;
+
+    DTransType *NegPtrTy = nullptr;
+    if (!IsLegalPtr(NegPtr, NegPtrTy))
+      return;
+
+    int PosPtrFailIdx = -1;
+    int PosPtrPassIdx = -1;
+    DTransType *PosPtrTy[2] = {nullptr};
+
+    // For the two positive pointers, we should make sure at least one of them's
+    // type is equal to the negative pointer.
+    for (int I = 0; I < 2; ++I) {
+      if (!IsLegalPtr(PosPtr[I], PosPtrTy[I])) {
+        PosPtrFailIdx = I;
+        continue;
+      }
+
+      if (PosPtrTy[I] != NegPtrTy) {
+        PosPtrFailIdx = I;
+        continue;
+      }
+
+      PosPtrPassIdx = I;
+    }
+
+    // If one positive pointer's type is equal to the negative pointer,
+    // make sure the other one is an alloc instruction.
+    if (PosPtrFailIdx != -1 && PosPtrPassIdx != -1) {
+      auto Call = dyn_cast<CallInst>(PosPtr[PosPtrFailIdx]->getOperand(0));
+      if (!Call)
+        return;
+
+      const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+      dtrans::AllocKind AKind = DTAC.getAllocFnKind(Call, TLI);
+      if (AKind == dtrans::AK_NotAlloc)
+        return;
+    } else {
+      return;
+    }
+
+    const DataLayout &DL = M.getDataLayout();
+    auto PosPtrLLVMTy =
+        PosPtrTy[PosPtrPassIdx]->getPointerElementType()->getLLVMType();
+    TypeSize PotentialScale = DL.getTypeAllocSize(PosPtrLLVMTy);
+    if (PotentialScale.isScalable())
+      return;
+
+    AddGepify.push_back({Int2Ptr, Add, NegPtr, PosPtrLLVMTy,
+                         PosPtr[PosPtrPassIdx], PosPtr[1 - PosPtrPassIdx]});
+  }
+
+  void gepifyAdd(Instruction *Int2Ptr, Instruction *Add, PtrToIntInst *NegPtr,
+                 Type *PosPtrTy, PtrToIntInst *PosPtr0, PtrToIntInst *PosPtr1) {
+    const DataLayout &DL = M.getDataLayout();
+    TypeSize PotentialScale = DL.getTypeAllocSize(PosPtrTy);
+
+    auto *NewSub = BinaryOperator::CreateSub(PosPtr0, NegPtr, "off", Int2Ptr);
+    auto *TySize =
+        ConstantInt::get(NewSub->getType(), PotentialScale.getFixedValue());
+    auto *NewDiv = BinaryOperator::CreateSDiv(NewSub, TySize, "idx", Int2Ptr);
+
+    SmallVector<Value *, 2> IdxList;
+    IdxList.push_back(NewDiv);
+    auto *NewGEP = GetElementPtrInst::Create(PosPtrTy, PosPtr1->getOperand(0),
+                                             IdxList, "ptr", Int2Ptr);
+    Int2Ptr->replaceAllUsesWith(NewGEP);
+
+    Int2Ptr->eraseFromParent();
+    Add->eraseFromParent();
+  }
+
   ConstantInt *Zero32 = nullptr;
   ConstantInt *ZeroPtrSizedInt = nullptr;
 
@@ -1026,6 +1179,9 @@ private:
   SmallMapVector<CallBase *, SetVector<std::pair<unsigned, DTransType *>>, 8>
       CallBaseArgsGepify;
   SmallMapVector<StoreInst *, DTransType *, 8> StoreValueGepify;
+  SmallVector<std::tuple<Instruction *, Instruction *, PtrToIntInst *, Type *,
+                         PtrToIntInst *, PtrToIntInst *>>
+      AddGepify;
 
   // This is used to reuse GEP instruction if it is already one.
   SmallMapVector<Value *, GetElementPtrInst *, 8> NewGEPInsts;
@@ -1051,11 +1207,6 @@ dtransOP::DTransNormalizeOPPass::run(Module &M, ModuleAnalysisManager &AM) {
 bool dtransOP::DTransNormalizeOPPass::runImpl(Module &M,
                                               WholeProgramInfo &WPInfo,
                                               GetTLIFn GetTLI) {
-  // This pass requires opaque pointers because when it updates instructions it
-  // does not insert bitcasts to match differing pointer types.
-  if (M.getContext().supportsTypedPointers())
-    return false;
-
   if (!WPInfo.isWholeProgramSafe())
     return false;
 

@@ -1,6 +1,6 @@
 //===-- HIRGeneralUnroll.cpp - Implements GeneralUnroll class -------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -570,17 +570,12 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(
     }
   }
 
-  unsigned AvgTripCount = 0;
   if (HasEnablingPragma) {
     // Use factor of 2 for small trip count loops.
     if (IsConstTripLoop && (TripCount < MaxUnrollFactor)) {
       return 2;
     }
-  } else if ((IsConstTripLoop ||
-              (HLoop->getPragmaBasedAverageTripCount(AvgTripCount) &&
-               (TripCount = AvgTripCount)) ||
-              (TripCount = HLoop->getMaxTripCountEstimate())) &&
-             (TripCount < MinTripCountThreshold)) {
+  } else if (HLoop->hasLikelySmallTripCount(MinTripCountThreshold - 1)) {
 
     // This is a hack to prevent LLVM unroller from unrolling this loop.
     if (!IsConstTripLoop) {
@@ -825,54 +820,4 @@ PreservedAnalyses HIRGeneralUnrollPass::runImpl(
                                  PragmaOnlyUnroll)
                     .run();
   return PreservedAnalyses::all();
-}
-
-class HIRGeneralUnrollLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-  bool PragmaOnlyUnroll;
-
-  HIRGeneralUnrollLegacyPass(bool PragmaOnlyUnroll = false)
-      : HIRTransformPass(ID), PragmaOnlyUnroll(PragmaOnlyUnroll) {
-    initializeHIRGeneralUnrollLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRGeneralUnroll(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-               getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
-               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-               getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
-               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-               PragmaOnlyUnroll)
-        .run();
-  }
-};
-
-char HIRGeneralUnrollLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRGeneralUnrollLegacyPass, "hir-general-unroll",
-                      "HIR General Unroll", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRGeneralUnrollLegacyPass, "hir-general-unroll",
-                    "HIR General Unroll", false, false)
-
-FunctionPass *llvm::createHIRGeneralUnrollPass(bool PragmaOnlyUnroll) {
-  return new HIRGeneralUnrollLegacyPass(PragmaOnlyUnroll);
 }

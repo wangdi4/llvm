@@ -195,9 +195,7 @@ program_impl::program_impl(ContextImplPtr Context,
     MBuildOptions = Options;
     return;
   }
-  // TODO: uncomment the assert when UR_PROGRAM_BINARY_TYPE_EXECUTABLE
-  // value matches to PI_PROGRAM_BINARY_TYPE_EXECUTABLE value
-  // assert(false && "BinaryType is invalid.");
+  assert(false && "BinaryType is invalid.");
 }
 
 program_impl::program_impl(ContextImplPtr Context,
@@ -238,23 +236,6 @@ void program_impl::compile_with_kernel_name(std::string KernelName,
     compile(CompileOptions);
   }
   MState = program_state::compiled;
-}
-
-void program_impl::build_with_kernel_name(std::string KernelName,
-                                          std::string BuildOptions) {
-  std::lock_guard<std::mutex> Lock(MMutex);
-  throw_if_state_is_not(program_state::none);
-  if (!is_host()) {
-    MProgramAndKernelCachingAllowed = true;
-    MBuildOptions = BuildOptions;
-    MProgram = ProgramManager::getInstance().getBuiltPIProgram(
-        detail::getSyclObjImpl(get_context()),
-        detail::getSyclObjImpl(get_devices()[0]), KernelName, this,
-        /*JITCompilationIsRequired=*/(!BuildOptions.empty()));
-    const PluginPtr &Plugin = getPlugin();
-    Plugin->call<PiApiKind::piProgramRetain>(MProgram);
-  }
-  MState = program_state::linked;
 }
 
 void program_impl::link(std::string LinkOptions) {
@@ -408,13 +389,6 @@ std::pair<sycl::detail::pi::PiKernel, const KernelArgMask *>
 program_impl::get_pi_kernel_arg_mask_pair(const std::string &KernelName) const {
   std::pair<sycl::detail::pi::PiKernel, const KernelArgMask *> Result;
 
-  if (is_cacheable()) {
-    std::tie(Result.first, std::ignore, Result.second, std::ignore) =
-        ProgramManager::getInstance().getOrCreateKernel(
-            detail::getSyclObjImpl(get_context()),
-            detail::getSyclObjImpl(get_devices()[0]), KernelName, this);
-    getPlugin()->call<PiApiKind::piKernelRetain>(Result.first);
-  } else {
     const PluginPtr &Plugin = getPlugin();
     sycl::detail::pi::PiResult Err =
         Plugin->call_nocheck<PiApiKind::piKernelCreate>(
@@ -430,9 +404,8 @@ program_impl::get_pi_kernel_arg_mask_pair(const std::string &KernelName) const {
     // For others, PI will turn this into a NOP.
     Plugin->call<PiApiKind::piKernelSetExecInfo>(
         Result.first, PI_USM_INDIRECT_ACCESS, sizeof(pi_bool), &PI_TRUE);
-  }
 
-  return Result;
+    return Result;
 }
 
 std::vector<device>

@@ -133,7 +133,7 @@ attributes #4 = { convergent nounwind }
 !13 = !{!"Simple C/C++ TBAA"}
 !14 = !{ptr @a}
 !15 = !{i32 32}
-!16 = !{i32 addrspace(1)* null, i32 addrspace(1)* null}
+!16 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_a {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_a {{.*}} call

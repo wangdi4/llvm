@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include <cl_device_api.h>
+#include "cl_device_api.h"
 
 extern bool imageTest(bool profiling);
 extern bool copyImage(bool profiling, IOCLDevMemoryObject *srcMemObj,

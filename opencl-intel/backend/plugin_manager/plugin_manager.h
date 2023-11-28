@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,14 +15,13 @@
 #ifndef __PLUGIN_MANAGER_H__
 #define __PLUGIN_MANAGER_H__
 
+#include "cl_device_api.h"
+#include "compile_data.h"
+#include "link_data.h"
 #include <cstdlib>
 #include <list>
 #include <stdexcept>
 #include <string>
-
-#include "cl_device_api.h"
-#include "compile_data.h"
-#include "link_data.h"
 
 namespace Intel {
 namespace OpenCL {

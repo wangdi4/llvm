@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022-2023 Intel Corporation
+// Modifications, Copyright (C) 2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -65,6 +65,8 @@ enum class ExportSource {
   ModuleDefinition,
 };
 
+enum class EmitKind { Obj, LLVM, ASM };
+
 // Represents an /export option.
 struct Export {
   StringRef name;       // N in /export:N or /export:E=N
@@ -87,7 +89,7 @@ struct Export {
   StringRef symbolName;
   StringRef exportName; // Name in DLL
 
-  bool operator==(const Export &e) {
+  bool operator==(const Export &e) const {
     return (name == e.name && extName == e.extName &&
             aliasTarget == e.aliasTarget &&
             ordinal == e.ordinal && noname == e.noname &&
@@ -120,9 +122,7 @@ enum class ICFLevel {
 // Global configuration.
 struct Configuration {
   enum ManifestKind { Default, SideBySide, Embed, No };
-  bool is64() const {
-    return machine == AMD64 || llvm::COFF::isAnyArm64(machine);
-  }
+  bool is64() const { return llvm::COFF::is64Bit(machine); }
 
   llvm::COFF::MachineTypes machine = IMAGE_FILE_MACHINE_UNKNOWN;
   size_t wordsize;
@@ -211,6 +211,12 @@ struct Configuration {
 
   // Used for /opt:fintel-preserve-value-names
   bool intelShouldDiscardValueNames = true;
+
+  // Used for /opt:llvm-verify-each
+  bool llvmVerifyEach = false;
+
+  // Used for /lto-sample-profile:name
+  std::string ltoSampleProfileName;
 #endif // INTEL_CUSTOMIZATION
   // Used for /opt:[no]ltodebugpassmanager
   bool ltoDebugPassManager = false;
@@ -313,6 +319,8 @@ struct Configuration {
   uint32_t minorSubsystemVersion = 0;
   uint64_t timestamp = 0; // INTEL
   uint32_t functionPadMin = 0;
+  uint32_t timeTraceGranularity = 0;
+  uint16_t dependentLoadFlags = 0;
   bool dynamicBase = true;
   bool allowBind = true;
   bool cetCompat = false;
@@ -336,10 +344,13 @@ struct Configuration {
   bool swaprunNet = false;
   bool thinLTOEmitImportsFiles;
   bool thinLTOIndexOnly;
+  bool timeTraceEnabled = false;
   bool autoImport = false;
   bool pseudoRelocs = false;
   bool stdcallFixup = false;
   bool writeCheckSum = false;
+  EmitKind emit = EmitKind::Obj;
+  bool allowDuplicateWeak = false;
 };
 
 } // namespace lld::coff

@@ -40,9 +40,7 @@ struct ChannelPipeMD {
 
 enum ChannelDepthMode { Strict, Default, IgnoreDepth };
 
-ChannelPipeMD getChannelPipeMetadata(
-    GlobalVariable *Channel,
-    int ChannelDepthEmulationMode = ChannelDepthMode::Strict);
+ChannelPipeMD getChannelPipeMetadata(GlobalVariable *Channel);
 
 struct ChannelKind {
   enum AccessKind {
@@ -123,32 +121,17 @@ int __pipe_get_total_size_fpga(int packet_size, int depth, int mode);
 
 /// A helper class for checking pipe types.
 class PipeTypesHelper {
-  PointerType *PipeRWTy;
-  PointerType *PipeROTy;
-  PointerType *PipeWOTy;
   Type *OpaquePipeRWTy = nullptr;
   Type *OpaquePipeROTy = nullptr;
   Type *OpaquePipeWOTy = nullptr;
   Type *GlobalPipeTy = nullptr;
 
-  PipeTypesHelper(Type *PipeRWStorageTy, Type *PipeROStorageTy,
-                  Type *PipeWOStorageTy);
-
 public:
   PipeTypesHelper(Module &M);
 
   bool hasPipeTypes() const {
-    return PipeRWTy || PipeROTy || PipeWOTy || OpaquePipeRWTy ||
-           OpaquePipeROTy || OpaquePipeWOTy || GlobalPipeTy;
+    return OpaquePipeRWTy || OpaquePipeROTy || OpaquePipeWOTy || GlobalPipeTy;
   }
-
-  /// Check if Ty is read_only or write_only pipe type.
-  bool isLocalPipeType(Type *Ty) const;
-
-  /// Check if Ty is read_write pipe type.
-  bool isGlobalPipeType(Type *Ty) const;
-
-  bool isPipeType(Type *Ty) const;
 };
 
 Function *getPipeBuiltin(Module &M, RuntimeService &RTS,

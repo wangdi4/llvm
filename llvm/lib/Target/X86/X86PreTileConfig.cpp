@@ -45,6 +45,7 @@
 #include "X86MachineFunctionInfo.h"
 #include "X86RegisterInfo.h"
 #include "X86Subtarget.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
@@ -129,7 +130,7 @@ class X86PreTileConfig : public MachineFunctionPass {
     return !UsableRegs.none();
   }
 
-  /// Collect the shape def information for later use.
+  /// Collect the shape def information for later use. // INTEL
   void collectShapeInfo(MachineInstr &MI, unsigned Shapes); // INTEL
 
   /// Check if MI is AMX pseudo instruction.
@@ -237,7 +238,7 @@ INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
 INITIALIZE_PASS_END(X86PreTileConfig, "tilepreconfig",
                     "Tile Register Pre-configure", false, false)
 
-void X86PreTileConfig::collectShapeInfo(MachineInstr &MI, unsigned Shapes) {
+void X86PreTileConfig::collectShapeInfo(MachineInstr &MI, unsigned Shapes) { // INTEL
   auto RecordShape = [&](MachineInstr *MI, MachineBasicBlock *MBB) {
     MIRef MIR(MI, MBB);
     auto I = llvm::lower_bound(ShapeBBs[MBB], MIR);

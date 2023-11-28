@@ -1,7 +1,7 @@
 //===---------------------*- tablegen -*-----------------------------------===//
 //===- Intel_X86InstrAMX.td - AMX Instruction Set Extension -*- tablegen -*===//
 //
-//      Copyright (c) 2018-2019 Intel Corporation.
+//      Copyright (c) 2018 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -662,17 +662,13 @@ multiclass m_tilemovrow {
   let Predicates = [HasAMXAVX512, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
       def rri : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
-                    (ins TILEX:$src1, u8imm:$src2),
+                    (ins TILE:$src1, u8imm:$src2),
                     "tilemovrow\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                     []>, TAPD, EVEX, EVEX_V512;
       def rre : I<0x4A, MRMSrcReg4VOp3, (outs VR512:$dst),
-                  (ins TILEX:$src1, GR32:$src2),
+                  (ins TILE:$src1, GR32:$src2),
                   "tilemovrow\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                   []>, T8PD, EVEX_4V, EVEX_V512;
-      def rrx: I<0x4A, MRMSrcReg4VOp3, (outs VR512:$dst),
-                 (ins TILEX:$src1, VR128X:$src2),
-                 "tilemovrow\t{$src2, $src1, $dst|$dst, $src1, $src2}",
-                 []>, T8PS, EVEX_4V, EVEX_V512;
     }
   } // HasAMXAVX512, In64BitMode
 }
@@ -688,22 +684,18 @@ let Predicates = [HasAMXAVX512, In64BitMode] in {
       def PTILEMOVROWrre : PseudoI<(outs VR512:$dst), (ins u8imm:$src1, GR32:$src2),
                                     [(set VR512:$dst, (int_x86_tilemovee timm:$src1,
                                       GR32:$src2))]>;
-      def PTILEMOVROWrrx : PseudoI<(outs VR512:$dst), (ins u8imm:$src1, VR128X:$src2),
-                                    [(set VR512:$dst, (int_x86_tilemovex timm:$src1,
-                                      VR128X:$src2))]>;
     }
 
-// TODO Support x86amx with TILEX, then change TILE --> TILEX.
     def PTILEMOVROWrriV : PseudoI<(outs VR512:$dst),
-                                (ins GR16:$src1, GR16:$src2, TILEX:$src3, i32u8imm:$src4),
+                                (ins GR16:$src1, GR16:$src2, TILE:$src3, i32u8imm:$src4),
                                 [(set VR512: $dst,
                                  (int_x86_tilemovrowi_internal GR16:$src1, GR16:$src2,
-                                  TILEX:$src3, timm:$src4))]>;
+                                  TILE:$src3, timm:$src4))]>;
     def PTILEMOVROWrreV : PseudoI<(outs VR512:$dst),
-                                (ins GR16:$src1, GR16:$src2, TILEX:$src3, GR32:$src4),
+                                (ins GR16:$src1, GR16:$src2, TILE:$src3, GR32:$src4),
                                 [(set VR512: $dst,
                                  (int_x86_tilemovrowe_internal GR16:$src1, GR16:$src2,
-                                  TILEX:$src3, GR32:$src4))]>;
+                                  TILE:$src3, GR32:$src4))]>;
   }
 }
 // end INTEL_FEATURE_ISA_AMX_FUTURE

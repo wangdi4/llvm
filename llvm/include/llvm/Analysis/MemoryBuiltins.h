@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -271,7 +271,8 @@ class ObjectSizeOffsetVisitor
   ObjectSizeOpts Options;
   unsigned IntTyBits;
   APInt Zero;
-  SmallPtrSet<Instruction *, 8> SeenInsts;
+  SmallDenseMap<Instruction *, SizeOffsetType, 8> SeenInsts;
+  unsigned InstructionsVisited;
 
   APInt align(APInt Size, MaybeAlign Align);
 
@@ -321,6 +322,7 @@ private:
       unsigned &ScannedInstCount);
   SizeOffsetType combineSizeOffset(SizeOffsetType LHS, SizeOffsetType RHS);
   SizeOffsetType computeImpl(Value *V);
+  SizeOffsetType computeValue(Value *V);
   bool CheckedZextOrTrunc(APInt &I);
 };
 

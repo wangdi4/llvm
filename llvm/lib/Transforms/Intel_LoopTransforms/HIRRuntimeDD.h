@@ -1,6 +1,6 @@
 //===- HIRRuntimeDDImpl.h - Implements MV for Runtime DD ---------*-- C++ --*-//
 //
-// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -40,6 +40,7 @@ typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
 
 const unsigned ExpectedNumberOfTests = 16;
 const unsigned SmallTripCountTest = 10;
+const unsigned ExpectedNumOfSameBaseStarEdgeGroups = 8;
 
 enum RuntimeDDResult {
   OK,
@@ -161,6 +162,11 @@ struct LoopContext {
   HLInst *UnknownLoopUBLoad = nullptr;
   HLInst *UnknownLoopUBMax = nullptr;
 
+  // This is used to differenciate
+  // the case RTDD MV is done without alias but done by
+  // delinearization cost model.
+  inline bool isMVOnlyForDelinearization() const { return SegmentList.empty(); }
+
 #ifndef NDEBUG
   LLVM_DUMP_METHOD void dump() {
     dbgs() << "Loop " << Loop->getNumber() << ":\n";
@@ -206,11 +212,19 @@ private:
   // Returns false if multiversioning the loop will not enable vectorization.
   bool canHelpVectorization(const HLLoop *InnermostLoop) const;
 
+  // Output arguments are \p Tests and \p StarGroupsWithoutBaseAlias.
+  // The former will contain set of the pairs of two different baseptr blob
+  // indices, between them a star dd edge exist. The latter will contain the set
+  // of baseptr blob indices, where a star dd edge exist between the memrefs
+  // with the same base ptr blob index. The latter is used in case the former is
+  // empty, but still delinearization-based multi versioning is desirable.
   RuntimeDDResult processDDGToGroupPairs(
       const HLLoop *Loop, MemRefGatherer::VectorTy &Refs,
       DenseMap<const RegDDRef *, unsigned> &RefGroupIndex,
       SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests>
-          &Tests) const;
+          &Tests,
+      SmallSet<unsigned, ExpectedNumOfSameBaseStarEdgeGroups>
+          &StarGroupsWithoutBaseAlias) const;
 
   // The method processes each IV segment and updates bounds according to
   // a specified loopnest.

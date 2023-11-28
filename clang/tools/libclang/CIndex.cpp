@@ -40,6 +40,7 @@
 #include "CursorVisitor.h"
 #include "clang-c/FatalErrorHandler.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/AttrVisitor.h"
 #include "clang/AST/DeclObjCCommon.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
@@ -590,6 +591,13 @@ bool CursorVisitor::VisitChildren(CXCursor Cursor) {
       return Visit(cxcursor::MakeCursorObjCClassRef(
           ObjT->getInterface(),
           A->getInterfaceLoc()->getTypeLoc().getBeginLoc(), TU));
+  }
+
+  if (clang_isAttribute(Cursor.kind)) {
+    if (const Attr *A = getCursorAttr(Cursor))
+      return Visit(A);
+
+    return false;
   }
 
   // If pointing inside a macro definition, check if the token is an identifier
@@ -1311,7 +1319,7 @@ bool CursorVisitor::VisitUnresolvedUsingTypenameDecl(
 bool CursorVisitor::VisitStaticAssertDecl(StaticAssertDecl *D) {
   if (Visit(MakeCXCursor(D->getAssertExpr(), StmtParent, TU, RegionOfInterest)))
     return true;
-  if (StringLiteral *Message = D->getMessage())
+  if (auto *Message = D->getMessage())
     if (Visit(MakeCXCursor(Message, StmtParent, TU, RegionOfInterest)))
       return true;
   return false;
@@ -2117,7 +2125,8 @@ public:
         (SourceLocation::UIntTy)(uintptr_t)data[1]);
   }
 };
-class EnqueueVisitor : public ConstStmtVisitor<EnqueueVisitor, void> {
+class EnqueueVisitor : public ConstStmtVisitor<EnqueueVisitor, void>,
+                       public ConstAttrVisitor<EnqueueVisitor, void> {
   friend class OMPClauseEnqueue;
   VisitorWorkList &WL;
   CXCursor Parent;
@@ -2259,6 +2268,9 @@ public:
   void VisitOMPTargetTeamsDistributeSimdDirective(
       const OMPTargetTeamsDistributeSimdDirective *D);
 
+  // Attributes
+  void VisitAnnotateAttr(const AnnotateAttr *A);
+
 private:
   void AddDeclarationNameInfo(const Stmt *S);
   void AddNestedNameSpecifierLoc(NestedNameSpecifierLoc Qualifier);
@@ -2270,6 +2282,7 @@ private:
   void AddTypeLoc(TypeSourceInfo *TI);
   void EnqueueChildren(const Stmt *S);
   void EnqueueChildren(const OMPClause *S);
+  void EnqueueChildren(const AnnotateAttr *A);
 };
 } // namespace
 
@@ -2804,9 +2817,16 @@ void OMPClauseEnqueue::VisitOMPXDynCGroupMemClause(
   VisitOMPClauseWithPreInit(C);
   Visitor->AddStmt(C->getSize());
 }
+#if INTEL_CUSTOMIZATION
+void OMPClauseEnqueue::VisitOMPXRegisterAllocModeClause(
+    const OMPXRegisterAllocModeClause *C) {}
+#endif // INTEL_CUSTOMIZATION
 void OMPClauseEnqueue::VisitOMPDoacrossClause(const OMPDoacrossClause *C) {
   VisitOMPClauseList(C);
 }
+void OMPClauseEnqueue::VisitOMPXAttributeClause(const OMPXAttributeClause *C) {
+}
+void OMPClauseEnqueue::VisitOMPXBareClause(const OMPXBareClause *C) {}
 
 } // namespace
 
@@ -2821,6 +2841,20 @@ void EnqueueVisitor::EnqueueChildren(const OMPClause *S) {
   VisitorWorkList::iterator I = WL.begin() + size, E = WL.end();
   std::reverse(I, E);
 }
+
+void EnqueueVisitor::EnqueueChildren(const AnnotateAttr *A) {
+  unsigned size = WL.size();
+  for (const Expr *Arg : A->args()) {
+    VisitStmt(Arg);
+  }
+  if (size == WL.size())
+    return;
+  // Now reverse the entries we just added.  This will match the DFS
+  // ordering performed by the worklist.
+  VisitorWorkList::iterator I = WL.begin() + size, E = WL.end();
+  std::reverse(I, E);
+}
+
 void EnqueueVisitor::VisitAddrLabelExpr(const AddrLabelExpr *E) {
   WL.push_back(LabelRefVisit(E->getLabel(), E->getLabelLoc(), Parent));
 }
@@ -3093,7 +3127,7 @@ void EnqueueVisitor::VisitOpaqueValueExpr(const OpaqueValueExpr *E) {
   // If the opaque value has a source expression, just transparently
   // visit that.  This is useful for (e.g.) pseudo-object expressions.
   if (Expr *SourceExpr = E->getSourceExpr())
-    return Visit(SourceExpr);
+    return ConstStmtVisitor::Visit(SourceExpr);
 }
 void EnqueueVisitor::VisitLambdaExpr(const LambdaExpr *E) {
   AddStmt(E->getBody());
@@ -3113,7 +3147,7 @@ void EnqueueVisitor::VisitCXXParenListInitExpr(const CXXParenListInitExpr *E) {
 }
 void EnqueueVisitor::VisitPseudoObjectExpr(const PseudoObjectExpr *E) {
   // Treat the expression like its syntactic form.
-  Visit(E->getSyntacticForm());
+  ConstStmtVisitor::Visit(E->getSyntacticForm());
 }
 
 void EnqueueVisitor::VisitOMPExecutableDirective(
@@ -3423,9 +3457,28 @@ void EnqueueVisitor::VisitOMPTargetTeamsDistributeSimdDirective(
   VisitOMPLoopDirective(D);
 }
 
+void EnqueueVisitor::VisitAnnotateAttr(const AnnotateAttr *A) {
+  EnqueueChildren(A);
+}
+
 void CursorVisitor::EnqueueWorkList(VisitorWorkList &WL, const Stmt *S) {
   EnqueueVisitor(WL, MakeCXCursor(S, StmtParent, TU, RegionOfInterest))
-      .Visit(S);
+      .ConstStmtVisitor::Visit(S);
+}
+
+void CursorVisitor::EnqueueWorkList(VisitorWorkList &WL, const Attr *A) {
+  // Parent is the attribute itself when this is indirectly called from
+  // VisitChildren. Because we need to make a CXCursor for A, we need *its*
+  // parent.
+  auto AttrCursor = Parent;
+
+  // Get the attribute's parent as stored in
+  // cxcursor::MakeCXCursor(const Attr *A, const Decl *Parent, CXTranslationUnit
+  // TU)
+  const Decl *AttrParent = static_cast<const Decl *>(AttrCursor.data[1]);
+
+  EnqueueVisitor(WL, MakeCXCursor(A, AttrParent, TU))
+      .ConstAttrVisitor::Visit(A);
 }
 
 bool CursorVisitor::IsInRegionOfInterest(CXCursor C) {
@@ -3685,6 +3738,22 @@ bool CursorVisitor::Visit(const Stmt *S) {
     WorkListCache.push_back(WL);
   }
   EnqueueWorkList(*WL, S);
+  bool result = RunVisitorWorkList(*WL);
+  WorkListFreeList.push_back(WL);
+  return result;
+}
+
+bool CursorVisitor::Visit(const Attr *A) {
+  VisitorWorkList *WL = nullptr;
+  if (!WorkListFreeList.empty()) {
+    WL = WorkListFreeList.back();
+    WL->clear();
+    WorkListFreeList.pop_back();
+  } else {
+    WL = new VisitorWorkList();
+    WorkListCache.push_back(WL);
+  }
+  EnqueueWorkList(*WL, A);
   bool result = RunVisitorWorkList(*WL);
   WorkListFreeList.push_back(WL);
   return result;
@@ -5979,9 +6048,9 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("OMPTargetVariantDispatchDirective");
   case CXCursor_OMPPrefetchDirective:
     return cxstring::createRef("OMPPrefetchDirective");
+#endif // INTEL_COLLAB
   case CXCursor_OMPScopeDirective:
     return cxstring::createRef("OMPScopeDirective");
-#endif // INTEL_COLLAB
   case CXCursor_OMPSingleDirective:
     return cxstring::createRef("OMPSingleDirective");
   case CXCursor_OMPMasterDirective:
@@ -6876,7 +6945,6 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::Captured:
   case Decl::OMPCapturedExpr:
   case Decl::Label: // FIXME: Is this right??
-  case Decl::ClassScopeFunctionSpecialization:
   case Decl::CXXDeductionGuide:
   case Decl::Import:
   case Decl::OMPThreadPrivate:
@@ -8278,15 +8346,17 @@ CXLinkageKind clang_getCursorLinkage(CXCursor cursor) {
   const Decl *D = cxcursor::getCursorDecl(cursor);
   if (const NamedDecl *ND = dyn_cast_or_null<NamedDecl>(D))
     switch (ND->getLinkageInternal()) {
-    case NoLinkage:
-    case VisibleNoLinkage:
+    case Linkage::Invalid:
+      return CXLinkage_Invalid;
+    case Linkage::None:
+    case Linkage::VisibleNone:
       return CXLinkage_NoLinkage;
-    case InternalLinkage:
+    case Linkage::Internal:
       return CXLinkage_Internal;
-    case UniqueExternalLinkage:
+    case Linkage::UniqueExternal:
       return CXLinkage_UniqueExternal;
-    case ModuleLinkage:
-    case ExternalLinkage:
+    case Linkage::Module:
+    case Linkage::External:
       return CXLinkage_External;
     };
 
@@ -8794,7 +8864,8 @@ unsigned clang_Cursor_isObjCOptional(CXCursor C) {
   if (const ObjCPropertyDecl *PD = dyn_cast<ObjCPropertyDecl>(D))
     return PD->getPropertyImplementation() == ObjCPropertyDecl::Optional;
   if (const ObjCMethodDecl *MD = dyn_cast<ObjCMethodDecl>(D))
-    return MD->getImplementationControl() == ObjCMethodDecl::Optional;
+    return MD->getImplementationControl() ==
+           ObjCImplementationControl::Optional;
 
   return 0;
 }

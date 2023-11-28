@@ -65,4 +65,4 @@ entry:
 !0 = !{ptr @test, ptr @test2}
 !1 = !{i1 true}
 !2 = !{!"int*"}
-!3 = !{i32 addrspace(1)* null}
+!3 = !{ptr addrspace(1) null}

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,6 +12,8 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "log_message.h"
+#include "cl_sys_defines.h"
 #include <assert.h>
 #include <sstream> // required by: owstringstream
 #include <stdarg.h>
@@ -22,9 +24,6 @@
 #else
 #include "cl_secure_string_linux.h"
 #endif
-
-#include "cl_sys_defines.h"
-#include "log_message.h"
 
 using namespace Intel::OpenCL::Utils;
 
@@ -159,7 +158,5 @@ void LogMessage::CreateFormattedMessage() {
              m_psMessage, m_va);
 
   m_psFormattedMsg = new char[MAX_LOG_STRING_LENGTH];
-  if (m_psFormattedMsg) {
-    STRCPY_S(m_psFormattedMsg, MAX_LOG_STRING_LENGTH, szLine);
-  }
+  STRCPY_S(m_psFormattedMsg, MAX_LOG_STRING_LENGTH, szLine);
 }

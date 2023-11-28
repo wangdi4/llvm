@@ -5,7 +5,7 @@
 ; The test case is basically a shrink of slp_x264_16x16_nary.ll to show case x264 test pattern
 ; sensitive to instcombine add/sub expressions reassociating transforms.
 ; The code expected to be vectorized.
-define i32 @x264_pixel_satd_16x16(ptr noalias nocapture readonly %pix1, i32 %i_pix1, ptr noalias nocapture readonly %pix2, i32 %i_pix2, ptr noalias nocapture %R) {
+define i32 @x264_pixel_satd_16x16(ptr noalias nocapture readonly %pix1, i32 %i_pix1, ptr noalias nocapture readonly %pix2, i32 %i_pix2, ptr noalias nocapture %R) #0 {
 ; CHECK-LABEL: @x264_pixel_satd_16x16(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[IDX_EXT_I:%.*]] = sext i32 [[I_PIX1:%.*]] to i64
@@ -224,3 +224,5 @@ afterloop.1247:                                   ; preds = %loop.1247
   ret i32 0
 }
 
+; prevents gep+gep optimization. this is default for xmain.
+attributes #0 = { "loopopt-pipeline"="light" }

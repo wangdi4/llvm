@@ -5,7 +5,7 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable mustprogress
-define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
+define dso_local void @_Z7ntstorePd(ptr %A) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Updated scenario for VF: 2
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=2
@@ -15,11 +15,11 @@ define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: scalar
-; CHECK-NEXT:   Remainders: scalar,
+; CHECK-NEXT:   Remainders: unmasked, VF=2,scalar,
 ; CHECK-NEXT:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: scalar
-; CHECK-NEXT:   Remainders: scalar,
+; CHECK-NEXT:   Remainders: unmasked, VF=2,scalar,
 ; CHECK-NEXT:  VPlan after CFG merge before CG:
 ; CHECK-NEXT:  VPlan IR for: _Z7ntstorePd:omp.inner.for.body
 ; CHECK-NEXT:    [[PEEL_CHECKZ0:peel.checkz[0-9]+]]: # preds:
@@ -48,60 +48,111 @@ define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
 ; CHECK-NEXT:       [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]: # preds: [[MERGE_BLK1]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP2:%.*]] = add i64 3 i64 4
+; CHECK-NEXT:       [DA: Uni] i64 [[VP2:%.*]] = add i64 3 i64 2
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1:%.*]] = icmp ugt i64 [[VP2]] i64 131072
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_1]], [[MERGE_BLK0]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Uni] pushvf VF=4 UF=1
-; CHECK-NEXT:       [DA: Uni] br [[BB3:BB[0-9]+]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP3:%.*]] = add i64 3 i64 4
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_2:%.*]] = icmp ugt i64 [[VP3]] i64 131072
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_2]], [[MERGE_BLK2:merge.blk[0-9]+]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP__OMP_IV_LOCAL_08_IND_INIT:%.*]] = induction-init{add} i64 [[VP1]] i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP__OMP_IV_LOCAL_08_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 131072 i64 3, UF = 1
-; CHECK-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
+; CHECK-NEXT:        [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:         [DA: Uni] pushvf VF=4 UF=1
+; CHECK-NEXT:         [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]], [[BB4]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP__OMP_IV_LOCAL_08:%.*]] = phi  [ i64 [[VP__OMP_IV_LOCAL_08_IND_INIT]], [[BB3]] ],  [ i64 [[VP3:%.*]], [[BB4]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP3]] = add i64 [[VP__OMP_IV_LOCAL_08]] i64 [[VP__OMP_IV_LOCAL_08_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_ADD:%.*]] = add i64 [[VP__OMP_IV_LOCAL_08]] i64 1
-; CHECK-NEXT:       [DA: Div] double [[VP_CONV:%.*]] = sitofp i64 [[VP_ADD]] to double
-; CHECK-NEXT:       [DA: Div] double* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds double* [[A0:%.*]] i64 [[VP_ADD]]
-; CHECK-NEXT:       [DA: Div] store double [[VP_CONV]] double* [[VP_ARRAYIDX]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ule i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB4]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:        [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:         [DA: Div] i64 [[VP__OMP_IV_LOCAL_08_IND_INIT:%.*]] = induction-init{add} i64 [[VP1]] i64 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP__OMP_IV_LOCAL_08_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 131072 i64 3, UF = 1
+; CHECK-NEXT:         [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]: # preds: [[BB4]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP__OMP_IV_LOCAL_08_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:       [DA: Uni] br [[BB6:BB[0-9]+]]
+; CHECK-NEXT:        [[BB5]]: # preds: [[BB4]], [[BB5]]
+; CHECK-NEXT:         [DA: Div] i64 [[VP__OMP_IV_LOCAL_08:%.*]] = phi  [ i64 [[VP__OMP_IV_LOCAL_08_IND_INIT]], [[BB4]] ],  [ i64 [[VP4:%.*]], [[BB5]] ]
+; CHECK-NEXT:         [DA: Div] i64 [[VP4]] = add i64 [[VP__OMP_IV_LOCAL_08]] i64 [[VP__OMP_IV_LOCAL_08_IND_INIT_STEP]]
+; CHECK-NEXT:         [DA: Div] i64 [[VP_ADD:%.*]] = add i64 [[VP__OMP_IV_LOCAL_08]] i64 1
+; CHECK-NEXT:         [DA: Div] double [[VP_CONV:%.*]] = sitofp i64 [[VP_ADD]] to double
+; CHECK-NEXT:         [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds double, ptr [[A0:%.*]] i64 [[VP_ADD]]
+; CHECK-NEXT:         [DA: Div] store double [[VP_CONV]] ptr [[VP_ARRAYIDX]]
+; CHECK-NEXT:         [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ule i64 [[VP4]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:         [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB5]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:        [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:         [DA: Uni] i64 [[VP__OMP_IV_LOCAL_08_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:         [DA: Uni] br [[BB7:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB7]]: # preds: [[BB6]]
+; CHECK-NEXT:         [DA: Uni] popvf
+; CHECK-NEXT:         [DA: Uni] br [[BB8:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB8]]: # preds: [[BB7]]
+; CHECK-NEXT:         [DA: Uni] pushvf VF=2 UF=1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP5:%.*]] = vector-trip-count i64 131072 i64 3, UF = 1
+; CHECK-NEXT:         [DA: Uni] popvf
+; CHECK-NEXT:         [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp eq i64 [[VP5]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:         [DA: Uni] br i1 [[VP_REMTC_CHECK]], [[MERGE_BLK3:merge.blk[0-9]+]], [[MERGE_BLK2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[MERGE_BLK2]]: # preds: [[BB8]], [[BB2]]
+; CHECK-NEXT:         [DA: Uni] i64 [[VP6:%.*]] = phi-merge  [ i64 live-out0, [[BB8]] ],  [ i64 [[VP1]], [[BB2]] ]
+; CHECK-NEXT:         [DA: Uni] br [[BB9:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB9]]: # preds: [[MERGE_BLK2]]
+; CHECK-NEXT:         [DA: Uni] pushvf VF=2 UF=1
+; CHECK-NEXT:         [DA: Uni] br [[BB10:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB10]]: # preds: [[BB9]]
+; CHECK-NEXT:         [DA: Div] i64 [[VP7:%.*]] = induction-init{add} i64 [[VP6]] i64 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP8:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP9:%.*]] = vector-trip-count i64 131072 i64 3, UF = 1
+; CHECK-NEXT:         [DA: Uni] br [[BB11:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB11]]: # preds: [[BB10]], [[BB11]]
+; CHECK-NEXT:         [DA: Div] i64 [[VP__OMP_IV_LOCAL_08_1:%.*]] = phi  [ i64 [[VP7]], [[BB10]] ],  [ i64 [[VP10:%.*]], [[BB11]] ]
+; CHECK-NEXT:         [DA: Div] i64 [[VP10]] = add i64 [[VP__OMP_IV_LOCAL_08_1]] i64 [[VP8]]
+; CHECK-NEXT:         [DA: Div] i64 [[VP_ADD_1:%.*]] = add i64 [[VP__OMP_IV_LOCAL_08_1]] i64 1
+; CHECK-NEXT:         [DA: Div] double [[VP_CONV_1:%.*]] = sitofp i64 [[VP_ADD_1]] to double
+; CHECK-NEXT:         [DA: Div] ptr [[VP_ARRAYIDX_1:%.*]] = getelementptr inbounds double, ptr [[A0]] i64 [[VP_ADD_1]]
+; CHECK-NEXT:         [DA: Div] store double [[VP_CONV_1]] ptr [[VP_ARRAYIDX_1]]
+; CHECK-NEXT:         [DA: Uni] i1 [[VP11:%.*]] = icmp ule i64 [[VP10]] i64 [[VP9]]
+; CHECK-NEXT:         [DA: Uni] br i1 [[VP11]], [[BB11]], [[BB12:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB12]]: # preds: [[BB11]]
+; CHECK-NEXT:         [DA: Uni] i64 [[VP12:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:         [DA: Uni] br [[BB13:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB13]]: # preds: [[BB12]]
+; CHECK-NEXT:         [DA: Uni] popvf
+; CHECK-NEXT:         [DA: Uni] br [[MERGE_BLK3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[MERGE_BLK3]]: # preds: [[BB8]], [[BB13]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP13:%.*]] = phi-merge  [ i64 [[VP12]], [[BB13]] ],  [ i64 live-out0, [[BB8]] ]
+; CHECK-NEXT:       [DA: Uni] br [[BB14:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB14]]: # preds: [[MERGE_BLK3]]
+; CHECK-NEXT:       [DA: Uni] pushvf VF=2 UF=1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP14:%.*]] = vector-trip-count i64 131072 i64 3, UF = 1
 ; CHECK-NEXT:       [DA: Uni] popvf
-; CHECK-NEXT:       [DA: Uni] br [[BB7:BB[0-9]+]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK_1:%.*]] = icmp eq i64 131072 i64 [[VP14]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK_1]], final.merge, [[MERGE_BLK0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB7]]: # preds: [[BB6]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp eq i64 131072 i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], final.merge, [[MERGE_BLK0]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[MERGE_BLK0]]: # preds: [[BB7]], [[PEEL_CHECKV0]], [[BB1]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP4:%.*]] = phi-merge  [ i64 live-out0, [[BB7]] ],  [ i64 0, [[PEEL_CHECKV0]] ],  [ i64 [[VP1]], [[BB1]] ]
+; CHECK-NEXT:      [[MERGE_BLK0]]: # preds: [[BB14]], [[PEEL_CHECKV0]], [[BB1]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP15:%.*]] = phi-merge  [ i64 [[VP13]], [[BB14]] ],  [ i64 0, [[PEEL_CHECKV0]] ],  [ i64 [[VP1]], [[BB1]] ]
 ; CHECK-NEXT:       [DA: Uni] br [[REMBLK0:RemBlk[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[REMBLK0]]: # preds: [[MERGE_BLK0]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=1 UF=1
 ; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP_1:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
-; CHECK-NEXT:         {i64 0 in {  [[DOTOMP_IV_LOCAL_080]] = phi i64 [ 0, [[DIR_OMP_SIMD_20:%.*]] ], [ [[ADD0]], [[OMP_INNER_FOR_BODY0]] ]} -> i64 [[VP4]] }
-; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_20]] in {  br i1 [[EXITCOND0]], label [[OMP_INNER_FOR_BODY0]], label [[DIR_OMP_END_SIMD_20]], !llvm.loop !0} -> label [[BB8:BB[0-9]+]] }
+; CHECK-NEXT:         {i64 0 in {  [[DOTOMP_IV_LOCAL_080]] = phi i64 [ 0, [[DIR_OMP_SIMD_20:%.*]] ], [ [[ADD0]], [[OMP_INNER_FOR_BODY0]] ]} -> i64 [[VP15]] }
+; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_20]] in {  br i1 [[EXITCOND0]], label [[OMP_INNER_FOR_BODY0]], label [[DIR_OMP_END_SIMD_20]], !llvm.loop !0} -> label [[BB15:BB[0-9]+]] }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT_1:%.*]] = orig-live-out token [[VP_ORIG_LOOP_1]], liveout:   [[ADD0]] = add nuw nsw i64 [[DOTOMP_IV_LOCAL_080]], 1
-; CHECK-NEXT:       [DA: Uni] br [[BB8]]
+; CHECK-NEXT:       [DA: Uni] br [[BB15]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]: # preds: [[REMBLK0]]
+; CHECK-NEXT:      [[BB15]]: # preds: [[REMBLK0]]
 ; CHECK-NEXT:       [DA: Uni] popvf
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
-; CHECK-NEXT:    final.merge: # preds: [[BB7]], [[BB8]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP5:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT_1]], [[BB8]] ],  [ i64 live-out0, [[BB7]] ]
+; CHECK-NEXT:    final.merge: # preds: [[BB14]], [[BB15]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP16:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT_1]], [[BB15]] ],  [ i64 [[VP13]], [[BB14]] ]
 ; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
@@ -113,19 +164,19 @@ DIR.OMP.SIMD.113:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.113
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),  "QUAL.OMP.LINEAR:IV.TYPED"(i64* %i.linear.iv, i64 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),  "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i64 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  call void @llvm.assume(i1 true) [ "align"(double* %A, i64 64) ]
+  call void @llvm.assume(i1 true) [ "align"(ptr %A, i64 64) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %.omp.iv.local.08 = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %add, %omp.inner.for.body ]
   %add = add nuw nsw i64 %.omp.iv.local.08, 1
   %conv = sitofp i64 %add to double
-  %arrayidx = getelementptr inbounds double, double* %A, i64 %add
-  store double %conv, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %A, i64 %add
+  store double %conv, ptr %arrayidx, align 8
   %exitcond = icmp ule i64 %add, 131072
   br i1 %exitcond,  label %omp.inner.for.body, label %DIR.OMP.END.SIMD.2
 

@@ -1,6 +1,6 @@
 //==--- RemoveDuplicatedBarrier.cpp - RemoveDuplicatedBarrier pass - C++ -*-==//
 //
-// Copyright 2012-2022 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -20,11 +20,6 @@
 #define DEBUG_TYPE "sycl-kernel-remove-duplicated-barrier"
 
 using namespace llvm;
-
-extern bool EnableNativeDebug;
-
-RemoveDuplicatedBarrierPass::RemoveDuplicatedBarrierPass(bool IsNativeDebug)
-    : IsNativeDBG(IsNativeDebug || EnableNativeDebug) {}
 
 PreservedAnalyses RemoveDuplicatedBarrierPass::run(Module &M,
                                                    ModuleAnalysisManager &) {
@@ -107,22 +102,18 @@ bool RemoveDuplicatedBarrierPass::runImpl(Module &M) {
       // anyway.
       if ((CLK_GLOBAL_MEM_FENCE | CLK_CHANNEL_MEM_FENCE) &
           BarrierValue->getZExtValue()) {
-        if (!(IsNativeDBG && Inst->getDebugLoc())) {
-          // barrier()-barrier(global) : remove the first barrier
-          // instruction
-          InstrsRemove.push_back(Inst);
-        }
+        // barrier()-barrier(global) : remove the first barrier
+        // instruction
+        InstrsRemove.push_back(Inst);
         // Update iterator.
         Inst = NextInst;
       } else {
         assert(
             (CLK_LOCAL_MEM_FENCE & BarrierValue->getZExtValue()) &&
             "barrier mem fence argument is something else than local/global");
-        if (!(IsNativeDBG && NextInst->getDebugLoc())) {
-          // barrier()-barrier(local) : remove the second barrier
-          // instruction
-          InstrsRemove.push_back(NextInst);
-        }
+        // barrier()-barrier(local) : remove the second barrier
+        // instruction
+        InstrsRemove.push_back(NextInst);
       }
     }
   }

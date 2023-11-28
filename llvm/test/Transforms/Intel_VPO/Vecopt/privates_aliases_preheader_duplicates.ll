@@ -28,13 +28,12 @@ declare void @llvm.directive.region.exit(token)
 ;   }
 ; }
 ;
-define void @select_two_privates(i64 %init1, i64 %init2, i64* %ptr, i1 zeroext %pred) {
-; CHECK:          [32 x i64]* [[VP_PRIV:%.*]] = allocate-priv [32 x i64], OrigAlign = 8
-; CHECK-NEXT:     i8* [[VP_PRIV_BCAST:%.*]] = bitcast [32 x i64]* [[VP_PRIV]]
-; CHECK-NEXT:     call i64 256 i8* [[VP_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     i64* [[VP_GEP2:%.*]] = getelementptr inbounds [32 x i64]* [[VP_PRIV]] i64 0 i64 1
-; CHECK-NEXT:     i64* [[VP_GEP1:%.*]] = getelementptr inbounds [32 x i64]* [[VP_PRIV]] i64 0 i64 0
-; CHECK-NEXT:     i64* [[VP_SELECT:%.*]] = select i1 [[PRED0:%.*]] i64* [[VP_GEP1]] i64* [[VP_GEP2]]
+define void @select_two_privates(i64 %init1, i64 %init2, ptr %ptr, i1 zeroext %pred) {
+; CHECK:          ptr [[VP_PRIV:%.*]] = allocate-priv [32 x i64], OrigAlign = 8
+; CHECK-NEXT:     call i64 256 ptr [[VP_PRIV]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:     ptr [[VP_GEP2:%.*]] = getelementptr inbounds [32 x i64], ptr [[VP_PRIV]] i64 0 i64 1
+; CHECK-NEXT:     ptr [[VP_GEP1:%.*]] = getelementptr inbounds [32 x i64], ptr [[VP_PRIV]] i64 0 i64 0
+; CHECK-NEXT:     ptr [[VP_SELECT:%.*]] = select i1 [[PRED0:%.*]] ptr [[VP_GEP1]] ptr [[VP_GEP2]]
 ; CHECK-NEXT:     i64 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
@@ -47,20 +46,20 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.PRIVATE:TYPED"([32 x i64]* %priv, i64 0, i32 32), "QUAL.OMP.UNIFORM"(i64 %init1), "QUAL.OMP.UNIFORM"(i64 %init2), "QUAL.OMP.UNIFORM:TYPED"(i64* %ptr, i64 0, i32 1), "QUAL.OMP.UNIFORM"(i1 %pred) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.PRIVATE:TYPED"(ptr %priv, i64 0, i32 32), "QUAL.OMP.UNIFORM"(i64 %init1), "QUAL.OMP.UNIFORM"(i64 %init2), "QUAL.OMP.UNIFORM:TYPED"(ptr %ptr, i64 0, i32 1), "QUAL.OMP.UNIFORM"(i1 %pred) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:
-  %gep1 = getelementptr inbounds [32 x i64], [32 x i64]* %priv, i64 0, i64 0
-  %gep2 = getelementptr inbounds [32 x i64], [32 x i64]* %priv, i64 0, i64 1
-  %select = select i1 %pred, i64* %gep1, i64* %gep2
+  %gep1 = getelementptr inbounds [32 x i64], ptr %priv, i64 0, i64 0
+  %gep2 = getelementptr inbounds [32 x i64], ptr %priv, i64 0, i64 1
+  %select = select i1 %pred, ptr %gep1, ptr %gep2
   br label %simd.loop.header
 
 simd.loop.header:
   %index = phi i64 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.latch ]
-  %load = load i64, i64* %select, align 8
-  %gep = getelementptr inbounds i64, i64* %ptr, i64 %index
-  store i64 %load, i64* %gep, align 8
+  %load = load i64, ptr %select, align 8
+  %gep = getelementptr inbounds i64, ptr %ptr, i64 %index
+  store i64 %load, ptr %gep, align 8
   br label %simd.loop.latch
 
 simd.loop.latch:

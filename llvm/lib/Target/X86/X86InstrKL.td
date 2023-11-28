@@ -1,4 +1,21 @@
 //===---------------------------*-tablegen-*-------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===------------- X86InstrKL.td - KL Instruction Set Extension -----------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -15,13 +32,18 @@
 //===----------------------------------------------------------------------===//
 // Key Locker instructions
 
-let SchedRW = [WriteSystem], Predicates = [HasKL] in {
-  let Uses = [XMM0, EAX], Defs = [EFLAGS] in {
+#if INTEL_CUSTOMIZATION
+let SchedRW = [WriteSystem] in {
+  let Uses = [XMM0, EAX], Defs = [EFLAGS], Predicates = [HasKL] in {
+#endif // INTEL_CUSTOMIZATION
     def LOADIWKEY : I<0xDC, MRMSrcReg, (outs), (ins VR128:$src1, VR128:$src2),
                       "loadiwkey\t{$src2, $src1|$src1, $src2}",
                       [(int_x86_loadiwkey XMM0, VR128:$src1, VR128:$src2, EAX)]>, T8XS;
   }
 
+#if INTEL_CUSTOMIZATION
+  let Predicates = [HasKL, NoEGPR] in {
+#endif // INTEL_CUSTOMIZATION
   let Uses = [XMM0], Defs = [XMM0, XMM1, XMM2, XMM4, XMM5, XMM6, EFLAGS] in {
     def ENCODEKEY128 : I<0xFA, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
                          "encodekey128\t{$src, $dst|$dst, $src}", []>, T8XS;
@@ -54,10 +76,15 @@ let SchedRW = [WriteSystem], Predicates = [HasKL] in {
                        [(set VR128:$dst, EFLAGS,
                          (X86aesdec256kl VR128:$src1, addr:$src2))]>, T8XS;
   }
+#if INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
 
 } // SchedRW, Predicates
 
-let SchedRW = [WriteSystem], Predicates = [HasWIDEKL] in {
+#if INTEL_CUSTOMIZATION
+let SchedRW = [WriteSystem], Predicates = [HasWIDEKL, NoEGPR] in {
+#endif // INTEL_CUSTOMIZATION
   let Uses = [XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7],
       Defs = [EFLAGS, XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7],
       mayLoad = 1 in {
@@ -72,3 +99,67 @@ let SchedRW = [WriteSystem], Predicates = [HasWIDEKL] in {
   }
 
 } // SchedRW, Predicates
+#if INTEL_CUSTOMIZATION
+
+let SchedRW = [WriteSystem], Predicates = [HasKL, HasEGPR, In64BitMode] in {
+  let Uses = [XMM0], Defs = [XMM0, XMM1, XMM2, XMM4, XMM5, XMM6, EFLAGS] in {
+    def ENCODEKEY128_EVEX : I<0xDA, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
+                              "encodekey128\t{$src, $dst|$dst, $src}", []>,
+                            EVEX, T_MAP4XS;
+  }
+
+  let Uses = [XMM0, XMM1], Defs = [XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, EFLAGS] in {
+    def ENCODEKEY256_EVEX : I<0xDB, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
+                              "encodekey256\t{$src, $dst|$dst, $src}", []>,
+                            EVEX, T_MAP4XS;
+  }
+
+  let Constraints = "$src1 = $dst",
+      Defs = [EFLAGS] in {
+   def AESENC128KL_EVEX : I<0xDC, MRMSrcMem, (outs VR128:$dst), (ins VR128:$src1, opaquemem:$src2),
+                            "aesenc128kl\t{$src2, $src1|$src1, $src2}",
+                            [(set VR128:$dst, EFLAGS,
+                             (X86aesenc128kl VR128:$src1, addr:$src2))]>,
+                          EVEX, T_MAP4XS;
+
+   def AESDEC128KL_EVEX : I<0xDD, MRMSrcMem, (outs VR128:$dst), (ins VR128:$src1, opaquemem:$src2),
+                            "aesdec128kl\t{$src2, $src1|$src1, $src2}",
+                            [(set VR128:$dst, EFLAGS,
+                             (X86aesdec128kl VR128:$src1, addr:$src2))]>,
+                          EVEX, T_MAP4XS;
+
+   def AESENC256KL_EVEX : I<0xDE, MRMSrcMem, (outs VR128:$dst), (ins VR128:$src1, opaquemem:$src2),
+                            "aesenc256kl\t{$src2, $src1|$src1, $src2}",
+                            [(set VR128:$dst, EFLAGS,
+                             (X86aesenc256kl VR128:$src1, addr:$src2))]>,
+                          EVEX, T_MAP4XS;
+
+   def AESDEC256KL_EVEX : I<0xDF, MRMSrcMem, (outs VR128:$dst), (ins VR128:$src1, opaquemem:$src2),
+                            "aesdec256kl\t{$src2, $src1|$src1, $src2}",
+                            [(set VR128:$dst, EFLAGS,
+                             (X86aesdec256kl VR128:$src1, addr:$src2))]>,
+                          EVEX, T_MAP4XS;
+  }
+} // SchedRW, Predicates
+
+let SchedRW = [WriteSystem], Predicates = [HasWIDEKL, HasEGPR, In64BitMode] in {
+
+  let Uses = [XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7],
+      Defs = [EFLAGS, XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7],
+      mayLoad = 1 in {
+    def AESENCWIDE128KL_EVEX : I<0xD8, MRM0m, (outs), (ins opaquemem:$src),
+                                 "aesencwide128kl\t$src", []>,
+                               EVEX, T_MAP4XS;
+    def AESDECWIDE128KL_EVEX : I<0xD8, MRM1m, (outs), (ins opaquemem:$src),
+                                 "aesdecwide128kl\t$src", []>,
+                               EVEX, T_MAP4XS;
+    def AESENCWIDE256KL_EVEX : I<0xD8, MRM2m, (outs), (ins opaquemem:$src),
+                                 "aesencwide256kl\t$src", []>,
+                               EVEX, T_MAP4XS;
+    def AESDECWIDE256KL_EVEX : I<0xD8, MRM3m, (outs), (ins opaquemem:$src),
+                                 "aesdecwide256kl\t$src", []>,
+                               EVEX, T_MAP4XS;
+  }
+
+} // SchedRW, Predicates
+#endif // INTEL_CUSTOMIZATION

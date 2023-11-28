@@ -7,6 +7,6 @@
 
 define i8 @f() {
 entry:
-  %tmp1 = load i8, i8* @i
+  %tmp1 = load i8, ptr @i
   ret i8 %tmp1
 }

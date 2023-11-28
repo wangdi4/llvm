@@ -9,7 +9,7 @@
 ; CHECK:           BEGIN REGION { }
 ; CHECK:                + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647>
 ; CHECK:                |   %t7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.ALIGNED:PTR_TO_PTR(null, 64),  QUAL.OMP.LINEAR:IV(&((%n144.linear.iv)[0]), 1) ]
-; CHECK:                |   @llvm.assume(-1);
+; CHECK:                |   @llvm.assume(1);
 ; CHECK:                |
 ; CHECK:                |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647> <simd>
 ; CHECK:                |   |   @llvm.lifetime.start.p0(4,  &((%n144.linear.iv)[0]));
@@ -30,14 +30,14 @@
 
 ; CHECK:                + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 12>  <LEGAL_MAX_TC = 268435455> <nounroll and jam>
 ; CHECK:                |   %t7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.ALIGNED:PTR_TO_PTR(null, 64),  QUAL.OMP.LINEAR:IV(&((%n144.linear.iv)[0]), 1) ]
-; CHECK:                |   @llvm.assume(-1);
-; CHECK:                |   @llvm.assume(-1);
-; CHECK:                |   @llvm.assume(-1);
-; CHECK:                |   @llvm.assume(-1);
-; CHECK:                |   @llvm.assume(-1);
-; CHECK:                |   @llvm.assume(-1);
-; CHECK:                |   @llvm.assume(-1);
-; CHECK:                |   @llvm.assume(-1);
+; CHECK:                |   @llvm.assume(1);
+; CHECK:                |   @llvm.assume(1);
+; CHECK:                |   @llvm.assume(1);
+; CHECK:                |   @llvm.assume(1);
+; CHECK:                |   @llvm.assume(1);
+; CHECK:                |   @llvm.assume(1);
+; CHECK:                |   @llvm.assume(1);
+; CHECK:                |   @llvm.assume(1);
 ; CHECK:                |
 ; CHECK:                |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647> <simd>
 ; CHECK:                |   |   @llvm.lifetime.start.p0(4,  &((%n144.linear.iv)[0]));
@@ -88,7 +88,7 @@
 
 ; CHECK:                + DO i1 = 8 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <nounroll> <nounroll and jam> <max_trip_count = 7>
 ; CHECK:                |   %t7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.ALIGNED:PTR_TO_PTR(null, 64),  QUAL.OMP.LINEAR:IV(&((%n144.linear.iv)[0]), 1) ]
-; CHECK:                |   @llvm.assume(-1);
+; CHECK:                |   @llvm.assume(1);
 ; CHECK:                |
 ; CHECK:                |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647> <simd>
 ; CHECK:                |   |   @llvm.lifetime.start.p0(4,  &((%n144.linear.iv)[0]));

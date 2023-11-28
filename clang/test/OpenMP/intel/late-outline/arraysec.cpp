@@ -1,10 +1,6 @@
 // INTEL_COLLAB
-//RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
-//RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck \
-//RUN:  --check-prefixes=CHECK,CHECK-NEW %s
-//RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
-//RUN:  -triple x86_64-unknown-linux-gnu -fno-openmp-new-depend-ir %s \
-//RUN:  | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
+//RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+//RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 static int y_Array[3][4][5];
 
@@ -106,21 +102,17 @@ void arraysec_depend_length_one()
   int i = 10;
   char*a, *b, *c, d;
   a = &d; b = &d; c = &d;
-  //CHECK-NEW: [[DARR1:%.*]] = getelementptr inbounds [3 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
+  //CHECK: [[DARR1:%.*]] = getelementptr inbounds [3 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
   //CHECK: "DIR.OMP.TASK"()
-  //CHECK-OLD: "QUAL.OMP.DEPEND.IN:ARRSECT"(ptr %a, i64 1, i64 1, i64 1, i64 1)
-  //CHECK-OLD: "QUAL.OMP.DEPEND.IN:ARRSECT"(ptr %b, i64 1, i64 0, i64 1, i64 1)
-  //CHECK-NEW: "QUAL.OMP.DEPARRAY"(i32 3, ptr [[DARR1]])
+  //CHECK: "QUAL.OMP.DEPARRAY"(i32 3, ptr [[DARR1]])
   //CHECK: "DIR.OMP.END.TASK"()
   #pragma omp task depend(in:a[1:1], b[0:1]) depend(out: c) firstprivate(i)
   {
     doSomething();
   }
-  //CHECK-NEW: [[DARR2:%.*]] = getelementptr inbounds [3 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
+  //CHECK: [[DARR2:%.*]] = getelementptr inbounds [3 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
   //CHECK: "DIR.OMP.TASK"()
-  //CHECK-OLD: "QUAL.OMP.DEPEND.IN:ARRSECT"(ptr %a, i64 1, i64 1, i64 1, i64 1)
-  //CHECK-OLD: "QUAL.OMP.DEPEND.IN:ARRSECT"(ptr %b, i64 1, i64 0, i64 1, i64 1)
-  //CHECK-NEW: "QUAL.OMP.DEPARRAY"(i32 3, ptr [[DARR2]])
+  //CHECK: "QUAL.OMP.DEPARRAY"(i32 3, ptr [[DARR2]])
   //CHECK: "DIR.OMP.END.TASK"()
   #pragma omp task depend(in:a[1], b[0]) depend(out: c) firstprivate(i)
   {

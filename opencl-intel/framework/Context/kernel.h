@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,14 +14,13 @@
 
 #pragma once
 
-#include <Logger.h>
-#include <cl_device_api.h>
-#include <cl_object.h>
-#include <cl_objects_map.h>
-#include <cl_types.h>
-
 #include "Device.h"
+#include "Logger.h"
+#include "cl_device_api.h"
+#include "cl_object.h"
+#include "cl_objects_map.h"
 #include "cl_sys_defines.h"
+#include "cl_types.h"
 #include <memory>
 #include <string>
 
@@ -333,6 +332,12 @@ public:
                                cl_int iParamName, size_t szParamValueSize,
                                void *pParamValue, size_t *pszParamValueSizeRet);
 
+  // Query the maximum work-group count for a concurrent dispatch
+  cl_err_code GetKernelMaxConcurrentWorkGroupCount(
+      cl_command_queue command_queue, cl_uint work_dim,
+      const size_t *global_work_offset, const size_t *local_work_size,
+      size_t *max_work_group_count);
+
   // create device kernels
   cl_err_code CreateDeviceKernels(
       std::vector<std::unique_ptr<DeviceProgram>> &pDevicePrograms);
@@ -510,6 +515,14 @@ public:
 
   const std::map<cl_uint, USMBuffer *> &GetUsmArgs() const { return m_usmArgs; }
 
+  void SetDispatchType(cl_kernel_exec_info_dispatch_type_intel dispatchType) {
+    m_dispatchType = dispatchType;
+  };
+
+  cl_kernel_exec_info_dispatch_type_intel getDispatchType() {
+    return m_dispatchType;
+  };
+
   // needed so that DeviceKernel can access the raw program's binary (no const)
   friend class DeviceKernel;
 
@@ -557,6 +570,8 @@ protected:
   std::vector<SharedPtr<USMBuffer>> m_nonArgUsmBufs;
   std::map<cl_uint, USMBuffer *> m_usmArgs;
   bool m_isArgInfoAvailable = false;
+  cl_kernel_exec_info_dispatch_type_intel m_dispatchType =
+      CL_KERNEL_EXEC_INFO_DISPATCH_TYPE_DEFAULT_INTEL;
 
 private:
   /*****************************************************************************

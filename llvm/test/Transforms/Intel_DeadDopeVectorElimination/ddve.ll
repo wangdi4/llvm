@@ -96,6 +96,7 @@ attributes #5 = { nounwind }
 
 !omp_offload.info = !{}
 !llvm.module.flags = !{!0, !1, !2}
+!ifx.types.dv = !{!25}
 
 !0 = !{i32 1, !"ThinLTO", i32 0}
 !1 = !{i32 1, !"EnableSplitLTOUnit", i32 1}
@@ -122,3 +123,4 @@ attributes #5 = { nounwind }
 !22 = !{i64 16}
 !23 = !{i32 97}
 !24 = !{i32 98}
+!25 = !{%"QNCA_a0$i32*$rank2$" zeroinitializer, i32 0}

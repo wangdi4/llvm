@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_sw_dtrans
-// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple i386-pc-windows-msvc -emit-dtrans-info -emit-llvm -opaque-pointers %s -o - | FileCheck %s 
+// RUN: %clang_cc1 -disable-llvm-passes -O2 -triple i386-pc-windows-msvc -emit-dtrans-info -emit-llvm %s -o - | FileCheck %s 
 
 // Validate that we properly generate DTrans data for an inalloc of a collection
 // of parameters.

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2013-2020 Intel Corporation.
+// Copyright 2013 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,12 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <atomic>
-#include <memory>
-
+#include "tbb_test_type.h"
 #include "task_group_with_reference.h"
 #include "tbb/task_arena.h"
-#include "tbb_test_type.h"
+#include <atomic>
+#include <memory>
 
 #ifndef _WIN32
 #define SLEEP(x) sleep(x)

@@ -4,49 +4,45 @@
 ; Additionally, check that we properly truncate the value back to `i1` or
 ; `<N x i1>` before uses so that users observe the correct type.
 
-; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN16v_foo(<16 x i8> %p)
 ; CHECK: entry:
 ; CHECK:   [[VEC_P:%.*]] = alloca <16 x i8>
-; CHECK:   [[CAST:%.*]] = bitcast <16 x i8>* [[VEC_P]] to i8*
 
 ; CHECK: simd.loop.header:
-; CHECK:   [[GEP:%.*]] = getelementptr i8, i8* [[CAST]], i32 [[INDEX:%.*]]
-; CHECK:   [[ELEM:%.*]] = load i8, i8* [[GEP]]
+; CHECK:   [[GEP:%.*]] = getelementptr i8, ptr [[VEC_P]], i32 [[INDEX:%.*]]
+; CHECK:   [[ELEM:%.*]] = load i8, ptr [[GEP]]
 ; CHECK:   [[TRUNC:%.*]] = trunc i8 [[ELEM]] to i1
 ; CHECK:   {{%.*}} = select i1 [[TRUNC]], i32 48858, i32 64206
 
 ; CHECK-LABEL: @_ZGVbM16v_foo(<16 x i8> %p, <16 x i32> %mask)
 ; CHECK: entry:
 ; CHECK:   [[VEC_P:%.*]] = alloca <16 x i8>
-; CHECK:   [[CAST:%.*]] = bitcast <16 x i8>* [[VEC_P]] to i8*
 
 ; CHECK: simd.loop.header:
-; CHECK:   [[GEP:%.*]] = getelementptr i8, i8* [[CAST]], i32 [[INDEX:%.*]]
-; CHECK:   [[ELEM:%.*]] = load i8, i8* [[GEP]]
+; CHECK:   [[GEP:%.*]] = getelementptr i8, ptr [[VEC_P]], i32 [[INDEX:%.*]]
+; CHECK:   [[ELEM:%.*]] = load i8, ptr [[GEP]]
 ; CHECK:   [[TRUNC:%.*]] = trunc i8 [[ELEM]] to i1
 ; CHECK:   {{%.*}} = select i1 [[TRUNC]], i32 48858, i32 64206
 
 ; CHECK-LABEL: @_ZGVbN16v_foo_vec(<32 x i8> %p)
 ; CHECK: entry:
 ; CHECK:   [[VEC_P:%.*]] = alloca <32 x i8>
-; CHECK:   [[CAST:%.*]] = bitcast <32 x i8>* [[VEC_P]] to <2 x i8>*
 
 ; CHECK: simd.loop.header:
-; CHECK:   [[GEP:%.*]] = getelementptr <2 x i8>, <2 x i8>* [[CAST]], i32 [[INDEX:%.*]]
-; CHECK:   [[ELEM:%.*]] = load <2 x i8>, <2 x i8>* [[GEP]]
+; CHECK:   [[GEP:%.*]] = getelementptr <2 x i8>, ptr [[VEC_P]], i32 [[INDEX:%.*]]
+; CHECK:   [[ELEM:%.*]] = load <2 x i8>, ptr [[GEP]]
 ; CHECK:   [[TRUNC:%.*]] = trunc <2 x i8> [[ELEM]] to <2 x i1>
 ; CHECK:   {{%.*}} = select <2 x i1> [[TRUNC]], <2 x i32> <i32 48858, i32 48858>, <2 x i32> <i32 64206, i32 64206>
 
 ; CHECK-LABEL: @_ZGVbM16v_foo_vec(<32 x i8> %p, <16 x i32> %mask)
 ; CHECK: entry:
 ; CHECK:   [[VEC_P:%.*]] = alloca <32 x i8>
-; CHECK:   [[CAST:%.*]] = bitcast <32 x i8>* [[VEC_P]] to <2 x i8>*
 
 ; CHECK: simd.loop.header:
-; CHECK:   [[GEP:%.*]] = getelementptr <2 x i8>, <2 x i8>* [[CAST]], i32 [[INDEX:%.*]]
-; CHECK:   [[ELEM:%.*]] = load <2 x i8>, <2 x i8>* [[GEP]]
+; CHECK:   [[GEP:%.*]] = getelementptr <2 x i8>, ptr [[VEC_P]], i32 [[INDEX:%.*]]
+; CHECK:   [[ELEM:%.*]] = load <2 x i8>, ptr [[GEP]]
 ; CHECK:   [[TRUNC:%.*]] = trunc <2 x i8> [[ELEM]] to <2 x i1>
 ; CHECK:   {{%.*}} = select <2 x i1> [[TRUNC]], <2 x i32> <i32 48858, i32 48858>, <2 x i32> <i32 64206, i32 64206>
 

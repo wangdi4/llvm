@@ -19,7 +19,7 @@ entry:
 !sycl.kernels = !{!0}
 !0 = !{ptr @t1}
 !1 = !{!"int*"}
-!2 = !{i32 addrspace(1)* null}
+!2 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-30: WARNING: Instruction with empty DebugLoc in function {{.*}}

@@ -1,8 +1,8 @@
-; RUN: opt -opaque-pointers=0 -passes='default<O0>' -paropt=31 -S %s | FileCheck %s
+; RUN: opt -passes='default<O0>' -paropt=31 -S %s | FileCheck %s
 
-; RUN: opt -opaque-pointers=0 -passes='default<O2>' -paropt=31 -S %s | FileCheck %s
+; RUN: opt -passes='default<O2>' -paropt=31 -S %s | FileCheck %s
 
-; RUN: opt -opaque-pointers=0 -passes='default<O3>' -paropt=31 -S %s | FileCheck %s
+; RUN: opt -passes='default<O3>' -paropt=31 -S %s | FileCheck %s
 
 ; The test is just to check that this IR doens't cause a comp-fail. The
 ; comp-fail was happening in code-extractor after inliner inlined f1 into
@@ -38,43 +38,39 @@ target device_triples = "x86_64"
 
 %struct.S = type <{ i64 }>
 
-define void @f1(%struct.S* %C1) {
+define void @f1(ptr %C1) {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(%struct.S* %C1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %C1, %struct.S zeroinitializer, i32 1) ]
 
-  %C1.cast = bitcast %struct.S* %C1 to i8**
-  call void @f3(i8** %C1.cast)
-
+  %C1.cast = bitcast ptr %C1 to ptr
+  call void @f3(ptr %C1.cast)
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+
   ret void
 }
 
 define void @f2() {
 entry:
   %C2 = alloca %struct.S, align 8
-
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"() ]
 
-  %C2.cast = bitcast %struct.S* %C2 to i8**
-  store i8* undef, i8** %C2.cast, align 8
-  call void @f1(%struct.S* %C2)
+  %C2.cast = bitcast ptr %C2 to ptr
+  store ptr undef, ptr %C2.cast, align 8
+  call void @f1(ptr %C2)
   br label %exit
 
 exit:                                             ; preds = %entry
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET.DATA"() ]
+
   ret void
 }
 
-declare void @f3(i8**)
+declare void @f3(ptr)
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #0
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #0
-
-attributes #0 = { nounwind }
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 
 !omp_offload.info = !{!0}
-
 !0 = !{i32 0, i32 66313, i32 90378038, !"f1", i32 24, i32 0, i32 0}

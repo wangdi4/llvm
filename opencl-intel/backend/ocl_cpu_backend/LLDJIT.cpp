@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019-2022 Intel Corporation.
+// Copyright 2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,6 +16,7 @@
 #include "AsmCompiler.h"
 #include "exceptions.h"
 
+#include "lld/Common/Driver.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
@@ -38,12 +39,10 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
-#include <mutex>
-
-#include "lld/Common/Driver.h"
 
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <signal.h>
 #include <sstream>
 #include <stdio.h>
@@ -273,7 +272,8 @@ std::string LLDJIT::emitObject(Module *M) {
   raw_svector_ostream ObjStream(ObjBufferSV);
 
   TM->addPassesToEmitFile(PM, ObjStream,
-                          /*raw_pwrite_stream*/ nullptr, CGFT_ObjectFile,
+                          /*raw_pwrite_stream*/ nullptr,
+                          CodeGenFileType::ObjectFile,
                           /*DisableVerify*/ true);
 
   // Initialize passes.

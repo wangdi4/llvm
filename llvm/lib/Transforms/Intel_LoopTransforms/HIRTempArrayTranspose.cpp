@@ -1,6 +1,6 @@
 //===---------------- HIRTempArrayTranspose.cpp --------------------===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -103,6 +103,23 @@ static cl::opt<unsigned> MaxVarSizeThreshold(
     cl::desc("maximum profitable variable dimsize for single alloca "
              "used in HIRTempArrayTranspose."),
     cl::Hidden, cl::init(512));
+
+// Target up to 2D memrefs or a 3rd dimension that can be zero. We allow
+// Single Dimension Refs as delinearization candidates for later.
+static bool isProfitableMemRef(const RegDDRef *MemRef) {
+  assert(MemRef->hasGEPInfo() && "Expected valid GEPInfo.\n");
+  unsigned NumDims = MemRef->getNumDimensions();
+  if (NumDims == 3) {
+    if (!MemRef->getDimensionIndex(3)->isZero() ||
+        !MemRef->getTrailingStructOffsets(3).empty()) {
+      return false;
+    }
+  } else if (NumDims > 2) {
+    return false;
+  }
+
+  return true;
+}
 
 class ArrayTransposeAnalyzer {
 
@@ -227,14 +244,17 @@ static bool isTransposeCandidate(const RegDDRef *Ref, unsigned LoopLevel) {
     return false;
   }
 
-  // For now only 2D memrefs considered, E.g. (%4)[i3][i2]
+  // For now only 2D memrefs considered, E.g. (%4)[i3][i2], unless the highest
+  // dim is a zero dim like (%4)[0][i3][i2]
   // If we handle more than 2D, we would need to consider the dimension
   // index of the extra dim, const/variant/iv, which would require
   // more complex analysis.
-  unsigned NumDims = Ref->getNumDimensions();
-  if (NumDims > 2) {
+  if (!isProfitableMemRef(Ref)) {
     return false;
   }
+
+  // We allow Zero for highest dim-index, checked in isProfitableMemRef
+  unsigned NumDims = std::min(2u, Ref->getNumDimensions());
 
   for (unsigned Dim = 1; Dim <= NumDims; Dim++) {
     if (!Ref->getTrailingStructOffsets(Dim).empty()) {
@@ -265,7 +285,7 @@ static bool isTransposeCandidate(const RegDDRef *Ref, unsigned LoopLevel) {
   } else {
     // Inner dimension has a single IV that is not the innerloop IV.
     const CanonExpr *InnerCE = Ref->getDimensionIndex(1);
-    if (InnerCE->numIVs() != 1 || InnerCE->getFirstIVLevel() == LoopLevel) {
+    if (InnerCE->numIVs() != 1 || InnerCE->getOutermostIVLevel() == LoopLevel) {
       return false;
     }
 
@@ -276,7 +296,7 @@ static bool isTransposeCandidate(const RegDDRef *Ref, unsigned LoopLevel) {
     }
 
     const CanonExpr *OuterCE = Ref->getDimensionIndex(2);
-    if (OuterCE->numIVs() != 1 || OuterCE->getFirstIVLevel() != LoopLevel) {
+    if (OuterCE->numIVs() != 1 || OuterCE->getOutermostIVLevel() != LoopLevel) {
       return false;
     }
 
@@ -319,7 +339,7 @@ bool ArrayTransposeAnalyzer::isValidRefGroup(
         return false;
       }
 
-      RegDDRef *DelinearlizedRef = nullptr;
+      RegDDRef *DelinearizedRef = nullptr;
       // Do delinearization for single dimension refs
       if (Ref->isSingleDimension()) {
         SmallVector<RegDDRef *, 8> DelinearizedRefs;
@@ -329,17 +349,19 @@ bool ArrayTransposeAnalyzer::isValidRefGroup(
           return false;
         }
 
-        DelinearlizedRef = DelinearizedRefs.front();
+        DelinearizedRef = DelinearizedRefs.front();
       } else {
         // Ref already delinearized
-        DelinearlizedRef = Ref;
+        DelinearizedRef = Ref;
       }
 
-      unsigned NumDims = DelinearlizedRef->getNumDimensions();
-      // Only handle 2D case
-      if (NumDims != 2) {
+      // Do dimchecks here, allow 2D index with a 0 3rd dimension, treat as 2D
+      if (!isProfitableMemRef(DelinearizedRef)) {
         return false;
       }
+
+      // NumDims must be 2 as delinearization succeeded
+      unsigned NumDims = 2;
 
       // Check that indices are valid for transposing. The most basic candidate
       // looks like A[i1][i2]. We can handle non-linear blobs like A[i1+%t][i2]
@@ -348,13 +370,13 @@ bool ArrayTransposeAnalyzer::isValidRefGroup(
       HLLoop *OrigOuterLoop = nullptr;
       HLLoop *OrigInnerLoop = nullptr;
       for (unsigned Dim = 1; Dim <= NumDims; ++Dim) {
-        auto *IndexCE = DelinearlizedRef->getDimensionIndex(Dim);
+        auto *IndexCE = DelinearizedRef->getDimensionIndex(Dim);
         if (IndexCE->getDenominator() != 1) {
           LLVM_DEBUG(dbgs() << "[BadCand] CE has bad denominator.\n";);
           return false;
         }
 
-        unsigned IVLevel = IndexCE->getFirstIVLevel();
+        unsigned IVLevel = IndexCE->getOutermostIVLevel();
         if (!IVLevel || IndexCE->numIVs() != 1) {
           LLVM_DEBUG(dbgs() << "[BadCand] Index not single IV.\n";);
           return false;
@@ -371,7 +393,7 @@ bool ArrayTransposeAnalyzer::isValidRefGroup(
 
         // Check that either NumDimensionElements is known or IV is standalone
         if (!IndexCE->isStandAloneIV(IVLevel) &&
-            !DelinearlizedRef->getNumDimensionElements(Dim)) {
+            !DelinearizedRef->getNumDimensionElements(Dim)) {
           return false;
         }
 
@@ -403,7 +425,7 @@ bool ArrayTransposeAnalyzer::isValidRefGroup(
       }
 
       // Save this Use and relevant information
-      Uses.emplace_back(Ref, DelinearlizedRef, OrigOuterLoop, OrigInnerLoop);
+      Uses.emplace_back(Ref, DelinearizedRef, OrigOuterLoop, OrigInnerLoop);
     }
   }
 
@@ -419,6 +441,7 @@ static bool isProfitableLoopTC(const HLLoop *Loop) {
 
   if (Loop->isConstTripLoop(&TripCount)) {
     if (TripCount > MaxConstSizeThreshold) {
+      LLVM_DEBUG(dbgs() << "[TC = " << TripCount << "] ";);
       return false;
     }
   } else {
@@ -439,6 +462,7 @@ bool ArrayTransposeAnalyzer::isProfitable() {
   // Note: InnerDim corresponds to the original outer loop
   Dim1Size = Uses.front().DelinearRef->getNumDimensionElements(1);
   Dim2Size = Uses.front().DelinearRef->getNumDimensionElements(2);
+  LLVM_DEBUG(dbgs() << "DimSizes = " << Dim1Size << ", " << Dim2Size << "\n";);
 
   // Only allow both unknown sizes if specified by flag or if Loop is MV'd.
   // MV condition will only allow smaller sizes.
@@ -1304,6 +1328,8 @@ bool HIRTempArrayTranspose::runOnRegion(HLRegion &Reg) {
     if (!ATA.isValidRefGroup(Refs)) {
       continue;
     }
+
+    LLVM_DEBUG(dbgs() << "Ref: "; Refs.front()->dump(1););
 
     DDGraph DDG = DDA.getGraph(&Reg);
     if (!ATA.checkDDEdges(DDG)) {

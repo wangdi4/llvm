@@ -1,5 +1,5 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Rerolls with IVs and Blobs in the right pattern
 
@@ -25,7 +25,7 @@
 
 ; Further check that reroll can be suppressed using a compiler flag
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll,print<hir>" -hir-loop-reroll-size-threshold=3 -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s --check-prefix=NOREROLL
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll,print<hir>" -hir-loop-reroll-size-threshold=3 -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s --check-prefix=NOREROLL
 
 ; NOREROLL: Function: foo
 
@@ -78,34 +78,24 @@ for.body:                                         ; preds = %for.body.preheader,
   %add2 = add nsw i32 %1, %n
   %add3 = add i32 %add2, %mul
   %arrayidx = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %indvars.iv
-  store i32 %add3, ptr %arrayidx, align 16, !tbaa !2
+  store i32 %add3, ptr %arrayidx, align 16
   %add5 = add i32 %add2, %mul1
   %add6 = add i32 %add5, 1
   %2 = or i64 %indvars.iv, 1
   %arrayidx9 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %2
-  store i32 %add6, ptr %arrayidx9, align 4, !tbaa !2
+  store i32 %add6, ptr %arrayidx9, align 4
   %add12 = add i32 %add3, 2
   %3 = or i64 %indvars.iv, 2
   %arrayidx15 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %3
-  store i32 %add12, ptr %arrayidx15, align 8, !tbaa !2
+  store i32 %add12, ptr %arrayidx15, align 8
   %add18 = add i32 %add5, 3
   %4 = or i64 %indvars.iv, 3
   %arrayidx21 = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %4
-  store i32 %add18, ptr %arrayidx21, align 4, !tbaa !2
+  store i32 %add18, ptr %arrayidx21, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 4
   %cmp = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp, label %for.body, label %for.cond.cleanup.loopexit
 }
 
-attributes #0 = { norecurse nounwind uwtable writeonly "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
 
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang e6de10bf60ed5be7555542cd7b35318c8f7cb851) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 9418b1697133fe6fb0d391d3b1aea154274a2b79)"}
-!2 = !{!3, !4, i64 0}
-!3 = !{!"array@_ZTSA10_i", !4, i64 0}
-!4 = !{!"int", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C/C++ TBAA"}

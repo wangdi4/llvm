@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -18,9 +18,8 @@
 /// Common class for ALU tests. Each NEAT ALU test can use it as a base class
 /// It prints seed if the test fails
 
-#include "gtest_wrapper.h" // Test framework
-
 #include "DGHelper.h"
+#include "gtest_wrapper.h" // Test framework
 
 // seed taken from command line
 extern uint64_t seedForValidation;

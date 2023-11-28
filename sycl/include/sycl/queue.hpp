@@ -8,12 +8,50 @@
 
 #pragma once
 
-#include <sycl/detail/assert_happened.hpp>
-#include <sycl/detail/service_kernel_names.hpp>
-#include <sycl/device_selector.hpp>
-#include <sycl/exception_list.hpp>
-#include <sycl/handler.hpp>
-#include <sycl/property_list.hpp>
+#include <sycl/access/access.hpp>             // for target, access...
+#include <sycl/accessor.hpp>                  // for accessor
+#include <sycl/aspects.hpp>                   // for aspect
+#include <sycl/async_handler.hpp>             // for async_handler
+#include <sycl/backend_types.hpp>             // for backend, backe...
+#include <sycl/buffer.hpp>                    // for buffer
+#include <sycl/context.hpp>                   // for context
+#include <sycl/detail/assert_happened.hpp>    // for AssertHappened
+#include <sycl/detail/cg_types.hpp>           // for check_fn_signa...
+#include <sycl/detail/common.hpp>             // for code_location
+#include <sycl/detail/defines_elementary.hpp> // for __SYCL2020_DEP...
+#include <sycl/detail/export.hpp>             // for __SYCL_EXPORT
+#include <sycl/detail/info_desc_helpers.hpp>  // for is_queue_info_...
+#include <sycl/detail/kernel_desc.hpp>        // for KernelInfo
+#include <sycl/detail/owner_less_base.hpp>    // for OwnerLessBase
+#include <sycl/detail/pi.h>                   // for pi_mem_advice
+#include <sycl/device.hpp>                    // for device
+#include <sycl/device_selector.hpp>           // for device_selector
+#include <sycl/event.hpp>                     // for event
+#include <sycl/exception.hpp>                 // for make_error_code
+#include <sycl/exception_list.hpp>            // for defaultAsyncHa...
+#include <sycl/ext/oneapi/bindless_images_descriptor.hpp> // for image_descriptor
+#include <sycl/ext/oneapi/bindless_images_interop.hpp> // for interop_semaph...
+#include <sycl/ext/oneapi/bindless_images_memory.hpp>  // for image_mem_handle
+#include <sycl/ext/oneapi/device_global/device_global.hpp> // for device_global
+#include <sycl/ext/oneapi/device_global/properties.hpp> // for device_image_s...
+#include <sycl/ext/oneapi/experimental/graph.hpp>       // for graph_state
+#include <sycl/ext/oneapi/properties/properties.hpp>    // for empty_properti...
+#include <sycl/handler.hpp>                             // for handler, isDev...
+#include <sycl/id.hpp>                                  // for id
+#include <sycl/kernel.hpp>                              // for auto_name
+#include <sycl/kernel_handler.hpp>                      // for kernel_handler
+#include <sycl/nd_range.hpp>                            // for nd_range
+#include <sycl/property_list.hpp>                       // for property_list
+#include <sycl/range.hpp>                               // for range
+
+#include <cstddef>     // for size_t
+#include <functional>  // for function
+#include <memory>      // for shared_ptr, hash
+#include <stdint.h>    // for int32_t
+#include <tuple>       // for tuple
+#include <type_traits> // for remove_all_ext...
+#include <variant>     // for hash
+#include <vector>      // for vector
 
 // having _TWO_ mid-param #ifdefs makes the functions very difficult to read.
 // Here we simplify the KernelFunc param is simplified to be
@@ -301,8 +339,9 @@ public:
   /// \param CodeLoc is the code location of the submit call (default argument)
   /// \return a SYCL event object for the submitted command group.
   template <typename T>
-  event submit(T CGF, const detail::code_location &CodeLoc =
-                          detail::code_location::current()) {
+  std::enable_if_t<std::is_invocable_r_v<void, T, handler &>, event> submit(
+      T CGF,
+      const detail::code_location &CodeLoc = detail::code_location::current()) {
     detail::tls_code_loc_t TlsCodeLocCapture(CodeLoc);
 #if __SYCL_USE_FALLBACK_ASSERT
     auto PostProcess = [this, &CodeLoc](bool IsKernel, bool KernelUsesAssert,
@@ -337,7 +376,7 @@ public:
   /// \return a SYCL event object, which corresponds to the queue the command
   /// group is being enqueued on.
   template <typename T>
-  event submit(
+  std::enable_if_t<std::is_invocable_r_v<void, T, handler &>, event> submit(
       T CGF, queue &SecondaryQueue,
       const detail::code_location &CodeLoc = detail::code_location::current()) {
     detail::tls_code_loc_t TlsCodeLocCapture(CodeLoc);
@@ -2142,8 +2181,7 @@ public:
       _KERNELFUNCPARAM(KernelFunc),
       const detail::code_location &CodeLoc = detail::code_location::current()) {
     return single_task<KernelName, KernelType>(
-        ext::oneapi::experimental::detail::empty_properties_t{}, KernelFunc,
-        CodeLoc);
+        ext::oneapi::experimental::empty_properties_t{}, KernelFunc, CodeLoc);
   }
 
   /// single_task version with a kernel represented as a lambda.
@@ -2187,8 +2225,8 @@ public:
       event DepEvent, _KERNELFUNCPARAM(KernelFunc),
       const detail::code_location &CodeLoc = detail::code_location::current()) {
     return single_task<KernelName, KernelType>(
-        DepEvent, ext::oneapi::experimental::detail::empty_properties_t{},
-        KernelFunc, CodeLoc);
+        DepEvent, ext::oneapi::experimental::empty_properties_t{}, KernelFunc,
+        CodeLoc);
   }
 
   /// single_task version with a kernel represented as a lambda.
@@ -2235,8 +2273,8 @@ public:
       const std::vector<event> &DepEvents, _KERNELFUNCPARAM(KernelFunc),
       const detail::code_location &CodeLoc = detail::code_location::current()) {
     return single_task<KernelName, KernelType>(
-        DepEvents, ext::oneapi::experimental::detail::empty_properties_t{},
-        KernelFunc, CodeLoc);
+        DepEvents, ext::oneapi::experimental::empty_properties_t{}, KernelFunc,
+        CodeLoc);
   }
 
   /// parallel_for version with a kernel represented as a lambda + range that
@@ -2479,8 +2517,7 @@ public:
   std::enable_if_t<detail::AreAllButLastReductions<RestT...>::value, event>
   parallel_for(nd_range<Dims> Range, RestT &&...Rest) {
     return parallel_for<KernelName>(
-        Range, ext::oneapi::experimental::detail::empty_properties_t{},
-        Rest...);
+        Range, ext::oneapi::experimental::empty_properties_t{}, Rest...);
   }
 
   /// parallel_for version with a kernel represented as a lambda + nd_range that
@@ -2842,8 +2879,7 @@ private:
   std::enable_if_t<detail::AreAllButLastReductions<RestT...>::value, event>
   parallel_for_impl(range<Dims> Range, RestT &&...Rest) {
     return parallel_for_impl<KernelName>(
-        Range, ext::oneapi::experimental::detail::empty_properties_t{},
-        Rest...);
+        Range, ext::oneapi::experimental::empty_properties_t{}, Rest...);
   }
 
   /// parallel_for_impl with a kernel represented as a lambda + range that
@@ -2881,8 +2917,8 @@ private:
   template <typename KernelName, int Dims, typename... RestT>
   event parallel_for_impl(range<Dims> Range, event DepEvent, RestT &&...Rest) {
     return parallel_for_impl<KernelName>(
-        Range, DepEvent,
-        ext::oneapi::experimental::detail::empty_properties_t{}, Rest...);
+        Range, DepEvent, ext::oneapi::experimental::empty_properties_t{},
+        Rest...);
   }
 
   /// parallel_for_impl version with a kernel represented as a lambda + range
@@ -2924,8 +2960,8 @@ private:
                           const std::vector<event> &DepEvents,
                           RestT &&...Rest) {
     return parallel_for_impl<KernelName>(
-        Range, DepEvents,
-        ext::oneapi::experimental::detail::empty_properties_t{}, Rest...);
+        Range, DepEvents, ext::oneapi::experimental::empty_properties_t{},
+        Rest...);
   }
 
   buffer<detail::AssertHappened, 1> &getAssertHappenedBuffer();
@@ -2964,6 +3000,11 @@ inline namespace _V1 {
 
 namespace detail {
 #define __SYCL_ASSERT_START 1
+
+namespace __sycl_service_kernel__ {
+class AssertInfoCopier;
+} // namespace __sycl_service_kernel__
+
 /**
  * Submit copy task for assert failure flag and host-task to check the flag
  * \param Event kernel's event to depend on i.e. the event represents the

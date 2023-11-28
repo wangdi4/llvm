@@ -1,6 +1,6 @@
 // INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
 // CQ#366312
-// RUN: %clang_cc1 -fintel-compatibility %s -emit-llvm -opaque-pointers -o - | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility %s -emit-llvm -o - | FileCheck %s
 
 typedef struct foo {
   short field1;

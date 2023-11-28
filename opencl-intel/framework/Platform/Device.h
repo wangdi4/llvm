@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,19 +14,20 @@
 
 #pragma once
 
+#include "Logger.h"
+#include "cl_device_api.h"
+#include "cl_dynamic_lib.h"
 #include "cl_framework.h"
+#include "cl_object.h"
 #include "fe_compiler.h"
-#include <Logger.h>
+
 #include <atomic>
-#include <cl_device_api.h>
-#include <cl_dynamic_lib.h>
-#include <cl_object.h>
-#include <list>
-#include <map>
-#include <mutex>
 #if defined(DX_MEDIA_SHARING)
 #include <d3d9.h>
 #endif
+#include <list>
+#include <map>
+#include <mutex>
 
 namespace Intel {
 namespace OpenCL {
@@ -169,6 +170,10 @@ public:
   SetOrReturnDefaultQueue(OclCommandQueue *command_queue = nullptr) {
     return m_default_command_queue.test_and_set(nullptr, command_queue);
   }
+
+  // Assume all devices support concurrent dispatch in the initial
+  // implementation.
+  bool supportConcurrentDispatch() { return true; }
 
 protected:
   FissionableDevice(_cl_platform_id_int *platform)

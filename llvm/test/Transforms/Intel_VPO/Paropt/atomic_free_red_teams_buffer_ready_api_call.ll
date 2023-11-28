@@ -1,11 +1,11 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-global-combiner-selector=last-team-inlined <%s | FileCheck -check-prefix=LASTTEAMINLINED %s
-; RUN: opt -opaque-pointers=1 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-global-combiner-selector=last-team-inlined <%s | FileCheck -check-prefix=LASTTEAMINLINED %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-global-combiner-selector=last-team-inlined <%s | FileCheck -check-prefix=LASTTEAMINLINED %s
+; RUN: opt -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-global-combiner-selector=last-team-inlined <%s | FileCheck -check-prefix=LASTTEAMINLINED %s
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-global-combiner-selector=team-zero-rtl <%s | FileCheck -check-prefix=TEAMZERORTL %s
-; RUN: opt -opaque-pointers=1 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-global-combiner-selector=team-zero-rtl <%s | FileCheck -check-prefix=TEAMZERORTL %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-global-combiner-selector=team-zero-rtl <%s | FileCheck -check-prefix=TEAMZERORTL %s
+; RUN: opt -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-global-combiner-selector=team-zero-rtl <%s | FileCheck -check-prefix=TEAMZERORTL %s
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-global-combiner-selector=last-team-rtl <%s | FileCheck -check-prefix=LASTTEAMRTL %s
-; RUN: opt -opaque-pointers=1 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-global-combiner-selector=last-team-rtl <%s | FileCheck -check-prefix=LASTTEAMRTL %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-global-combiner-selector=last-team-rtl <%s | FileCheck -check-prefix=LASTTEAMRTL %s
+; RUN: opt -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-par-global=false -vpo-paropt-atomic-free-red-global-combiner-selector=last-team-rtl <%s | FileCheck -check-prefix=LASTTEAMRTL %s
 
 ; Test src:
 ;

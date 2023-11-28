@@ -1,7 +1,7 @@
 
-// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 %s \
+// INTEL RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 %s \
 // RUN:    -emit-module-interface -o %T/HasPMF.pcm
-// INTEL RUN: %clang_cc1 -opaque-pointers -triple %itanium_abi_triple -std=c++20 %T/HasPMF.pcm \
+// INTEL RUN: %clang_cc1 -triple %itanium_abi_triple -std=c++20 %T/HasPMF.pcm \
 // RUN:  -S -emit-llvm -o - | FileCheck %s
 
 module;

@@ -16,11 +16,11 @@ define dso_local noundef float @_Z3fooi(i32 noundef %n) local_unnamed_addr {
 ; HIR-NEXT:           (<4 x float>*)([[PRIV_MEM0]])[0] = [[RED_INIT0]]
 ; HIR:                + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:           |   @_Z6updateRf(&((float*)([[PRIV_MEM0]])[0]))
-; HIR-NEXT:           |   [[EXTRACT_1_0:%.*]] = extractelement &((<4 x float*>)([[PRIV_MEM_BC0]])[<i32 0, i32 1, i32 2, i32 3>]),  1
+; HIR-NEXT:           |   [[EXTRACT_1_0:%.*]] = extractelement &((<4 x ptr>)([[PRIV_MEM_BC0]])[<i32 0, i32 1, i32 2, i32 3>]),  1
 ; HIR-NEXT:           |   @_Z6updateRf([[EXTRACT_1_0]])
-; HIR-NEXT:           |   [[EXTRACT_2_0:%.*]] = extractelement &((<4 x float*>)([[PRIV_MEM_BC0]])[<i32 0, i32 1, i32 2, i32 3>]),  2
+; HIR-NEXT:           |   [[EXTRACT_2_0:%.*]] = extractelement &((<4 x ptr>)([[PRIV_MEM_BC0]])[<i32 0, i32 1, i32 2, i32 3>]),  2
 ; HIR-NEXT:           |   @_Z6updateRf([[EXTRACT_2_0]])
-; HIR-NEXT:           |   [[EXTRACT_3_0:%.*]] = extractelement &((<4 x float*>)([[PRIV_MEM_BC0]])[<i32 0, i32 1, i32 2, i32 3>]),  3
+; HIR-NEXT:           |   [[EXTRACT_3_0:%.*]] = extractelement &((<4 x ptr>)([[PRIV_MEM_BC0]])[<i32 0, i32 1, i32 2, i32 3>]),  3
 ; HIR-NEXT:           |   @_Z6updateRf([[EXTRACT_3_0]])
 ; HIR-NEXT:           + END LOOP
 ; HIR:                [[DOTVEC0:%.*]] = (<4 x float>*)([[PRIV_MEM0]])[0]
@@ -36,33 +36,33 @@ define dso_local noundef float @_Z3fooi(i32 noundef %n) local_unnamed_addr {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VPLANNEDBB20:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB20]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    call void @_Z6updateRf(float* noundef nonnull align 4 dereferenceable(4) [[S_RED_VEC_BASE_ADDR_EXTRACT_0_0:%.*]])
-; CHECK-NEXT:    call void @_Z6updateRf(float* noundef nonnull align 4 dereferenceable(4) [[S_RED_VEC_BASE_ADDR_EXTRACT_1_0:%.*]])
-; CHECK-NEXT:    call void @_Z6updateRf(float* noundef nonnull align 4 dereferenceable(4) [[S_RED_VEC_BASE_ADDR_EXTRACT_2_0:%.*]])
-; CHECK-NEXT:    call void @_Z6updateRf(float* noundef nonnull align 4 dereferenceable(4) [[S_RED_VEC_BASE_ADDR_EXTRACT_3_0:%.*]])
+; CHECK-NEXT:    call void @_Z6updateRf(ptr noundef nonnull align 4 dereferenceable(4) [[S_RED_VEC_BASE_ADDR_EXTRACT_0_0:%.*]])
+; CHECK-NEXT:    call void @_Z6updateRf(ptr noundef nonnull align 4 dereferenceable(4) [[S_RED_VEC_BASE_ADDR_EXTRACT_1_0:%.*]])
+; CHECK-NEXT:    call void @_Z6updateRf(ptr noundef nonnull align 4 dereferenceable(4) [[S_RED_VEC_BASE_ADDR_EXTRACT_2_0:%.*]])
+; CHECK-NEXT:    call void @_Z6updateRf(ptr noundef nonnull align 4 dereferenceable(4) [[S_RED_VEC_BASE_ADDR_EXTRACT_3_0:%.*]])
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i32 [[TMP4]], 100
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB40:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x float>, <4 x float>* [[S_RED_VEC0]], align 1
-; CHECK-NEXT:    [[TMP6:%.*]] = load float, float* [[S_RED0]], align 1
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x float>, ptr [[S_RED_VEC0]], align 1
+; CHECK-NEXT:    [[TMP6:%.*]] = load float, ptr [[S_RED0]], align 1
 ; CHECK:         [[TMP10:%.*]] = call float @llvm.vector.reduce.fadd.v4f32(float [[TMP6]], <4 x float> [[WIDE_LOAD0]])
-; CHECK-NEXT:    store float [[TMP10]], float* [[S_RED0]], align 1
+; CHECK-NEXT:    store float [[TMP10]], ptr [[S_RED0]], align 1
 ;
 entry:
   %s.red = alloca float, align 4
-  store float 0.000000e+00, float* %s.red, align 4
+  store float 0.000000e+00, ptr %s.red, align 4
   br label %DIR.OMP.SIMD.124
 
 DIR.OMP.SIMD.124:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4),"QUAL.OMP.REDUCTION.ADD:TYPED"(float* %s.red, float zeroinitializer, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4),"QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %s.red, float zeroinitializer, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:
   %.omp.iv.local.016 = phi i32 [ 0, %DIR.OMP.SIMD.124 ], [ %add5, %omp.inner.for.body ]
-  call void @_Z6updateRf(float* noundef nonnull align 4 dereferenceable(4) %s.red)
+  call void @_Z6updateRf(ptr noundef nonnull align 4 dereferenceable(4) %s.red)
   %add5 = add nuw nsw i32 %.omp.iv.local.016, 1
   %exitcond.not = icmp eq i32 %add5, 100
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
@@ -72,7 +72,7 @@ DIR.OMP.END.SIMD.2:
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:
-  %s.1 = load float, float* %s.red, align 4
+  %s.1 = load float, ptr %s.red, align 4
   ret float %s.1
 }
 
@@ -82,7 +82,7 @@ declare token @llvm.directive.region.entry()
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
-declare dso_local void @_Z6updateRf(float* noundef nonnull align 4 dereferenceable(4)) local_unnamed_addr #0
+declare dso_local void @_Z6updateRf(ptr noundef nonnull align 4 dereferenceable(4)) local_unnamed_addr #0
 
 attributes #0 = { nounwind }
 

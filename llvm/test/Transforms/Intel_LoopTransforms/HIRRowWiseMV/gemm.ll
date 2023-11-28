@@ -1,7 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-rowwise-mv,print<hir>" -hir-rowwise-mv-skip-dtrans -disable-output 2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-rowwise-mv,print<hir>" -hir-rowwise-mv-skip-dtrans -disable-output 2>&1 < %s | FileCheck %s
-;
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-rowwise-mv" -hir-rowwise-mv-skip-dtrans -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; This test checks that the row-wise multiversioning transformation generates
@@ -103,7 +101,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-CHANGED: Dump Before HIRTempCleanup
 ; CHECK-CHANGED: Dump After HIRRowWiseMV
 
-define double @gemm(double* %A, double* %B) #0 {
+define double @gemm(ptr %A, ptr %B) #0 {
 entry:
   br label %L1
 
@@ -122,12 +120,12 @@ L3:
   %k = phi i32 [ 0, %L2 ], [ %k.next, %L3 ]
   %sum.L3 = phi double [ %sum.L2, %L2 ], [ %sum.next, %L3 ]
   %A_ind = add nuw nsw i32 %A_row, %k
-  %Aikp = getelementptr inbounds double, double* %A, i32 %A_ind
-  %Aik = load double, double* %Aikp
+  %Aikp = getelementptr inbounds double, ptr %A, i32 %A_ind
+  %Aik = load double, ptr %Aikp
   %B_row = mul nuw nsw i32 %k, 32
   %B_ind = add nuw nsw i32 %B_row, %j
-  %Bkjp = getelementptr inbounds double, double* %B, i32 %B_ind
-  %Bkj = load double, double* %Bkjp
+  %Bkjp = getelementptr inbounds double, ptr %B, i32 %B_ind
+  %Bkj = load double, ptr %Bkjp
   %AikBkj = fmul nnan nsz arcp afn reassoc double %Aik, %Bkj
   %sum.next = fadd double %sum.L3, %AikBkj
   %k.next = add nuw nsw i32 %k, 1

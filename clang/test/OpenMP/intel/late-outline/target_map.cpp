@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 struct S1 {
@@ -176,7 +176,7 @@ double foo_three(double *x) {
   // CHECK-NEXT: store ptr [[L1]], ptr [[MPT]], align 8
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
   // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr [[SFOO]]
-  // CHECK: load ptr, ptr %x.map.ptr.tmp, align 8
+  // CHECK: load ptr, ptr [[MPT]], align 8
   // CHECK: region.exit(token [[L]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target parallel for reduction(+:s_foo) map(to: x[:100])
@@ -188,9 +188,9 @@ double foo_three(double *x) {
   // CHECK: [[L16:%[0-9]+]] = load ptr, ptr %x.addr
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[SFOO]]
-  // CHECK-NEXT: store ptr [[L15]], ptr %x.map.ptr.tmp6, align 8
+  // CHECK-NEXT: store ptr [[L15]], ptr [[MPT6:%x.map.ptr.tmp[0-9]*]], align 8
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[MPT6:%x.map.ptr.tmp[0-9]*]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[MPT6]]
   // CHECK: load ptr, ptr [[MPT6]], align 8
   // CHECK: region.exit(token [[L]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]

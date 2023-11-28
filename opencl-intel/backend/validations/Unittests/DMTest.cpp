@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,11 +14,6 @@
 
 // DMTest.cpp : Defines the entry point for the console application.
 //
-#include <iostream>
-#include <limits>
-#include <list>
-
-#include "gtest_wrapper.h"
 
 #include "BinaryDataReader.h"
 #include "BinaryDataWriter.h"
@@ -28,6 +23,11 @@
 #include "VectorWidth.h"
 #include "XMLDataReader.h"
 #include "XMLDataWriter.h"
+#include "gtest_wrapper.h"
+
+#include <iostream>
+#include <limits>
+#include <list>
 
 using namespace Validation;
 using namespace Validation::Utils;
@@ -858,7 +858,6 @@ protected:
     const int32_t NumOfElements = 100;
 
     DataBufI32 = new int32_t[NumOfElements];
-    ASSERT_TRUE(DataBufI32);
 
     for (int32_t cntEl = 0; cntEl < NumOfElements; ++cntEl) {
       DataBufI32[cntEl] = rand();

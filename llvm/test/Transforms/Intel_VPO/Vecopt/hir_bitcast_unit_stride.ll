@@ -26,14 +26,12 @@ define void @foo() {
 ; CHECK:  *** IR Dump After SROA{{.*}} ***
 ;
 ; CHECK:       define void @foo() {
-; CHECK:       loop.17:
+; CHECK:       loop.15:
 ; CHECK-NEXT:    [[I1_I64_00:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[NEXTIVLOOP_170:%.*]], [[LOOP_170:%.*]] ]
-; CHECK-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds [100 x float], [100 x float]* @arr2, i64 0, i64 [[I1_I64_00]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[ARRAYIDX0]] to <4 x i32>*
-; CHECK-NEXT:    [[GEPLOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
-; CHECK-NEXT:    [[ARRAYIDX10:%.*]] = getelementptr inbounds [100 x float], [100 x float]* @arr1, i64 0, i64 [[I1_I64_00]]
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast float* [[ARRAYIDX10]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[GEPLOAD0]], <4 x i32>* [[TMP1]], align 4
+; CHECK-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds [100 x float], ptr @arr2, i64 0, i64 [[I1_I64_00]]
+; CHECK-NEXT:    [[GEPLOAD0:%.*]] = load <4 x i32>, ptr [[ARRAYIDX0]], align 4
+; CHECK-NEXT:    [[ARRAYIDX10:%.*]] = getelementptr inbounds [100 x float], ptr @arr1, i64 0, i64 [[I1_I64_00]]
+; CHECK-NEXT:    store <4 x i32> [[GEPLOAD0]], ptr [[ARRAYIDX10]], align 4
 ; CHECK-NEXT:    [[NEXTIVLOOP_170]] = add nuw nsw i64 [[I1_I64_00]], 4
 ; CHECK-NEXT:    [[CONDLOOP_170:%.*]] = icmp sle i64 [[NEXTIVLOOP_170]], 99
 ; CHECK-NEXT:    br i1 [[CONDLOOP_170]], label [[LOOP_170]], label [[AFTERLOOP_170:%.*]], !llvm.loop !0
@@ -43,12 +41,10 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %l1.06 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @arr2, i64 0, i64 %l1.06
-  %0 = bitcast float* %arrayidx to i32*
-  %1 = load i32, i32* %0, align 4
-  %arrayidx1 = getelementptr inbounds [100 x float], [100 x float]* @arr1, i64 0, i64 %l1.06
-  %2 = bitcast float* %arrayidx1 to i32*
-  store i32 %1, i32* %2, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @arr2, i64 0, i64 %l1.06
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx1 = getelementptr inbounds [100 x float], ptr @arr1, i64 0, i64 %l1.06
+  store i32 %0, ptr %arrayidx1, align 4
   %inc = add nuw nsw i64 %l1.06, 1
   %cmp = icmp ult i64 %l1.06, 99
   br i1 %cmp, label %for.body, label %for.end

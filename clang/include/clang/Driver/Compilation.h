@@ -342,6 +342,19 @@ public:
   int ExecuteCommand(const Command &C, const Command *&FailingCommand,
                      bool LogOnly = false) const;
 
+#if INTEL_CUSTOMIZATION
+  /// ExecuteCommandAsync - Execute an actual command in a separate process.
+  ///
+  /// \param FailingCommand - For non-zero results, this will be set to the
+  /// Command which failed, if any.
+  /// \param LogOnly - When true, only tries to log the command, not actually
+  /// execute it.
+  /// \return The result code of the subprocess.
+  llvm::sys::ProcessInfo ExecuteCommandAsync(const Command &C,
+                                             const Command *&FailingCommand,
+                                             bool LogOnly = false) const;
+#endif // INTEL_CUSTOMIZATION
+
   /// ExecuteJob - Execute a single job.
   ///
   /// \param FailingCommands - For non-zero results, this will be a vector of
@@ -374,6 +387,30 @@ public:
   /// of three. The inferior process's stdin(0), stdout(1), and stderr(2) will
   /// be redirected to the corresponding paths, if provided (not std::nullopt).
   void Redirect(ArrayRef<std::optional<StringRef>> Redirects);
+
+#if INTEL_CUSTOMIZATION
+  /// Number of processors/cores to use for compiling concurrent jobs.
+  unsigned CoresToUse = 1;
+
+  using FailingCommandList = SmallVectorImpl<std::pair<int, const Command *>>;
+  /// Wait for any remaining in the jobs list to complete from running in
+  /// parallel.
+  int waitForJobsToComplete(
+      SmallVectorImpl<std::pair<llvm::sys::ProcessInfo, const Command *>>
+          &JobsSubmitted,
+      FailingCommandList &FailingCommands, bool BlockingWait) const;
+
+  /// Perform OpenMP offload source compilations in parallel.
+  void parallelOpenMPCompile(
+      const JobList &Jobs,
+      SmallVectorImpl<std::pair<int, const Command *>> &FailingCommands,
+      bool LogOnly = false) const;
+
+  /// Terminate all remaining jobs being executed in parallel.
+  void terminateAllJobs(
+      SmallVectorImpl<std::pair<llvm::sys::ProcessInfo, const Command *>>
+          &JobsSubmitted) const;
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // namespace driver

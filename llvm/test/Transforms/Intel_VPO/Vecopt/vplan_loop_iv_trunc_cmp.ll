@@ -9,7 +9,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32* nocapture readonly %A, i32 %N) {
+define i32 @foo(ptr nocapture readonly %A, i32 %N) {
 ; CHECK-LABEL:  VPlan after initial VPlan transforms:
 ; CHECK-NEXT:  VPlan IR for: foo:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
@@ -20,20 +20,19 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Private tag: InMemory
-; CHECK-NEXT:    Linked values: i32* [[COND_PRIV0:%.*]], i32* [[VP_COND_PRIV:%.*]], void [[VP_STORE:%.*]], i32 [[VP__PRIV_FINAL:%.*]],
-; CHECK-NEXT:   Memory: i32* [[COND_PRIV0]]
+; CHECK-NEXT:    Linked values: ptr [[COND_PRIV0:%.*]], ptr [[VP_COND_PRIV:%.*]], void [[VP_STORE:%.*]], i32 [[VP__PRIV_FINAL:%.*]],
+; CHECK-NEXT:   Memory: ptr [[COND_PRIV0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     i32* [[VP_COND_PRIV]] = allocate-priv i32, OrigAlign = 4
-; CHECK-NEXT:     i8* [[VP_COND_PRIV_BCAST:%.*]] = bitcast i32* [[VP_COND_PRIV]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_COND_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     ptr [[VP_COND_PRIV]] = allocate-priv i32, OrigAlign = 4
+; CHECK-NEXT:     call i64 4 ptr [[VP_COND_PRIV]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     i64* [[VP_PRIV_IDX_MEM:%.*]] = allocate-priv i64, OrigAlign = 8
-; CHECK-NEXT:     store i64 -1 i64* [[VP_PRIV_IDX_MEM]]
+; CHECK-NEXT:     ptr [[VP_PRIV_IDX_MEM:%.*]] = allocate-priv i64, OrigAlign = 8
+; CHECK-NEXT:     store i64 -1 ptr [[VP_PRIV_IDX_MEM]]
 ; CHECK-NEXT:     i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
 ; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
@@ -42,14 +41,14 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB2]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP0]], [[BB3]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     i32 [[VP_A_I:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP_A_I:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp eq i32 [[VP_A_I]] i32 42
 ; CHECK-NEXT:     br i1 [[VP_CMP]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
-; CHECK-NEXT:       store i64 [[VP_INDVARS_IV]] i64* [[VP_PRIV_IDX_MEM]]
-; CHECK-NEXT:       store i32 1 i32* [[VP_COND_PRIV]]
+; CHECK-NEXT:       store i64 [[VP_INDVARS_IV]] ptr [[VP_PRIV_IDX_MEM]]
+; CHECK-NEXT:       store i32 1 ptr [[VP_COND_PRIV]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]], [[BB4]]
@@ -62,12 +61,11 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     i32 [[VP_LOADED_PRIV:%.*]] = load i32* [[VP_COND_PRIV]]
-; CHECK-NEXT:     i64 [[VP_LOADED_PRIV_IDX:%.*]] = load i64* [[VP_PRIV_IDX_MEM]]
-; CHECK-NEXT:     i32 [[VP__PRIV_FINAL]] = private-final-c-mem i32 [[VP_LOADED_PRIV]] i64 [[VP_LOADED_PRIV_IDX]] i32* [[COND_PRIV0]]
-; CHECK-NEXT:     store i32 [[VP__PRIV_FINAL]] i32* [[COND_PRIV0]]
-; CHECK-NEXT:     i8* [[VP_COND_PRIV_BCAST1:%.*]] = bitcast i32* [[VP_COND_PRIV]]
-; CHECK-NEXT:     call i64 4 i8* [[VP_COND_PRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     i32 [[VP_LOADED_PRIV:%.*]] = load ptr [[VP_COND_PRIV]]
+; CHECK-NEXT:     i64 [[VP_LOADED_PRIV_IDX:%.*]] = load ptr [[VP_PRIV_IDX_MEM]]
+; CHECK-NEXT:     i32 [[VP__PRIV_FINAL]] = private-final-c-mem i32 [[VP_LOADED_PRIV]] i64 [[VP_LOADED_PRIV_IDX]] ptr [[COND_PRIV0]]
+; CHECK-NEXT:     store i32 [[VP__PRIV_FINAL]] ptr [[COND_PRIV0]]
+; CHECK-NEXT:     call i64 4 ptr [[VP_COND_PRIV]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
@@ -81,18 +79,18 @@ entry:
   br label %simd.begin
 
 simd.begin:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i32* %cond.priv, i32 0, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(ptr %cond.priv, i32 0, i32 1) ]
   br label %for.body
 
 for.body:                                           ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %merge ], [ 0, %simd.begin ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %A.i = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %A.i = load i32, ptr %arrayidx, align 4
   %cmp = icmp eq i32 %A.i, 42
   br i1 %cmp, label %if.then, label %merge
 
 if.then:
-  store i32 1, i32* %cond.priv
+  store i32 1, ptr %cond.priv
   br label %merge
 
 merge:

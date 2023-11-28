@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -S -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' %s | FileCheck %s
+; RUN: opt -S -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' %s | FileCheck %s
 
 ; Test src:
 ;

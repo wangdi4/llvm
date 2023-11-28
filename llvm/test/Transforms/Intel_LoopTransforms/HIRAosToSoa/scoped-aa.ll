@@ -12,9 +12,9 @@
 ; CHECK: Function: foo
 
 ; CHECK: DO i1 =
-; RESTRICT: [[ADDR:%[0-9a-z]+]] = @llvm.stacksave();
+; RESTRICT: [[ADDR:%[0-9a-z]+]] = @llvm.stacksave.p0();
 ; RESTRICT: [[SUM:%[0-9a-z]+]] = 1024 + 1024;
-; NORESTRICT-NOT: %[0-9a-z]+ = @llvm.stacksave();
+; NORESTRICT-NOT: %[0-9a-z]+ = @llvm.stacksave.p0();
 
 ; RESTRICT: [[ALLOC_0:%[0-9a-z]+]] = alloca %array_size;
 ; RESTRICT-NEXT: [[ALLOC_1:%[0-9a-z]+]] = alloca %array_size;
@@ -41,8 +41,8 @@
 ; CHECK: END LOOP
 ; CHECK: END LOOP
 
-; RESTRICT: @llvm.stackrestore(&(([[ADDR]])[0]));
-; NORESTRICT-NOT: @llvm.stackrestore(%[0-9a-z]+);
+; RESTRICT: @llvm.stackrestore.p0(&(([[ADDR]])[0]));
+; NORESTRICT-NOT: @llvm.stackrestore.p0(%[0-9a-z]+);
 ; CHECK: END LOOP
 
 %struct.point = type { i32, i32, i32 }

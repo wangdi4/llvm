@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,6 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "opencl_printf_ext.h"
 #include "exceptions.h" // LLVM_BACKEND_UNUSED
 #include <Compiler.h>   // LLVM_FALLTHROUGH
 #include <assert.h>
@@ -22,8 +23,6 @@
 #include <process.h>
 #include <stdint.h>
 #endif
-
-#include "opencl_printf_ext.h"
 
 using namespace std;
 using namespace Intel::OpenCL;
@@ -39,8 +38,17 @@ const size_t MAX_FORMAT_LEN = 128;
 // by __opencl_printf
 const size_t MAX_CONVERSION_LEN = 1024; // <- was 4096;
 
+#ifdef __INTEL_LLVM_COMPILER
+#define COMPILER_RT_HAS_FLOAT16
+#endif
+#ifdef COMPILER_RT_HAS_FLOAT16
+typedef _Float16 fp16_repr_t;
+#else
+typedef uint16_t fp16_repr_t;
+#endif
+
 // Defined in backend/libraries/ocl_builtins/soft_math
-extern "C" LLVM_BACKEND_API float __gnu_h2f_ieee(uint16_t a);
+extern "C" LLVM_BACKEND_API float __gnu_h2f_ieee(fp16_repr_t a);
 
 // This function allows working with the packed args buffer similarly to the
 // way the standard va_* macros work.
@@ -100,7 +108,7 @@ const char *CopyAndAdvance(const char *src, const char *srcEnd, size_t size,
 
   switch (size) {
   case 2: {
-    uint16_t u16;
+    fp16_repr_t u16;
     std::copy(src, src + size, (char *)&u16);
     dest = __gnu_h2f_ieee(u16);
     break;

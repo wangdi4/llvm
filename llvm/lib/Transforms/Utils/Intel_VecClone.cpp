@@ -1,6 +1,6 @@
 //=---- Intel_VecClone.cpp - Vector function to loop transform -*- C++ -*----=//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -157,6 +157,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/X86TargetParser.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
@@ -222,11 +224,12 @@ static void getFunctionsToVectorize(
 }
 // Populate \p CPUDispatchMap with vector variants CPU dispatching data (if any)
 // for function \p F.
-static void getVariantsCPUDispatchData(
+// Return true if "vector-dispatch" attribute found.
+static bool getVariantsCPUDispatchData(
     const Function &F,
     SmallDenseMap<StringRef, SmallVector<StringRef>> &CPUDispatchMap) {
   if (!F.hasFnAttribute(VectorDispatchAttrName))
-    return;
+    return false;
 
   // CPUDispatchMap will contain a one-to-many mapping between a vector variant
   // and a list of CPU targets that the variant have to be specialized for.
@@ -257,24 +260,15 @@ static void getVariantsCPUDispatchData(
     for (StringRef TargetCPU : DispatchTargets)
       DispatchVec.push_back(TargetCPU);
   }
+  return true;
 }
-
-#ifndef NDEBUG
-// Check that the name is valid for X86 target parser.
-static bool isValidCPUName(StringRef Name, const Module *M) {
-  if (Name.empty())
-    return false;
-  const Triple TT{M->getTargetTriple()};
-  return X86::parseTuneCPU(Name, TT.getArch() != llvm::Triple::x86) !=
-         llvm::X86::CK_None;
-}
-#endif // NDEBUG
 
 // This routine does actually apply CPU-specific settings for a new clone
 // according to "target-dispatch" attribute data of the scalar function.
 static void applyTargetCPUData(
     Function *Clone,
-    const SmallDenseMap<StringRef, SmallVector<StringRef>> &CPUDispatchMap) {
+    const SmallDenseMap<StringRef, SmallVector<StringRef>> &CPUDispatchMap,
+    bool SetTuneCpu) {
   if (CPUDispatchMap.empty())
     return;
   auto It = CPUDispatchMap.find(Clone->getName());
@@ -294,9 +288,10 @@ static void applyTargetCPUData(
 
     Clone->removeFnAttr("target-cpu");
     Clone->addFnAttr("target-cpu", TargetCpu);
-
-    Clone->removeFnAttr("tune-cpu");
-    Clone->addFnAttr("tune-cpu", TargetCpu);
+    if (SetTuneCpu) {
+      Clone->removeFnAttr("tune-cpu");
+      Clone->addFnAttr("tune-cpu", TargetCpu);
+    }
 
     return;
   }
@@ -493,7 +488,6 @@ void VecCloneImpl::Factory::cloneFunction() {
   Function::arg_iterator NewArgIt = Clone->arg_begin();
   for (Argument &Arg : F.args()) {
     VMap[&Arg] = &*NewArgIt;
-    ReverseVMap[&*NewArgIt] = &Arg;
     int NumChunks = ArgChunks[Arg.getArgNo()];
     SetArgName(NewArgIt, Arg.getName(), NumChunks);
   }
@@ -769,7 +763,7 @@ VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
 
     Instruction *Ptr = VecAI;
     // generate bitcast to legal argument type if required.
-    if (VecArgTy != WideVecTy && !VecAI->getType()->isOpaquePointerTy())
+    if (VecArgTy != WideVecTy && !VecAI->getType()->isPointerTy())
       Ptr = new BitCastInst(
           VecAI,
           PointerType::get(VecArgTy, VecAI->getType()->getAddressSpace()),
@@ -802,7 +796,7 @@ VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
 
   auto GenBitCast = [this](AllocaInst *AI, Type *ElemType,
                            const Twine &&Name) -> Instruction * {
-    if (AI->getType()->isOpaquePointerTy())
+    if (AI->getType()->isPointerTy())
       return AI;
     Instruction *BC = new BitCastInst(
         AI, PointerType::get(ElemType, AI->getType()->getAddressSpace()), Name);
@@ -974,45 +968,15 @@ VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
 }
 
 Value *VecCloneImpl::Factory::generateStrideForArgument(
-    Value *Arg, Instruction *ArgUser, Value *Stride, PHINode *Phi,
-    const VFParameter &Parm) {
+    Value *Arg, unsigned ArgIdx, Instruction *InsertPt, Value *Stride,
+    PHINode *Phi, const VFParameter &Parm) {
   // For linear values, a mul + add/gep sequence is needed to generate the
   // correct value. i.e., val = linear_var + stride * loop_index;
 
   // Insert the stride related instructions before the user.
-  IRBuilder<> Builder(ArgUser);
+  IRBuilder<> Builder(InsertPt);
 
   if (auto *ArgTy = dyn_cast<PointerType>(Arg->getType())) {
-    // For pointer types the stride is specified in bytes!
-    if (!ArgTy->isOpaque()) {
-      // For pointer args with variable stride, cast the Stride to the same
-      // type as the loop index Phi.
-      Value *StrideCast = Stride;
-      if (Stride->getType() != Phi->getType()) {
-        StrideCast = Builder.CreateCast(
-            CastInst::getCastOpcode(Stride, false /* SrcIsSigned */,
-                                    Phi->getType(), false /* DestIsSigned */),
-            Stride, Phi->getType(), "stride.cast");
-      }
-      // Try to make compute nicely looking without byte arithmetic. Purely for
-      // aesthetic purposes.
-      auto *Mul = Builder.CreateMul(StrideCast, Phi, "stride.mul");
-
-      // Linear updates to pointer arguments involves an address calculation,
-      // so use gep. To properly update linear pointers we only need to
-      // multiply the loop index and stride since gep is indexed starting at 0
-      // from the base address passed to the vector function.
-
-      // Mul is always generated as i32 since it is calculated using the i32
-      // loop phi that is inserted by this pass. No cast on Mul is necessary
-      // because gep can use a base address of one type with an index of
-      // another type.
-      Value *LinearArgGep =
-          Builder.CreateGEP(ArgTy->getNonOpaquePointerElementType(), Arg, Mul,
-                            Arg->getName() + ".gep");
-
-      return LinearArgGep;
-    }
     Value *ByteStride = Stride;
     if (Parm.isVariableStride()) {
       // If stride is a variable for opaque pointer, then it is specified as
@@ -1021,7 +985,7 @@ Value *VecCloneImpl::Factory::generateStrideForArgument(
       // stride, then the stride in bytes is %c * pointee size. The pointee
       // size information is obtained via the
       // llvm.intel.directive.elementsize intrinsic.
-      Value *EltSize = PointeeTypeSize.lookup(ReverseVMap[Arg]);
+      Value *EltSize = PointeeTypeSize[ArgIdx];
       assert(EltSize && "No llvm.intel.directive.elementsize intrinsic?");
       // TODO: We can change VecClone to generate i64 phis for the loop iv and
       // make the last conversion unnecessary. This will also remove a
@@ -1183,6 +1147,136 @@ void VecCloneImpl::Factory::processUniformArgs() {
   }
 }
 
+// Look through loads/stores of the pointer arg to find the pointer element
+// type. If there are no loads/stores, then use the information gathered
+// from the elementsize intrinsic to derive the appropriate type. TODO:
+// this currently assumes uval/val args point to integer types, so this
+// needs to be extended to pointer types.
+Type* VecCloneImpl::Factory::getArgPointerElementType(Argument *Arg,
+                                                      Value *ScalarArg) {
+  // Find all loads/stores to/from the uval/val ptr arg. These can be
+  // direct loads/stores to/from the arg itself for optimized IR, and it
+  // can be loads/stores to/from the uval/val ptr arg through other local
+  // memory for unoptimized IR. E.g., for the unoptimized case, the
+  // uval/val arg pointer will be stored to an alloca and then subsequently
+  // loaded from that memory, then followed at some point by another load
+  // that actually loads the value. This code will find those final loads
+  // of the value. In addition, any store of a value made either directly
+  // or indirectly to the arg memory is recorded. This code also asserts
+  // that the type from all such loads/stores is the same and returns that
+  // type.
+  SmallVector<Value *, 4> ArgValLoadsStores;
+  // Determine whether the argument is stored through local memory. If
+  // so, then record the local memory used for the arg. Later, we'll
+  // find the associated loads from this memory to find aliases for the
+  // arg. If a value is loaded directly from the arg, then record that
+  // this is a direct load from the arg.
+  SmallPtrSet<Value *, 4> ArgLocalMem;
+  for (auto *U : ScalarArg->users()) {
+    auto *User = cast<Instruction>(U);
+    // Unoptimized case where the incoming LLVM has a store of the argument
+    // (pointer) is made to local memory. Note that at this point we have
+    // created a new alloca/store/load for the arg and that load has now
+    // replaced the original parameter. E.g.
+    // Incoming LLVM: store ptr %x, ptr %x.addr, align 8
+    // As of this point: store ptr %load.x, ptr %x.addr, align 8
+    // %x.addr will be recorded in ArgLocalMem and was the original alloca
+    // for the arg. However, by always handling args through memory (even
+    // for optimized incoming LLVM) this allows VecClone to work the same
+    // across all opt levels because RAUW can simply be done on any
+    // existing memory and all LLVM can be handled basically the same.
+    // However, here we have the additional requirement of finding the load
+    // that will yield the value on which the stride needs to be applied. We
+    // have two cases for that:
+    // 1) There is an additional store/load through memory to get the
+    //    arg pointer to load the value from.
+    // 2) The arg pointer is loaded from directly.
+    //
+    // In addition to recording the new memory to where the arg is stored,
+    // we also record the stores made directly to the arg. The indirect
+    // stores to arg memory are handled below by looking at the loads of
+    // ArgLocalMem users. E.g., we will have a load of the ptr through some
+    // memory and then there can be a store using this "alias".
+    if (auto *StoreUser = dyn_cast<StoreInst>(User)) {
+      // Case 1
+      // Don't include any possible store in the entry block because for
+      // Val ref modifiers, there will be an extract of elem 0 from the
+      // original arg and stored to local memory. We're only interested
+      // in the stores that are made within the loop.
+      if (StoreUser->getParent() != EntryBlock) {
+        // Arg is being stored to some new memory
+        if (StoreUser->getValueOperand() == ScalarArg)
+          ArgLocalMem.insert(StoreUser->getPointerOperand());
+        // Value is being stored to the arg
+        if (StoreUser->getPointerOperand() == ScalarArg)
+          ArgValLoadsStores.push_back(StoreUser);
+      }
+    }
+    // Case 2 - Value is loaded directly from the argument.
+    // E.g., %0 = load i64, ptr %load.x, align 8
+    if (auto *ArgValLoad = dyn_cast<LoadInst>(User))
+      ArgValLoadsStores.push_back(ArgValLoad);
+  }
+
+  // Find the aliases for the pointer args and the loads from those
+  // aliases. Aliases in this context refers to the loaded pointer from
+  // local memory. E.g., if %load.x is the arg pointer
+  // store ptr %load.x, ptr %x.addr, align 8
+  // %0 = load ptr, ptr %x.addr, align 8
+  // %1 = load i64, ptr %0
+  // %0 is the alias for the arg pointer because it goes through %x.addr
+  // %1 is the value loaded from the arg and stride must be applied here
+  for (auto *ArgMem : ArgLocalMem) {
+    for (auto *ArgMemU : ArgMem->users()) {
+      auto *ArgMemUser = cast<Instruction>(ArgMemU);
+      if (isa<LoadInst>(ArgMemUser)) {
+        for (auto *ArgLoadU : ArgMemUser->users()) {
+          auto *ArgLoadUser = cast<Instruction>(ArgLoadU);
+          if (auto *ArgLoad = dyn_cast<LoadInst>(ArgLoadUser))
+            ArgValLoadsStores.push_back(ArgLoad);
+          if (auto *ArgStore = dyn_cast<StoreInst>(ArgLoadUser)) {
+            // Store of a value made indirectly to the arg
+            if (ArgStore->getPointerOperand() == ArgMemUser)
+              ArgValLoadsStores.push_back(ArgStore);
+          }
+        }
+      }
+    }
+  }
+
+  // If there are no loads/stores of the value pointed to by the arg, then
+  // derive the pointer element type of the uval/val arg using the
+  // elementsize intrinsic using that type size. ArgPtrElemType will then
+  // be an appropriately sized integer type. As previously mentioned, the
+  // uval/val args must point to integral types according to spec.
+  if (ArgValLoadsStores.empty()) {
+    Value *EltSize = PointeeTypeSize[cast<Argument>(Arg)->getArgNo()];
+    assert(EltSize && "No llvm.intel.directive.elementsize intrinsic?");
+    uint64_t NumBytes = cast<ConstantInt>(EltSize)->getZExtValue();
+    return IntegerType::get(Clone->getContext(), NumBytes << 3);
+  }
+
+  // In theory, the load/store types of the value pointed to by the arg could
+  // be different, although this is probably unlikely. Nonetheless, check that
+  // all loads/stores of the value are of the same type.
+  Type *ArgPtrElemType = nullptr;
+  if (auto *Store = dyn_cast<StoreInst>(ArgValLoadsStores.front()))
+    ArgPtrElemType = Store->getValueOperand()->getType();
+  else
+    ArgPtrElemType = ArgValLoadsStores.front()->getType();
+
+  assert(llvm::all_of(
+             ArgValLoadsStores,
+             [=](Value *V) {
+               if (auto *Store = dyn_cast<StoreInst>(V))
+                 return Store->getValueOperand()->getType() == ArgPtrElemType;
+               return V->getType() == ArgPtrElemType;
+             }) &&
+         "uval/val arg loads/stores are of different types");
+
+  return ArgPtrElemType;
+}
+
 void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
   // Add stride to arguments marked as linear. These instructions are added
   // before the arg user and uses are updated accordingly.
@@ -1207,15 +1301,6 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
       if (Parm.isConstantStrideLinear()) {
         int Stride = Parm.getStride();
         if (auto *PtrTy = dyn_cast<PointerType>(Arg->getType())) {
-          // For pointer types with constant stride, the gep index is the same
-          // type as the phi (loop index), which is i32.
-          if (!PtrTy->isOpaque()) {
-            unsigned PointeeEltSize =
-                DL.getTypeAllocSize(PtrTy->getNonOpaquePointerElementType());
-            assert(Stride % PointeeEltSize == 0 &&
-                   "Stride is expected to be a multiple of element size!");
-            Stride /= PointeeEltSize;
-          }
           // For opaque pointers with constant stride, the pointee type
           // information is already "baked" into the variant encoding because
           // since the stride is specified in bytes and we will generate an i8*
@@ -1261,7 +1346,7 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
         }
 
         Value *StrideInst =
-            generateStrideForArgument(ArgVal, User, StrideVal, Phi, Parm);
+            generateStrideForArgument(ArgVal, I, User, StrideVal, Phi, Parm);
         User->setOperand(U.getOperandNo(), StrideInst);
       }
     } else if (Parm.isLinearUVal() || Parm.isLinearVal()) {
@@ -1338,6 +1423,8 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
         auto *BasePtrExtract = Builder.CreateExtractElement(
             Arg, (uint64_t)0, Arg->getName() + ".ext");
         auto *ArgElemType = cast<VectorType>(Arg->getType())->getElementType();
+        assert(ArgElemType->isPointerTy() &&
+               "Vector of pointers expected as val arg type");
         ArgMemory = Builder.CreateAlloca(
             ArgElemType, nullptr, "alloca." + Arg->getName() + ".scalar");
         Builder.CreateStore(BasePtrExtract, ArgMemory);
@@ -1360,126 +1447,53 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
           }
         }
       } else {
+        assert(Arg->getType()->isPointerTy() &&
+               "Pointer type expected for linear uval arg.");
         Value *ArgVal = nullptr;
         getOrCreateArgMemory(*Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
                              ArgVal, ArgMemory);
         ScalarArg = ArgVal; // the load from the new arg memory
+      }
 
+      Type *ArgPtrElemType = getArgPointerElementType(Arg, ScalarArg);
+
+      if (Parm.isLinearUVal()) {
         // The linear(uval()) parameter is a uniform scalar pointer. It points
-        // to a linear value, actually an initial scalar value. The vector value
-        // for it is calculated by formula: *p + step * {0,1, 2, ...VF-1}. The
-        // vector store to this pointer should not be executed. We need to
-        // re-direct that store to a fake memory. The openmp standard explicitly
-        // says that "the program must not depend on the value of the list item
-        // upon return from the procedure" and "the program must not depend on
-        // the storage of the argument in the procedure".
-        assert(Arg->getType()->isPointerTy() &&
-               "Pointer VecClone processLinearArgs Arg type is expected.");
-        // We can't use PointeeTypeSize here due to the stores can be of
-        // different types, we need a real type of the store. If there is no
-        // type detected we don't create anything.
-        // TODO: check the case when the values of different types are stored
-        // using that pointer
-        Type *ArgPtrElemType = inferPtrElementType(*ArgVal);
-        if (ArgPtrElemType) {
-          IRBuilder<> Builder(EntryBlock->getTerminator());
-          const unsigned VF = V.getVF();
-          auto *ArgPtrElemVectorType =
-              VectorType::get(ArgPtrElemType, VF, false);
-          // This generates fake vector memory for storing updated value
-          AllocaInst *ArgFakeAlloca = Builder.CreateAlloca(
-              ArgPtrElemVectorType, ArgVal->getType()->getPointerAddressSpace(),
-              nullptr, "alloca.fake." + Arg->getName());
-          Value *ScalarLoad = Builder.CreateLoad(
-              ArgPtrElemType,
-              Builder.CreateLoad(
-                  cast<AllocaInst>(ArgMemory)->getAllocatedType(), ArgMemory,
-                  "load." + Arg->getName()),
-              "load.elem." + Arg->getName());
-          Value *VectorValue = Builder.CreateVectorSplat(VF, ScalarLoad);
-          Builder.CreateStore(VectorValue, ArgFakeAlloca);
-
-          Builder.SetInsertPoint(LoopHeader->getFirstNonPHI());
-          Value *VecGep = Builder.CreateGEP(
-              ArgPtrElemType,
-              Builder.CreatePointerCast(ArgFakeAlloca,
-                                        ArgPtrElemType->getPointerTo()),
-              Phi, ArgFakeAlloca->getName() + ".gep");
-          // Replace all direct uses to fake vector memory
-          ArgVal->replaceAllUsesWith(VecGep);
-          // Update ScalarArg to point fake vector memory so that we will add
-          // stride for it
-          ScalarArg = VecGep;
-        }
+        // to a linear value, actually an initial scalar value. The vector
+        // value for it is calculated by formula: *p + step * {0,1,2,...VF-1}.
+        // The vector store to this pointer should not be executed. We need to
+        // re-direct that store to a fake memory. The openmp standard
+        // explicitly says that "the program must not depend on the value of
+        // the list item upon return from the procedure" and "the program must
+        // not depend on the storage of the argument in the procedure".
+        IRBuilder<> Builder(EntryBlock->getTerminator());
+        const unsigned VF = V.getVF();
+        auto *ArgPtrElemVectorType =
+            VectorType::get(ArgPtrElemType, VF, false);
+        // This generates fake vector memory for storing updated value
+        AllocaInst *ArgFakeAlloca = Builder.CreateAlloca(
+            ArgPtrElemVectorType,
+            ScalarArg->getType()->getPointerAddressSpace(), nullptr,
+            "alloca.fake." + Arg->getName());
+        Value *ScalarLoad = Builder.CreateLoad(
+            ArgPtrElemType,
+            Builder.CreateLoad(
+                cast<AllocaInst>(ArgMemory)->getAllocatedType(), ArgMemory,
+                "load." + Arg->getName()),
+            "load.elem." + Arg->getName());
+        Value *VectorValue = Builder.CreateVectorSplat(VF, ScalarLoad);
+        Builder.CreateStore(VectorValue, ArgFakeAlloca);
+        // Now insert new instructions into the loop
+        Builder.SetInsertPoint(LoopHeader->getFirstNonPHI());
+        Value *VecGep = Builder.CreateGEP(
+            ArgPtrElemType,
+            Builder.CreatePointerCast(ArgFakeAlloca,
+                                      ArgPtrElemType->getPointerTo()),
+            Phi, ArgFakeAlloca->getName() + ".gep");
+        // Replace all direct uses to fake vector memory
+        ScalarArg->replaceAllUsesWith(VecGep);
+        ScalarArg = VecGep;
       }
-
-      // For both uval/val modifiers, ScalarArg is now the pointer argument
-      // that is used for finding the loaded values for which stride is applied.
-
-      SmallVector<Value *, 4> ArgLocalMem;
-      SmallVector<LoadInst *, 4> ArgValLoads;
-      // Determine whether the argument is stored through local memory. If
-      // so, then record the local memory used for the arg. Later, we'll
-      // find the associated loads from this memory to find aliases for the
-      // arg. If a value is loaded directly from the arg, then record that
-      // this is a direct load from the arg.
-      for (auto *U : ScalarArg->users()) {
-        auto *User = cast<Instruction>(U);
-        // Unoptimized case where the incoming LLVM has a store of the argument
-        // (pointer) is made to local memory. Note that at this point we have
-        // created a new alloca/store/load for the arg and that load has now
-        // replaced the original parameter. E.g.
-        // Incoming LLVM: store i64* %x, i64** %x.addr, align 8
-        // As of this point: store i64* %load.x, i64** %x.addr, align 8
-        // %x.addr will be recorded in ArgLocalMem and was the original alloca
-        // for the arg. However, by always handling args through memory (even
-        // for optimized incoming LLVM) this allows VecClone to work the same
-        // across all opt levels because RAUW can simply be done on any
-        // existing memory and all LLVM can be handled basically the same.
-        // However, here we have the additional requirement of finding the load
-        // that will yield the value on which the stride needs to be applied. We
-        // have two cases for that:
-        // 1) There is an additional store/load through memory to get the
-        //    arg pointer to load the value from.
-        // 2) The arg pointer is loaded from directly.
-        if (auto *StoreUser = dyn_cast<StoreInst>(User)) {
-          // Case 1
-          // Don't include any possible store in the entry block because for
-          // Val ref modifiers, there will be an extract of elem 0 from the
-          // original arg and stored to local memory. We're only interested
-          // in the stores that are made within the loop.
-          if (StoreUser->getParent() != EntryBlock)
-            ArgLocalMem.push_back(StoreUser->getPointerOperand());
-        }
-        // Case 2 - Value is loaded directly from the argument.
-        // E.g., %0 = load i64, i64* %load.x, align 8
-        if (auto *ArgValLoad = dyn_cast<LoadInst>(User))
-          ArgValLoads.push_back(ArgValLoad);
-      }
-
-      // Find the aliases for the pointer args and the loads from those
-      // aliases. Aliases in this context refers to the loaded pointer from
-      // local memory. E.g., if %load.x is the arg pointer
-      // store i64* %load.x, i64** %x.addr, align 8
-      // %0 = load i64*, i64** %x.addr, align 8
-      // %1 = load i64, i64* %0
-      // %0 is the alias for the arg pointer because it goes through %x.addr
-      // %1 is the value loaded from the arg and stride must be applied here
-      for (auto *ArgMem : ArgLocalMem) {
-        for (auto *ArgMemU : ArgMem->users()) {
-          auto *ArgMemUser = cast<Instruction>(ArgMemU);
-          if (isa<LoadInst>(ArgMemUser)) {
-            for (auto *ArgLoadU : ArgMemUser->users()) {
-              auto *ArgLoadUser = cast<Instruction>(ArgLoadU);
-              if (auto *ArgLoad = dyn_cast<LoadInst>(ArgLoadUser))
-                ArgValLoads.push_back(ArgLoad);
-            }
-          }
-        }
-      }
-
-      // At this point ArgValLoads contains all the Values for which stride
-      // needs to be applied.
 
       // Get the constant or variable stride value
       Value *StrideVal = nullptr;
@@ -1509,15 +1523,34 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
       } else {
         llvm_unreachable("Unsupported linear modifier");
       }
-      // Generate stride instruction and update users of the load.
-      for (auto *ArgValLoad : ArgValLoads) {
-        for (auto &U : make_early_inc_range(ArgValLoad->uses())) {
-          auto *User = cast<Instruction>(U.getUser());
-          Value *StrideInst =
-              generateStrideForArgument(ArgValLoad, User, StrideVal, Phi, Parm);
-          User->setOperand(U.getOperandNo(), StrideInst);
-        }
+
+      // Add stride to the value stored to the arg's memory. We do this only
+      // once at the beginning of the loop so that stride is not generated
+      // multiple times. Any subsquent loads/stores to/from this memory will
+      // automatically get the updated value or update the value with the stride
+      // already applied.
+      auto *InsertPt = &*++cast<Instruction>(ScalarArg)->getIterator();
+      IRBuilder<> Builder(InsertPt);
+      // Linear val args extract the first pointer from the vector of pointers
+      // and use that to load the value and add stride. Since the same memory
+      // location is used we need to store the initial value upon entry to the
+      // function to that memory location. Otherwise, the stride will continue
+      // to be accumulated incorrectly.
+      if (Parm.isLinearVal()) {
+        LoadInst *InitVal =
+            Builder.CreateLoad(ArgPtrElemType, ScalarArg,
+                               "init.val." + ScalarArg->getName());
+        Builder.SetInsertPoint(LoopHeader->getFirstNonPHI());
+        Builder.CreateStore(InitVal, ScalarArg);
       }
+      LoadInst *ScalarArgValLoad =
+          Builder.CreateLoad(ArgPtrElemType, ScalarArg,
+                             "load." + ScalarArg->getName());
+      Value *StrideInst =
+          generateStrideForArgument(ScalarArgValLoad, I,
+                                    &*++ScalarArgValLoad->getIterator(),
+                                    StrideVal, Phi, Parm);
+      Builder.CreateStore(StrideInst, ScalarArg);
     }
     ArgIt = std::next(ArgIt, NumChunks);
   }
@@ -1543,7 +1576,7 @@ void VecCloneImpl::Factory::updateReturnBlockInstructions(
 
   auto GetRetAllocaInst = [](Instruction *WidenedReturn) {
     Value *V = WidenedReturn;
-    if (!WidenedReturn->getType()->isOpaquePointerTy()) {
+    if (!WidenedReturn->getType()->isPointerTy()) {
       assert(isa<BitCastInst>(WidenedReturn) && "Expected cast instruction");
       V = WidenedReturn->getOperand(0);
     }
@@ -1573,7 +1606,7 @@ void VecCloneImpl::Factory::updateReturnBlockInstructions(
     Type *ChunkTy = RetTy->getElementType(0);
 
     Value *Ptr = RetAlloca;
-    if (!Ptr->getType()->isOpaquePointerTy())
+    if (!Ptr->getType()->isPointerTy())
       Ptr = new BitCastInst(
           Ptr,
           PointerType::get(ChunkTy, RetAlloca->getType()->getAddressSpace()),
@@ -1657,8 +1690,7 @@ CallInst *VecCloneImpl::Factory::insertBeginRegion() {
 
     std::string ClauseString = IntrinsicUtils::getClauseString(ClauseId).str();
     std::string ClauseStringUpdates = "TYPED";
-    if (Ptr->getType()->isOpaquePointerTy() &&
-        ClauseString == "QUAL.OMP.LINEAR") {
+    if (Ptr->getType()->isPointerTy() && ClauseString == "QUAL.OMP.LINEAR") {
       ClauseStringUpdates += ".PTR_TO_PTR";
       Ty = llvm::Type::getInt8Ty(Ty->getContext());
     }
@@ -1702,6 +1734,8 @@ CallInst *VecCloneImpl::Factory::insertBeginRegion() {
       Intrinsic::getDeclaration(&M, Intrinsic::directive_region_entry),
       std::nullopt, OpndBundles, "entry.region");
   SIMDBeginCall->insertBefore(EntryBlock->getTerminator());
+  getInlineReport()->addCallSite(SIMDBeginCall);
+  getMDInlineReport()->addCallSite(SIMDBeginCall);
   EntryBlock->splitBasicBlock(SIMDBeginCall, "simd.begin.region");
   return SIMDBeginCall;
 }
@@ -1720,6 +1754,8 @@ void VecCloneImpl::Factory::insertEndRegion(CallInst *EntryDirCall) {
   CallInst *SIMDEndCall =
       IntrinsicUtils::createSimdDirectiveEnd(M, EntryDirCall);
   SIMDEndCall->insertBefore(EndDirectiveBlock->getTerminator());
+  getInlineReport()->addCallSite(SIMDEndCall);
+  getMDInlineReport()->addCallSite(SIMDEndCall);
 }
 
 void VecCloneImpl::Factory::insertDirectiveIntrinsics() {
@@ -1901,15 +1937,20 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
     // before cloning will ensure they don't make it into the vector versions
     // of the function.
     SmallVector<IntrinsicInst *, 2> IntrinsicsToRemove;
-    /// The map of linear pointer args to pointee type size.
-    DenseMap<Value *, Value *> PointeeTypeSize;
+    /// Vector of pointee type sizes based on argument position in the function
+    /// signature.
+    SmallVector<Value *> PointeeTypeSize(F.arg_size(), nullptr);
     for (auto &Inst : instructions(F)) {
       Instruction *I = &Inst;
       if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
         if (II->getIntrinsicID() == Intrinsic::intel_directive_elementsize) {
           Value *Arg = II->getOperand(0);
           Value *ElemSize = II->getOperand(1);
-          PointeeTypeSize[Arg] = ElemSize;
+          // CMPLRLLVM-52879: Device-side arguments may be hidden behind
+          // an address-space cast.
+          if (isa<AddrSpaceCastInst>(Arg))
+            Arg = cast<AddrSpaceCastInst>(Arg)->getOperand(0);
+          PointeeTypeSize[cast<Argument>(Arg)->getArgNo()] = ElemSize;
           IntrinsicsToRemove.push_back(II);
         }
       }
@@ -1922,9 +1963,22 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       return VFABI::demangleForVFABI(Name);
     });
 
-
+    bool SetTuneCPU = true;
     SmallDenseMap<StringRef, SmallVector<StringRef>> CPUDispatchMap;
-    getVariantsCPUDispatchData(F, CPUDispatchMap);
+    // Read vector-dispatch attribute if it does exist. Otherwise, populate map
+    // based on assumption that each vector variant ABI encodes ISA that sets
+    // bare minimum for CPU. Do that for 64 bit targets only.
+    if (!getVariantsCPUDispatchData(F, CPUDispatchMap) &&
+        M.getDataLayout().getPointerSizeInBits() == 64) {
+      SetTuneCPU = false;
+      for (StringRef Name : VarIt.second) {
+        StringRef BaseCPU = VFABI::demangleForVFABI(Name).getBaseCPU();
+        if (BaseCPU.empty())
+          continue;
+        if (!CPUDispatchMap.contains(Name))
+          CPUDispatchMap[Name].push_back(BaseCPU);
+      }
+    }
 
     // Fix for CMPLRLLVM-49470 - the problem here is we can't easily infer the
     // pointer type for a linear uval arg at -O0 because these pointers are
@@ -2002,7 +2056,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
         continue;
       }
 
-      applyTargetCPUData(Clone, CPUDispatchMap);
+      applyTargetCPUData(Clone, CPUDispatchMap, SetTuneCPU);
 
       LLVM_DEBUG(dbgs() << "After SIMD Function Cloning\n");
       LLVM_DEBUG(Clone->dump());

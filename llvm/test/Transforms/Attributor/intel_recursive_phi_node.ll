@@ -7,16 +7,16 @@
 ; form. This is the same test case as intel_recursive_phi_node.ll but it checks
 ; for opaque pointers.
 
-; CHECK: declare ptr @llvm.stacksave() #0
-
-; CHECK: declare void @llvm.stackrestore(ptr) #0
-
-; CHECK: define internal void @__omp_offloading_10309_c81353__Z1jv_l17() #1
+; CHECK: define internal void @__omp_offloading_10309_c81353__Z1jv_l17() #0
 
 ; CHECK: %e.i.i.0.vec.insert = insertelement <2 x float> %e.i.i.0, float %conv.i.i, i32 0
 
-; CHECK: attributes #0 = { nocallback nofree nosync nounwind willreturn }
-; CHECK: attributes #1 = { nofree norecurse noreturn nosync nounwind }
+; CHECK: declare ptr @llvm.stacksave.p0() #1
+
+; CHECK: declare void @llvm.stackrestore.p0(ptr) #1
+
+; CHECK: attributes #0 = { nofree norecurse noreturn nosync nounwind }
+; CHECK: attributes #1 = { nocallback nofree nosync nounwind willreturn }
 
 ; ModuleID = 'intel_recursive_phi_node.ll'
 source_filename = "simple.cpp"

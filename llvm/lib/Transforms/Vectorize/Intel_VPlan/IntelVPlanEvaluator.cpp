@@ -102,10 +102,15 @@ VPlanCostPair VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan,
 // equal to MainLoopVF-1. If the trip count is not available at compile-time,
 // then we set the trip count to MainLoopVF-1.
 unsigned VPlanPeelEvaluator::getScalarPeelTripCount(unsigned MainLoopVF) const {
-  if (PeelingVariant)
+  if (PeelingVariant) {
+    if (PeelingVariant->getKind() == VPPK_NoPeeling ||
+        PeelingVariant->getKind() == VPPK_NoPeelingAligned ||
+        PeelingVariant->getKind() == VPPK_NoPeelingUnaligned)
+      return 0;
     return PeelingVariant->getKind() == VPPK_StaticPeeling
                ? cast<VPlanStaticPeeling>(PeelingVariant)->peelCount()
                : MainLoopVF - 1;
+  }
   return 0;
 }
 
@@ -182,6 +187,18 @@ void VPlanPeelEvaluator::dump(raw_ostream &OS) const {
   StringRef PeelLoopModeStr = "";
   StringRef TripCountStr = "";
   if (PeelingVariant) {
+    if (isa<VPlanNoPeeling>(PeelingVariant)) {
+      PeelLoopModeStr = "(disabled)";
+      TripCountStr = "known";
+    }
+    if (isa<VPlanNoPeelingAligned>(PeelingVariant)) {
+      PeelLoopModeStr = "(disabled, aligned)";
+      TripCountStr = "known";
+    }
+    if (isa<VPlanNoPeelingUnaligned>(PeelingVariant)) {
+      PeelLoopModeStr = "(disabled, unaligned)";
+      TripCountStr = "known";
+    }
     if (isa<VPlanStaticPeeling>(PeelingVariant)) {
       PeelLoopModeStr = "(static)";
       TripCountStr = "known";
@@ -216,7 +233,6 @@ void VPlanPeelEvaluator::dump(raw_ostream &OS) const {
 // might have a new remainder loop for the remaining iterations of the
 // vectorized remainder loop.
 void VPlanRemainderEvaluator::calculateRemainderVFAndVectorCost() {
-  unsigned MaxRemainderTC = MainLoopVF * MainLoopUF - 1;
   UnmaskedVectorCost = VPInstructionCost::getInvalid();
 
   // The remainder loop cannot be vectorized with VF bigger than the one of the
@@ -235,6 +251,11 @@ void VPlanRemainderEvaluator::calculateRemainderVFAndVectorCost() {
                         << TempVF << " is not normalized\n");
       continue;
     }
+    if (TempVF > RemainderTC) {
+      LLVM_DEBUG(dbgs() << "Remainder evaluator skips VF=" << TempVF
+                        << " as it's bigger than remainder TC\n");
+      continue;
+    }
     VPInstructionCost TempIterCost, TempOverhead;
     std::tie(TempIterCost, TempOverhead) =
         calculatePlanCost(TempVF, RemPlan, TCIsUnknown);
@@ -244,16 +265,16 @@ void VPlanRemainderEvaluator::calculateRemainderVFAndVectorCost() {
       continue;
     }
     VPInstructionCost TempCost =
-        TempOverhead + TempIterCost * (MaxRemainderTC / TempVF);
+        TempOverhead + TempIterCost * (RemainderTC / TempVF);
     LLVM_DEBUG(dbgs() << "Remainder evaluator unmasked cost for VF=" << TempVF
                       << " :\n Vector cost=" << TempCost << "= " << TempIterCost
-                      << " x " << (MaxRemainderTC / TempVF) << " iterations + "
+                      << " x " << (RemainderTC / TempVF) << " iterations + "
                       << TempOverhead << "\n Scalar cost="
-                      << (ScalarIterCost * (MaxRemainderTC % TempVF)) << "= "
-                      << ScalarIterCost << " x " << (MaxRemainderTC % TempVF)
+                      << (ScalarIterCost * (RemainderTC % TempVF)) << "= "
+                      << ScalarIterCost << " x " << (RemainderTC % TempVF)
                       << " iterations\n");
     // Cost of the new scalar remainder loop.
-    TempCost += ScalarIterCost * (MaxRemainderTC % TempVF);
+    TempCost += ScalarIterCost * (RemainderTC % TempVF);
     if (!TempCost.isValid()) {
       LLVM_DEBUG(dbgs() << "Remainder evaluator skips VF=" << TempVF
                         << " as corresponding VPlan final cost is " << TempCost
@@ -302,9 +323,6 @@ VPlanRemainderEvaluator::calculatePumpingOverhead(VPlanMasked *MaskedModePlan) {
     if (CurrWidth > MaxRegWidth)
       Ret += CurrWidth / MaxRegWidth;
   }
-  LLVM_DEBUG(dbgs() << "Masked remainder: for VF=" << MainLoopVF
-                    << " pumping overhead=" << Ret << "\n";);
-
   return Ret;
 }
 
@@ -333,7 +351,15 @@ VPlanRemainderEvaluator::calculateBestVariant() {
     MinProfitableMaskedRemTC =
         std::ceil((MaskedVectorCost / ScalarIterCost).getFloatValue());
 
-  MaskedVectorCost += calculatePumpingOverhead(MaskedModePlan) * MainLoopUF;
+  VPInstructionCost PumpingOvh =
+      calculatePumpingOverhead(MaskedModePlan) * MainLoopUF;
+  MaskedVectorCost += PumpingOvh;
+
+  LLVM_DEBUG(dbgs() << "Remainder evaluator masked cost for VF=" << MainLoopVF
+                    << " : " << MaskedVectorIterCost << " x " << MainLoopUF
+                    << " + " << MaskedOverhead << " (ovh) + " << PumpingOvh
+                    << " (pump ovh) = " << MaskedVectorCost
+                    << "; ProfTC=" << MinProfitableMaskedRemTC << "\n";);
 
   // Calculate VF and the total cost for vector variant with possible scalar
   // remainder.
@@ -382,8 +408,10 @@ VPlanRemainderEvaluator::calculateBestVariant() {
     else if (UnmaskedVectorCost.isValid()) {
       RemainderKind = RemainderLoopKind::VectorScalar;
       LoopCost = UnmaskedVectorCost;
-      RemainderTC = (MainLoopUF * MainLoopVF - 1) / RemainderVF;
-      NewRemainderTC = (MainLoopUF * MainLoopVF - 1) % RemainderVF;
+      // Trip count of the second, scalar, remainder
+      NewRemainderTC = RemainderTC % RemainderVF;
+      // Trip count of vectorized remainder
+      RemainderTC = RemainderTC / RemainderVF;
     }
     return RemainderKind;
   }
@@ -430,8 +458,10 @@ VPlanRemainderEvaluator::calculateBestVariant() {
     if (!MaskedGain.isValid() || UnmaskedGain > MaskedGain) {
       RemainderKind = RemainderLoopKind::VectorScalar;
       LoopCost = UnmaskedVectorCost;
-      RemainderTC = (MainLoopUF * MainLoopVF - 1) / RemainderVF;
-      NewRemainderTC = (MainLoopUF * MainLoopVF - 1) % RemainderVF;
+      // Trip count of the second, scalar, remainder
+      NewRemainderTC = RemainderTC % RemainderVF;
+      // Trip count of vectorized remainder
+      RemainderTC = RemainderTC / RemainderVF;
     }
   return RemainderKind;
 }

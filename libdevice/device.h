@@ -1,5 +1,22 @@
 //==--- device.h - device definitions ------------------------*- C++ -*-----==//
 //
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+// Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -15,6 +32,12 @@
 #define EXTERN_C
 #endif // __cplusplus
 
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#define SYCL_EXTERNAL
+#endif // OMP_LIBDEVICE
+#endif // INTEL_COLLAB
+
 #if defined(__SPIR__) || defined(__NVPTX__)
 #ifdef __SYCL_DEVICE_ONLY__
 #define DEVICE_EXTERNAL SYCL_EXTERNAL __attribute__((weak))
@@ -25,13 +48,17 @@
 #define DEVICE_EXTERN_C DEVICE_EXTERNAL EXTERN_C
 #define DEVICE_EXTERN_C_INLINE                                                 \
   DEVICE_EXTERNAL EXTERN_C __attribute__((always_inline))
-#if defined(OMP_LIBDEVICE) && defined(INTEL_COLLAB)
+#define DEVICE_EXTERN_C_NOINLINE                                               \
+  DEVICE_EXTERNAL EXTERN_C __attribute__((noinline))
+#if INTEL_COLLAB
+#if defined(OMP_LIBDEVICE)
 #define DEVICE_EXTERN_C_DECLSIMD_INLINE                                        \
   DEVICE_EXTERN_C                                                              \
   _Pragma("omp declare simd") __attribute__((always_inline))
 #else
 #define DEVICE_EXTERN_C_DECLSIMD_INLINE DEVICE_EXTERN_C_INLINE
-#endif
+#endif // #if defined(OMP_LIBDEVICE)
+#endif // INTEL_COLLAB
 #endif // __SPIR__ || __NVPTX__
 
 #if defined(__SPIR__) || defined(__LIBDEVICE_HOST_IMPL__)
@@ -45,6 +72,6 @@
 // all __device_imf_* functions, this will lead to crash.
 #define DEVICE_EXTERN_C EXTERN_C
 #define DEVICE_EXTERN_C_INLINE DEVICE_EXTERN_C __attribute__((always_inline))
-#define DEVICE_EXTERN_C_DECLSIMD_INLINE DEVICE_EXTERN_C_INLINE
+#define DEVICE_EXTERN_C_DECLSIMD_INLINE DEVICE_EXTERN_C_INLINE // INTEL
 #endif // __LIBDEVICE_HOST_IMPL__
 #endif // __LIBDEVICE_DEVICE_H__

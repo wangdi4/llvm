@@ -2,17 +2,17 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64_x86_64-unknown-unknown"
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local spir_kernel void @test(i32 addrspace(1)* noundef align 4 %a, i32 addrspace(1)* noundef align 4 %b) #0 !dbg !6 !kernel_arg_addr_space !19 !kernel_arg_access_qual !20 !kernel_arg_type !21 !kernel_arg_base_type !21 !kernel_arg_type_qual !22 !kernel_arg_name !23 !kernel_arg_host_accessible !24 !kernel_arg_pipe_depth !25 !kernel_arg_pipe_io !22 !kernel_arg_buffer_location !22 {
+define dso_local spir_kernel void @test(ptr addrspace(1) noundef align 4 %a, ptr addrspace(1) noundef align 4 %b) #0 !dbg !6 !kernel_arg_addr_space !19 !kernel_arg_access_qual !20 !kernel_arg_type !21 !kernel_arg_base_type !21 !kernel_arg_type_qual !22 !kernel_arg_name !23 !kernel_arg_host_accessible !24 !kernel_arg_pipe_depth !25 !kernel_arg_pipe_io !22 !kernel_arg_buffer_location !22 {
 entry:
-  call void @llvm.dbg.value(metadata i32 addrspace(1)* %a, metadata !13, metadata !DIExpression()), !dbg !26
-  call void @llvm.dbg.value(metadata i32 addrspace(1)* %b, metadata !14, metadata !DIExpression()), !dbg !26
+  call void @llvm.dbg.value(metadata ptr addrspace(1) %a, metadata !13, metadata !DIExpression()), !dbg !26
+  call void @llvm.dbg.value(metadata ptr addrspace(1) %b, metadata !14, metadata !DIExpression()), !dbg !26
   %call = call spir_func i64 @_Z13get_global_idj(i32 noundef 0) #3, !dbg !27
   call void @llvm.dbg.value(metadata i64 %call, metadata !15, metadata !DIExpression()), !dbg !26
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %call, !dbg !28
-  %0 = load i32, i32 addrspace(1)* %arrayidx, align 4, !dbg !28, !tbaa !29
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %a, i64 %call, !dbg !28
+  %0 = load i32, ptr addrspace(1) %arrayidx, align 4, !dbg !28, !tbaa !29
   %mul = shl nsw i32 %0, 1, !dbg !33
-  %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %b, i64 %call, !dbg !34
-  store i32 %mul, i32 addrspace(1)* %arrayidx1, align 4, !dbg !35, !tbaa !29
+  %arrayidx1 = getelementptr inbounds i32, ptr addrspace(1) %b, i64 %call, !dbg !34
+  store i32 %mul, ptr addrspace(1) %arrayidx1, align 4, !dbg !35, !tbaa !29
   ret void, !dbg !36
 }
 

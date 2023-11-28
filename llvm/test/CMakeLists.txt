@@ -1,6 +1,5 @@
 llvm_canonicalize_cmake_booleans(
   BUILD_SHARED_LIBS
-  LLVM_HAVE_LIBXAR
   HAVE_OCAMLOPT
   LLVM_ENABLE_DIA_SDK
   LLVM_ENABLE_FFI
@@ -24,12 +23,12 @@ llvm_canonicalize_cmake_booleans(
   LLVM_ENABLE_EXPENSIVE_CHECKS
 # INTEL_CUSTOMIZATION
   LLVM_ENABLE_NEW_PASS_MANAGER
-  SPIRV_ENABLE_OPAQUE_POINTERS
   INTEL_ENABLE_PROTO_BIN_OPTRPT
 # INTEL_FEATURE_SW_DTRANS
   INTEL_DTRANS_EXTRA_OPTS
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
+  LLVM_ENABLE_REVERSE_ITERATION
   LLVM_INCLUDE_DXIL_TESTS
   LLVM_TOOL_LLVM_DRIVER_BUILD
   )
@@ -130,7 +129,6 @@ set(LLVM_TEST_DEPENDS
           llvm-readobj
           llvm-readelf
           llvm-reduce
-          llvm-remark-size-diff
           llvm-remarkutil
           llvm-rtdyld
           llvm-sim
@@ -141,7 +139,7 @@ set(LLVM_TEST_DEPENDS
           llvm-strip
           llvm-symbolizer
           llvm-tblgen
-          llvm-tapi-diff
+          llvm-readtapi
           llvm-tli-checker
           llvm-undname
           llvm-windres
@@ -239,6 +237,7 @@ if(TARGET ocaml_llvm)
           ocaml_llvm_executionengine
           ocaml_llvm_irreader
           ocaml_llvm_linker
+          ocaml_llvm_passbuilder
           ocaml_llvm_target
           ocaml_llvm_transform_utils
         )

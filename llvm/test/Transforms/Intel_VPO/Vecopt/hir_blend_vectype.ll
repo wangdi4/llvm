@@ -27,7 +27,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @foo(i64* noalias nocapture readonly %larr1, i64* noalias nocapture readonly %larr2, i64* noalias nocapture readonly %larr3, <2 x i64> %l2n, i64 %n1, i64 %n0) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture readonly %larr1, ptr noalias nocapture readonly %larr2, ptr noalias nocapture readonly %larr3, <2 x i64> %l2n, i64 %n1, i64 %n0) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
@@ -47,18 +47,16 @@ define dso_local void @foo(i64* noalias nocapture readonly %larr1, i64* noalias 
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP9:%.*]] = block-predicate i1 [[VP__NOT]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP10:%.*]] = mul i64 2 i64 [[VP6]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LARR20:%.*]] i64 [[VP10]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] <2 x i64>* [[VP11:%.*]] = bitcast i64* [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] <2 x i64> [[VP_LOAD:%.*]] = load <2 x i64>* [[VP11]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[LARR20:%.*]] i64 [[VP10]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] <2 x i64> [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] <2 x i64> [[VP12:%.*]] = hir-copy <2 x i64> [[VP_LOAD]] , OriginPhiId: -1 (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP13:%.*]] = block-predicate i1 [[VP8]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP14:%.*]] = mul i64 2 i64 [[VP6]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[LARR10:%.*]] i64 [[VP14]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] <2 x i64>* [[VP15:%.*]] = bitcast i64* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] <2 x i64> [[VP_LOAD_1:%.*]] = load <2 x i64>* [[VP15]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[LARR10:%.*]] i64 [[VP14]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] <2 x i64> [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] <2 x i64> [[VP16:%.*]] = hir-copy <2 x i64> [[VP_LOAD_1]] , OriginPhiId: -1 (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
@@ -66,9 +64,8 @@ define dso_local void @foo(i64* noalias nocapture readonly %larr1, i64* noalias 
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] <2 x i64> [[VP__BLEND_BB4:%.*]] = blend [ <2 x i64> [[VP12]], i1 [[VP__NOT]] ], [ <2 x i64> [[VP16]], i1 [[VP8]] ] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] <2 x i64> [[VP17:%.*]] = add <2 x i64> [[VP__BLEND_BB4]] <2 x i64> [[L2N0:%.*]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP18:%.*]] = mul i64 2 i64 [[VP6]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i64* [[LARR30:%.*]] i64 [[VP18]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] <2 x i64>* [[VP19:%.*]] = bitcast i64* [[VP_SUBSCRIPT_2]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store <2 x i64> [[VP17]] <2 x i64>* [[VP19]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[LARR30:%.*]] i64 [[VP18]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store <2 x i64> [[VP17]] ptr [[VP_SUBSCRIPT_2]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP7]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP:%.*]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP20:%.*]] = icmp slt i64 [[VP7]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP20]], [[BB2]], [[BB6:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
@@ -103,23 +100,20 @@ for.body:                                         ; preds = %entry, %for.body
   br i1 %cmp1, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i64, i64* %larr1, i64 %l1.mul
-  %arrayidx.bc = bitcast i64* %arrayidx to <2 x i64>*
-  %0 = load <2 x i64>, <2 x i64>* %arrayidx.bc, align 16
+  %arrayidx = getelementptr inbounds i64, ptr %larr1, i64 %l1.mul
+  %0 = load <2 x i64>, ptr %arrayidx, align 16
   br label %if.end
 
 if.else:                                          ; preds = %for.body
-  %arrayidx2 = getelementptr inbounds i64, i64* %larr2, i64 %l1.mul
-  %arrayidx2.bc = bitcast i64* %arrayidx2 to <2 x i64>*
-  %1 = load <2 x i64>, <2 x i64>* %arrayidx2.bc, align 16
+  %arrayidx2 = getelementptr inbounds i64, ptr %larr2, i64 %l1.mul
+  %1 = load <2 x i64>, ptr %arrayidx2, align 16
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
   %l2.0 = phi <2 x i64> [ %0, %if.then ], [ %1, %if.else ]
   %add = add <2 x i64> %l2.0, %l2n
-  %arrayidx3 = getelementptr inbounds i64,  i64* %larr3, i64 %l1.mul
-  %arrayidx3.bc = bitcast i64* %arrayidx3 to <2 x i64>*
-  store <2 x i64> %add, <2 x i64>* %arrayidx3.bc, align 16
+  %arrayidx3 = getelementptr inbounds i64,  ptr %larr3, i64 %l1.mul
+  store <2 x i64> %add, ptr %arrayidx3, align 16
   %inc = add nuw nsw i64 %l1.013, 1
   %exitcond.not = icmp eq i64 %inc, 100
   br i1 %exitcond.not, label %for.end, label %for.body

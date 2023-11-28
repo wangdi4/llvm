@@ -35,7 +35,7 @@ define dso_local float @getmax() local_unnamed_addr #0 {
 ;
 ; CHECK:         + DO i64 i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK:         |   %.vec = (<4 x float>*)(@farr)[0][i1]
-; CHECK:         |      <BLOB> LINEAR [100 x float]* @farr {sb:9}
+; CHECK:         |      <BLOB> LINEAR ptr @farr {sb:9}
 ; CHECK:         |
 ; CHECK:         |   %llvm.maxnum.v4f32 = @llvm.maxnum.v4f32(%.vec,  %phi.temp)
 ; CHECK:         |   <LVAL-REG> NON-LINEAR <4 x float> %llvm.maxnum.v4f32 {sb:20}
@@ -53,19 +53,19 @@ define dso_local float @getmax() local_unnamed_addr #0 {
 ;
 entry:
   %max.red = alloca float, align 4
-  store float 0.000000e+00, float* %max.red, align 4
+  store float 0.000000e+00, ptr %max.red, align 4
   br label %for.ph
 
 for.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(float* %max.red, float zeroinitializer, i32 1) ]
-  %max.red.promoted = load float, float* %max.red, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(ptr %max.red, float zeroinitializer, i32 1) ]
+  %max.red.promoted = load float, ptr %max.red, align 4
   br label %for.body
 
 for.body:
   %1 = phi float [ %max.red.promoted, %for.ph ], [ %3, %for.body ]
   %.omp.iv.local.013 = phi i64 [ 0, %for.ph ], [ %add3, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @farr, i64 0, i64 %.omp.iv.local.013
-  %2 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @farr, i64 0, i64 %.omp.iv.local.013
+  %2 = load float, ptr %arrayidx, align 4
   %3 = call fast float @llvm.maxnum.f32(float %2, float %1)
   %add3 = add nuw nsw i64 %.omp.iv.local.013, 1
   %exitcond.not = icmp eq i64 %add3, 100
@@ -73,7 +73,7 @@ for.body:
 
 for.end:
   %.lcssa = phi float [ %3, %for.body ]
-  store float %.lcssa, float* %max.red, align 4
+  store float %.lcssa, ptr %max.red, align 4
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   br label %exit
 

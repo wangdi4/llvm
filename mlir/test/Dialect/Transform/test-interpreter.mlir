@@ -116,6 +116,32 @@ transform.with_pdl_patterns {
 
 // -----
 
+func.func @test_get_nth_parent() {
+  "test.foo"() ({
+    // expected-remark @below{{2nd parent}}
+    "test.foo"() ({
+      "test.qux"() ({
+        // expected-remark @below{{1st parent}}
+        "test.foo"() ({
+          "test.bar"() : () -> ()
+        }) : () -> ()
+      }) : () -> ()
+    }) : () -> ()
+  }) : () -> ()
+}
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !transform.any_op):
+  %f = transform.structured.match ops{["test.bar"]} in %arg0 : (!transform.any_op) -> !transform.any_op
+  %parent = get_parent_op %f {nth_parent = 1, op_name = "test.foo"} : (!transform.any_op) -> !transform.any_op
+  test_print_remark_at_operand %parent, "1st parent" : !transform.any_op
+  %parent2 = get_parent_op %f {nth_parent = 2, op_name = "test.foo"} : (!transform.any_op) -> !transform.any_op
+  test_print_remark_at_operand %parent2, "2nd parent" : !transform.any_op
+  transform.yield
+}
+
+// -----
+
 func.func @foo() {
   %0 = arith.constant 0 : i32
   return
@@ -355,7 +381,7 @@ transform.with_pdl_patterns {
   sequence %arg0 : !transform.any_op failures(propagate) {
   ^bb1(%arg1: !transform.any_op):
     %0 = transform.pdl_match @match_const in %arg1 : (!transform.any_op) -> !transform.any_op
-    %1 = transform.loop.get_parent_for %0 : (!transform.any_op) -> !transform.any_op
+    %1 = transform.get_parent_op %0 {op_name = "scf.for"} : (!transform.any_op) -> !transform.any_op
     // expected-error @below {{only isolated-from-above ops can be alternative scopes}}
     alternatives %1 : !transform.any_op {
     ^bb2(%arg2: !transform.any_op):
@@ -686,6 +712,28 @@ transform.with_pdl_patterns {
       transform.test_print_number_of_associated_payload_ir_ops %arg2 : !transform.any_op
       transform.test_print_remark_at_operand %arg2, "transform applied" : !transform.any_op
     }
+  }
+}
+
+// -----
+
+// CHECK-LABEL: func @consume_in_foreach()
+//  CHECK-NEXT:   return
+func.func @consume_in_foreach() {
+  %0 = arith.constant 0 : index
+  %1 = arith.constant 1 : index
+  %2 = arith.constant 2 : index
+  %3 = arith.constant 3 : index
+  return
+}
+
+transform.sequence failures(propagate) {
+^bb1(%arg1: !transform.any_op):
+  %f = transform.structured.match ops{["arith.constant"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+  transform.foreach %f : !transform.any_op {
+  ^bb2(%arg2: !transform.any_op):
+    // expected-remark @below {{erasing}}
+    transform.test_emit_remark_and_erase_operand %arg2, "erasing" : !transform.any_op
   }
 }
 
@@ -1684,15 +1732,18 @@ transform.sequence failures(propagate) {
 
 // CHECK-LABEL: func @test_annotation()
 //  CHECK-NEXT:   "test.annotate_me"()
+//  CHECK-SAME:                        any_attr = "example"
 //  CHECK-SAME:                        broadcast_attr = 2 : i64
 //  CHECK-SAME:                        new_attr = 1 : i32
 //  CHECK-SAME:                        unit_attr
 //  CHECK-NEXT:   "test.annotate_me"()
+//  CHECK-SAME:                        any_attr = "example"
 //  CHECK-SAME:                        broadcast_attr = 2 : i64
 //  CHECK-SAME:                        existing_attr = "test"
 //  CHECK-SAME:                        new_attr = 1 : i32
 //  CHECK-SAME:                        unit_attr
 //  CHECK-NEXT:   "test.annotate_me"()
+//  CHECK-SAME:                        any_attr = "example"
 //  CHECK-SAME:                        broadcast_attr = 2 : i64
 //  CHECK-SAME:                        new_attr = 1 : i32
 //  CHECK-SAME:                        unit_attr
@@ -1711,6 +1762,9 @@ transform.sequence failures(propagate) {
   %2 = transform.param.constant 2 -> !transform.param<i64>
   transform.annotate %0 "broadcast_attr" = %2 : !transform.any_op, !transform.param<i64>
   transform.annotate %0 "unit_attr" : !transform.any_op
+
+  %3 = transform.param.constant "example" -> !transform.any_param
+  transform.annotate %0 "any_attr" = %3 : !transform.any_op, !transform.any_param
 }
 
 // -----
@@ -1863,6 +1917,18 @@ transform.sequence failures(propagate) {
   test_print_number_of_associated_payload_ir_ops %4 : !transform.any_op
 }
 
+
+// -----
+
+// expected-note @below {{target op}}
+module {
+  transform.sequence  failures(propagate) {
+  ^bb0(%arg0: !transform.any_op):
+    // expected-error @below{{could not find a parent op that matches all requirements}}
+    %3 = get_parent_op %arg0 {op_name = "builtin.module"} : (!transform.any_op) -> !transform.any_op
+  }
+}
+
 // -----
 
 func.func @cast(%arg0: f32) -> f64 {
@@ -1973,4 +2039,99 @@ transform.sequence failures(propagate) {
   // Select "test.bar".
   %bar = transform.select "test.bar" in %0 : (!transform.any_op) -> !transform.any_op
   test_print_remark_at_operand %bar, "found bar" : !transform.any_op
+}
+
+// -----
+
+// CHECK-LABEL: func @apply_dce(
+//  CHECK-NEXT:   memref.store
+//  CHECK-NEXT:   return
+func.func @apply_dce(%f: f32, %m: memref<5xf32>, %idx: index) {
+  // Two dead ops, interleaved with a non-dead op.
+  %0 = tensor.empty() : tensor<5xf32>
+  memref.store %f, %m[%idx] : memref<5xf32>
+  %1 = tensor.insert %f into %0[%idx] : tensor<5xf32>
+  return
+}
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !transform.any_op):
+  %func_op = transform.structured.match ops{["func.func"]} in %arg0 : (!transform.any_op) -> !transform.any_op
+  %empty_op = transform.structured.match ops{["tensor.empty"]} in %func_op : (!transform.any_op) -> !transform.any_op
+  transform.apply_dce to %func_op : !transform.any_op
+
+  // expected-remark @below{{0}}
+  test_print_number_of_associated_payload_ir_ops %empty_op : !transform.any_op
+}
+
+
+// -----
+
+func.func @no_constant_under_loop(%lb: index, %ub: index, %step: index) {
+  scf.for %i= %lb to %ub step %step {
+    arith.constant 0 : index
+  }
+  return
+}
+
+module @named_inclusion attributes { transform.with_named_sequence } {
+// Match `arith.constant`s that are not nested under a `scf.for` and ensure
+// there are none in the program
+
+transform.named_sequence @print(%root: !transform.any_op {transform.readonly}) {
+  transform.test_print_remark_at_operand %root, "matched func" : !transform.any_op
+  transform.yield 
+}
+
+transform.named_sequence @match_constant_not_under_scf_for(%root: !transform.any_op {transform.readonly}) 
+  -> !transform.any_op {
+  transform.match.operation_name %root ["arith.constant"] : !transform.any_op
+  %for = transform.get_parent_op %root { op_name = "scf.for", allow_empty_results }
+    : (!transform.any_op) -> (!transform.any_op)
+  transform.match.operation_empty %for : !transform.any_op
+  transform.yield %root : !transform.any_op
+}
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !transform.any_op):
+  transform.foreach_match in %arg0
+      @match_constant_not_under_scf_for -> @print
+    : (!transform.any_op) -> (!transform.any_op)
+  transform.yield 
+}
+}
+
+// -----
+
+func.func @no_constant_under_loop(%lb: index, %ub: index, %step: index) {
+  // expected-remark @below {{no parent scf.for}}
+  arith.constant 0 : index
+  return
+}
+
+module @named_inclusion attributes { transform.with_named_sequence } {
+// Match `arith.constant`s that are not nested under a `scf.for` and ensure
+// there are none in the program
+
+transform.named_sequence @print(%root: !transform.any_op {transform.readonly}) {
+  transform.test_print_remark_at_operand %root, "no parent scf.for" : !transform.any_op
+  transform.yield 
+}
+
+transform.named_sequence @match_constant_not_under_scf_for(%root: !transform.any_op {transform.readonly}) 
+  -> !transform.any_op {
+  transform.match.operation_name %root ["arith.constant"] : !transform.any_op
+  %for = transform.get_parent_op %root { op_name = "scf.for", allow_empty_results }
+    : (!transform.any_op) -> (!transform.any_op)
+  transform.match.operation_empty %for : !transform.any_op
+  transform.yield %root : !transform.any_op
+}
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !transform.any_op):
+  transform.foreach_match in %arg0
+      @match_constant_not_under_scf_for -> @print
+    : (!transform.any_op) -> (!transform.any_op)
+  transform.yield 
+}
 }

@@ -14,10 +14,10 @@
 
 #if defined _M_X64 || defined __x86_64__
 
+#include "CL/cl.h"
 #include "FrameworkTest.h"
 #include "common_utils.h"
 #include "gtest_wrapper.h"
-#include <CL/cl.h>
 #include <fstream>
 #include <string>
 

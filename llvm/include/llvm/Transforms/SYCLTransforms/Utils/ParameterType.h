@@ -1,6 +1,6 @@
 //===- ParameterType.h - Parameter type utilities ---------------*- C++ -*-===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,6 +13,7 @@
 
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Casting.h"
 #include <vector>
 
 namespace llvm {
@@ -425,45 +426,6 @@ struct TypeVisitor {
   virtual ~TypeVisitor() {}
 };
 
-///@brief template cast function for ParamType derived classes.
-///@param ParamType given param type.
-///@return required casting type if given param type is an instance if
-//         that type, assert otherwise.
-template <typename T> T *cast(ParamType *Ty) {
-  assert(Ty && "cast does not support casting of NULL");
-  assert(T::enumTy == Ty->getTypeId() && "cast argument of incompatible type");
-  return (T *)Ty;
-}
-
-///@brief template cast function for ParamType derived classes (const version).
-///@param ParamType given param type.
-///@return required casting type if given param type is an instance if
-//         that type, assert otherwise.
-template <typename T> const T *cast(const ParamType *Ty) {
-  assert(Ty && "cast does not support casting of NULL");
-  assert(T::enumTy == Ty->getTypeId() && "cast argument of incompatible type");
-  return (const T *)Ty;
-}
-
-///@brief template dynamic cast function for ParamType derived classes
-///@param ParamType given param type
-///@return required casting type if given param type is an instance if
-//         that type, NULL otherwise.
-template <typename T> T *dyn_cast(ParamType *Ty) {
-  assert(Ty && "dyn_cast does not support casting of NULL");
-  return (T::enumTy == Ty->getTypeId()) ? (T *)Ty : nullptr;
-}
-
-///@brief template dynamic cast function for ParamType derived classes
-///       (the constant version)
-///@param ParamType given param type
-///@return required casting type if given param type is an instance if
-//         that type, NULL otherwise.
-template <typename T> const T *dyn_cast(const ParamType *Ty) {
-  assert(Ty && "dyn_cast does not support casting of NULL");
-  return (T::enumTy == Ty->getTypeId()) ? (const T *)Ty : nullptr;
-}
-
 StringRef mangledPrimitiveString(TypePrimitiveEnum primitive);
 StringRef readablePrimitiveString(TypePrimitiveEnum primitive);
 std::string llvmPrimitiveString(TypePrimitiveEnum primitive);
@@ -474,6 +436,13 @@ StringRef getReadableAttribute(TypeAttributeEnum attribute);
 std::string getDuplicateString(int index);
 
 } // namespace reflection
+
+template <typename T> struct isa_impl<T, reflection::ParamType> {
+  static inline bool doit(const reflection::ParamType &Ty) {
+    return T::enumTy == Ty.getTypeId();
+  }
+};
+
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_SYCLTRANSFORMS_UTILS_PARAMETER_TYPE_H

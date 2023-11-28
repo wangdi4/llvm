@@ -4831,6 +4831,9 @@ class OMPLinearClause final
   /// Location of ':'.
   SourceLocation ColonLoc;
 
+  /// Location of 'step' modifier.
+  SourceLocation StepModifierLoc;
+
   /// Sets the linear step for clause.
   void setStep(Expr *Step) { *(getFinals().end()) = Step; }
 
@@ -4842,16 +4845,18 @@ class OMPLinearClause final
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param ColonLoc Location of ':'.
+  /// \param StepModifierLoc Location of 'step' modifier.
   /// \param EndLoc Ending location of the clause.
   /// \param NumVars Number of variables.
   OMPLinearClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   OpenMPLinearClauseKind Modifier, SourceLocation ModifierLoc,
-                  SourceLocation ColonLoc, SourceLocation EndLoc,
-                  unsigned NumVars)
+                  SourceLocation ColonLoc, SourceLocation StepModifierLoc,
+                  SourceLocation EndLoc, unsigned NumVars)
       : OMPVarListClause<OMPLinearClause>(llvm::omp::OMPC_linear, StartLoc,
                                           LParenLoc, EndLoc, NumVars),
         OMPClauseWithPostUpdate(this), Modifier(Modifier),
-        ModifierLoc(ModifierLoc), ColonLoc(ColonLoc) {}
+        ModifierLoc(ModifierLoc), ColonLoc(ColonLoc),
+        StepModifierLoc(StepModifierLoc) {}
 
   /// Build an empty clause.
   ///
@@ -4930,6 +4935,7 @@ public:
   /// \param Modifier Modifier of 'linear' clause.
   /// \param ModifierLoc Modifier location.
   /// \param ColonLoc Location of ':'.
+  /// \param StepModifierLoc Location of 'step' modifier.
   /// \param EndLoc Ending location of the clause.
   /// \param VL List of references to the variables.
   /// \param PL List of private copies of original variables.
@@ -4943,9 +4949,10 @@ public:
   static OMPLinearClause *
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
          OpenMPLinearClauseKind Modifier, SourceLocation ModifierLoc,
-         SourceLocation ColonLoc, SourceLocation EndLoc, ArrayRef<Expr *> VL,
-         ArrayRef<Expr *> PL, ArrayRef<Expr *> IL, Expr *Step, Expr *CalcStep,
-         Stmt *PreInit, Expr *PostUpdate);
+         SourceLocation ColonLoc, SourceLocation StepModifierLoc,
+         SourceLocation EndLoc, ArrayRef<Expr *> VL, ArrayRef<Expr *> PL,
+         ArrayRef<Expr *> IL, Expr *Step, Expr *CalcStep, Stmt *PreInit,
+         Expr *PostUpdate);
 
   /// Creates an empty clause with the place for \a NumVars variables.
   ///
@@ -4968,8 +4975,14 @@ public:
   /// Sets the location of ':'.
   void setColonLoc(SourceLocation Loc) { ColonLoc = Loc; }
 
+  /// Sets the location of 'step' modifier.
+  void setStepModifierLoc(SourceLocation Loc) { StepModifierLoc = Loc; }
+
   /// Returns the location of ':'.
   SourceLocation getColonLoc() const { return ColonLoc; }
+
+  /// Returns the location of 'step' modifier.
+  SourceLocation getStepModifierLoc() const { return StepModifierLoc; }
 
   /// Returns linear step.
   Expr *getStep() { return *(getFinals().end()); }
@@ -9959,6 +9972,83 @@ public:
   Expr *getSize() const { return getStmtAs<Expr>(); }
 };
 
+#if INTEL_CUSTOMIZATION
+/// This represents 'ompx_register_alloc_mode' clause in the
+/// '#pragma omp target ...' directive.
+///
+/// \code
+/// #pragma omp target [...] ompx_register_alloc_mode(mode)
+/// \endcode
+class OMPXRegisterAllocModeClause final : public OMPClause {
+  friend class OMPClauseReader;
+
+  /// Location of '('
+  SourceLocation LParenLoc;
+
+  /// The mode kind of 'ompx_register_alloc_mode' clause.
+  OpenMPXRegisterAllocModeKind Kind = OMPC_REGISTER_ALLOC_MODE_unknown;
+
+  /// Start location of the kind in source code.
+  SourceLocation KindLoc;
+
+  /// Set the locatoin of '('.
+  void setLParentLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  /// Set the mode kind.
+  void setModeKind(OpenMPXRegisterAllocModeKind K) { Kind = K; }
+
+  /// Set the mode kind location.
+  void setModeKindLoc(SourceLocation KLoc) { KindLoc = KLoc; }
+
+public:
+  /// Build 'ompx_register_alloc_mode' clause with kind \a K ('default',
+  /// 'auto', 'small', 'large').
+  ///
+  /// \param K mode kind of the clause ('default', 'auto', 'small', 'large').
+  /// \param KLoc Starting location of the mode kind.
+  /// \param StartLoc starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  OMPXRegisterAllocModeClause(OpenMPXRegisterAllocModeKind K,
+                              SourceLocation KLoc, SourceLocation StartLoc,
+                              SourceLocation LParenLoc, SourceLocation EndLoc)
+      : OMPClause(llvm::omp::OMPC_ompx_register_alloc_mode, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), Kind(K), KindLoc(KLoc) {}
+
+  /// Build an empty clause.
+  OMPXRegisterAllocModeClause()
+      : OMPClause(llvm::omp::OMPC_ompx_register_alloc_mode, SourceLocation(),
+                  SourceLocation()) {}
+
+  /// Returns the location of '('.
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+
+  /// Return the mode Kind.
+  OpenMPXRegisterAllocModeKind getModeKind() const { return Kind; }
+
+  /// Returns location of clause kind.
+  SourceLocation getModeKindLoc() const { return KindLoc; }
+  child_range children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_ompx_register_alloc_mode;
+  }
+};
+#endif // INTEL_CUSTOMIZATION
+
 /// This represents the 'doacross' clause for the '#pragma omp ordered'
 /// directive.
 ///
@@ -10083,6 +10173,75 @@ public:
   static bool classof(const OMPClause *T) {
     return T->getClauseKind() == llvm::omp::OMPC_doacross;
   }
+};
+
+/// This represents 'ompx_attribute' clause in a directive that might generate
+/// an outlined function. An example is given below.
+///
+/// \code
+/// #pragma omp target [...] ompx_attribute(flatten)
+/// \endcode
+class OMPXAttributeClause
+    : public OMPNoChildClause<llvm::omp::OMPC_ompx_attribute> {
+  friend class OMPClauseReader;
+
+  /// Location of '('.
+  SourceLocation LParenLoc;
+
+  /// The parsed attributes (clause arguments)
+  SmallVector<const Attr *> Attrs;
+
+public:
+  /// Build 'ompx_attribute' clause.
+  ///
+  /// \param Attrs The parsed attributes (clause arguments)
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  OMPXAttributeClause(ArrayRef<const Attr *> Attrs, SourceLocation StartLoc,
+                      SourceLocation LParenLoc, SourceLocation EndLoc)
+      : OMPNoChildClause(StartLoc, EndLoc), LParenLoc(LParenLoc), Attrs(Attrs) {
+  }
+
+  /// Build an empty clause.
+  OMPXAttributeClause() : OMPNoChildClause() {}
+
+  /// Sets the location of '('.
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  /// Returns the location of '('.
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+
+  /// Returned the attributes parsed from this clause.
+  ArrayRef<const Attr *> getAttrs() const { return Attrs; }
+
+private:
+  /// Replace the attributes with \p NewAttrs.
+  void setAttrs(ArrayRef<Attr *> NewAttrs) {
+    Attrs.clear();
+    Attrs.append(NewAttrs.begin(), NewAttrs.end());
+  }
+};
+
+/// This represents 'ompx_bare' clause in the '#pragma omp target teams ...'
+/// directive.
+///
+/// \code
+/// #pragma omp target teams ompx_bare
+/// \endcode
+/// In this example directive '#pragma omp target teams' has a 'ompx_bare'
+/// clause.
+class OMPXBareClause : public OMPNoChildClause<llvm::omp::OMPC_ompx_bare> {
+public:
+  /// Build 'ompx_bare' clause.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param EndLoc Ending location of the clause.
+  OMPXBareClause(SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPNoChildClause(StartLoc, EndLoc) {}
+
+  /// Build an empty clause.
+  OMPXBareClause() = default;
 };
 
 } // namespace clang

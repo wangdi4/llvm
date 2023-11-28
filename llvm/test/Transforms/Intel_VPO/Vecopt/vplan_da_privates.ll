@@ -37,104 +37,89 @@ define i32 @getElement(i32 %RetIdx) {
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[PHI2:%.*]] = phi  [ i32 {{.*}}, {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
 ; CHECK: Uniform: [Shape: Uniform] i32 [[PHI1:%.*]] = phi  [ i32 0, {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[SEXT1:%.*]] = sext i32 [[PHI1]] to i64
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] i32* [[PRIV_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV:%.*]] i64 0 i64 [[SEXT1]]
-; CHECK: Divergent: [Shape: Strided, Stride: i64 4096] i8* [[IV_IDX:%.*]] = bitcast i32* [[INV_ARRIDX:%.*]]
-; CHECK-NEXT: Divergent: [Shape: Random] i8 [[BC1:%.*]] = load i8* [[BC1:%.*]]
-; CHECK-NEXT: Divergent: [Shape: Random] i82 [[BC2:%.*]] = load i82* [[BC2:%.*]]
-; CHECK: Divergent: [Shape: Random] i32 [[L1:%.*]] = load i32* [[PRIV_GEP1]]
-; CHECK: Divergent: [Shape: Random] i32* [[PRIV_GEP2:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV]] i64 0 i64 [[SEXT2:%.*]]
-; CHECK: Divergent: [Shape: Random] i32 [[VAL_TO_STORE:%.*]] = call i32 {{.*}} i32 (i32)* @helper
-; CHECK: Divergent: [Shape: Random] i64 [[L_BC3:%.*]] = load i64* [[BC3:%.*]]
-; CHECK-NEXT: Divergent: [Shape: Random] i64 [[L_BC4:%.*]] = load i64* [[BC_GEP:%.*]]
-; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[JVAL:%.*]] = load i32* @j
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] ptr [[PRIV_GEP1:%.*]] = getelementptr inbounds [1024 x i32], ptr [[ARR_PRIV:%.*]] i64 0 i64 [[SEXT1]]
+; CHECK-NEXT: Divergent: [Shape: Random] i8 [[BC1:%.*]] = load ptr [[BC1:%.*]]
+; CHECK-NEXT: Divergent: [Shape: Random] i82 [[BC2:%.*]] = load ptr [[BC2:%.*]]
+; CHECK: Divergent: [Shape: Random] i32 [[L1:%.*]] = load ptr [[PRIV_GEP1]]
+; CHECK: Divergent: [Shape: Random] ptr [[PRIV_GEP2:%.*]] = getelementptr inbounds [1024 x i32], ptr [[ARR_PRIV]] i64 0 i64 [[SEXT2:%.*]]
+; CHECK: Divergent: [Shape: Random] i32 [[VAL_TO_STORE:%.*]] = call i32 {{.*}} ptr @helper
+; CHECK: Divergent: [Shape: Random] i64 [[L_BC3:%.*]] = load ptr [[BC3:%.*]]
+; CHECK-NEXT: Divergent: [Shape: Random] i64 [[L_BC4:%.*]] = load ptr [[BC_GEP:%.*]]
+; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[JVAL:%.*]] = load ptr @j
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[SEXT3:%.*]] = sext i32 [[JVAL]] to i64
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] i32* [[PRIV_GEP3:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV]] i64 0 i64 [[SEXT3]]
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] store i32 [[VAL_TO_STORE]] i32* [[PRIV_GEP3]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] ptr [[PRIV_GEP3:%.*]] = getelementptr inbounds [1024 x i32], ptr [[ARR_PRIV]] i64 0 i64 [[SEXT3]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] store i32 [[VAL_TO_STORE]] ptr [[PRIV_GEP3]]
 
 ; CHECK: VPlan after predicator
-; CHECK:  [DA: Div] [1024 x i32]* [[PRIV1:%.*]] = allocate-priv [1024 x i32]
-; CHECK-NEXT:  [DA: Div] i8* [[PRIV1_BCAST:%.*]] = bitcast [1024 x i32]* [[PRIV1]]
-; CHECK-NEXT:  [DA: Div] call i64 4096 i8* [[PRIV1_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
-; CHECK-NEXT:  [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32
-; CHECK-NEXT:  [DA: Div] i8* [[PRIV2_BCAST:%.*]] = bitcast i32* [[PRIV2]]
-; CHECK-NEXT:  [DA: Div] call i64 4 i8* [[PRIV2_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
-; CHECK-NEXT:  [DA: Div] i32* [[GEP1:%.*]]  = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 0
-; CHECK-NEXT:  [DA: Div] i8* [[BC1:%.*]] = bitcast i32* [[GEP1]]
-; CHECK-NEXT:  [DA: Div] i82* [[BC2:%.*]] = bitcast i8* [[BC1]]
-; CHECK-NEXT:  [DA: Div] i64* [[BC3:%.*]] = bitcast i82* [[BC2]]
-; CHECK-NEXT:  [DA: Div] i64* [[GEP2:%.*]] = getelementptr inbounds i64* [[BC3]] i64 6
+; CHECK:  [DA: Div] ptr [[PRIV1:%.*]] = allocate-priv [1024 x i32]
+; CHECK-NEXT:  [DA: Div] call i64 4096 ptr [[PRIV1]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:  [DA: Div] ptr [[PRIV2:%.*]] = allocate-priv i32
+; CHECK-NEXT:  [DA: Div] call i64 4 ptr [[PRIV2]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:  [DA: Div] ptr [[GEP1:%.*]]  = getelementptr inbounds i64, ptr [[PRIV1]] i64 6
 ; CHECK-NEXT:  [DA: Div] i32 [[IND1:%.*]] = induction-init{add} i32 live-in0 i32 1
 ; CHECK-NEXT:  [DA: Uni] i32 [[IND2:%.*]] = induction-init-step{add} i32 1
 ; CHECK:       [DA: Uni] i64 [[IDX1:%.*]] = sext i32 {{.*}} to i64
-; CHECK-NEXT:  [DA: Div] i32* [[GEP3:%.*]] = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 [[IDX1]]
-; CHECK-NEXT:  [DA: Div] i32* [[BC4:%.*]] = bitcast [1024 x i32]* [[PRIV1]]
-; CHECK-NEXT:  [DA: Div] i8*  [[BC5:%.*]] = bitcast i32* [[GEP1]]
-; CHECK-NEXT:  [DA: Div] i8  [[L1:%.*]] = load i8* [[BC1]]
-; CHECK-NEXT:  [DA: Div] i82 [[L2:%.*]] = load i82* [[BC2]]
-; CHECK-NEXT:  [DA: Div] i32 [[L3:%.*]] = load i32* [[GEP3]]
-; CHECK:       [DA: Div] i32* [[GEP4:%.*]] = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 {{.*}}
-; CHECK-NEXT:  [DA: Div] i32 [[L4:%.*]] = load i32* [[GEP4]]
-; CHECK:       [DA: Div] i32 [[R1:%.*]] = call i32 {{.*}} i32 (i32)* @helper
-; CHECK-NEXT:  [DA: Div] i64 [[L5:%.*]] = load i64* [[BC3]]
-; CHECK-NEXT:  [DA: Div] i64 [[L6:%.*]] = load i64* [[GEP2]]
-; CHECK:  [DA: Div] i32* [[GEP5:%.*]] = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 {{.*}}
-; CHECK-NEXT:  [DA: Div] store i32 {{.*}} i32* [[GEP5]]
+; CHECK-NEXT:  [DA: Div] ptr [[GEP2:%.*]] = getelementptr inbounds [1024 x i32], ptr [[PRIV1]] i64 0 i64 [[IDX1]]
+; CHECK-NEXT:  [DA: Div] i8 [[L1:%.*]] = load ptr [[PRIV1]]
+; CHECK-NEXT:  [DA: Div] i82 [[L2:%.*]] = load ptr [[PRIV1]]
+; CHECK-NEXT:  [DA: Div] i32 [[L3:%.*]] = load ptr [[GEP2]]
+; CHECK:       [DA: Div] ptr [[GEP3:%.*]] = getelementptr inbounds [1024 x i32], ptr [[PRIV1]] i64 0 i64 {{.*}}
+; CHECK-NEXT:  [DA: Div] i32 [[L4:%.*]] = load ptr [[GEP3]]
+; CHECK:       [DA: Div] i32 [[R1:%.*]] = call i32 {{.*}} ptr @helper
+; CHECK-NEXT:  [DA: Div] i64 [[L5:%.*]] = load ptr [[PRIV1]]
+; CHECK-NEXT:  [DA: Div] i64 [[L6:%.*]] = load ptr [[GEP1]]
+; CHECK:  [DA: Div] ptr [[GEP5:%.*]] = getelementptr inbounds [1024 x i32], ptr [[PRIV1]] i64 0 i64 {{.*}}
+; CHECK-NEXT:  [DA: Div] store i32 {{.*}} ptr [[GEP5]]
 
 omp.inner.for.body.lr.ph:
   %arr1.priv = alloca [1024 x i32], align 4
-  %inv.arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr1.priv, i64 0, i64 0
-  %bc.1 = bitcast i32* %inv.arrayidx to i8*
-  %bc.2 = bitcast i8* %bc.1 to i82*
-  %bc.3 = bitcast i82* %bc.2 to i64*
-  %bc.gep = getelementptr inbounds i64, i64* %bc.3, i64 6
-  %inv.arrayidx1 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr1.priv, i64 0, i64 6
+  %bc.gep = getelementptr inbounds i64, ptr %arr1.priv, i64 6
+  %inv.arrayidx1 = getelementptr inbounds [1024 x i32], ptr %arr1.priv, i64 0, i64 6
   %i.lpriv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr1.priv, i32 0, i32 1024), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %i.lpriv, i32 0, i32 1) ]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr1.priv, i32 0, i32 1024), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %i.lpriv, i32 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %DIR.OMP.SIMD.1
   %.omp.iv.local.0 = phi i32 [ 0, %DIR.OMP.SIMD.1 ], [ %add13, %omp.inner.for.inc ]
-  store i32 %.omp.iv.local.0, i32* %i.lpriv, align 4
-  store i32 0, i32* @j, align 4
+  store i32 %.omp.iv.local.0, ptr %i.lpriv, align 4
+  store i32 0, ptr @j, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body.for.body_crit_edge, %omp.inner.for.body
   %1 = phi i32 [ %.omp.iv.local.0, %omp.inner.for.body ], [ %.pre, %for.body.for.body_crit_edge ]
   %storemerge22 = phi i32 [ 0, %omp.inner.for.body ], [ %inc, %for.body.for.body_crit_edge ]
   %idxprom = sext i32 %storemerge22 to i64
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr1.priv, i64 0, i64 %idxprom
-  %bc = bitcast [1024 x i32]* %arr1.priv to i32*
-  %bc.inv = bitcast i32* %inv.arrayidx to i8*
-  %bc1.load = load i8, i8* %bc.1
-  %bc2.load = load i82, i82* %bc.2
-  %2 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr %arr1.priv, i64 0, i64 %idxprom
+  %bc1.load = load i8, ptr %arr1.priv
+  %bc2.load = load i82, ptr %arr1.priv
+  %2 = load i32, ptr %arrayidx, align 4
   %idxprom2 = sext i32 %1 to i64
-  %arrayidx3 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr1.priv, i64 0, i64 %idxprom2
-  %3 = load i32, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds [1024 x i32], ptr %arr1.priv, i64 0, i64 %idxprom2
+  %3 = load i32, ptr %arrayidx3, align 4
   %add4 = add nsw i32 %3, %2
-  %arrayidx6 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr2, i64 0, i64 %idxprom2
-  %4 = load i32, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [1024 x i32], ptr @arr2, i64 0, i64 %idxprom2
+  %4 = load i32, ptr %arrayidx6, align 4
   %add7 = add nsw i32 %add4, %4
-  %arrayidx9 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr2, i64 0, i64 %idxprom
-  %5 = load i32, i32* %arrayidx9, align 4
+  %arrayidx9 = getelementptr inbounds [1024 x i32], ptr @arr2, i64 0, i64 %idxprom
+  %5 = load i32, ptr %arrayidx9, align 4
   %add10 = add nsw i32 %add7, %5
   %call = call i32 @helper(i32 %add10)
-  %bc3.load = load i64, i64* %bc.3
-  %bc4.load = load i64, i64* %bc.gep
-  %6 = load i32, i32* @j, align 4
+  %bc3.load = load i64, ptr %arr1.priv
+  %bc4.load = load i64, ptr %bc.gep
+  %6 = load i32, ptr @j, align 4
   %idxprom11 = sext i32 %6 to i64
-  %arrayidx12 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr1.priv, i64 0, i64 %idxprom11
-  store i32 %call, i32* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds [1024 x i32], ptr %arr1.priv, i64 0, i64 %idxprom11
+  store i32 %call, ptr %arrayidx12, align 4
   %inc = add nsw i32 %6, 1
-  store i32 %inc, i32* @j, align 4
+  store i32 %inc, ptr @j, align 4
   %cmp1 = icmp slt i32 %inc, 1024
   br i1 %cmp1, label %for.body.for.body_crit_edge, label %omp.inner.for.inc
 
 for.body.for.body_crit_edge:                      ; preds = %for.body
-  %.pre = load i32, i32* %i.lpriv, align 4
+  %.pre = load i32, ptr %i.lpriv, align 4
   br label %for.body
 
 omp.inner.for.inc:                                ; preds = %for.body
@@ -143,8 +128,8 @@ omp.inner.for.inc:                                ; preds = %for.body
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.4:                               ; preds = %omp.inner.for.inc
-  %7 = load i32, i32* %i.lpriv, align 4
-  store i32 %7, i32* @i, align 4
+  %7 = load i32, ptr %i.lpriv, align 4
+  store i32 %7, ptr @i, align 4
   br label %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4
@@ -153,8 +138,8 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
   %idxprom14 = sext i32 %RetIdx to i64
-  %arrayidx15 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %idxprom14
-  %8 = load i32, i32* %arrayidx15, align 4
+  %arrayidx15 = getelementptr inbounds [1024 x i32], ptr @arr1, i64 0, i64 %idxprom14
+  %8 = load i32, ptr %arrayidx15, align 4
   ret i32 %8
 }
 
@@ -173,23 +158,23 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 ; Function Attrs: nounwind uwtable
 define i32 @scalPrivate(i32 %RetIdx) {
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[PHI1:%.*]] = phi  [ i32 [[IND_INIT:%.*]], {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
-; CHECK: Divergent: [Shape: Strided, Stride: i64 4] store i32 [[PHI1]] i32* [[L_PRIV:%.*]]
-; CHECK: Divergent: [Shape: Random] i32 [[J1:%.*]] = load i32* [[J:%.*]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 4] store i32 [[PHI1]] ptr [[L_PRIV:%.*]]
+; CHECK: Divergent: [Shape: Random] i32 [[J1:%.*]] = load ptr [[J:%.*]]
 ; CHECK: Divergent: [Shape: Random] i32 [[ADD4:%.*]] = add i32 [[J1]] i32 [[PHI1]]
-; CHECK: Divergent: [Shape: Strided, Stride: i64 4] store i32 [[ADD4]] i32* [[J]]
-; CHECK: Divergent: [Shape: Random] i32 [[H1:%.*]] = call i32 [[ADD4]] i32 (i32)* @helper
-; CHECK: Divergent: [Shape: Random] i32 [[H2:%.*]] = call i32* [[J]] i32 (i32*)* @helperPtr
+; CHECK: Divergent: [Shape: Strided, Stride: i64 4] store i32 [[ADD4]] ptr [[J]]
+; CHECK: Divergent: [Shape: Random] i32 [[H1:%.*]] = call i32 [[ADD4]] ptr @helper
+; CHECK: Divergent: [Shape: Random] i32 [[H2:%.*]] = call ptr [[J]] ptr @helperPtr
 ; CHECK: Divergent: [Shape: Random] i32 [[ADD2:%.*]] = add i32 [[H2]] i32 [[H1]]
 
 ; CHECK: VPlan after predicator
-; CHECK:      [DA: Div] i32* [[L_PRIV:%.*]] = allocate-priv i32
-; CHECK:      [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32
+; CHECK:      [DA: Div] ptr [[L_PRIV:%.*]] = allocate-priv i32
+; CHECK:      [DA: Div] ptr [[PRIV2:%.*]] = allocate-priv i32
 ;
 ; CHECK:      [DA: Div] i32 [[PHI5:%.*]] = phi  [ i32 {{.*}}, {{.*}} ],  [ i32 [[ADD1:%.*]], {{.*}}]
-; CHECK:      [DA: Div] store i32 [[PHI5]] i32* [[PRIV2]]
-; CHECK:      [DA: Div] store i32 {{.*}} i32* [[L_PRIV]]
-; CHECK-NEXT: [DA: Div] i32 {{.*}} = call i32 {{.*}} i32 (i32)* @helper
-; CHECK-NEXT: [DA: Div] i32 {{.*}} = call i32* [[L_PRIV]] i32 (i32*)* @helperPtr
+; CHECK:      [DA: Div] store i32 [[PHI5]] ptr [[PRIV2]]
+; CHECK:      [DA: Div] store i32 {{.*}} ptr [[L_PRIV]]
+; CHECK-NEXT: [DA: Div] i32 {{.*}} = call i32 {{.*}} ptr @helper
+; CHECK-NEXT: [DA: Div] i32 {{.*}} = call ptr [[L_PRIV]] ptr @helperPtr
 ; CHECK:      [DA: Div] i32 [[ADD1]] = add i32 [[PHI5]] i32 {{.*}}
 
 
@@ -199,31 +184,31 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %j.priv, i32 0, i32 1), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %i.lpriv, i32 0, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %j.priv, i32 0, i32 1), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %i.lpriv, i32 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %.omp.iv.local.0 = phi i32 [ 0, %DIR.OMP.SIMD.1 ], [ %add5, %omp.inner.for.body ]
-  store i32 %.omp.iv.local.0, i32* %i.lpriv, align 4
-  %1 = load i32, i32* %j.priv, align 4
+  store i32 %.omp.iv.local.0, ptr %i.lpriv, align 4
+  %1 = load i32, ptr %j.priv, align 4
   %add1 = add nsw i32 %1, %.omp.iv.local.0
-  store i32 %add1, i32* %j.priv, align 4
+  store i32 %add1, ptr %j.priv, align 4
   %call = call i32 @helper(i32 %add1)
-  %call2 = call i32 @helperPtr(i32* nonnull %j.priv)
+  %call2 = call i32 @helperPtr(ptr nonnull %j.priv)
   %add3 = add nsw i32 %call2, %call
-  %2 = load i32, i32* %i.lpriv, align 4
+  %2 = load i32, ptr %i.lpriv, align 4
   %idxprom = sext i32 %2 to i64
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %idxprom
-  %3 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @arr1, i64 0, i64 %idxprom
+  %3 = load i32, ptr %arrayidx, align 4
   %add4 = add nsw i32 %add3, %3
-  store i32 %add4, i32* %arrayidx, align 4
+  store i32 %add4, ptr %arrayidx, align 4
   %add5 = add nuw nsw i32 %.omp.iv.local.0, 1
   %exitcond = icmp eq i32 %add5, 1024
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.4:                               ; preds = %omp.inner.for.body
   %.lcssa = phi i32 [ %2, %omp.inner.for.body ]
-  store i32 %.lcssa, i32* @i, align 4
+  store i32 %.lcssa, ptr @i, align 4
   br label %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4
@@ -232,8 +217,8 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
   %idxprom6 = sext i32 %RetIdx to i64
-  %arrayidx7 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr1, i64 0, i64 %idxprom6
-  %4 = load i32, i32* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds [1024 x i32], ptr @arr1, i64 0, i64 %idxprom6
+  %4 = load i32, ptr %arrayidx7, align 4
   ret i32 %4
 }
 
@@ -242,4 +227,4 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token %0)
 
 declare dso_local i32 @helper(i32 %0) local_unnamed_addr
-declare dso_local i32 @helperPtr(i32* %0) local_unnamed_addr #2
+declare dso_local i32 @helperPtr(ptr %0) local_unnamed_addr #2

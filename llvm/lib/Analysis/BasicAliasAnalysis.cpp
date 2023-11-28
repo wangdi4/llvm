@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -222,22 +222,23 @@ static bool checkPtrNoAlias(const Value *V1, const Value *V2,
 #endif // INTEL_CUSTOMIZATION
 
 /// Returns the size of the object specified by V or UnknownSize if unknown.
-static uint64_t getObjectSize(const Value *V, const DataLayout &DL,
-                              const TargetLibraryInfo &TLI,
-                              bool NullIsValidLoc,
-                              bool RoundToAlign = false) {
+static std::optional<TypeSize> getObjectSize(const Value *V,
+                                             const DataLayout &DL,
+                                             const TargetLibraryInfo &TLI,
+                                             bool NullIsValidLoc,
+                                             bool RoundToAlign = false) {
   uint64_t Size;
   ObjectSizeOpts Opts;
   Opts.RoundToAlign = RoundToAlign;
   Opts.NullIsUnknownSize = NullIsValidLoc;
   if (getObjectSize(V, Size, DL, &TLI, Opts))
-    return Size;
-  return MemoryLocation::UnknownSize;
+    return TypeSize::Fixed(Size);
+  return std::nullopt;
 }
 
 /// Returns true if we can prove that the object specified by V is smaller than
 /// Size.
-static bool isObjectSmallerThan(const Value *V, uint64_t Size,
+static bool isObjectSmallerThan(const Value *V, TypeSize Size,
                                 const DataLayout &DL,
                                 const TargetLibraryInfo &TLI,
                                 bool NullIsValidLoc) {
@@ -272,16 +273,16 @@ static bool isObjectSmallerThan(const Value *V, uint64_t Size,
 
   // This function needs to use the aligned object size because we allow
   // reads a bit past the end given sufficient alignment.
-  uint64_t ObjectSize = getObjectSize(V, DL, TLI, NullIsValidLoc,
-                                      /*RoundToAlign*/ true);
+  std::optional<TypeSize> ObjectSize = getObjectSize(V, DL, TLI, NullIsValidLoc,
+                                                     /*RoundToAlign*/ true);
 
-  return ObjectSize != MemoryLocation::UnknownSize && ObjectSize < Size;
+  return ObjectSize && TypeSize::isKnownLT(*ObjectSize, Size);
 }
 
 /// Return the minimal extent from \p V to the end of the underlying object,
 /// assuming the result is used in an aliasing query. E.g., we do use the query
 /// location size and the fact that null pointers cannot alias here.
-static uint64_t getMinimalExtentFrom(const Value &V,
+static TypeSize getMinimalExtentFrom(const Value &V,
                                      const LocationSize &LocSize,
                                      const DataLayout &DL,
                                      bool NullIsValidLoc) {
@@ -296,15 +297,16 @@ static uint64_t getMinimalExtentFrom(const Value &V,
   // If queried with a precise location size, we assume that location size to be
   // accessed, thus valid.
   if (LocSize.isPrecise())
-    DerefBytes = std::max(DerefBytes, LocSize.getValue());
-  return DerefBytes;
+    DerefBytes = std::max(DerefBytes, LocSize.getValue().getKnownMinValue());
+  return TypeSize::Fixed(DerefBytes);
 }
 
 /// Returns true if we can prove that the object specified by V has size Size.
-static bool isObjectSize(const Value *V, uint64_t Size, const DataLayout &DL,
+static bool isObjectSize(const Value *V, TypeSize Size, const DataLayout &DL,
                          const TargetLibraryInfo &TLI, bool NullIsValidLoc) {
-  uint64_t ObjectSize = getObjectSize(V, DL, TLI, NullIsValidLoc);
-  return ObjectSize != MemoryLocation::UnknownSize && ObjectSize == Size;
+  std::optional<TypeSize> ObjectSize =
+      getObjectSize(V, DL, TLI, NullIsValidLoc);
+  return ObjectSize && *ObjectSize == Size;
 }
 
 //===----------------------------------------------------------------------===//
@@ -330,10 +332,12 @@ bool EarliestEscapeInfo::isNotCapturedBeforeOrAt(const Value *Object,
 
   auto Iter = EarliestEscapes.insert({Object, nullptr});
   if (Iter.second) {
-    Instruction *EarliestCapture = FindEarliestCapture(
-        Object, *const_cast<Function *>(I->getFunction()),
-        /*ReturnCaptures=*/false, /*StoreCaptures=*/true, DT, EphValues,
-        MaxUses); // INTEL
+#if INTEL_CUSTOMIZATION
+    Instruction *EarliestCapture =
+        FindEarliestCapture(Object, *const_cast<Function *>(I->getFunction()),
+                            /*ReturnCaptures=*/false, /*StoreCaptures=*/true,
+                            DT, MaxUses);
+#endif // INTEL_CUSTOMIZATION
     if (EarliestCapture) {
       auto Ins = Inst2Obj.insert({EarliestCapture, {}});
       Ins.first->second.push_back(Object);
@@ -346,9 +350,7 @@ bool EarliestEscapeInfo::isNotCapturedBeforeOrAt(const Value *Object,
     return true;
 
   return I != Iter.first->second &&
-#if INTEL_CUSTOMIZATION
          !isPotentiallyReachable(Iter.first->second, I, nullptr, &DT, LI);
-#endif // INTEL_CUSTOMIZATION
 }
 
 void EarliestEscapeInfo::removeInstruction(Instruction *I) {
@@ -907,6 +909,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
         if (Decomposed.VarIndices[i].Val.V == LE.Val.V &&
             Decomposed.VarIndices[i].Val.hasSameCastsAs(LE.Val)) {
           Scale += Decomposed.VarIndices[i].Scale;
+          LE.IsNSW = false; // We cannot guarantee nsw for the merge.
           Decomposed.VarIndices.erase(Decomposed.VarIndices.begin() + i);
           break;
         }
@@ -976,7 +979,7 @@ ModRefInfo BasicAAResult::getModRefInfoMask(const MemoryLocation &Loc,
       // global to be marked constant in some modules and non-constant in
       // others.  GV may even be a declaration, not a definition.
       if (!GV->isConstant())
-        return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
+        return ModRefInfo::ModRef;
       continue;
     }
 
@@ -992,18 +995,18 @@ ModRefInfo BasicAAResult::getModRefInfoMask(const MemoryLocation &Loc,
     if (const PHINode *PN = dyn_cast<PHINode>(V)) {
       // Don't bother inspecting phi nodes with many operands.
       if (PN->getNumIncomingValues() > MaxLookup)
-        return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
+        return ModRefInfo::ModRef;
       append_range(Worklist, PN->incoming_values());
       continue;
     }
 
     // Otherwise be conservative.
-    return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
+    return ModRefInfo::ModRef;
   } while (!Worklist.empty() && --MaxLookup);
 
   // If we hit the maximum number of instructions to examine, be conservative.
   if (!Worklist.empty())
-    return AAResultBase::getModRefInfoMask(Loc, AAQI, IgnoreLocals);
+    return ModRefInfo::ModRef;
 
   return Result;
 }
@@ -1058,7 +1061,7 @@ ModRefInfo BasicAAResult::getArgModRefInfo(const CallBase *Call,
   if (Call->paramHasAttr(ArgIdx, Attribute::ReadNone))
     return ModRefInfo::NoModRef;
 
-  return AAResultBase::getArgModRefInfo(Call, ArgIdx);
+  return ModRefInfo::ModRef;
 }
 
 #ifndef NDEBUG
@@ -1228,8 +1231,8 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   if (isIntrinsicCall(Call, Intrinsic::invariant_start))
     return ModRefInfo::Ref;
 
-  // The AAResultBase base class has some smarts, lets use them.
-  return AAResultBase::getModRefInfo(Call, Loc, AAQI);
+  // Be conservative.
+  return ModRefInfo::ModRef;
 }
 
 ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call1,
@@ -1256,8 +1259,8 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call1,
                ? ModRefInfo::Mod
                : ModRefInfo::NoModRef;
 
-  // The AAResultBase base class has some smarts, lets use them.
-  return AAResultBase::getModRefInfo(Call1, Call2, AAQI);
+  // Be conservative.
+  return ModRefInfo::ModRef;
 }
 
 /// Return true if we know V to the base address of the corresponding memory
@@ -1312,26 +1315,28 @@ AliasResult BasicAAResult::aliasGEP(
 
   // If an inbounds GEP would have to start from an out of bounds address
   // for the two to alias, then we can assume noalias.
+  // TODO: Remove !isScalable() once BasicAA fully support scalable location
+  // size
   if (*DecompGEP1.InBounds && DecompGEP1.VarIndices.empty() &&
-      V2Size.hasValue() && DecompGEP1.Offset.sge(V2Size.getValue()) &&
+      V2Size.hasValue() && !V2Size.isScalable() &&
+      DecompGEP1.Offset.sge(V2Size.getValue()) &&
       isBaseOfObject(DecompGEP2.Base))
     return AliasResult::NoAlias;
 
   if (dyn_cast<AddressOperator>(V2)) { // INTEL
     // Symmetric case to above.
     if (*DecompGEP2.InBounds && DecompGEP1.VarIndices.empty() &&
-        V1Size.hasValue() && DecompGEP1.Offset.sle(-V1Size.getValue()) &&
+        V1Size.hasValue() && !V1Size.isScalable() &&
+        DecompGEP1.Offset.sle(-V1Size.getValue()) &&
         isBaseOfObject(DecompGEP1.Base))
       return AliasResult::NoAlias;
   }
 
   // For GEPs with identical offsets, we can preserve the size and AAInfo
   // when performing the alias check on the underlying objects.
-  if (DecompGEP1.Offset == 0 &&
-      DecompGEP1.Base == UnderlyingV1 && // INTEL
-      DecompGEP2.Base == UnderlyingV2 && // INTEL
-      DecompGEP1.VarIndices.empty()) {
 #if INTEL_CUSTOMIZATION
+  if (DecompGEP1.Offset == 0 && DecompGEP1.Base == UnderlyingV1 &&
+      DecompGEP2.Base == UnderlyingV2 && DecompGEP1.VarIndices.empty()) {
     AliasResult PreciseBaseAlias = AliasResult::MayAlias;
     if (AAQI.NeedLoopCarried)
       PreciseBaseAlias = AAQI.AAR.loopCarriedAlias(
@@ -1342,8 +1347,8 @@ AliasResult BasicAAResult::aliasGEP(
           MemoryLocation(DecompGEP1.Base, V1Size),
           MemoryLocation(DecompGEP2.Base, V2Size), AAQI);
     return PreciseBaseAlias;
-#endif // INTEL_CUSTOMIZATION
   }
+#endif // INTEL_CUSTOMIZATION
 
   // Do the base pointers alias?
 #if INTEL_CUSTOMIZATION
@@ -1365,6 +1370,10 @@ AliasResult BasicAAResult::aliasGEP(
            BaseAlias == AliasResult::MayAlias);
     return BaseAlias;
   }
+
+  // Bail on analysing scalable LocationSize
+  if (V1Size.isScalable() || V2Size.isScalable())
+    return AliasResult::MayAlias;
 
   // If there is a constant difference between the pointers, but the difference
   // is less than the size of the associated memory object, then we know
@@ -1568,8 +1577,7 @@ bool BasicAAResult::valueIsNotCapturedBeforeOrAt(const Value *O1,
   // captured instruction happens after the value. We are going to use
   // EarliestEscapeInfo, which checks if the capture instruction happens
   // after the value.
-  const SmallPtrSet<const Value *, 4> EphValues;
-  EarliestEscapeInfo EI(*DT, EphValues);
+  EarliestEscapeInfo EI(*DT);
   return EI.isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL, Inst);
 }
 #endif // INTEL_CUSTOMIZATION
@@ -1639,11 +1647,13 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // If the values are PHIs in the same block, we can do a more precise
   // as well as efficient check: just check for aliases between the values
   // on corresponding edges.
-  // INTEL: This logic is disabled for loopCarriedAlias. In particular, it can
-  // INTEL: reason that loop header PHIs with NoAlias header inputs and NoAlias
-  // INTEL: latch inputs NoAlias; this is unsafe because it only holds for any
-  // INTEL: single execution point; between iterations there may be aliasing.
-  if (!AAQI.NeedLoopCarried) // INTEL
+#if INTEL_CUSTOMIZATION
+  //  This logic is disabled for loopCarriedAlias. In particular, it can
+  //  reason that loop header PHIs with NoAlias header inputs and NoAlias
+  //  latch inputs NoAlias; this is unsafe because it only holds for any
+  //  single execution point; between iterations there may be aliasing.
+  if (!AAQI.NeedLoopCarried)
+#endif // INTEL_CUSTOMIZATION
   if (const PHINode *PN2 = dyn_cast<PHINode>(V2))
     if (PN2->getParent() == PN->getParent()) {
       std::optional<AliasResult> Alias;
@@ -2014,27 +2024,20 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // temporary store the nocapture argument's value in a temporary memory
     // location if that memory location doesn't escape. Or it may pass a
     // nocapture value to other functions as long as they don't capture it.
-    if (isEscapeSource(O1) &&
 #if INTEL_CUSTOMIZATION
+    if (isEscapeSource(O1) &&
             (AAQI.CI->isNotCapturedBeforeOrAt(O2, PtrCaptureMaxUses, DL,
                                              cast<Instruction>(O1)) ||
         valueIsNotCapturedBeforeOrAt(O2, O1)))
-#endif // INTEL_CUSTOMIZATION
       return AliasResult::NoAlias;
     if (isEscapeSource(O2) &&
-#if INTEL_CUSTOMIZATION
             (AAQI.CI->isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL,
                                              cast<Instruction>(O2)) ||
         valueIsNotCapturedBeforeOrAt(O1, O2)))
-#endif // INTEL_CUSTOMIZATION
       return AliasResult::NoAlias;
-
-#if INTEL_CUSTOMIZATION
-    if (checkPtrNoAlias(O1, O2, DL)) {
+    if (checkPtrNoAlias(O1, O2, DL))
       return AliasResult::NoAlias;
-    }
 #endif // INTEL_CUSTOMIZATION
-
 #if INTEL_CUSTOMIZATION
     //
     // Given *p and *q, where p is a malloc call which is only assigned to
@@ -2078,15 +2081,14 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     const Value* ArgBasePtr1 = getArgumentBasePtr(O1, DL);
     const Value* ArgBasePtr2 = getArgumentBasePtr(O2, DL);
     if (ArgBasePtr1 && ArgBasePtr2 && ArgBasePtr1 != ArgBasePtr2 &&
-        ((isa<Argument>(ArgBasePtr1) && isNoAliasOrByValArgument(ArgBasePtr2)) ||
-        (isa<Argument>(ArgBasePtr2) && isNoAliasOrByValArgument(ArgBasePtr1)))) {
+        ((isa<Argument>(ArgBasePtr1) && isNoAliasOrByValArgument(ArgBasePtr2))
+        ||
+        (isa<Argument>(ArgBasePtr2) && isNoAliasOrByValArgument(ArgBasePtr1))))
+    {
       return AliasResult::NoAlias;
-   }
-
-#endif // INTEL_CUSTOMIZATION
+    }
   }
 
-#if INTEL_CUSTOMIZATION
   // CMPLRLLVM-8828: If memory reference 'A' is based on a malloc call,
   // memory reference 'B' is based on a GEP of a structure and the size of
   // the malloc is too small for the structure, then 'A' and 'B' cannot alias.
@@ -2094,8 +2096,8 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     if(isa<CallInst>(A))
       if (const GEPOperator *GEP = dyn_cast<GEPOperator>(B))
         if (isa<StructType>(*(GEP->getSourceElementType())))
-          if (isObjectSmallerThan(A, DL.getTypeSizeInBits(
-                      GEP->getSourceElementType()) / 8, DL, TLI, true))
+          if (isObjectSmallerThan(A, TypeSize::Fixed(DL.getTypeSizeInBits(
+                      GEP->getSourceElementType()) / 8), DL, TLI, true))
             return true;
     return false;
   };
@@ -2418,9 +2420,11 @@ BasicAAResult BasicAA::run(Function &F, FunctionAnalysisManager &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
-  auto *PV = AM.getCachedResult<PhiValuesAnalysis>(F); // INTEL
+#if INTEL_CUSTOMIZATION
+  auto *PV = AM.getCachedResult<PhiValuesAnalysis>(F);
   return BasicAAResult(F.getParent()->getDataLayout(), F, TLI, AC, DT,
-                       XOL.getOptLevel(), PV); // INTEL
+                       XOL.getOptLevel(), PV);
+#endif // INTEL_CUSTOMIZATION
 }
 
 BasicAAWrapperPass::BasicAAWrapperPass() : FunctionPass(ID) {
@@ -2452,12 +2456,12 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
 
   Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F,
                                  TLIWP.getTLI(F), ACT.getAssumptionCache(F),
-                                 &DTWP.getDomTree(),
 #if INTEL_CUSTOMIZATION
+                                 &DTWP.getDomTree(),
                                  0, // Placeholder because
                                     // XmainOptLevelWrapperPass is removed.
-#endif                              // INTEL_CUSTOMIZATION
-                                 PVWP ? &PVWP->getResult() : nullptr)); // INTEL
+                                 PVWP ? &PVWP->getResult() : nullptr));
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }

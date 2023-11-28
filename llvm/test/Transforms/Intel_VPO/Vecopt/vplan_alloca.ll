@@ -4,7 +4,7 @@
 
 ; RUN: opt < %s -passes=hir-vplan-vec -disable-output -vplan-print-after-predicator -vplan-force-vf=2 | FileCheck %s --check-prefix=HIRVEC
 ; RUN: opt < %s -S -passes=hir-vplan-vec  -vplan-force-vf=2 | FileCheck %s --check-prefix=HIR-CG
-; RUN: opt < %s -passes=hir-vplan-vec,hir-optreport-emitter -disable-output -vplan-force-vf=2 -intel-opt-report=high 2>&1 | FileCheck %s --check-prefix=HIR-OPTRPT-HI
+; RUN: opt < %s -passes=hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -disable-output -vplan-force-vf=2 -intel-opt-report=high 2>&1 | FileCheck %s --check-prefix=HIR-OPTRPT-HI
 
 ; Check that alloca is determined as divergent and correctly serialized (and
 ; uses are properly updated in the generated code). Note, that it's hard to

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022-2022 Intel Corporation
+// Modifications, Copyright (C) 2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -129,7 +129,7 @@ static void appendToUsedList(Module &M, StringRef Name, ArrayRef<GlobalValue *> 
   if (GV)
     GV->eraseFromParent();
 
-  Type *ArrayEltTy = llvm::Type::getInt8PtrTy(M.getContext());
+  Type *ArrayEltTy = llvm::PointerType::getUnqual(M.getContext());
   for (auto *V : Values)
     Init.insert(ConstantExpr::getPointerBitCastOrAddrSpaceCast(V, ArrayEltTy));
 
@@ -340,7 +340,7 @@ std::string llvm::getUniqueModuleId(Module *M) {
   MD5 Md5;
   bool ExportsSymbols = false;
   auto AddGlobal = [&](GlobalValue &GV) {
-    if (GV.isDeclaration() || GV.getName().startswith("llvm.") ||
+    if (GV.isDeclaration() || GV.getName().starts_with("llvm.") ||
         !GV.hasExternalLinkage() || GV.hasComdat())
       return;
     ExportsSymbols = true;
@@ -432,15 +432,8 @@ bool llvm::lowerGlobalIFuncUsersAsGlobalCtor(
   LLVMContext &Ctx = M.getContext();
   const DataLayout &DL = M.getDataLayout();
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *TableEntryTy =
       PointerType::get(Ctx, DL.getProgramAddressSpace());
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  PointerType *TableEntryTy =
-    Ctx.supportsTypedPointers()
-        ? PointerType::get(Type::getInt8Ty(Ctx), DL.getProgramAddressSpace())
-        : PointerType::get(Ctx, DL.getProgramAddressSpace());
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   ArrayType *FuncPtrTableTy =
       ArrayType::get(TableEntryTy, IFuncsToLower.size());
@@ -510,13 +503,7 @@ bool llvm::lowerGlobalIFuncUsersAsGlobalCtor(
 
   InitBuilder.CreateRetVoid();
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   PointerType *ConstantDataTy = PointerType::get(Ctx, 0);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  PointerType *ConstantDataTy = Ctx.supportsTypedPointers()
-                                    ? PointerType::get(Type::getInt8Ty(Ctx), 0)
-                                    : PointerType::get(Ctx, 0);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // TODO: Is this the right priority? Probably should be before any other
   // constructors?

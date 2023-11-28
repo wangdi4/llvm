@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -2302,8 +2302,8 @@ void ReassociatePass::OptimizeInst(Instruction *I) {
   if (I->getOpcode() == Instruction::Or &&
       shouldConvertOrWithNoCommonBitsToAdd(I) && !isLoadCombineCandidate(I) &&
       haveNoCommonBitsSet(I->getOperand(0), I->getOperand(1),
-                          I->getModule()->getDataLayout(), /*AC=*/nullptr, I,
-                          /*DT=*/nullptr)) {
+                          SimplifyQuery(I->getModule()->getDataLayout(),
+                                        /*DT=*/nullptr, /*AC=*/nullptr, I))) {
     Instruction *NI = convertOrWithNoCommonBitsToAdd(I);
     RedoInsts.insert(I);
     MadeChange = true;
@@ -2463,7 +2463,6 @@ void ReassociatePass::ReassociateExpression(BinaryOperator *I) {
     Ops.append(E.second.getZExtValue(), ValueEntry(getRank(E.first), E.first));
 
   SmallVector<ValueEntry, 8> OrigOps(Ops); // INTEL
-
   LLVM_DEBUG(dbgs() << "RAIn:\t"; PrintOps(I, Ops); dbgs() << '\n');
 
   // Now that we have linearized the tree to a list and have gathered all of

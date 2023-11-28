@@ -1,6 +1,6 @@
 //===----------- Intel_AggInliner.h ----------------------------------===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,6 +20,7 @@
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
@@ -29,21 +30,26 @@ namespace llvm {
 
 using AggInlGetTLITy =
     std::function<const TargetLibraryInfo &(const Function &)>;
+using AggInlGetLITy = std::function<const LoopInfo &(const Function &)>;
+using AggInlGetSETy = std::function<ScalarEvolution &(const Function &)>;
 
 // It handles actual analysis and results of Inline Aggressive analysis.
 struct InlineAggressiveInfo {
-  InlineAggressiveInfo(AggInlGetTLITy);
+  InlineAggressiveInfo(AggInlGetTLITy, AggInlGetLITy, AggInlGetSETy);
   InlineAggressiveInfo(InlineAggressiveInfo &&);
   InlineAggressiveInfo();
   ~InlineAggressiveInfo();
   InlineAggressiveInfo &operator=(const InlineAggressiveInfo &) = delete;
 
   static InlineAggressiveInfo runImpl(Module &M, WholeProgramInfo &WPI,
-                                      AggInlGetTLITy GetTLI);
+                                      AggInlGetTLITy GetTLI,
+                                      AggInlGetLITy GetLI, AggInlGetSETy GetSE);
   bool analyzeModule(Module &MI);
 
 private:
   AggInlGetTLITy GetTLI;
+  AggInlGetLITy GetLI;
+  AggInlGetSETy GetSE;
 
   // List of calls that are marked as AggInline.
   SetVector<CallBase *> AggInlCalls;

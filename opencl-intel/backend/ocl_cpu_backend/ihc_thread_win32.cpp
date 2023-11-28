@@ -20,9 +20,6 @@
    doesn't works otherwise */
 extern "C" LLVM_BACKEND_API void *_ihc_mutex_create() {
   SRWLOCK *handle = new SRWLOCK;
-  if (handle == 0)
-    return nullptr;
-
   InitializeSRWLock(handle);
   return handle;
 }
@@ -47,9 +44,6 @@ extern "C" LLVM_BACKEND_API int _ihc_mutex_unlock(void *handle) {
 
 extern "C" LLVM_BACKEND_API void *_ihc_cond_create() {
   CONDITION_VARIABLE *cv = new CONDITION_VARIABLE;
-  if (cv == 0)
-    return nullptr;
-
   InitializeConditionVariable(cv);
   return cv;
 }

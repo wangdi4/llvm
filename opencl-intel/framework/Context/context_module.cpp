@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2023 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,17 +13,22 @@
 // License.
 
 #include "context_module.h"
+#include "CL/cl_fpga_ext.h"
 #include "Context.hpp"
+#include "Device.h"
 #include "GenericMemObj.h"
 #include "MemoryAllocator/MemoryObject.h"
+#include "cl_objects_map.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_info.h"
+#include "cl_utils.h"
 #include "command_queue.h"
 #include "events_manager.h"
 #include "framework_proxy.h"
 #include "kernel.h"
 #include "ocl_itt.h"
 #include "pipe.h"
+#include "platform_module.h"
 #include "program.h"
 #include "program_with_library_kernels.h"
 #include "sampler.h"
@@ -31,13 +36,9 @@
 #include "user_event.h"
 #include "usm_buffer.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
-#include <CL/cl_fpga_ext.h>
-#include <Device.h>
+
 #include <algorithm>
 #include <assert.h>
-#include <cl_objects_map.h>
-#include <cl_utils.h>
-#include <platform_module.h>
 #include <set>
 
 using namespace Intel::OpenCL::Utils;
@@ -244,14 +245,6 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
 
   SharedPtr<FissionableDevice> *ppDevices =
       new SharedPtr<FissionableDevice>[uiNumDevices];
-  if (nullptr == ppDevices) {
-    LOG_ERROR(TEXT("Failed to allocate memory for devices: new "
-                   "Device[uiNumDevices] = NULL"));
-    if (nullptr != pRrrcodeRet) {
-      *pRrrcodeRet = CL_OUT_OF_HOST_MEMORY;
-    }
-    return CL_INVALID_HANDLE;
-  }
 
   cl_err_code clErrRet = GetDevices(uiNumDevices, pDevices, ppDevices);
   if (CL_FAILED(clErrRet)) {
@@ -330,9 +323,7 @@ ContextModule::CreateContext(const cl_context_properties *clProperties,
       *pRrrcodeRet = clErrRet;
     }
     delete[] ppDevices;
-    if (NULL != pContext.GetPtr()) {
-      pContext->Release();
-    }
+    pContext->Release();
     return CL_INVALID_HANDLE;
   }
 
@@ -378,13 +369,6 @@ cl_context ContextModule::CreateContextFromType(
   }
 
   cl_device_id *pDevices = new cl_device_id[uiNumDevices];
-  if (nullptr == pDevices) {
-    LOG_ERROR(TEXT("new cl_device_id[%u] = NULL"), uiNumDevices);
-    if (nullptr != pErrcodeRet) {
-      *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
-    }
-    return CL_INVALID_HANDLE;
-  }
 
   // TODO: Handle new spec
   clErrRet = m_pPlatformModule->GetDeviceIDs(nullptr, clDeviceType,
@@ -1656,6 +1640,30 @@ cl_int ContextModule::GetKernelWorkGroupInfo(
 }
 
 //////////////////////////////////////////////////////////////////////////
+// ContextModule::GetKernelMaxConcurrentWorkGroupCount
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::GetKernelMaxConcurrentWorkGroupCount(
+    cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim,
+    const size_t *global_work_offset, const size_t *local_work_size,
+    size_t *max_work_group_count) {
+  LOG_INFO(
+      TEXT("Enter GetKernelMaxConcurrentWorkGroupCount (command_queue=%p, "
+           "kernel=%p, "
+           "work_dim=%u, global_work_offset=%zu, max_work_group_count=%p)"),
+      command_queue, kernel, work_dim, global_work_offset, local_work_size,
+      max_work_group_count);
+  SharedPtr<Kernel> pKernel =
+      m_mapKernels.GetOCLObject((_cl_kernel_int *)kernel).DynamicCast<Kernel>();
+  if (NULL == pKernel.GetPtr()) {
+    LOG_ERROR(TEXT("GetOCLObject(%p) returned NULL"), kernel);
+    return CL_INVALID_KERNEL;
+  }
+  return pKernel->GetKernelMaxConcurrentWorkGroupCount(
+      command_queue, work_dim, global_work_offset, local_work_size,
+      max_work_group_count);
+}
+
+//////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateBuffer
 //////////////////////////////////////////////////////////////////////////
 cl_mem ContextModule::CreateBuffer(cl_context clContext, cl_mem_flags clFlags,
@@ -2423,6 +2431,13 @@ void ContextModule::RemoveAllMemObjects(bool preserve_user_handles) {
   for (std::pair<void *const, SharedPtr<Context>> &p : m_mapUSMBuffers)
     p.second->USMFree(p.first);
   m_mapUSMBuffers.clear();
+
+  // Actually, all tracker events should be unregistered when related command
+  // done as expected. But we push tracker event into wait list after command
+  // has been enqueued, sometimes command has already completed by this time.
+  // Then the tracker event will never be unregistered. So we need to manually
+  // clear wait list here.
+  m_mapUSMFreeWaitList.clear();
 
   // Remove all mapped regions
   MemObjListType mapped_list;

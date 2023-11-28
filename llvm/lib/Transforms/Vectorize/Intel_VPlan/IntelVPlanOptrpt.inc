@@ -74,6 +74,8 @@ VPLAN_OPTRPT_HANDLE_FUNC_GROUP_BEGIN(OptRemarkID::BeginVectorLoopCostSummary)
 VPLAN_OPTRPT_VEC_HANDLE(CostModelRemarks)
 // Basically everything vectorizable through TargetLibraryInfo.
 VPLAN_OPTRPT_HANDLE_FUNC(OptRemarkID::VectorizedMathLibCalls, VectorMathCalls)
+// Intrinsics converted to vectorized intrinsics.
+VPLAN_OPTRPT_HANDLE_FUNC(OptRemarkID::VectorizedIntrinsics, VectorIntrinsics)
 // Vectorizable due to vector-variants attribute.
 VPLAN_OPTRPT_HANDLE_FUNC(OptRemarkID::VectorFunctionCalls, VectorVariantCalls)
 // Calls that get serialized.

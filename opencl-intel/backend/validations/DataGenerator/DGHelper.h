@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,9 +15,9 @@
 #ifndef __DGHELPER_H__
 #define __DGHELPER_H__
 
+#include "BufferContainerList.h"
 #include "DataGenerator.h"
 #include "llvm/Support/raw_ostream.h"
-#include <BufferContainerList.h>
 
 // this file contains helper function for DataGenerator
 

@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -134,6 +134,11 @@ cl::opt<uint32_t> AtomicFreeRedLocalBufSize(
     cl::desc("Maximum number of elements (and hence workitems) in the local "
              "buffer used for tree-like local update in"
              "atomic-free reduction"));
+
+cl::opt<bool> AtomicFreeReductionDynamicBuffer(
+    "vpo-paropt-atomic-free-reduction-dyn-buffer", cl::Hidden, cl::init(true),
+    cl::desc("Enable RT-managed number-of-teams adjusted reduction buffer "
+             "allocation"));
 
 extern cl::opt<bool> AtomicFreeReductionUseSLM;
 extern cl::opt<bool> AtomicFreeRedUseFPTeamsCounter;
@@ -280,9 +285,8 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
           }
           V = CE->getOperand(0);
         }
-        assert((V->getType()->isOpaquePointerTy() || Indices.size() == 2) &&
-               "Expected only 1 GetElementPtr in "
-               "constant expression!\n");
+        assert((Indices.empty() || Indices.size() == 2) &&
+               "Expected 0 or 1 GetElementPtr in constant expression!");
 
         auto OldArg0 = dyn_cast<GlobalVariable>(V);
         assert(OldArg0 != nullptr &&
@@ -1650,6 +1654,13 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
           ArrayType::get(BufTy, cast<ConstantInt>(NumElems)->getZExtValue());
 
     uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_CLOSE;
+
+    bool UseReductionDynamicBuffer =
+        AtomicFreeReductionDynamicBuffer &&
+        VPOParoptTransform::deviceTriplesHasSPIRV();
+
+    if (UseReductionDynamicBuffer)
+      MapType |= TGT_MAP_SIZE_TIMES_NUM_TEAMS;
     Value *MapTypeVal =
         ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
     uint64_t Size = DL.getTypeSizeInBits(BufTy) / 8;
@@ -1677,7 +1688,9 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
     if (NeedsGlobalBuffer) {
       Value *MapGlobalSize = ConstantInt::get(
           Type::getInt64Ty(F->getContext()),
-          Size * (AtomicFreeRedGlobalBufSize ? AtomicFreeRedGlobalBufSize : 1));
+          Size * ((AtomicFreeRedGlobalBufSize && !UseReductionDynamicBuffer)
+                      ? AtomicFreeRedGlobalBufSize
+                      : 1));
 
       auto *GlobalBuf = new GlobalVariable(
           *F->getParent(), BufTy, false, BufLinkage, Initializer, "red_buf",
@@ -1691,7 +1704,9 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
       Value *MapLocalSize = ConstantInt::get(
           Type::getInt64Ty(F->getContext()),
           Size * AtomicFreeRedLocalBufSize *
-              (AtomicFreeRedGlobalBufSize ? AtomicFreeRedGlobalBufSize : 1));
+              ((AtomicFreeRedGlobalBufSize && !UseReductionDynamicBuffer)
+                   ? AtomicFreeRedGlobalBufSize
+                   : 1));
 
       auto *LocalBuf = new GlobalVariable(
           *F->getParent(), BufTy, false, BufLinkage, Initializer,
@@ -2104,7 +2119,7 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
                                     ".new");                        //      (2)
       Builder.CreateStore(UpdatedUDPVal, NewV);                     //      (5)
     }
-# if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     else if (UDPI->getIsF90DopeVector()) {
       Type *DVType = nullptr;
       Value *NumElements = nullptr;

@@ -3,7 +3,6 @@
 
 #include "CL/cl.h"
 #include "gtest_wrapper.h"
-
 #include <vector>
 
 class BITest : public ::testing::Test {

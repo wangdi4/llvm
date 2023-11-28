@@ -1,26 +1,26 @@
 ; RUN: SATest -BUILD -pass-manager-type=ocl -llvm-option=-debug-pass-manager -config=%s.cfg 2>&1 | FileCheck %s --check-prefixes=CHECK
 
 ; CHECK: Running pass: SPIRV::SPIRVToOCL20Pass
+; CHECK-NEXT: Running pass: RemoveDeviceLibAssertFallbackPass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: ExternalizeGlobalVariablesPass
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
-; CHECK-NEXT: Running pass: AddFunctionAttrsPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
+; CHECK:      Running pass: AddFunctionAttrsPass
+; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK-NEXT: Running pass: SGRemapWICallPass
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: DetectRecursionPass
-; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK-NEXT: Running pass: TaskSeqAsyncHandling   ;INTEL
+; CHECK:      Running analysis: ImplicitArgsAnalysis
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT: Running pass: TaskSeqAsyncHandling
 ; CHECK-NEXT: Running pass: ResolveMatrixFillPass
-; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass
 ; CHECK-NEXT: Running pass: ResolveMatrixWISlicePass
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT: Skipping pass UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Skipping pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
@@ -41,6 +41,7 @@
 ; CHECK-NEXT: Running analysis: AssumptionAnalysis
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
+; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass ; INTEL
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: ImplicitGIDPass
@@ -82,8 +83,6 @@
 ; CHECK:      Invalidating analysis: DataPerValueAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK:      Running pass: LocalBuffersPass
-; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
-; CHECK:      Invalidating analysis: LocalBufferAnalysis
 ; CHECK:      Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: BuiltinImportPass
@@ -93,7 +92,6 @@
 ; CHECK-NEXT: Running pass: AlwaysInlinerPass
 ; CHECK-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-NEXT: Running pass: PatchCallbackArgsPass
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK-NEXT: Running pass: PrepareKernelArgsPass
 ; CHECK-NEXT: Running analysis: AssumptionAnalysis
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis

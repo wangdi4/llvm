@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -29,8 +29,7 @@
 
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/ADT/EquivalenceClasses.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringExtras.h" // INTEL
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
@@ -361,6 +360,8 @@ bool llvm::isTriviallyVectorizable(Intrinsic::ID ID) {
   case Intrinsic::canonicalize:
   case Intrinsic::fptosi_sat:
   case Intrinsic::fptoui_sat:
+  case Intrinsic::lrint:
+  case Intrinsic::llrint:
     return true;
   default:
     return false;
@@ -392,6 +393,8 @@ bool llvm::isVectorIntrinsicWithOverloadTypeAtArg(Intrinsic::ID ID,
   switch (ID) {
   case Intrinsic::fptosi_sat:
   case Intrinsic::fptoui_sat:
+  case Intrinsic::lrint:
+  case Intrinsic::llrint:
     return OpdIdx == -1 || OpdIdx == 0;
   case Intrinsic::is_fpclass:
     return OpdIdx == 0;
@@ -978,6 +981,8 @@ Value *llvm::createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
   unsigned VF = VecVariant.getVF();
   // Promote the i1 to an integer type that has the same size as the
   // characteristic type.
+  if (CharacteristicType->isIntegerTy(1))
+    CharacteristicType = CharacteristicType->getWithNewBitWidth(8);
   Type *ScalarToType = IntegerType::get(
       MaskTy->getContext(), CharacteristicType->getPrimitiveSizeInBits());
   Type *VecToType = FixedVectorType::get(ScalarToType, VF);
@@ -1256,20 +1261,21 @@ llvm::getOrInsertVectorVariantFunction(FunctionType *&FTy, Function &OrigF,
   return VectorF;
 }
 
-Function *llvm::getOrInsertVectorLibFunction(
-    Function *OrigF, unsigned VL,
-    ArrayRef<Type *> ArgTys,
-    TargetLibraryInfo *TLI,
-    Intrinsic::ID ID,
-    bool Masked, const CallInst *Call) {
+Function *llvm::getOrInsertVectorLibFunction(Function *OrigF, unsigned VL,
+                                             ArrayRef<Type *> ArgTys,
+                                             TargetLibraryInfo *TLI,
+                                             const TargetTransformInfo *TTI,
+                                             Intrinsic::ID ID, bool Masked,
+                                             const CallInst *Call) {
 
   // OrigF is the original scalar function being called. Widen the scalar
   // call to a vector call if it is known to be vectorizable as SVML or
   // an intrinsic.
   assert(OrigF && "Function not found for call instruction");
   StringRef FnName = OrigF->getName();
-  if (TLI && !TLI->isFunctionVectorizable(
-        FnName, ElementCount::getFixed(VL)) &&
+  if (TLI &&
+      !TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VL), Masked,
+                                   TTI) &&
       !ID && !isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName))
     return nullptr;
 
@@ -1350,9 +1356,8 @@ Function *llvm::getOrInsertVectorLibFunction(
 
   assert(TLI && "TLI is expected to be initialized.");
   // Generate a vector library call.
-  StringRef VFnName =
-      TLI->getVectorizedFunction(FnName, ElementCount::getFixed(VL),
-                                 Masked);
+  StringRef VFnName = TLI->getVectorizedFunction(
+      FnName, ElementCount::getFixed(VL), Masked, TTI);
   Function *VectorF = M->getFunction(VFnName);
   if (!VectorF) {
     // isFunctionVectorizable() returned true, so it is guaranteed that
@@ -1728,6 +1733,18 @@ llvm::SmallVector<int, 64> llvm::createVectorStrideMask(unsigned Start,
 
   return Mask;
 }
+
+bool llvm::isOrUsesFPTy(Type *Ty) {
+  while (ArrayType *ArrTy = dyn_cast<ArrayType>(Ty))
+    Ty = ArrTy->getElementType();
+
+  // StructType with a unique element type.
+  if (auto *StructTy = dyn_cast<StructType>(Ty))
+    if (StructTy->hasIdenticalElementTypes())
+      Ty = StructTy->getElementType(0);
+
+  return Ty->isFPOrFPVectorTy();
+}
 #endif // INTEL_CUSTOMIZATION
 
 llvm::SmallVector<int, 16> llvm::createSequentialMask(unsigned Start,
@@ -2018,14 +2035,11 @@ void InterleavedAccessInfo::analyzeInterleaving(
         LLVM_DEBUG(dbgs() << "LV: Creating an interleave group with:" << *B
                           << '\n');
         GroupB = createInterleaveGroup(B, DesB.Stride, DesB.Alignment);
-      } else if (CompletedLoadGroups.contains(GroupB)) {
-        // Skip B if no new instructions can be added to its load group.
-        continue;
+        if (B->mayWriteToMemory())
+          StoreGroups.insert(GroupB);
+        else
+          LoadGroups.insert(GroupB);
       }
-      if (B->mayWriteToMemory())
-        StoreGroups.insert(GroupB);
-      else
-        LoadGroups.insert(GroupB);
     }
 
     for (auto AI = std::next(BI); AI != E; ++AI) {
@@ -2051,38 +2065,62 @@ void InterleavedAccessInfo::analyzeInterleaving(
       // Because accesses (2) and (3) are dependent, we can group (2) with (1)
       // but not with (4). If we did, the dependent access (3) would be within
       // the boundaries of the (2, 4) group.
-      if (!canReorderMemAccessesForInterleavedGroups(&*AI, &*BI)) {
-        // If a dependence exists and A is already in a group, we know that A
-        // must be a store since A precedes B and WAR dependences are allowed.
-        // Thus, A would be sunk below B. We release A's group to prevent this
-        // illegal code motion. A will then be free to form another group with
-        // instructions that precede it.
-        if (isInterleaved(A)) {
-          InterleaveGroup<Instruction> *StoreGroup = getInterleaveGroup(A);
-
-          LLVM_DEBUG(dbgs() << "LV: Invalidated store group due to "
-                               "dependence between " << *A << " and "<< *B << '\n');
-
-          StoreGroups.remove(StoreGroup);
-          releaseGroup(StoreGroup);
+      auto DependentMember = [&](InterleaveGroup<Instruction> *Group,
+                                 StrideEntry *A) -> Instruction * {
+        for (uint32_t Index = 0; Index < Group->getFactor(); ++Index) {
+          Instruction *MemberOfGroupB = Group->getMember(Index);
+          if (MemberOfGroupB && !canReorderMemAccessesForInterleavedGroups(
+                                    A, &*AccessStrideInfo.find(MemberOfGroupB)))
+            return MemberOfGroupB;
         }
-        // If B is a load and part of an interleave group, no earlier loads can
-        // be added to B's interleave group, because this would mean the load B
-        // would need to be moved across store A. Mark the interleave group as
-        // complete.
-        if (GroupB && isa<LoadInst>(B)) {
-          LLVM_DEBUG(dbgs() << "LV: Marking interleave group for " << *B
-                            << " as complete.\n");
+        return nullptr;
+      };
 
-          CompletedLoadGroups.insert(GroupB);
+      auto GroupA = getInterleaveGroup(A);
+      // If A is a load, dependencies are tolerable, there's nothing to do here.
+      // If both A and B belong to the same (store) group, they are independent,
+      // even if dependencies have not been recorded.
+      // If both GroupA and GroupB are null, there's nothing to do here.
+      if (A->mayWriteToMemory() && GroupA != GroupB) {
+        Instruction *DependentInst = nullptr;
+        // If GroupB is a load group, we have to compare AI against all
+        // members of GroupB because if any load within GroupB has a dependency
+        // on AI, we need to mark GroupB as complete and also release the
+        // store GroupA (if A belongs to one). The former prevents incorrect
+        // hoisting of load B above store A while the latter prevents incorrect
+        // sinking of store A below load B.
+        if (GroupB && LoadGroups.contains(GroupB))
+          DependentInst = DependentMember(GroupB, &*AI);
+        else if (!canReorderMemAccessesForInterleavedGroups(&*AI, &*BI))
+          DependentInst = B;
+
+        if (DependentInst) {
+          // A has a store dependence on B (or on some load within GroupB) and
+          // is part of a store group. Release A's group to prevent illegal
+          // sinking of A below B. A will then be free to form another group
+          // with instructions that precede it.
+          if (GroupA && StoreGroups.contains(GroupA)) {
+            LLVM_DEBUG(dbgs() << "LV: Invalidated store group due to "
+                                 "dependence between "
+                              << *A << " and " << *DependentInst << '\n');
+            StoreGroups.remove(GroupA);
+            releaseGroup(GroupA);
+          }
+          // If B is a load and part of an interleave group, no earlier loads
+          // can be added to B's interleave group, because this would mean the
+          // DependentInst would move across store A. Mark the interleave group
+          // as complete.
+          if (GroupB && LoadGroups.contains(GroupB)) {
+            LLVM_DEBUG(dbgs() << "LV: Marking interleave group for " << *B
+                              << " as complete.\n");
+            CompletedLoadGroups.insert(GroupB);
+          }
         }
-
-        // If a dependence exists and A is not already in a group (or it was
-        // and we just released it), B might be hoisted above A (if B is a
-        // load) or another store might be sunk below A (if B is a store). In
-        // either case, we can't add additional instructions to B's group. B
-        // will only form a group with instructions that it precedes.
-        break;
+      }
+      if (CompletedLoadGroups.contains(GroupB)) {
+        // Skip trying to add A to B, continue to look for other conflicting A's
+        // in groups to be released.
+        continue;
       }
 
       // At this point, we've checked for illegal code motion. If either A or B
@@ -2467,22 +2505,6 @@ Type *VFABI::getPackedMaskArgumentTy(LLVMContext &C, unsigned MaskSize) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-std::string VFABI::mangleTLIVectorName(StringRef VectorName,
-                                       StringRef ScalarName, unsigned numArgs,
-                                       ElementCount VF, bool Masked) {
-  SmallString<256> Buffer;
-  llvm::raw_svector_ostream Out(Buffer);
-  Out << "_ZGV" << VFABI::_LLVM_ << (Masked ? "M" : "N");
-  if (VF.isScalable())
-    Out << 'x';
-  else
-    Out << VF.getFixedValue();
-  for (unsigned I = 0; I < numArgs; ++I)
-    Out << "v";
-  Out << "_" << ScalarName << "(" << VectorName << ")";
-  return std::string(Out.str());
-}
-
 void VFABI::getVectorVariantNames(
     const CallInst &CI, SmallVectorImpl<std::string> &VariantMappings) {
   const StringRef S = CI.getFnAttr(VFABI::MappingsAttrName).getValueAsString();
@@ -2543,7 +2565,7 @@ bool VFShape::hasValidParameterList(bool Permissive) const { // INTEL
         // this case should be disallowed again.
         return true;
       }
-#endif
+#endif // INTEL_CUSTOMIZATION
       // The linear step parameter must be marked as uniform.
       if (Parameters[Parameters[Pos].LinearStepOrPos].ParamKind !=
           VFParamKind::OMP_Uniform)

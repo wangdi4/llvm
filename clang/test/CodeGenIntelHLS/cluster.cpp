@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 -fhls -emit-llvm -triple x86_64-unknown-linux-gnu -opaque-pointers -o - %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -emit-llvm -triple x86_64-unknown-linux-gnu -o - %s | FileCheck %s
 
 void __attribute__((cluster)) foo1() {}
 // CHECK: @_Z4foo1v{{.*}}!cluster [[CFOO1:![0-9]+]]

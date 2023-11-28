@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2015-2018 Intel Corporation.
+// Copyright 2015 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,16 +15,13 @@
 #ifndef __MetadataAPITextFixture__
 #define __MetadataAPITextFixture__
 
+#include "common_utils.h"
+#include "gtest_wrapper.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
-
-#include "gtest_wrapper.h"
-
-#include "common_utils.h"
-
 #include <string>
 
 class MetadataTest : public ::testing::Test {

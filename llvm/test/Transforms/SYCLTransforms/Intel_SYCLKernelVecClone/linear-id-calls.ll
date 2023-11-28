@@ -80,7 +80,7 @@ attributes #1 = { nounwind readnone }
 !12 = !{!"int*", !"class.cl::sycl::range", !"class.cl::sycl::range", !"class.cl::sycl::range", !"int*", !"class.cl::sycl::range", !"class.cl::sycl::range", !"class.cl::sycl::range", !"int*", !"class.cl::sycl::range", !"class.cl::sycl::range", !"class.cl::sycl::range", !"int*", !"class.cl::sycl::range", !"class.cl::sycl::range", !"class.cl::sycl::range"}
 !13 = !{i1 true}
 !14 = !{i32 16}
-!15 = !{i32 addrspace(1)* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, i32* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, i32* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, i32* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null, %"class.cl::sycl::range"* null}
+!15 = !{ptr addrspace(1) null, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uuuuuuuuuuuuuuuu__ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Test {{.*}} call

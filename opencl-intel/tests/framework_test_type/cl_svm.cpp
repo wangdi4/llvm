@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2020 Intel Corporation
+// Copyright (c) 2006 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -18,15 +18,14 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#include "CL/cl.h"
 #include "FrameworkTestThreads.h"
 #include "gtest_wrapper.h"
+#include "tbb/global_control.h"
 #include "test_utils.h"
-#include <CL/cl.h>
-#include <CL/cl_platform.h>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <tbb/global_control.h>
 
 #define BUF_SIZE 1024
 

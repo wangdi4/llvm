@@ -1,10 +1,10 @@
-//===--------- ur.hpp - Unified Runtime  -----------------------------===//
+//===--------- ur.hpp - Unified Runtime  ----------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-//===-----------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 #pragma once
 
 #include <atomic>
@@ -47,6 +47,7 @@ const ur_command_t UR_EXT_COMMAND_TYPE_USER =
 #define __SYCL_UR_PROGRAM_METADATA_TAG_REQD_WORK_GROUP_SIZE                    \
   "@reqd_work_group_size"
 #define __SYCL_UR_PROGRAM_METADATA_GLOBAL_ID_MAPPING "@global_id_mapping"
+#define __SYCL_UR_PROGRAM_METADATA_TAG_NEED_FINALIZATION "Requires finalization"
 
 // Terminates the process with a catastrophic error message.
 [[noreturn]] inline void die(const char *Message) {
@@ -172,9 +173,9 @@ extern bool PrintTrace;
 // deallocate them automatically at the end of the main program.
 // The heap memory allocated for these global variables reclaimed only at
 // explicit tear-down.
-extern std::vector<ur_platform_handle_t> *PiPlatformsCache;
-extern SpinLock *PiPlatformsCacheMutex;
-extern bool PiPlatformCachePopulated;
+extern std::vector<ur_platform_handle_t> *URPlatformsCache;
+extern SpinLock *URPlatformsCacheMutex;
+extern bool URPlatformCachePopulated;
 
 // The getInfo*/ReturnHelper facilities provide shortcut way of
 // writing return bytes for the various getInfo APIs.
@@ -271,7 +272,7 @@ public:
                             param_value_size_ret, t);
   }
 
-  // Array return value where element type is differrent from T
+  // Array return value where element type is different from T
   template <class RetType, class T>
   ur_result_t operator()(const T *t, size_t s) {
     return ur::getInfoArray<T, RetType>(s, param_value_size, param_value,
@@ -283,41 +284,3 @@ protected:
   void *param_value;
   size_t *param_value_size_ret;
 };
-
-// Needed to have compatibility with piProgramBuild
-// when passing a specific list of devices
-// See: https://github.com/oneapi-src/unified-runtime/issues/912
-UR_APIEXPORT ur_result_t UR_APICALL urProgramBuildExp(
-    ur_context_handle_t hContext, ///< [in] handle of the context instance.
-    ur_program_handle_t hProgram, ///< [in] Handle of the program to build.
-    uint32_t numDevices, ur_device_handle_t *phDevices,
-    const char *pOptions ///< [in][optional] pointer to build options
-                         ///< null-terminated string.
-);
-
-// Needed to have compatibility with piProgramCompile
-// when passing a specific list of devices
-// See: https://github.com/oneapi-src/unified-runtime/issues/912
-UR_APIEXPORT ur_result_t UR_APICALL urProgramCompileExp(
-    ur_context_handle_t Context, ///< [in] handle of the context instance.
-    ur_program_handle_t
-        Program, ///< [in][out] handle of the program to compile.
-    uint32_t numDevices, ur_device_handle_t *phDevices,
-    const char *Options ///< [in][optional] pointer to build options
-                        ///< null-terminated string.
-);
-
-// Needed to have compatibility with piProgramLink
-// when passing a specific list of devices
-// See: https://github.com/oneapi-src/unified-runtime/issues/912
-UR_APIEXPORT ur_result_t UR_APICALL urProgramLinkExp(
-    ur_context_handle_t Context, ///< [in] handle of the context instance.
-    uint32_t Count, ///< [in] number of program handles in `phPrograms`.
-    const ur_program_handle_t *Programs, ///< [in][range(0, count)] pointer to
-                                         ///< array of program handles.
-    uint32_t numDevices, ur_device_handle_t *phDevices,
-    const char *Options, ///< [in][optional] pointer to linker options
-                         ///< null-terminated string.
-    ur_program_handle_t
-        *Program ///< [out] pointer to handle of program object created.
-);

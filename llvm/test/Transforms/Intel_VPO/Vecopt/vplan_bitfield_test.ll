@@ -14,18 +14,18 @@
 ; Test to check that we generate scatters for stores to unit-strided accesses
 ; to an array of i1 due to padding bits in array elements.
 ;
-define void @foo(i1* %arri1, i7* %arri7 ) {
+define void @foo(ptr %arri1, ptr %arri7 ) {
 ; HIR-CHECK:            + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-CHECK-NEXT:       |   [[DOTVEC0:%.*]] = (<4 x i1>*)([[ARRI10:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>]
 ; HIR-CHECK-NEXT:       |   (<4 x i7>*)([[ARRI70:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>] = [[DOTVEC0]]
 ; HIR-CHECK-NEXT:       + END LOOP
 ;
-; LLVM-CHECK:  define void @foo(i1* [[ARRI10:%.*]], i7* [[ARRI70:%.*]]) {
+; LLVM-CHECK:  define void @foo(ptr [[ARRI10:%.*]], ptr [[ARRI70:%.*]]) {
 ; LLVM-CHECK:       VPlannedBB:
-; LLVM-CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i1*> poison, i1* [[ARRI10]], i64 0
-; LLVM-CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i1*> [[BROADCAST_SPLATINSERT0]], <4 x i1*> poison, <4 x i32> zeroinitializer
-; LLVM-CHECK-NEXT:    [[BROADCAST_SPLATINSERT30:%.*]] = insertelement <4 x i7*> poison, i7* [[ARRI70]], i64 0
-; LLVM-CHECK-NEXT:    [[BROADCAST_SPLAT40:%.*]] = shufflevector <4 x i7*> [[BROADCAST_SPLATINSERT30]], <4 x i7*> poison, <4 x i32> zeroinitializer
+; LLVM-CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x ptr> poison, ptr [[ARRI10]], i64 0
+; LLVM-CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x ptr> [[BROADCAST_SPLATINSERT0]], <4 x ptr> poison, <4 x i32> zeroinitializer
+; LLVM-CHECK-NEXT:    [[BROADCAST_SPLATINSERT30:%.*]] = insertelement <4 x ptr> poison, ptr [[ARRI70]], i64 0
+; LLVM-CHECK-NEXT:    [[BROADCAST_SPLAT40:%.*]] = shufflevector <4 x ptr> [[BROADCAST_SPLATINSERT30]], <4 x ptr> poison, <4 x i32> zeroinitializer
 ; LLVM-CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; LLVM-CHECK-EMPTY:
 ; LLVM-CHECK-NEXT:  VPlannedBB1:
@@ -34,11 +34,11 @@ define void @foo(i1* %arri1, i7* %arri7 ) {
 ; LLVM-CHECK-NEXT:  vector.body:
 ; LLVM-CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
 ; LLVM-CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB10]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
-; LLVM-CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i1, <4 x i1*> [[BROADCAST_SPLAT0]], <4 x i64> [[VEC_PHI0]]
-; LLVM-CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i1> @llvm.masked.gather.v4i1.v4p0i1(<4 x i1*> [[MM_VECTORGEP0]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i1> poison)
+; LLVM-CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i1, <4 x ptr> [[BROADCAST_SPLAT0]], <4 x i64> [[VEC_PHI0]]
+; LLVM-CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i1> @llvm.masked.gather.v4i1.v4p0(<4 x ptr> [[MM_VECTORGEP0]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i1> poison)
 ; LLVM-CHECK-NEXT:    [[TMP0:%.*]] = sext <4 x i1> [[WIDE_MASKED_GATHER0]] to <4 x i7>
-; LLVM-CHECK-NEXT:    [[MM_VECTORGEP50:%.*]] = getelementptr inbounds i7, <4 x i7*> [[BROADCAST_SPLAT40]], <4 x i64> [[VEC_PHI0]]
-; LLVM-CHECK-NEXT:    call void @llvm.masked.scatter.v4i7.v4p0i7(<4 x i7> [[TMP0]], <4 x i7*> [[MM_VECTORGEP50]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+; LLVM-CHECK-NEXT:    [[MM_VECTORGEP50:%.*]] = getelementptr inbounds i7, <4 x ptr> [[BROADCAST_SPLAT40]], <4 x i64> [[VEC_PHI0]]
+; LLVM-CHECK-NEXT:    call void @llvm.masked.scatter.v4i7.v4p0(<4 x i7> [[TMP0]], <4 x ptr> [[MM_VECTORGEP50]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ; LLVM-CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; LLVM-CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI0]], 4
 ; LLVM-CHECK-NEXT:    [[TMP3:%.*]] = icmp uge i64 [[TMP2]], 100
@@ -50,11 +50,11 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %l1.05 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %ptridx = getelementptr inbounds i1, i1* %arri1, i64 %l1.05
-  %ldval = load i1, i1* %ptridx, align 1
+  %ptridx = getelementptr inbounds i1, ptr %arri1, i64 %l1.05
+  %ldval = load i1, ptr %ptridx, align 1
   %conv = sext i1 %ldval to i7
-  %ptridx2 = getelementptr inbounds i7, i7* %arri7, i64 %l1.05
-  store i7 %conv, i7* %ptridx2, align 1
+  %ptridx2 = getelementptr inbounds i7, ptr %arri7, i64 %l1.05
+  store i7 %conv, ptr %ptridx2, align 1
   %inc = add nuw nsw i64 %l1.05, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

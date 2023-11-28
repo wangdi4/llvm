@@ -35,6 +35,7 @@
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/PointerSumType.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/PredIteratorCache.h"
@@ -44,7 +45,6 @@
 
 namespace llvm {
 
-class AAResults;
 class AssumptionCache;
 class BatchAAResults;
 class DominatorTree;
@@ -373,6 +373,7 @@ private:
   const TargetLibraryInfo &TLI;
   DominatorTree &DT;
   PredIteratorCache PredCache;
+  EarliestEscapeInfo EII;
 
   unsigned DefaultBlockScanLimit;
 
@@ -381,7 +382,7 @@ private:
   ClobberOffsetsMapType ClobberOffsets;
 #if INTEL_CUSTOMIZATION
   unsigned OptLevel;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 public:
   MemoryDependenceResults(
@@ -391,11 +392,11 @@ public:
       // TODO: Remove default value once LPM will be removed.
       unsigned OptLevel = 2 /* O2 level */)
 #endif // INTEL_CUSTOMIZATION
-      : AA(AA), AC(AC), TLI(TLI), DT(DT),
+      : AA(AA), AC(AC), TLI(TLI), DT(DT), EII(DT),
         DefaultBlockScanLimit(DefaultBlockScanLimit),
 #if INTEL_CUSTOMIZATION
         OptLevel(OptLevel) {}
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   /// Handle invalidation in the new PM.
   bool invalidate(Function &F, const PreservedAnalyses &PA,

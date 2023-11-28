@@ -1,5 +1,6 @@
 ; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='vpo-paropt' -S -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s
+; RUN: opt -passes='vpo-paropt,function(intel-ir-optreport-emitter)' -intel-opt-report=high -intel-opt-report-file=stdout -disable-output < %s | FileCheck %s --strict-whitespace --check-prefix=OPTREPORT
 
 ; Check that we can outline the first parallel region with unreachable exit,
 ; and subsequent unreachable regions are ignored.
@@ -19,6 +20,17 @@
 ; Check for remarks about the second parallel construct being ignored
 ; CHECK: remark: <unknown>:0:0: parallel construct is unreachable from function entry
 ; CHECK: remark: <unknown>:0:0: parallel construct ignored
+
+; OPTREPORT: Global optimization report for : foo
+
+; OPTREPORT: OMP PARALLEL BEGIN
+; OPTREPORT:     remark #30008: parallel construct transformed
+; OPTREPORT: OMP PARALLEL END
+
+; OPTREPORT: OMP PARALLEL BEGIN
+; OPTREPORT:     remark #30010: parallel construct is unreachable from function entry
+; OPTREPORT:     remark #30011: parallel construct ignored
+; OPTREPORT: OMP PARALLEL END
 
 ; Check that the first parallel construct is outlined, and the fork call
 ; is followed by a return, since CodeExtractor determined the following code as

@@ -46,8 +46,7 @@
 ;FIXME: Investigate why gep is not generated.
 ;((4 * sext.i32.i64(%n1)) + %row.031)
 
-;CHECK: [[N1:%.*]] = sext i32 %n1 to i64
-;CHECK: [[N1_X_4:%.*]] = shl nsw i64 [[N1]], 2
+;CHECK: [[N1_X_4:%.*]] = shl nsw i64 %idx.ext2, 2
 ;CHECK: [[ROW_SYM_LD:%.*]] = load ptr, ptr [[ROW_SYM]]
 ;CHECK: [[ROW_SYM_LD_INT:%.*]] = ptrtoint ptr [[ROW_SYM_LD]] to i64
 ;CHECK: %{{.*}} = add i64 [[N1_X_4]], [[ROW_SYM_LD_INT]]

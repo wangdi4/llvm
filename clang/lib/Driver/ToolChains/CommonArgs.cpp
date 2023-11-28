@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -39,6 +39,7 @@
 #include "HIPAMD.h"
 #include "Hexagon.h"
 #include "MSP430.h"
+#include "Solaris.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/ObjCRuntime.h"
@@ -521,6 +522,10 @@ std::string tools::getCPUName(const Driver &D, const ArgList &Args,
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:
     return std::string(getWebAssemblyTargetCPU(Args));
+
+  case llvm::Triple::loongarch32:
+  case llvm::Triple::loongarch64:
+    return loongarch::getLoongArchTargetCPU(Args, T);
   }
 }
 
@@ -640,7 +645,7 @@ bool tools::isUseSeparateSections(const Driver &D,
   if (D.IsIntelMode())
     return false;
 #endif // INTEL_CUSTOMIZATION
-  return Triple.getOS() == llvm::Triple::CloudABI || Triple.isPS();
+  return Triple.isPS();
 }
 
 #if INTEL_CUSTOMIZATION
@@ -762,6 +767,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 
   const char *PluginOptPrefix = IsOSAIX ? "-bplugin_opt:" : "-plugin-opt=";
   const char *ExtraDash = IsOSAIX ? "-" : "";
+  const char *ParallelismOpt = IsOSAIX ? "-threads=" : "jobs=";
 
   // Note, this solution is far from perfect, better to encode it into IR
   // metadata, but this may not be worth it, since it looks like aranges is on
@@ -814,16 +820,32 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   }
 #endif
 
-  if (IsThinLTO)
+  if (IsThinLTO && !IsOSAIX)
     CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) + "thinlto"));
+  else if (IsThinLTO && IsOSAIX)
+    CmdArgs.push_back(Args.MakeArgString(Twine("-bdbg:thinlto")));
+
+  // Matrix intrinsic lowering happens at link time with ThinLTO. Enable
+  // LowerMatrixIntrinsicsPass, which is transitively called by
+  // buildThinLTODefaultPipeline under EnableMatrix.
+  if (IsThinLTO && Args.hasArg(options::OPT_fenable_matrix))
+    CmdArgs.push_back(
+        Args.MakeArgString(Twine(PluginOptPrefix) + "-enable-matrix"));
 
   StringRef Parallelism = getLTOParallelism(Args, D);
   if (!Parallelism.empty())
-    CmdArgs.push_back(
-        Args.MakeArgString(Twine(PluginOptPrefix) + "jobs=" + Parallelism));
+    CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) +
+                                         ParallelismOpt + Parallelism));
 
-  if (!CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL)
-    CmdArgs.push_back(Args.MakeArgString("-plugin-opt=no-opaque-pointers"));
+  // Pass down GlobalISel options.
+  if (Arg *A = Args.getLastArg(options::OPT_fglobal_isel,
+                               options::OPT_fno_global_isel)) {
+    // Parsing -fno-global-isel explicitly gives architectures that enable GISel
+    // by default a chance to disable it.
+    CmdArgs.push_back(Args.MakeArgString(
+        Twine(PluginOptPrefix) + "-global-isel=" +
+        (A->getOption().matches(options::OPT_fglobal_isel) ? "1" : "0")));
+  }
 
   // If an explicit debugger tuning argument appeared, pass it along.
   if (Arg *A =
@@ -1043,6 +1065,13 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 
   addMachineOutlinerArgs(D, Args, CmdArgs, ToolChain.getEffectiveTriple(),
                          /*IsLTO=*/true, PluginOptPrefix);
+#if INTEL_CUSTOMIZATION
+  // Add any -mllvm-lto based options.  These are added after any of the values
+  // implied by options from the command line, allowing for override.
+  for (const Arg *A : Args.filtered(options::OPT_mllvm_lto))
+    CmdArgs.push_back(
+        Args.MakeArgString(Twine(PluginOptPrefix) + A->getValue()));
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
@@ -1118,10 +1147,19 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   auto addllvmOption = [&](const char *Opt) {
     AddllvmOption(TC, Opt, IsLink, Args, CmdArgs);
   };
-  auto SPIRVLoopOptEnabled = [&]() -> bool {
+  auto SPIRVOpenMPLoopOptEnabled = [&]() -> bool {
     return Args.hasArg(options::OPT_fopenmp_target_loopopt) &&
            Args.hasArg(options::OPT_fopenmp_target_simd) &&
-           TC.getTriple().isSPIR();
+           JA.isDeviceOffloading(Action::OFK_OpenMP) && TC.getTriple().isSPIR();
+  };
+  auto SPIRVLoopOptEnabled = [&]() -> bool {
+    return Args.hasArg(options::OPT_fopenmp_target_loopopt) &&
+           !Args.hasArg(options::OPT_fopenmp_target_simd) &&
+           JA.isDeviceOffloading(Action::OFK_OpenMP) && TC.getTriple().isSPIR();
+  };
+  auto SYCLLoopOptEnabled = [&]() -> bool {
+    return Args.hasArg(options::OPT_fsycl_target_loopopt) &&
+           JA.isDeviceOffloading(Action::OFK_SYCL);
   };
 #if INTEL_FEATURE_MARKERCOUNT
   addMarkerCountArgs(TC, Args, CmdArgs, IsLink);
@@ -1129,14 +1167,13 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   StringRef MLTVal;
   if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
     MLTVal = A->getValue();
-    if (SPIRVLoopOptEnabled() &&
+    if (SPIRVOpenMPLoopOptEnabled() &&
         (MLTVal == "1" || MLTVal == "2" || MLTVal == "3" || MLTVal == "4"))
       ; // qopt-mem-layout-trans >= 1 ignored with -fopenmp-target-loopopt
     else if (MLTVal == "1" || MLTVal == "2" || MLTVal == "3" || MLTVal == "4") {
 #if INTEL_FEATURE_SW_DTRANS
-      // DTrans requires the front-end to generate additional info when opaque
-      // pointers are in use.
-      if (CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL && !IsLink)
+      // DTrans requires the front-end to generate additional info.
+      if (!IsLink)
         CmdArgs.push_back("-emit-dtrans-info");
 
       addllvmOption("-enable-dtrans");
@@ -1305,9 +1342,14 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   // -qopt-streaming-stores
   if (Arg *A = Args.getLastArg(options::OPT_qopt_streaming_stores_EQ)) {
     StringRef Val = A->getValue();
-    if (Val == "always")
+    if (Val == "always") {
       addllvmOption("-hir-nontemporal-cacheline-count=0");
-    else if (Val == "never")
+      // if -qopt-dynamic-align isn't already set on the command line, go
+      // ahead and add the corresponding setting here.
+      if (!Args.hasArg(options::OPT_qopt_dynamic_align,
+                       options::OPT_qno_opt_dynamic_align))
+        addllvmOption("-vplan-enable-peeling=true");
+    } else if (Val == "never")
       addllvmOption("-disable-hir-nontemporal-marking");
     else if (Val != "auto")
       TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option) << Val
@@ -1332,6 +1374,15 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
           << Val << A->getOption().getName();
   }
+
+  if (Arg *A = Args.getLastArg(options::OPT_qopt_prefetch_distance_EQ)) {
+    StringRef Val = A->getValue();
+    addllvmOption(Args.MakeArgString(
+        Twine("-hir-prefetching-iteration-distance=") + Val));
+  }
+
+  if (Args.hasArg(options::OPT_qopt_prefetch_loads_only))
+    addllvmOption("-hir-prefetching-loads-only");
 
   // Add designator that we are doing host compilation for SYCL offload.
   if (JA.isOffloading(Action::OFK_SYCL) &&
@@ -1359,7 +1410,9 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
   if (TC.getDriver().IsIntelMode() && !TC.getTriple().isSPIR()) {
     bool AddLoopOpt = true;
-    for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm)) {
+    for (const Arg *A :
+         Args.filtered(options::OPT_mllvm, options::OPT_mllvm_lto)) {
+      StringRef AV(A->getValue());
       if (AV.startswith("-loopopt=")) {
         AddLoopOpt = false;
         int Value;
@@ -1415,7 +1468,9 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
     }
   }
 
-  if (TC.getDriver().IsIntelMode() && SPIRVLoopOptEnabled()) {
+  if (TC.getDriver().IsIntelMode() &&
+      (SPIRVOpenMPLoopOptEnabled() || SPIRVLoopOptEnabled() ||
+       SYCLLoopOptEnabled())) {
     addllvmOption("-loopopt=1");
     AddLoopOptPipeline("-floopopt-pipeline=light");
   }
@@ -1437,15 +1492,21 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
     addllvmOption("-enable-o0-vectorization=true");
   }
 
+  bool DisableVec = false;
   // -fno-vectorize
   if (Arg *A = Args.getLastArg(options::OPT_fvectorize,
                                options::OPT_fno_vectorize)) {
-    if (A->getOption().matches(options::OPT_fno_vectorize)) {
-      addllvmOption("-disable-hir-vec-dir-insert");
-      addllvmOption("-enable-o0-vectorization=false");
-      addllvmOption("-vplan-driver=false");
-      addllvmOption("-vplan-driver-hir=false");
-    }
+    if (A->getOption().matches(options::OPT_fno_vectorize))
+      DisableVec = true;
+  }
+  DisableVec |= SYCLLoopOptEnabled();
+  DisableVec |= SPIRVLoopOptEnabled();
+
+  if (DisableVec) {
+    addllvmOption("-disable-hir-vec-dir-insert");
+    addllvmOption("-enable-o0-vectorization=false");
+    addllvmOption("-vplan-driver=false");
+    addllvmOption("-vplan-driver-hir=false");
   }
 
   // no-global-hoist
@@ -1480,6 +1541,26 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
 }
 #endif // INTEL_CUSTOMIZATION
 
+/// Adds the '-lcgpu' and '-lmgpu' libraries to the compilation to include the
+/// LLVM C library for GPUs.
+static void addOpenMPDeviceLibC(const ToolChain &TC, const ArgList &Args,
+                                ArgStringList &CmdArgs) {
+  if (Args.hasArg(options::OPT_nogpulib) || Args.hasArg(options::OPT_nolibc))
+    return;
+
+  // Check the resource directory for the LLVM libc GPU declarations. If it's
+  // found we can assume that LLVM was built with support for the GPU libc.
+  SmallString<256> LibCDecls(TC.getDriver().ResourceDir);
+  llvm::sys::path::append(LibCDecls, "include", "llvm_libc_wrappers",
+                          "llvm-libc-decls");
+  bool HasLibC = llvm::sys::fs::exists(LibCDecls) &&
+                 llvm::sys::fs::is_directory(LibCDecls);
+  if (Args.hasFlag(options::OPT_gpulibc, options::OPT_nogpulibc, HasLibC)) {
+    CmdArgs.push_back("-lcgpu");
+    CmdArgs.push_back("-lmgpu");
+  }
+}
+
 void tools::addOpenMPRuntimeLibraryPath(const ToolChain &TC,
                                         const ArgList &Args,
                                         ArgStringList &CmdArgs) {
@@ -1493,11 +1574,8 @@ void tools::addOpenMPRuntimeLibraryPath(const ToolChain &TC,
 
 void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
                                  ArgStringList &CmdArgs) {
-  // Enable -frtlib-add-rpath by default for the case of VE.
-  const bool IsVE = TC.getTriple().isVE();
-  bool DefaultValue = IsVE;
   if (!Args.hasFlag(options::OPT_frtlib_add_rpath,
-                    options::OPT_fno_rtlib_add_rpath, DefaultValue))
+                    options::OPT_fno_rtlib_add_rpath, false))
     return;
 
   for (const auto &CandidateRPath : TC.getArchSpecificLibPaths()) {
@@ -1584,18 +1662,55 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lomptarget.devicertl");
 
+  if (IsOffloadingHost)
+    addOpenMPDeviceLibC(TC, Args, CmdArgs);
+
   addArchSpecificRPath(TC, Args, CmdArgs);
   addOpenMPRuntimeLibraryPath(TC, Args, CmdArgs);
 
   return true;
 }
 
-void tools::addFortranRuntimeLibs(const ToolChain &TC,
+void tools::addFortranRuntimeLibs(const ToolChain &TC, const ArgList &Args,
                                   llvm::opt::ArgStringList &CmdArgs) {
   if (TC.getTriple().isKnownWindowsMSVCEnvironment()) {
-    CmdArgs.push_back("Fortran_main.lib");
-    CmdArgs.push_back("FortranRuntime.lib");
-    CmdArgs.push_back("FortranDecimal.lib");
+    CmdArgs.push_back(Args.MakeArgString(
+        "/DEFAULTLIB:" + TC.getCompilerRTBasename(Args, "builtins")));
+    unsigned RTOptionID = options::OPT__SLASH_MT;
+    if (auto *rtl = Args.getLastArg(options::OPT_fms_runtime_lib_EQ)) {
+      RTOptionID = llvm::StringSwitch<unsigned>(rtl->getValue())
+                       .Case("static", options::OPT__SLASH_MT)
+                       .Case("static_dbg", options::OPT__SLASH_MTd)
+                       .Case("dll", options::OPT__SLASH_MD)
+                       .Case("dll_dbg", options::OPT__SLASH_MDd)
+                       .Default(options::OPT__SLASH_MT);
+    }
+    switch (RTOptionID) {
+    case options::OPT__SLASH_MT:
+      CmdArgs.push_back("/DEFAULTLIB:libcmt");
+      CmdArgs.push_back("Fortran_main.static.lib");
+      CmdArgs.push_back("FortranRuntime.static.lib");
+      CmdArgs.push_back("FortranDecimal.static.lib");
+      break;
+    case options::OPT__SLASH_MTd:
+      CmdArgs.push_back("/DEFAULTLIB:libcmtd");
+      CmdArgs.push_back("Fortran_main.static_dbg.lib");
+      CmdArgs.push_back("FortranRuntime.static_dbg.lib");
+      CmdArgs.push_back("FortranDecimal.static_dbg.lib");
+      break;
+    case options::OPT__SLASH_MD:
+      CmdArgs.push_back("/DEFAULTLIB:msvcrt");
+      CmdArgs.push_back("Fortran_main.dynamic.lib");
+      CmdArgs.push_back("FortranRuntime.dynamic.lib");
+      CmdArgs.push_back("FortranDecimal.dynamic.lib");
+      break;
+    case options::OPT__SLASH_MDd:
+      CmdArgs.push_back("/DEFAULTLIB:msvcrtd");
+      CmdArgs.push_back("Fortran_main.dynamic_dbg.lib");
+      CmdArgs.push_back("FortranRuntime.dynamic_dbg.lib");
+      CmdArgs.push_back("FortranDecimal.dynamic_dbg.lib");
+      break;
+    }
   } else {
     CmdArgs.push_back("-lFortran_main");
     CmdArgs.push_back("-lFortranRuntime");
@@ -1639,9 +1754,11 @@ static void addSanitizerRuntime(const ToolChain &TC, const ArgList &Args,
 static bool addSanitizerDynamicList(const ToolChain &TC, const ArgList &Args,
                                     ArgStringList &CmdArgs,
                                     StringRef Sanitizer) {
+  bool LinkerIsGnuLd = solaris::isLinkerGnuLd(TC, Args);
+
   // Solaris ld defaults to --export-dynamic behaviour but doesn't support
   // the option, so don't try to pass it.
-  if (TC.getTriple().getOS() == llvm::Triple::Solaris)
+  if (TC.getTriple().isOSSolaris() && !LinkerIsGnuLd)
     return true;
   SmallString<128> SanRT(TC.getCompilerRT(Args, Sanitizer));
   if (llvm::sys::fs::exists(SanRT + ".syms")) {
@@ -1651,24 +1768,33 @@ static bool addSanitizerDynamicList(const ToolChain &TC, const ArgList &Args,
   return false;
 }
 
-const char *tools::getAsNeededOption(const ToolChain &TC, bool as_needed) {
+void tools::addAsNeededOption(const ToolChain &TC,
+                              const llvm::opt::ArgList &Args,
+                              llvm::opt::ArgStringList &CmdArgs,
+                              bool as_needed) {
   assert(!TC.getTriple().isOSAIX() &&
          "AIX linker does not support any form of --as-needed option yet.");
+  bool LinkerIsGnuLd = solaris::isLinkerGnuLd(TC, Args);
 
   // While the Solaris 11.2 ld added --as-needed/--no-as-needed as aliases
   // for the native forms -z ignore/-z record, they are missing in Illumos,
   // so always use the native form.
-  if (TC.getTriple().isOSSolaris())
-    return as_needed ? "-zignore" : "-zrecord";
-  else
-    return as_needed ? "--as-needed" : "--no-as-needed";
+  // GNU ld doesn't support -z ignore/-z record, so don't use them even on
+  // Solaris.
+  if (TC.getTriple().isOSSolaris() && !LinkerIsGnuLd) {
+    CmdArgs.push_back("-z");
+    CmdArgs.push_back(as_needed ? "ignore" : "record");
+  } else {
+    CmdArgs.push_back(as_needed ? "--as-needed" : "--no-as-needed");
+  }
 }
 
 void tools::linkSanitizerRuntimeDeps(const ToolChain &TC,
+                                     const llvm::opt::ArgList &Args,
                                      ArgStringList &CmdArgs) {
   // Force linking against the system libraries sanitizers depends on
   // (see PR15823 why this is necessary).
-  CmdArgs.push_back(getAsNeededOption(TC, false));
+  addAsNeededOption(TC, Args, CmdArgs, false);
   // There's no libpthread or librt on RTEMS & Android.
   if (TC.getTriple().getOS() != llvm::Triple::RTEMS &&
       !TC.getTriple().isAndroid() && !TC.getTriple().isOHOSFamily()) {
@@ -1912,8 +2038,10 @@ bool tools::addXRayRuntime(const ToolChain&TC, const ArgList &Args, ArgStringLis
   return false;
 }
 
-void tools::linkXRayRuntimeDeps(const ToolChain &TC, ArgStringList &CmdArgs) {
-  CmdArgs.push_back(getAsNeededOption(TC, false));
+void tools::linkXRayRuntimeDeps(const ToolChain &TC,
+                                const llvm::opt::ArgList &Args,
+                                ArgStringList &CmdArgs) {
+  addAsNeededOption(TC, Args, CmdArgs, false);
   CmdArgs.push_back("-lpthread");
   if (!TC.getTriple().isOSOpenBSD())
     CmdArgs.push_back("-lrt");
@@ -2469,7 +2597,7 @@ static void AddUnwindLibrary(const ToolChain &TC, const Driver &D,
 #endif // INTEL_CUSTOMIZATION
                   !TC.getTriple().isOSCygMing() && !TC.getTriple().isOSAIX();
   if (AsNeeded)
-    CmdArgs.push_back(getAsNeededOption(TC, true));
+    addAsNeededOption(TC, Args, CmdArgs, true);
 
   switch (UNW) {
   case ToolChain::UNW_None:
@@ -2503,7 +2631,7 @@ static void AddUnwindLibrary(const ToolChain &TC, const Driver &D,
   }
 
   if (AsNeeded)
-    CmdArgs.push_back(getAsNeededOption(TC, false));
+    addAsNeededOption(TC, Args, CmdArgs, false);
 }
 
 static void AddLibgcc(const ToolChain &TC, const Driver &D,
@@ -2664,11 +2792,11 @@ void tools::addX86AlignBranchArgs(const Driver &D, const ArgList &Args,
 /// convention has been to use the prefix “lib”. To avoid confusion with host
 /// archive libraries, we use prefix "libbc-" for the bitcode SDL archives.
 ///
-bool tools::SDLSearch(const Driver &D, const llvm::opt::ArgList &DriverArgs,
+static bool SDLSearch(const Driver &D, const llvm::opt::ArgList &DriverArgs,
                       llvm::opt::ArgStringList &CC1Args,
-                      SmallVector<std::string, 8> LibraryPaths, std::string Lib,
-                      StringRef Arch, StringRef Target, bool isBitCodeSDL,
-                      bool postClangLink) {
+                      const SmallVectorImpl<std::string> &LibraryPaths,
+                      StringRef Lib, StringRef Arch, StringRef Target,
+                      bool isBitCodeSDL) {
   SmallVector<std::string, 12> SDLs;
 
   std::string LibDeviceLoc = "/libdevice";
@@ -2727,8 +2855,6 @@ bool tools::SDLSearch(const Driver &D, const llvm::opt::ArgList &DriverArgs,
     for (auto SDL : SDLs) {
       auto FullName = Twine(LPath + SDL).str();
       if (llvm::sys::fs::exists(FullName)) {
-        if (postClangLink)
-          CC1Args.push_back("-mlink-builtin-bitcode");
         CC1Args.push_back(DriverArgs.MakeArgString(FullName));
         FoundSDL = true;
         break;
@@ -2745,16 +2871,16 @@ bool tools::SDLSearch(const Driver &D, const llvm::opt::ArgList &DriverArgs,
 /// unbundle this archive and create a temporary device specific archive. Name
 /// of this SDL is passed to the llvm-link (for amdgcn) or to the
 /// clang-nvlink-wrapper (for nvptx) commands by the driver.
-bool tools::GetSDLFromOffloadArchive(
+static void GetSDLFromOffloadArchive(
     Compilation &C, const Driver &D, const Tool &T, const JobAction &JA,
     const InputInfoList &Inputs, const llvm::opt::ArgList &DriverArgs,
-    llvm::opt::ArgStringList &CC1Args, SmallVector<std::string, 8> LibraryPaths,
-    StringRef Lib, StringRef Arch, StringRef Target, bool isBitCodeSDL,
-    bool postClangLink) {
+    llvm::opt::ArgStringList &CC1Args,
+    const SmallVectorImpl<std::string> &LibraryPaths, StringRef Lib,
+    StringRef Arch, StringRef Target, bool isBitCodeSDL) {
 
   // We don't support bitcode archive bundles for nvptx
   if (isBitCodeSDL && Arch.contains("nvptx"))
-    return false;
+    return;
 
   bool FoundAOB = false;
   std::string ArchiveOfBundles;
@@ -2772,7 +2898,6 @@ bool tools::GetSDLFromOffloadArchive(
       Lib = Lib.drop_front(2);
     for (auto LPath : LibraryPaths) {
       ArchiveOfBundles.clear();
-      SmallVector<std::string, 2> AOBFileNames;
       auto LibFile =
           (Lib.startswith(":") ? Lib.drop_front()
                                : IsMSVC ? Lib + Ext : "lib" + Lib + Ext)
@@ -2791,12 +2916,12 @@ bool tools::GetSDLFromOffloadArchive(
   }
 
   if (!FoundAOB)
-    return false;
+    return;
 
   llvm::file_magic Magic;
   auto EC = llvm::identify_magic(ArchiveOfBundles, Magic);
   if (EC || Magic != llvm::file_magic::archive)
-    return false;
+    return;
 
   StringRef Prefix = isBitCodeSDL ? "libbc-" : "lib";
   std::string OutputLib =
@@ -2848,24 +2973,22 @@ bool tools::GetSDLFromOffloadArchive(
   C.addCommand(std::make_unique<Command>(
       JA, T, ResponseFileSupport::AtFileCurCP(), UBProgram, UBArgs, Inputs,
       InputInfo(&JA, C.getArgs().MakeArgString(OutputLib))));
-  if (postClangLink)
-    CC1Args.push_back("-mlink-builtin-bitcode");
 
   CC1Args.push_back(DriverArgs.MakeArgString(OutputLib));
 
-  return true;
+  return;
 }
 
 // Wrapper function used by driver for adding SDLs during link phase.
 void tools::AddStaticDeviceLibsLinking(Compilation &C, const Tool &T,
-                                const JobAction &JA,
-                                const InputInfoList &Inputs,
-                                const llvm::opt::ArgList &DriverArgs,
-                                llvm::opt::ArgStringList &CC1Args,
-                                StringRef Arch, StringRef Target,
-                                bool isBitCodeSDL, bool postClangLink) {
+                                       const JobAction &JA,
+                                       const InputInfoList &Inputs,
+                                       const llvm::opt::ArgList &DriverArgs,
+                                       llvm::opt::ArgStringList &CC1Args,
+                                       StringRef Arch, StringRef Target,
+                                       bool isBitCodeSDL) {
   AddStaticDeviceLibs(&C, &T, &JA, &Inputs, C.getDriver(), DriverArgs, CC1Args,
-                      Arch, Target, isBitCodeSDL, postClangLink);
+                      Arch, Target, isBitCodeSDL);
 }
 
 // Wrapper function used for post clang linking of bitcode SDLS for nvptx by
@@ -2876,7 +2999,7 @@ void tools::AddStaticDeviceLibsPostLinking(const Driver &D,
                                 StringRef Arch, StringRef Target,
                                 bool isBitCodeSDL, bool postClangLink) {
   AddStaticDeviceLibs(nullptr, nullptr, nullptr, nullptr, D, DriverArgs,
-                      CC1Args, Arch, Target, isBitCodeSDL, postClangLink);
+                      CC1Args, Arch, Target, isBitCodeSDL);
 }
 
 // User defined Static Device Libraries(SDLs) can be passed to clang for
@@ -2910,7 +3033,7 @@ void tools::AddStaticDeviceLibs(Compilation *C, const Tool *T,
                                 const llvm::opt::ArgList &DriverArgs,
                                 llvm::opt::ArgStringList &CC1Args,
                                 StringRef Arch, StringRef Target,
-                                bool isBitCodeSDL, bool postClangLink) {
+                                bool isBitCodeSDL) {
 
   SmallVector<std::string, 8> LibraryPaths;
   // Add search directories from LIBRARY_PATH env variable
@@ -2938,7 +3061,7 @@ void tools::AddStaticDeviceLibs(Compilation *C, const Tool *T,
   static const StringRef HostOnlyArchives[] = {
       "omp", "cudart", "m", "gcc", "gcc_s", "pthread", "hip_hcc"};
   for (auto SDLName : DriverArgs.getAllArgValues(options::OPT_l)) {
-    if (!HostOnlyArchives->contains(SDLName)) {
+    if (!llvm::is_contained(HostOnlyArchives, SDLName)) {
       SDLNames.insert(std::string("-l") + SDLName);
     }
   }
@@ -2967,10 +3090,10 @@ void tools::AddStaticDeviceLibs(Compilation *C, const Tool *T,
   for (auto SDLName : SDLNames) {
     // This is the only call to SDLSearch
     if (!SDLSearch(D, DriverArgs, CC1Args, LibraryPaths, SDLName, Arch, Target,
-                   isBitCodeSDL, postClangLink)) {
+                   isBitCodeSDL)) {
       GetSDLFromOffloadArchive(*C, D, *T, *JA, *Inputs, DriverArgs, CC1Args,
                                LibraryPaths, SDLName, Arch, Target,
-                               isBitCodeSDL, postClangLink);
+                               isBitCodeSDL);
     }
   }
 }
@@ -2982,7 +3105,7 @@ getAMDGPUCodeObjectArgument(const Driver &D, const llvm::opt::ArgList &Args) {
 
 void tools::checkAMDGPUCodeObjectVersion(const Driver &D,
                                          const llvm::opt::ArgList &Args) {
-  const unsigned MinCodeObjVer = 2;
+  const unsigned MinCodeObjVer = 4;
   const unsigned MaxCodeObjVer = 5;
 
   if (auto *CodeObjArg = getAMDGPUCodeObjectArgument(D, Args)) {
@@ -3129,10 +3252,10 @@ void tools::addX86UnalignedVectorMoveArgs(const ToolChain &TC,
 }
 #endif // INTEL_CUSTOMIZATION
 
-void tools::addHIPRuntimeLibArgs(const ToolChain &TC,
+void tools::addHIPRuntimeLibArgs(const ToolChain &TC, Compilation &C,
                                  const llvm::opt::ArgList &Args,
                                  llvm::opt::ArgStringList &CmdArgs) {
-  if (Args.hasArg(options::OPT_hip_link) &&
+  if ((C.getActiveOffloadKinds() & Action::OFK_HIP) &&
       !Args.hasArg(options::OPT_nostdlib) &&
       !Args.hasArg(options::OPT_no_hip_rt)) {
     TC.AddHIPRuntimeLibArgs(Args, CmdArgs);

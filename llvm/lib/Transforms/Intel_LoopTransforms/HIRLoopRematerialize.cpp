@@ -1,6 +1,6 @@
 //===- HIRLoopRematerialize.cpp - Implements Loop Rematerialize  ---------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -87,31 +87,6 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 static cl::opt<unsigned> LoopRematerializeTCLowerBound(
     OPT_SWITCH "-tc-lb", cl::init(3), cl::Hidden,
     cl::desc("Minimal Trip Count enabling " OPT_DESC " pass"));
-
-namespace {
-
-class HIRLoopRematerializeLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRLoopRematerializeLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRLoopRematerializeLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override{};
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-
-    AU.setPreservesAll();
-  }
-};
-
-} // namespace
 
 namespace {
 
@@ -1385,6 +1360,12 @@ bool HIRLoopRematerialize::run() {
     return false;
   }
 
+  if (!AllowRegionsForLoopMaterialization) {
+    LLVM_DEBUG(
+        dbgs() << "Region formation for loop materialization is disabled.\n");
+    return false;
+  }
+
   // Scan HLRegions
   unsigned PreStat = LoopsRematerialized;
   for (HLNode &Node : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
@@ -1395,31 +1376,6 @@ bool HIRLoopRematerialize::run() {
 }
 
 } // namespace
-
-char HIRLoopRematerializeLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopRematerializeLegacyPass, OPT_SWITCH, OPT_DESC,
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_END(HIRLoopRematerializeLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIRLoopRematerializePass() {
-  return new HIRLoopRematerializeLegacyPass();
-}
-
-bool HIRLoopRematerializeLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    return false;
-  }
-
-  LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
-
-  return HIRLoopRematerialize(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                              getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
-      .run();
-}
 
 PreservedAnalyses HIRLoopRematerializePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {

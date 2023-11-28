@@ -3,11 +3,11 @@
 
 define i32 @test(ptr noalias nocapture readonly %p) {
 ; CHECK-LABEL: @test(
-; CHECK-NEXT:    [[GEP51:%.*]] = getelementptr inbounds i32, ptr [[PTR:%.*]], i64 51
-; CHECK-NEXT:    [[GEP50:%.*]] = getelementptr inbounds i32, ptr [[PTR]], i64 50
-; CHECK-NEXT:    [[GEP53:%.*]] = getelementptr inbounds i32, ptr [[PTR]], i64 53
+; CHECK-NEXT:    [[GEP51:%.*]] = getelementptr inbounds i32, ptr [[P:%.*]], i64 51
 ; CHECK-NEXT:    [[LD51:%.*]] = load i32, ptr [[GEP51]], align 4
+; CHECK-NEXT:    [[GEP50:%.*]] = getelementptr inbounds i32, ptr [[P]], i64 50
 ; CHECK-NEXT:    [[LD50:%.*]] = load i32, ptr [[GEP50]], align 4
+; CHECK-NEXT:    [[GEP53:%.*]] = getelementptr inbounds i32, ptr [[P]], i64 53
 ; CHECK-NEXT:    [[LD53:%.*]] = load i32, ptr [[GEP53]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <2 x i32> poison, i32 [[LD50]], i32 0
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x i32> [[TMP1]], i32 [[LD53]], i32 1

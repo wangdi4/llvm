@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2021 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -52,32 +52,22 @@ class ObjectCodeCache;
 //
 class CompilerBuildOptions {
 public:
-  CompilerBuildOptions(const char *pBuildOpts);
+  CompilerBuildOptions(const char *pBuildOpts = nullptr);
 
   bool GetDisableOpt() const { return m_disableOpt; }
   bool GetDebugInfoFlag() const { return m_debugInfo; }
-  bool GetUseNativeDebuggerFlag() const { return m_useNativeDebugger; }
   bool GetProfilingFlag() const { return m_profiling; }
   bool GetRelaxedMath() const { return m_relaxedMath; }
-  bool GetUniformWGSize() const { return m_uniformWGSize; }
   bool GetDenormalsZero() const { return m_denormalsZero; }
-
-  void SetDisableOpt(bool disableOpt) { m_disableOpt = disableOpt; }
-  void SetDebugInfoFlag(bool debugInfo) { m_debugInfo = debugInfo; }
-  void SetUseNativeDebuggerFlag(bool V) { m_useNativeDebugger = V; };
-  void SetProfilingFlag(bool profiling) { m_profiling = profiling; }
-  void SetRelaxedMath(bool relaxedMath) { m_relaxedMath = relaxedMath; }
-  void SetUniformWGSize(bool uniformWGSize) { m_uniformWGSize = uniformWGSize; }
-  void SetDenormalsZero(bool denormalsZero) { m_denormalsZero = denormalsZero; }
+  bool GetCoverage() const { return m_coverage; }
 
 private:
-  bool m_debugInfo;
-  bool m_useNativeDebugger;
-  bool m_profiling;
-  bool m_disableOpt;
-  bool m_relaxedMath;
-  bool m_denormalsZero;
-  bool m_uniformWGSize;
+  bool m_debugInfo = false;
+  bool m_profiling = false;
+  bool m_disableOpt = false;
+  bool m_relaxedMath = false;
+  bool m_denormalsZero = false;
+  bool m_coverage = false;
 };
 
 //******************************************************************************
@@ -203,13 +193,11 @@ protected:
   llvm::sys::Mutex m_LLVMContextMutex;
   Intel::OpenCL::Utils::CPUDetect *m_CpuId = nullptr;
   llvm::SmallVector<std::string, 8> m_forcedCpuFeatures;
+  CompilerBuildOptions m_buildOptions;
   ETransposeSize m_transposeSize;
   int m_rtLoopUnrollFactor;
   std::string m_builtinInitLog;
   bool m_dumpHeuristicIR;
-  bool m_debug;
-  bool m_disableOptimization;
-  bool m_useNativeDebugger;
   bool m_streamingAlways;
   unsigned m_expensiveMemOpts;
   PassManagerType m_passManagerType;

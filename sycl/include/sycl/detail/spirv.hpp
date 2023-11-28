@@ -7,19 +7,13 @@
 //===----------------------------------------------------------------------===//
 
 #pragma once
-#include <CL/__spirv/spirv_ops.hpp>
-#include <CL/__spirv/spirv_types.hpp>
-#include <CL/__spirv/spirv_vars.hpp>
-#include <cstring>
-#include <sycl/detail/generic_type_traits.hpp>
-#include <sycl/detail/helpers.hpp>
-#include <sycl/detail/type_list.hpp>
-#include <sycl/detail/type_traits.hpp>
-#include <sycl/ext/oneapi/experimental/non_uniform_groups.hpp>
-#include <sycl/id.hpp>
-#include <sycl/memory_enums.hpp>
 
 #ifdef __SYCL_DEVICE_ONLY__
+
+#include <sycl/ext/oneapi/experimental/non_uniform_groups.hpp> // for IdToMaskPosition
+
+#include <sycl/detail/memcpy.hpp> // sycl::detail::memcpy
+
 namespace sycl {
 inline namespace _V1 {
 struct sub_group;
@@ -376,9 +370,9 @@ EnableIfGenericBroadcast<T, IdT> GroupBroadcast(Group g, T x, IdT local_id) {
   char *ResultBytes = reinterpret_cast<char *>(&Result);
   auto BroadcastBytes = [=](size_t Offset, size_t Size) {
     uint64_t BroadcastX, BroadcastResult;
-    std::memcpy(&BroadcastX, XBytes + Offset, Size);
+    detail::memcpy(&BroadcastX, XBytes + Offset, Size);
     BroadcastResult = GroupBroadcast(g, BroadcastX, local_id);
-    std::memcpy(ResultBytes + Offset, &BroadcastResult, Size);
+    detail::memcpy(ResultBytes + Offset, &BroadcastResult, Size);
   };
   GenericCall<T>(BroadcastBytes);
   return Result;
@@ -430,9 +424,9 @@ EnableIfGenericBroadcast<T> GroupBroadcast(Group g, T x,
   char *ResultBytes = reinterpret_cast<char *>(&Result);
   auto BroadcastBytes = [=](size_t Offset, size_t Size) {
     uint64_t BroadcastX, BroadcastResult;
-    std::memcpy(&BroadcastX, XBytes + Offset, Size);
+    detail::memcpy(&BroadcastX, XBytes + Offset, Size);
     BroadcastResult = GroupBroadcast(g, BroadcastX, local_id);
-    std::memcpy(ResultBytes + Offset, &BroadcastResult, Size);
+    detail::memcpy(ResultBytes + Offset, &BroadcastResult, Size);
   };
   GenericCall<T>(BroadcastBytes);
   return Result;
@@ -963,9 +957,9 @@ EnableIfGenericShuffle<T> SubgroupShuffle(T x, id<1> local_id) {
   char *ResultBytes = reinterpret_cast<char *>(&Result);
   auto ShuffleBytes = [=](size_t Offset, size_t Size) {
     ShuffleChunkT ShuffleX, ShuffleResult;
-    std::memcpy(&ShuffleX, XBytes + Offset, Size);
+    detail::memcpy(&ShuffleX, XBytes + Offset, Size);
     ShuffleResult = SubgroupShuffle(ShuffleX, local_id);
-    std::memcpy(ResultBytes + Offset, &ShuffleResult, Size);
+    detail::memcpy(ResultBytes + Offset, &ShuffleResult, Size);
   };
   GenericCall<T>(ShuffleBytes);
   return Result;
@@ -978,9 +972,9 @@ EnableIfGenericShuffle<T> SubgroupShuffleXor(T x, id<1> local_id) {
   char *ResultBytes = reinterpret_cast<char *>(&Result);
   auto ShuffleBytes = [=](size_t Offset, size_t Size) {
     ShuffleChunkT ShuffleX, ShuffleResult;
-    std::memcpy(&ShuffleX, XBytes + Offset, Size);
+    detail::memcpy(&ShuffleX, XBytes + Offset, Size);
     ShuffleResult = SubgroupShuffleXor(ShuffleX, local_id);
-    std::memcpy(ResultBytes + Offset, &ShuffleResult, Size);
+    detail::memcpy(ResultBytes + Offset, &ShuffleResult, Size);
   };
   GenericCall<T>(ShuffleBytes);
   return Result;
@@ -993,9 +987,9 @@ EnableIfGenericShuffle<T> SubgroupShuffleDown(T x, uint32_t delta) {
   char *ResultBytes = reinterpret_cast<char *>(&Result);
   auto ShuffleBytes = [=](size_t Offset, size_t Size) {
     ShuffleChunkT ShuffleX, ShuffleResult;
-    std::memcpy(&ShuffleX, XBytes + Offset, Size);
+    detail::memcpy(&ShuffleX, XBytes + Offset, Size);
     ShuffleResult = SubgroupShuffleDown(ShuffleX, delta);
-    std::memcpy(ResultBytes + Offset, &ShuffleResult, Size);
+    detail::memcpy(ResultBytes + Offset, &ShuffleResult, Size);
   };
   GenericCall<T>(ShuffleBytes);
   return Result;
@@ -1008,9 +1002,9 @@ EnableIfGenericShuffle<T> SubgroupShuffleUp(T x, uint32_t delta) {
   char *ResultBytes = reinterpret_cast<char *>(&Result);
   auto ShuffleBytes = [=](size_t Offset, size_t Size) {
     ShuffleChunkT ShuffleX, ShuffleResult;
-    std::memcpy(&ShuffleX, XBytes + Offset, Size);
+    detail::memcpy(&ShuffleX, XBytes + Offset, Size);
     ShuffleResult = SubgroupShuffleUp(ShuffleX, delta);
-    std::memcpy(ResultBytes + Offset, &ShuffleResult, Size);
+    detail::memcpy(ResultBytes + Offset, &ShuffleResult, Size);
   };
   GenericCall<T>(ShuffleBytes);
   return Result;
@@ -1034,6 +1028,7 @@ ControlBarrier(Group g, memory_scope FenceScope, memory_order Order) {
 #if defined(__NVPTX__)
   __nvvm_bar_warp_sync(detail::ExtractMask(detail::GetMask(g))[0]);
 #else
+  (void)g;
   // SPIR-V does not define an instruction to synchronize partial groups.
   // However, most (possibly all?) of the current SPIR-V targets execute
   // work-items in lockstep, so we can probably get away with a MemoryBarrier.
@@ -1063,7 +1058,7 @@ struct is_tangle_or_opportunistic_group<
   template <__spv::GroupOperation Op, typename Group, typename T>              \
   inline typename std::enable_if_t<                                            \
       ext::oneapi::experimental::is_fixed_topology_group_v<Group>, T>          \
-      Group##Instruction(Group G, T x) {                                       \
+      Group##Instruction(Group, T x) {                                         \
     using ConvertedT = detail::ConvertToOpenCLType_t<T>;                       \
                                                                                \
     using OCLT = std::conditional_t<                                           \

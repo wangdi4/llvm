@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2023 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -23,11 +23,9 @@
 #include "cl_cpu_detect.h"
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
-#include "debuggingservicetype.h"
 #include "exceptions.h"
 // Reference a symbol in JIT.cpp and MCJIT.cpp so that static or global
 // constructors are called
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/ExecutionEngine/MCJIT.h"
@@ -38,7 +36,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TargetSelect.h"
-
+#include "llvm/TargetParser/Triple.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include <string>
 
 using namespace llvm;
@@ -331,14 +330,12 @@ CPUCompiler::CreateLLJIT(Module *M, std::unique_ptr<TargetMachine> TM,
 
 bool CPUCompiler::useLLDJITForExecution(Module *pModule) const {
 #ifdef _WIN32
-  bool hasCUs = (pModule->debug_compile_units_begin() !=
-                 pModule->debug_compile_units_end());
-
-  bool useLLDJIT =
-      intel::getDebuggingServiceType(m_debug && hasCUs, pModule,
-                                     m_useNativeDebugger) == intel::Native;
-
-  return useLLDJIT;
+  if (CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
+      !pModule->debug_compile_units().empty())
+    return true;
+  // Following line should be removed when amplifier is working with LLDJIT, see
+  // CMPLRLLVM-50721.
+  return m_buildOptions.GetDebugInfoFlag();
 #else
   // The parameter is used in Windows code
   (void)pModule;

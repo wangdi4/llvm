@@ -28,35 +28,35 @@
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
 ; opt -passes=sycl-kernel-target-ext-type-lower,sycl-kernel-equalizer %s -S
 ; ----------------------------------------------------
-; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc %s -S | FileCheck %s
 
-@bar = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
-@far = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
-@a = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
-@b = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl %s -S | FileCheck %s
+
+@bar = addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !0, !packet_align !0
+@far = addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !0, !packet_align !0
+@a = addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !0, !packet_align !0
+@b = addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !0, !packet_align !0
 
 ; CHECK: define {{.*}} @foo
 ; CHECK: %[[READ_DST_ALLOCA:read.dst.*]] = alloca i32
-; CHECK: %[[BAR_PIPE_LOAD:.*]] = load {{.*}} @bar.pipe
+; CHECK: %[[BAR_PIPE_LOAD:.*]] = load {{.*}} @bar
 ; CHECK: %[[READ_DST:.*]] = addrspacecast {{.*}} %[[READ_DST_ALLOCA]]
 ; CHECK: call i32 @__read_pipe_2{{.*}}({{.*}} %[[BAR_PIPE_LOAD]], {{.*}} %[[READ_DST]]
 ; CHECK: load {{.*}} %[[READ_DST_ALLOCA]]
 ;
-; CHECK: %[[FAR_PIPE_LOAD:.*]] = load {{.*}} @far.pipe
+; CHECK: %[[FAR_PIPE_LOAD:.*]] = load {{.*}} @far
 ; CHECK: %[[READ_DST1:.*]] = addrspacecast {{.*}} %[[READ_DST_ALLOCA]]
 ; CHECK: call i32 @__read_pipe_2{{.*}}({{.*}} %[[FAR_PIPE_LOAD]], {{.*}} %[[READ_DST1]]
 ; CHECK: load {{.*}} %[[READ_DST_ALLOCA]]
 ;
 ; CHECK: define {{.*}} @foobar
 ; CHECK: %[[WRITE_SRC_ALLOCA:write.src.*]] = alloca float
-; CHECK: %[[A_PIPE_LOAD:.*]] = load {{.*}} @a.pipe
+; CHECK: %[[A_PIPE_LOAD:.*]] = load {{.*}} @a
 ; CHECK: store {{.*}} %[[WRITE_SRC_ALLOCA]]
 ; CHECK: %[[WRITE_SRC:.*]] = addrspacecast {{.*}} %[[WRITE_SRC_ALLOCA]]
 ; CHECK: call i32 @__write_pipe_2{{.*}}({{.*}} %[[A_PIPE_LOAD]], {{.*}} %[[WRITE_SRC]]
 ;
-; CHECK: %[[B_PIPE_LOAD:.*]] = load {{.*}} @b.pipe
+; CHECK: %[[B_PIPE_LOAD:.*]] = load {{.*}} @b
 ; CHECK: store {{.*}} %[[WRITE_SRC_ALLOCA]]
 ; CHECK: %[[WRITE_SRC1:.*]] = addrspacecast {{.*}} %[[WRITE_SRC_ALLOCA]]
 ; CHECK: call i32 @__write_pipe_2{{.*}}({{.*}} %[[B_PIPE_LOAD]], {{.*}} %[[WRITE_SRC1]]

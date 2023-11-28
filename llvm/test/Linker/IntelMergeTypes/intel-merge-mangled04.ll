@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
-; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-enable-full-dtrans-types-check -irmover-type-merging=false -S %S/Inputs/intel-merge-mangled04-a.ll %S/Inputs/intel-merge-mangled04-b.ll %S/Inputs/intel-merge-mangled04-c.ll %S/Inputs/intel-merge-mangled04-d.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-mangled04-a.ll %S/Inputs/intel-merge-mangled04-b.ll %S/Inputs/intel-merge-mangled04-c.ll %S/Inputs/intel-merge-mangled04-d.ll 2>&1 | FileCheck %s
 
 ; This test case checks that the types were correctly merged when there are
 ; anonymous union inside the class. The goal is to check that the anonymous

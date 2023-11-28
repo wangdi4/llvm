@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2023 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,11 +16,19 @@
 
 #include "base_command_list.hpp"
 #include "cl_config.h"
+#include "cl_env.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_defines.h"
+#include "cl_sys_info.h"
 #include "cl_user_logger.h"
 #include "cl_utils.h"
 #include "cpu_dev_limits.h"
 #include "task_group.hpp"
+#include "tbb/blocked_range.h"
+#include "tbb/concurrent_queue.h"
+#include "tbb/enumerable_thread_specific.h"
+#include "tbb/scalable_allocator.h"
+#include "tbb/task.h"
 #include "tbb_execution_schedulers.h"
 
 #include "llvm/ADT/SmallString.h"
@@ -29,17 +37,9 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cl_env.h>
-#include <cl_sys_defines.h>
-#include <cl_sys_info.h>
+#include <mutex>
 #include <string>
-#include <tbb/blocked_range.h>
-#include <tbb/concurrent_queue.h>
-#include <tbb/enumerable_thread_specific.h>
-#include <tbb/scalable_allocator.h>
-#include <tbb/task.h>
 #include <vector>
-
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -567,6 +567,31 @@ SharedPtr<IThreadLibTaskGroup>
 TBBTaskExecutor::CreateTaskGroup(const SharedPtr<ITEDevice> & /*device*/) {
   return TbbTaskGroup::Allocate();
 }
+
+void launchResumableTask(unsigned int ThreadNum) {
+  static unsigned int barrier{ThreadNum};
+  static std::mutex mutex;
+  static std::vector<oneapi::tbb::task::suspend_point> coroutine_ctx;
+  std::unique_lock<std::mutex> lock(mutex);
+  int ticket = --barrier;
+  if (ticket > 0) {
+    //  Suspend TBB thread. After this it will participate in other oneTBB
+    //  parallel work (in same arena).
+    oneapi::tbb::task::suspend([&](oneapi::tbb::task::suspend_point sp) {
+      coroutine_ctx.push_back(sp);
+      lock.unlock();
+    });
+  } else if (ticket == 0) {
+    barrier = ThreadNum;
+    // All workgroups are reached the barrier we can submit a tasks to resume
+    // suspended threads.
+    for (auto &&sp : coroutine_ctx) {
+      oneapi::tbb::task::resume(sp);
+    }
+    coroutine_ctx.clear();
+  }
+}
+
 } // namespace TaskExecutor
 } // namespace OpenCL
 } // namespace Intel

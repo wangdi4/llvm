@@ -12,41 +12,40 @@ declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
 
-define void @_ZGVeN16uuu__ZTSZZ4mainENKUlRN2cl4sycl7handlerEE_clES2_E11AtomicTests(i64 %_arg_m_capacity, i64 addrspace(1)* %ptr, i64 addrspace(4)* %alt, i1 zeroext %cmp.i.i) {
+define void @_ZGVeN16uuu__ZTSZZ4mainENKUlRN2cl4sycl7handlerEE_clES2_E11AtomicTests(i64 %_arg_m_capacity, ptr addrspace(1) %ptr, ptr addrspace(4) %alt, i1 zeroext %cmp.i.i) {
 ; CHECK:         [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i64* [[VP__SROA_0:%.*]] = allocate-priv i64, OrigAlign = 8
-; CHECK-NEXT:     i8* [[VP__SROA_0_BCAST:%.*]] = bitcast i64* [[VP__SROA_0]]
-; CHECK-NEXT:     call i64 8 i8* [[VP__SROA_0_BCAST:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:     i64 addrspace(4)* [[VP__SROA_0_0__SROA_CAST:%.*]] = addrspacecast i64* [[VP__SROA_0]]
-; CHECK-NEXT:     i64 addrspace(4)* [[VP_SELECT:%.*]] = select i1 [[CMP_I_I0:%.*]] i64 addrspace(4)* [[VP__SROA_0_0__SROA_CAST]] i64 addrspace(4)* [[ALT0:%.*]]
+; CHECK-NEXT:     ptr [[VP__SROA_0:%.*]] = allocate-priv i64, OrigAlign = 8
+; CHECK-NEXT:     call i64 8 ptr [[VP__SROA_0]] ptr @llvm.lifetime.start.p0
+; CHECK-NEXT:     ptr addrspace(4) [[VP__SROA_0_0__SROA_CAST:%.*]] = addrspacecast ptr [[VP__SROA_0]]
+; CHECK-NEXT:     ptr addrspace(4) [[VP_SELECT:%.*]] = select i1 [[CMP_I_I0:%.*]] ptr addrspace(4) [[VP__SROA_0_0__SROA_CAST]] ptr addrspace(4) [[ALT0:%.*]]
 ; CHECK:          br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK:        [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK:          store i64 [[_ARG_M_CAPACITY0:%.*]] i64* [[VP__SROA_0]]
-; CHECK:          i64 [[VP_COND_I_I:%.*]] = load i64 addrspace(4)* [[VP_SELECT]]
+; CHECK:          store i64 [[_ARG_M_CAPACITY0:%.*]] ptr [[VP__SROA_0]]
+; CHECK:          i64 [[VP_COND_I_I:%.*]] = load ptr addrspace(4) [[VP_SELECT]]
 ;
 entry:
   %.sroa.0 = alloca i64, align 8
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.UNIFORM:TYPED"(i64 addrspace(1)* %ptr, i64 0, i32 1), "QUAL.OMP.UNIFORM"(i1 %cmp.i.i), "QUAL.OMP.UNIFORM:TYPED"(i64 addrspace(4)* %alt, i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i64* %.sroa.0, i64 0, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %ptr, i64 0, i32 1), "QUAL.OMP.UNIFORM"(i1 %cmp.i.i), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(4) %alt, i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %.sroa.0, i64 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %.sroa.0.0..sroa_cast = addrspacecast i64* %.sroa.0 to i64 addrspace(4)*
-  %select = select i1 %cmp.i.i, i64 addrspace(4)* %.sroa.0.0..sroa_cast, i64 addrspace(4)* %alt
+  %.sroa.0.0..sroa_cast = addrspacecast ptr %.sroa.0 to ptr addrspace(4)
+  %select = select i1 %cmp.i.i, ptr addrspace(4) %.sroa.0.0..sroa_cast, ptr addrspace(4) %alt
   br label %simd.loop.header
 
 simd.loop.header:                                 ; preds = %simd.loop.latch, %simd.loop.preheader
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.latch ]
-  store i64 %_arg_m_capacity, i64* %.sroa.0, align 8
-  %cond.i.i = load i64, i64 addrspace(4)* %select, align 8
-  %add.ptr.i14 = getelementptr inbounds i64, i64 addrspace(1)* %ptr, i32 %index
-  store i64 %cond.i.i, i64 addrspace(1)* %add.ptr.i14, align 4
+  store i64 %_arg_m_capacity, ptr %.sroa.0, align 8
+  %cond.i.i = load i64, ptr addrspace(4) %select, align 8
+  %add.ptr.i14 = getelementptr inbounds i64, ptr addrspace(1) %ptr, i32 %index
+  store i64 %cond.i.i, ptr addrspace(1) %add.ptr.i14, align 4
   br label %simd.loop.latch
 
 simd.loop.latch:                                  ; preds = %simd.loop.header

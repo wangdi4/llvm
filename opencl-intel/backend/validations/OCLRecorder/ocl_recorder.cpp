@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2023 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,6 +17,7 @@
 #include "BufferContainerList.h"
 #include "BufferDesc.h"
 #include "IBufferContainerList.h"
+#include "Utils.h"
 #include "cl_device_api.h"
 #include "cl_env.h"
 
@@ -109,10 +110,6 @@ TypeDesc GetTypeDesc(llvm::Type *type, const llvm::DataLayout *td) {
   }
   case llvm::Type::PointerTyID: {
     ret.SetType(TPOINTER);
-    ret.SetNumberOfElements(1);
-    TypeDesc subElemType =
-        GetTypeDesc(type->getNonOpaquePointerElementType(), td);
-    ret.SetSubTypeDesc(0, subElemType);
     break;
   }
   case llvm::Type::ArrayTyID: {
@@ -169,12 +166,14 @@ size_t GetBufferSizeInBytes(cl_mem_obj_descriptor *pmem_obj) {
 }
 
 const BufferDesc GetBufferDesc(size_t size, const llvm::Argument &func_arg,
+                               StringRef ArgTypeName,
                                const llvm::DataLayout *td) {
   BufferDesc bd;
   // Do not record pointer.
   llvm::Type *elType = func_arg.getType();
   if (elType->isPointerTy()) {
-    elType = elType->getNonOpaquePointerElementType();
+    ArgTypeName = ArgTypeName.drop_back();
+    elType = parseLLVMTypeFromName(func_arg.getContext(), ArgTypeName);
   }
   TypeDesc elemType = GetTypeDesc(elType, td);
   /// When size of buffer is not multiple of element size
@@ -186,35 +185,18 @@ const BufferDesc GetBufferDesc(size_t size, const llvm::Argument &func_arg,
 
 const BufferDesc GetBufferDesc(size_t elemSize, size_t numElements,
                                const llvm::Argument &func_arg,
+                               StringRef ArgTypeName,
                                const llvm::DataLayout *td) {
-  return GetBufferDesc(elemSize * numElements, func_arg, td);
+  return GetBufferDesc(elemSize * numElements, func_arg, ArgTypeName, td);
 }
 
 const BufferDesc GetBufferDesc(cl_mem_obj_descriptor *pmem_obj,
                                const llvm::Argument &func_arg,
+                               StringRef ArgTypeName,
                                const llvm::DataLayout *td) {
   assert(NULL != pmem_obj);
-  return GetBufferDesc(GetBufferSizeInBytes(pmem_obj), func_arg, td);
-}
-
-DataTypeVal GetDataType(const llvm::Type *type) {
-  assert(NULL != type);
-  switch (type->getTypeID()) {
-  case llvm::Type::FloatTyID:
-    return F32;
-  case llvm::Type::DoubleTyID:
-    return F64;
-  case llvm::Type::IntegerTyID:
-    return I32;
-  case llvm::Type::FixedVectorTyID:
-  case llvm::Type::ScalableVectorTyID:
-    return GetDataType(llvm::cast<llvm::VectorType>(type)->getElementType());
-  case llvm::Type::PointerTyID:
-    return GetDataType(type->getNonOpaquePointerElementType());
-  default:
-    assert(false && "Unsupported parameter type");
-    throw Exception::InvalidArgument("Unsupported parameter type");
-  }
+  return GetBufferDesc(GetBufferSizeInBytes(pmem_obj), func_arg, ArgTypeName,
+                       td);
 }
 
 ImageChannelDataTypeVal GetImageChannelDataTypeVal(cl_channel_type t) {
@@ -798,10 +780,13 @@ void OCLRecorder::RecordKernelInputs(const RecorderContext &programContext,
   llvm::Function::const_arg_iterator arg_it =
       kernelContext.getFuncPtr()->arg_begin();
 
+  const cl_kernel_argument_info *argInfo = pKernel->GetKernelArgInfo();
+
   std::vector<MD5::MD5Result> hashes;
   for (unsigned int i = 0; i < argsCount; ++i) {
     char *pData = NULL;
     size_t size = 0;
+    StringRef ArgTypeName(argInfo[i].typeName);
     if ((KRNL_ARG_PTR_IMG_2D == pKernelArgs[i].Ty) ||
         (KRNL_ARG_PTR_IMG_1D == pKernelArgs[i].Ty) ||
         (KRNL_ARG_PTR_IMG_1D_ARR == pKernelArgs[i].Ty) ||
@@ -824,8 +809,8 @@ void OCLRecorder::RecordKernelInputs(const RecorderContext &programContext,
           *(cl_mem_obj_descriptor **)((char *)pArgsBuffer +
                                       pKernelArgs[i].OffsetInBytes);
       // create buffer
-      BufferDesc desc =
-          Utils::GetBufferDesc(mem_descriptor, *arg_it, programContext.m_DL);
+      BufferDesc desc = Utils::GetBufferDesc(mem_descriptor, *arg_it,
+                                             ArgTypeName, programContext.m_DL);
       IMemoryObject *pBuffer = pBufferContainer->CreateBuffer(desc);
 
       // fill it with data
@@ -836,8 +821,8 @@ void OCLRecorder::RecordKernelInputs(const RecorderContext &programContext,
     } else if (KRNL_ARG_PTR_LOCAL == pKernelArgs[i].Ty) {
       size_t localMemSize =
           *(size_t *)((char *)pArgsBuffer + pKernelArgs[i].OffsetInBytes);
-      BufferDesc desc =
-          Utils::GetBufferDesc(localMemSize, *arg_it, programContext.m_DL);
+      BufferDesc desc = Utils::GetBufferDesc(localMemSize, *arg_it, ArgTypeName,
+                                             programContext.m_DL);
       IMemoryObject *pBuffer = pBufferContainer->CreateBuffer(desc);
 
       // fill it with data
@@ -851,7 +836,7 @@ void OCLRecorder::RecordKernelInputs(const RecorderContext &programContext,
       size = elemSize * numElements;
 
       BufferDesc desc = Utils::GetBufferDesc(elemSize, numElements, *arg_it,
-                                             programContext.m_DL);
+                                             ArgTypeName, programContext.m_DL);
       IMemoryObject *pBuffer = pBufferContainer->CreateBuffer(desc);
       pData = (char *)pBuffer->GetDataPtr();
       memcpy(pData,
@@ -859,7 +844,7 @@ void OCLRecorder::RecordKernelInputs(const RecorderContext &programContext,
              size);
     } else if (KRNL_ARG_SAMPLER == pKernelArgs[i].Ty) {
       BufferDesc desc = Utils::GetBufferDesc(sizeof(unsigned int), *arg_it,
-                                             programContext.m_DL);
+                                             ArgTypeName, programContext.m_DL);
       IMemoryObject *pBuffer = pBufferContainer->CreateBuffer(desc);
       pData = (char *)pBuffer->GetDataPtr();
       size = sizeof(unsigned int);
@@ -867,8 +852,9 @@ void OCLRecorder::RecordKernelInputs(const RecorderContext &programContext,
              (void *)((char *)pArgsBuffer + pKernelArgs[i].OffsetInBytes),
              size);
     } else {
-      BufferDesc desc = Utils::GetBufferDesc((size_t)pKernelArgs[i].SizeInBytes,
-                                             *arg_it, programContext.m_DL);
+      BufferDesc desc =
+          Utils::GetBufferDesc((size_t)pKernelArgs[i].SizeInBytes, *arg_it,
+                               ArgTypeName, programContext.m_DL);
       IMemoryObject *pBuffer = pBufferContainer->CreateBuffer(desc);
       pData = (char *)pBuffer->GetDataPtr();
       size = pKernelArgs[i].SizeInBytes;

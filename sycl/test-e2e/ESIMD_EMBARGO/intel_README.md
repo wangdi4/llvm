@@ -20,19 +20,18 @@ tests verifying basic ESIMD features.
     https://gfx-assets.fm.intel.com/artifactory/gfx-cobalt-assets-fm/Cobalt/Linux/FCS/78304/FCS-78304-Linux.zip
     ```
 3)	Unzip to folder, for example, to `/iusers/$USER/fulsim/FCS`
-4)	Open command-shells: Let's call them: `_test_` and `_fsc_`.
-5)	Run the simulator in `_fsc_` command-shell:
+4)	Open command-shells: Let's call them: `_test_` and `_fcs_`.
+5)	Run the simulator in `_fcs_` command-shell:
     ```bash
     cd /iusers/$USER/fulsim/FCS;
-COUNT = 200;
-CUR = 1;
-while
-  ["$CUR" - ne `expr $COUNT + 1` ];
-do
-  ./ AubLoad '-device' ':config/fleur_de_lis/devices/fcs.1tx1x1x4x8.a0.map.xml' '-socket' 'tcp:61000' '-msglevel' 'terse' '-swsbcheck' 'fatal' '-attr' 'EU.XESIM' '1' '-enableFeature' '22012630691';
-CUR =`expr $CUR + 1`;
-done;"
+    COUNT = 200;
+    CUR = 1;
+    while ["$CUR" - ne `expr $COUNT + 1` ]; do
+    ./ AubLoad '-device' ':config/fleur_de_lis/devices/fcs.1tx1x1x4x8.a0.map.xml' '-socket' 'tcp:61000' '-msglevel' 'terse' '-swsbcheck' 'fatal' '-attr' 'EU.XESIM' '1' '-enableFeature' '22012630691';
+    CUR =`expr $CUR + 1`;
+    done;
     ```
+
 6)	In `_test_` command-shell:
     ```bash
     cat > igdrcl.config

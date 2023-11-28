@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload=true -debug -S %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload=true -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload=true -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload=true -debug -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;
@@ -28,10 +28,10 @@
 ; Check in the IR that the allocas and the stacksave call are inserted before red.init.body  and that the stackrestore is inserted after red.init.done
 ; CHECK: %e.addr.ascast.red.ascast = addrspacecast ptr %e.addr.ascast.red to ptr addrspace(4)
 ; CHECK: %e.addr.ascast.red.ascast.minus.offset.addr = alloca ptr addrspace(4), align 8
-; CHECK: [[SS:%[^ ]+]] = call ptr @llvm.stacksave()
+; CHECK: [[SS:%[^ ]+]] = call ptr @llvm.stacksave.p0()
 ; CHECK: red.init.body:
 ; CHECK: red.init.done:
-; CHECK: call void @llvm.stackrestore(ptr [[SS]])
+; CHECK: call void @llvm.stackrestore.p0(ptr [[SS]])
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

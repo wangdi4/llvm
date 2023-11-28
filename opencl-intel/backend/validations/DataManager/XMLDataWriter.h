@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,17 +15,15 @@
 #ifndef __XML_DATA_WRITER_H__
 #define __XML_DATA_WRITER_H__
 
-#include "llvm/Support/DataTypes.h"
-#include <limits>
-#include <sstream>
-#include <string>
-
-#include "tinyxml_wrapper.h"
-
 #include "Exception.h"
 #include "IBufferContainerList.h"
 #include "IDataWriter.h"
 #include "XMLDataReadWrite.h"
+#include "tinyxml_wrapper.h"
+#include "llvm/Support/DataTypes.h"
+#include <limits>
+#include <sstream>
+#include <string>
 
 namespace Validation {
 /// @brief IBufferContainerList object writer to data file in XML format

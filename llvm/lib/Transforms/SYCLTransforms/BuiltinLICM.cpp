@@ -20,6 +20,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 
 using namespace llvm;
 using namespace LoopUtils;
@@ -51,7 +52,7 @@ private:
 
   SmallVector<Instruction *, 16> BuiltinToMove;
 
-  void scanLoop(DomTreeNode *N);
+  void scanLoop();
 
   bool canHoistBuiltin(CallInst *CI);
 };
@@ -77,28 +78,26 @@ bool BuiltinLICMImpl::canHoistBuiltin(CallInst *CI) {
   return true;
 }
 
-void BuiltinLICMImpl::scanLoop(DomTreeNode *N) {
-  assert(N != 0 && "Null dominator tree node?");
-  BasicBlock *BB = N->getBlock();
+void BuiltinLICMImpl::scanLoop() {
+  auto *Header = CurLoop->getHeader();
+  // Get the BFS traversal order of all DOM nodes inside the loop.
+  auto WorkList = collectChildrenInLoop(DT.getNode(Header), CurLoop);
 
-  // If this subregion is outside the current loop exit.
-  if (!CurLoop->contains(BB))
-    return;
+  for (auto *N : WorkList) {
+    auto *BB = N->getBlock();
 
-  // We don't analyze instruction in sub-loops.
-  // Loop Passes goes from inner loop to outer loops, values from more inner
-  // are already hoisted.
-  if (!inSubLoop(BB, CurLoop, &LI)) {
+    // We don't analyze instruction in sub-loops.
+    // Loop Passes goes from inner loop to outer loops, values from more inner
+    // are already hoisted.
+    if (inSubLoop(BB, CurLoop, &LI))
+      continue;
+
     for (auto &I : *BB) {
       CallInst *CI = dyn_cast<CallInst>(&I);
       if (CI && canHoistBuiltin(CI))
         BuiltinToMove.push_back(CI);
     }
   }
-
-  // Go over blocks recursively according to Dominator tree.
-  for (DomTreeNode *child : N->children())
-    scanLoop(child);
 }
 
 bool BuiltinLICMImpl::run() {
@@ -109,10 +108,8 @@ bool BuiltinLICMImpl::run() {
   if (!L.isLoopSimplifyForm())
     return false;
 
-  BasicBlock *header = CurLoop->getHeader();
-
-  // recursively scan the loop according to the dominator tree order.
-  scanLoop(DT.getNode(header));
+  // Find hoistable builtin calls inside the current loop.
+  scanLoop();
 
   // hoist builtins to pre-header
   for (auto *I : BuiltinToMove)

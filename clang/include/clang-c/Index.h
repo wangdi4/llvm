@@ -2153,13 +2153,16 @@ enum CXCursorKind {
    */
   CXCursor_OMPErrorDirective = 305,
 
+  /** OpenMP scope directive.
+   */
+  CXCursor_OMPScopeDirective = 306,
+
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 306,
-  CXCursor_OMPPrefetchDirective = 307,
-  CXCursor_OMPScopeDirective = 308,
+  CXCursor_OMPTargetVariantDispatchDirective = 307,
+  CXCursor_OMPPrefetchDirective = 308,
+  CXCursor_LastStmt = CXCursor_OMPPrefetchDirective,
+#else  /* INTEL_COLLAB */
   CXCursor_LastStmt = CXCursor_OMPScopeDirective,
-#else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPErrorDirective,
 #endif /* INTEL_COLLAB */
 
   /**
@@ -3014,9 +3017,10 @@ enum CXCallingConv {
   CXCallingConv_AArch64VectorCall = 16,
   CXCallingConv_SwiftAsync = 17,
   CXCallingConv_AArch64SVEPCS = 18,
+  CXCallingConv_M68kRTD = 19,
 #if INTEL_CUSTOMIZATION
-  CXCallingConv_IntelOclBiccAVX = 19,
-  CXCallingConv_IntelOclBiccAVX512 = 20,
+  CXCallingConv_IntelOclBiccAVX = 20,
+  CXCallingConv_IntelOclBiccAVX512 = 21,
 #endif /* INTEL_CUSTOMIZATION */
 
   CXCallingConv_Invalid = 100,

@@ -15,12 +15,9 @@
 //
 // ===--------------------------------------------------------------------=== //
 
+#include "CL/cl_fpga_ext.h"
 #include "base_fixture.h"
-
 #include "gtest_wrapper.h"
-#include <CL/cl.h>
-#include <CL/cl_fpga_ext.h>
-
 #include <string>
 
 class TestFPGABasic : public OCLFPGABaseFixture {};

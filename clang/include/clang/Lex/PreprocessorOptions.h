@@ -88,14 +88,6 @@ public:
   StringRef OutputFile;
 #endif // INTEL_CUSTOMIZATION
 
-  using MacrosTy = std::vector<std::pair<std::string, bool>>;
-  using PrecompiledPreambleBytesTy = std::pair<unsigned, bool>;
-  using RemappedFilesTy = std::vector<std::pair<std::string, std::string>>;
-  using RemappedFileBuffersTy =
-      std::vector<std::pair<std::string, llvm::MemoryBuffer *>>;
-  using MacroPrefixMapTy =
-      std::map<std::string, std::string, std::greater<std::string>>;
-
   std::vector<std::pair<std::string, bool/*isUndef*/>> Macros;
   std::vector<std::string> Includes;
   std::vector<std::string> MacroIncludes;

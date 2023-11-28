@@ -34,6 +34,7 @@ class SuppressionContext {
 
   void ParseFromFile(const char *filename);
   void Parse(const char *str);
+  void Add(const char *type, const char *templ);
 
   bool Match(const char *str, const char *type, Suppression **s);
   uptr SuppressionCount() const;

@@ -1,6 +1,6 @@
 //===--- IntelCustDocs.td - Documentation for intel-specific attrs --------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -41,6 +41,7 @@ def DocCatIntelHLSPragmas : DocumentationCategory<"HLS/FPGA Pragmas">;
 def DocCatIntelOpenMP : DocumentationCategory<"OpenMP">;
 def DocCatIntelCompat : DocumentationCategory<"Intel Compatibility">;
 def DocCatMSCompat : DocumentationCategory<"Microsoft Compatibility">;
+def DocCatIntelDebug : DocumentationCategory<"Intel Debug">;
 
 // Specifies the documentation to be associated with the given category.
 class Documentation {
@@ -792,6 +793,7 @@ Syntax:
 
 Currently we only support ``pragma vector``, ``pragma vector always``,
 ``pragma vector aligned``, ``pragma vector dynamic_align``,
+``pragma vector unaligned``,
 ``pragma vector nodynamic_align``, ``pragma vector vecremainder``,
 ``pragma vector novecremainder``, ``pragma vector always assert``,
 ``pragma vector temporal``, ``pragma vecotor nontemporal`` and
@@ -810,6 +812,8 @@ Example:
     #pragma vector always
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
     #pragma vector aligned
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector unaligned
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
     #pragma vector dynamic_align
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
@@ -854,6 +858,10 @@ AST:
   | |-<<<NULL>>>
   | `-<<<NULL>>>
 
+  AttributedStmt 0x2d888a37748 <line:6:11, line:7:46>
+  |-LoopHintAttr 0x2d888a37708 <line:6:11> Implicit vector VectorizeUnAligned Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
 
   AttributedStmt 0x2d888a37748 <line:6:11, line:7:46>
   |-LoopHintAttr 0x2d888a37708 <line:6:11> Implicit vector VectorizeDynamicAlign Enable
@@ -3830,6 +3838,62 @@ This change allows the use of the `__pragma` keyword as an alternative to
   #pragma(warning(push)); // Normal directive.
 
 }];
+}
+
+def DebugAllocaByvalArgsDocs: Documentation {
+  let Category = DocCatIntelDebug;
+  let Option = "IntelCompat";
+  let Owner = "pmrao";
+  let Default = 1;
+  let Content = [{
+Store the address of indirect byval arguments on the stack to preserve
+debug information.
+
+Example:
+
+.. code-block:: c++
+
+  struct cmplx { int a, b, c, d, e; };
+
+  void change(struct cmplx a) {
+    a.a = 5;
+  }
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -O0 -g -fintel-compatibility -emit-llvm -o - t.c
+
+.. code-block:: llvm
+
+  define void @_Z6change5cmplx(ptr noundef byval(%struct.cmplx) align 8 %a) {
+  entry:
+    %a.indirect_addr = alloca ptr, align 8
+    store ptr %a, ptr %a.indirect_addr, align 8
+    call void @llvm.dbg.declare(metadata ptr %a.indirect_addr, metadata !20, metadata !DIExpression(DW_OP_deref)), !dbg !21
+    ...
+  }
+
+.. code-block:: console
+
+  $ clang -cc1 -O0 -g -fintel-compatibility -fintel-compatibility-disable=DebugAllocaByvalArgs -emit-llvm -o - t.c
+
+.. code-block:: llvm
+
+  define void @_Z6change5cmplx(ptr noundef byval(%struct.cmplx) align 8 %a) {
+  entry:
+    call void @llvm.dbg.declare(metadata ptr %a, metadata !20, metadata !DIExpression()) !dbg !21
+    ...
+  }
+  }];
+
+  let UserContent = [{
+For the indirect arguments that are passed byval, this change stores their
+addresses on the callee stack.  This helps preserve debug information for
+those arguments.  The non-byval indirect arguments have their addresses
+stored on the stack, independent of this option.
+  }];
 }
 
 def GlobalDocumentation {

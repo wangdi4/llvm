@@ -58,13 +58,13 @@ bool TestRun(cl_program &program, cl_context cxContext, cl_device_id device) {
   cl_kernel kern = clCreateKernel(program, "test_kernel", &iRet);
   bResult = SilentCheck("clCreateKernel", CL_SUCCESS, iRet);
 
-  std::unique_ptr<int> pDst(new int[szGlobalWorkSize]);
+  std::unique_ptr<int[]> pDst(new int[szGlobalWorkSize]);
   for (size_t i = 0; i < szGlobalWorkSize; ++i)
     pDst.get()[i] = 0;
-  std::unique_ptr<int> pSrcA(new int[szGlobalWorkSize]);
+  std::unique_ptr<int[]> pSrcA(new int[szGlobalWorkSize]);
   for (size_t i = 0; i < szGlobalWorkSize; ++i)
     pSrcA.get()[i] = i % 2;
-  std::unique_ptr<int> pSrcB(new int[szGlobalWorkSize]);
+  std::unique_ptr<int[]> pSrcB(new int[szGlobalWorkSize]);
   for (size_t i = 0; i < szGlobalWorkSize; ++i)
     pSrcB.get()[i] = 10;
 
@@ -112,7 +112,7 @@ bool TestRun(cl_program &program, cl_context cxContext, cl_device_id device) {
                              &szGlobalWorkSize, 0, NULL, NULL);
   bResult &= Check("clEnqueueNDRangeKernel()", CL_SUCCESS, ciErrNum);
 
-  std::unique_ptr<int> pRead(new int[szGlobalWorkSize]);
+  std::unique_ptr<int[]> pRead(new int[szGlobalWorkSize]);
   ciErrNum = clEnqueueReadBuffer(cqCommandQueue, cmDevDst, CL_TRUE, 0,
                                  sizeof(cl_int) * szGlobalWorkSize, pRead.get(),
                                  0, NULL, NULL);

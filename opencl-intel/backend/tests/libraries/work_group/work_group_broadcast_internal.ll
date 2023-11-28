@@ -1,5 +1,5 @@
 ; REQUIRES: 64bit
-; RUN: llvm-extract %libdir/clbltfnz0.rtl -rfunc work_group_broadcast -S -o - | opt -opaque-pointers=1 -S -o - | FileCheck %s
+; RUN: llvm-extract %libdir/clbltfnz0.rtl -rfunc work_group_broadcast -S -o - | opt -S -o - | FileCheck %s
 
 ; The GroupBuiltin pass will replace work_group_broadcast calls with the following internal implementations.
 

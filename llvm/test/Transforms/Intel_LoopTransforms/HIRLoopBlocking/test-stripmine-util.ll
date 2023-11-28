@@ -5,10 +5,10 @@
 ; CHECK: Function: xlm_apply_y_rotation_
 ;
 ; CHECK:         BEGIN REGION { }
-; CHECK:               + DO i1 = 0, %"xlm_apply_y_rotation_$L_fetch.1784", 1   <DO_LOOP>  <MAX_TC_EST = 31>  <LEGAL_MAX_TC = 31> <max_trip_count = 31>
-; CHECK:               |   + DO i2 = 0, %"xlm_apply_y_rotation_$L_fetch.1784", 1   <DO_LOOP>  <MAX_TC_EST = 961>  <LEGAL_MAX_TC = 961> <max_trip_count = 961>
-; CHECK:               |   |   %"xlm_apply_y_rotation_$QQ[]_fetch.1823" = (@"xlm_apply_y_rotation_$QQ")[i1 + 30];
-; CHECK:               |   |   %mul.295 = (@"xlm_apply_y_rotation_$DP")[(1 + %"xlm_apply_y_rotation_$L_fetch.1784") * i1 + i2]  *  %"xlm_apply_y_rotation_$QQ[]_fetch.1823";
+; CHECK:               + DO i1 = 0, %"xlm_apply_y_rotation_$L_fetch.1784", 1   <DO_LOOP>  <MAX_TC_EST = 31>
+; CHECK:               |   + DO i2 = 0, %"xlm_apply_y_rotation_$L_fetch.1784", 1   <DO_LOOP>  <MAX_TC_EST = 961>
+; CHECK:               |   |   %"xlm_apply_y_rotation_$QQ[]_fetch.1823" = (@"xlm_apply_y_rotation_$QQ")[0][i1 + 30];
+; CHECK:               |   |   %mul.295 = (@"xlm_apply_y_rotation_$DP")[0][(1 + %"xlm_apply_y_rotation_$L_fetch.1784") * i1 + i2]  *  %"xlm_apply_y_rotation_$QQ[]_fetch.1823";
 ; CHECK:               |   |   %add.278 = (%"xlm_apply_y_rotation_$Q")[%"xlm_apply_y_rotation_$L_fetch.1784"][i2]  +  %mul.295;
 ; CHECK:               |   |   (%"xlm_apply_y_rotation_$Q")[%"xlm_apply_y_rotation_$L_fetch.1784"][i2] = %add.278;
 ; CHECK:               |   + END LOOP
@@ -18,16 +18,16 @@
 ; CHECK: Function: xlm_apply_y_rotation_
 ;
 ; CHECK:         BEGIN REGION { modified }
-; CHECK:               + DO i1 = 0, (%"xlm_apply_y_rotation_$L_fetch.1784")/u64, 1   <DO_LOOP>  <MAX_TC_EST = 31>  <LEGAL_MAX_TC = 31> <max_trip_count = 31>
+; CHECK:               + DO i1 = 0, (%"xlm_apply_y_rotation_$L_fetch.1784")/u64, 1   <DO_LOOP>  <MAX_TC_EST = 31>
 ; CHECK:               |   %min = (-64 * i1 + %"xlm_apply_y_rotation_$L_fetch.1784" <= 63) ? -64 * i1 + %"xlm_apply_y_rotation_$L_fetch.1784" : 63;
 ; CHECK:               |
-; CHECK:               |   + DO i2 = 0, (%"xlm_apply_y_rotation_$L_fetch.1784")/u64, 1   <DO_LOOP>  <MAX_TC_EST = 961>  <LEGAL_MAX_TC = 961> <max_trip_count = 961>
+; CHECK:               |   + DO i2 = 0, (%"xlm_apply_y_rotation_$L_fetch.1784")/u64, 1   <DO_LOOP>  <MAX_TC_EST = 961>
 ; CHECK:               |   |   %min3 = (-64 * i2 + %"xlm_apply_y_rotation_$L_fetch.1784" <= 63) ? -64 * i2 + %"xlm_apply_y_rotation_$L_fetch.1784" : 63;
 ; CHECK:               |   |
-; CHECK:               |   |   + DO i3 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 31>  <LEGAL_MAX_TC = 64> <max_trip_count = 31>
-; CHECK:               |   |   |   + DO i4 = 0, %min3, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64> <max_trip_count = 961>
-; CHECK:               |   |   |   |   %"xlm_apply_y_rotation_$QQ[]_fetch.1823" = (@"xlm_apply_y_rotation_$QQ")[64 * i1 + i3 + 30];
-; CHECK:               |   |   |   |   %mul.295 = (@"xlm_apply_y_rotation_$DP")[64 * (1 + %"xlm_apply_y_rotation_$L_fetch.1784") * i1 + 64 * i2 + (1 + %"xlm_apply_y_rotation_$L_fetch.1784") * i3 + i4]  *  %"xlm_apply_y_rotation_$QQ[]_fetch.1823";
+; CHECK:               |   |   + DO i3 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 31>
+; CHECK:               |   |   |   + DO i4 = 0, %min3, 1   <DO_LOOP>  <MAX_TC_EST = 64>  <LEGAL_MAX_TC = 64>
+; CHECK:               |   |   |   |   %"xlm_apply_y_rotation_$QQ[]_fetch.1823" = (@"xlm_apply_y_rotation_$QQ")[0][64 * i1 + i3 + 30];
+; CHECK:               |   |   |   |   %mul.295 = (@"xlm_apply_y_rotation_$DP")[0][64 * (1 + %"xlm_apply_y_rotation_$L_fetch.1784") * i1 + 64 * i2 + (1 + %"xlm_apply_y_rotation_$L_fetch.1784") * i3 + i4]  *  %"xlm_apply_y_rotation_$QQ[]_fetch.1823";
 ; CHECK:               |   |   |   |   %add.278 = (%"xlm_apply_y_rotation_$Q")[%"xlm_apply_y_rotation_$L_fetch.1784"][64 * i2 + i4]  +  %mul.295;
 ; CHECK:               |   |   |   |   (%"xlm_apply_y_rotation_$Q")[%"xlm_apply_y_rotation_$L_fetch.1784"][64 * i2 + i4] = %add.278;
 ; CHECK:               |   |   |   + END LOOP
@@ -105,13 +105,13 @@ bb411:                                            ; preds = %bb411, %bb411.prehe
   %add.279 = add nsw i64 %"xlm_apply_y_rotation_$IND.1", 1
   %add.280 = add nuw nsw i64 %"xlm_apply_y_rotation_$M.1", 1
   %exitcond84 = icmp eq i64 %add.280, %0
-  br i1 %exitcond84, label %bb412, label %bb411, !llvm.loop !0
+  br i1 %exitcond84, label %bb412, label %bb411
 
 bb412:                                            ; preds = %bb411
   %1 = add i64 %0, %"xlm_apply_y_rotation_$IND.0"
   %add.281 = add nuw nsw i64 %"xlm_apply_y_rotation_$MP.0", 1
   %exitcond85 = icmp eq i64 %add.281, %0
-  br i1 %exitcond85, label %bb408, label %bb411.preheader, !llvm.loop !2
+  br i1 %exitcond85, label %bb408, label %bb411.preheader
 
 bb408:                                            ; preds = %bb412
   br label %bb426.loopexit
@@ -135,8 +135,3 @@ bb396:                                            ; preds = %bb396.loopexit, %al
 ; Function Attrs: nounwind uwtable
 declare void @xlm_y_rotation_matrix_(ptr noalias dereferenceable(8), ptr noalias nocapture readonly dereferenceable(8), ptr noalias dereferenceable(8), ptr noalias dereferenceable(8)) local_unnamed_addr #1
 
-
-!0 = distinct !{!0, !1}
-!1 = !{!"llvm.loop.intel.loopcount_maximum", i32 961}
-!2 = distinct !{!2, !3}
-!3 = !{!"llvm.loop.intel.loopcount_maximum", i32 31}

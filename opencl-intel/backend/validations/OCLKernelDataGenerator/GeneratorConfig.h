@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,17 +15,14 @@
 #ifndef __GENERATOR_CONFIG_H__
 #define __GENERATOR_CONFIG_H__
 
-#include <string.h>
-
 #include "FloatOperations.h"
 #include "ImageDesc.h"
+#include "OpenCLKernelArgumentsParser.h"
 #include "TypeDesc.h"
+#include "tinyxml_wrapper.h"
+#include <string.h>
 #include <utility>
 #include <vector>
-
-#include "tinyxml_wrapper.h"
-
-#include "OpenCLKernelArgumentsParser.h"
 
 namespace Validation {
 /// abstract class that describes method of generation

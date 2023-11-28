@@ -1,15 +1,20 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -disable-output -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec -vplan-cost-model-print-analysis-for-vf=1 | FileCheck %s --check-prefix=VPLAN-CM-DEF
-; RUN: opt < %s -disable-output -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec -vplan-cost-model-print-analysis-for-vf=1 -march=+sse | FileCheck %s --check-prefix=VPLAN-CM-SSE
+; RUN: opt < %s -disable-output -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec -vplan-cost-model-print-analysis-for-vf=1 -mattr=+avx512f | FileCheck %s --check-prefix=VPLAN-CM-AVX512
 
-; The test checks that SLP patterns in both functions are found to be profitable for
-; SSE-able target, and none is profitable for target w/o SSE.
+; The test checks that SLP patterns in all functions are found to be profitable and
+; have higher cost of vectorization on platform w/o HW masked loads comparing to
+; target with HW masked loads (avx512f). The cost difference results non-full SSE
+; regs loads to be unprofitable to vectorize on targets w/o masked loads.
+; 'Full SSE regs' loads make no difference in cost on contrary.
 
-; VPLAN-CM-DEF-NOT: Cost decrease due to SLP breaking heuristic is
-; VPLAN-CM-SSE: Cost decrease due to SLP breaking heuristic is 4
-; VPLAN-CM-SSE: Cost decrease due to SLP breaking heuristic is 8
-; VPLAN-CM-SSE: Cost decrease due to SLP breaking heuristic is 12
+; VPLAN-CM-DEF: Cost decrease due to SLP breaking heuristic is 4
+; VPLAN-CM-DEF-NOT: Cost decrease due to SLP breaking heuristic is 8
+; VPLAN-CM-DEF: Cost decrease due to SLP breaking heuristic is 12
+; VPLAN-CM-AVX512: Cost decrease due to SLP breaking heuristic is 4
+; VPLAN-CM-AVX512: Cost decrease due to SLP breaking heuristic is 8
+; VPLAN-CM-AVX512: Cost decrease due to SLP breaking heuristic is 12
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -18,7 +23,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @b = global [10240 x %struct.rgb_t] zeroinitializer, align 16
 @a = global [10240 x %struct.rgb_t] zeroinitializer, align 16
 
-define void @foo2() {
+define void @foo_2elem() {
 entry:
   br label %for.body
 
@@ -44,7 +49,7 @@ for.end:                                          ; preds = %for.body
   ret void
 }
 
-define void @foo3() {
+define void @foo_3elem() {
 entry:
   br label %for.body
 
@@ -76,7 +81,7 @@ for.end:                                          ; preds = %for.body
   ret void
 }
 
-define void @foo4() {
+define void @foo_4elem() {
 entry:
   br label %for.body
 

@@ -1,3 +1,20 @@
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2023 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -28,8 +45,8 @@
 extern "C" {
 #endif
 
-#if INTEL_COLLAB
-#else // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+#else // INTEL_CUSTOMIZATION
 /// TODO: Include the `omp.h` of the current build
 /* OpenMP 5.1 interop */
 typedef intptr_t omp_intptr_t;
@@ -117,7 +134,7 @@ omp_get_interop_type_desc(const omp_interop_t, omp_interop_property_t);
  */
 extern const char *__KAI_KMPC_CONVENTION
 omp_get_interop_rc_desc(const omp_interop_t, omp_interop_rc_t);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 typedef enum omp_interop_backend_type_t {
   // reserve 0

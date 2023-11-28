@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2020 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,11 +14,10 @@
 
 #pragma once
 
+#include "CL/cl_ext.h"
 #include "cl_linux_utils.h"
 #include "cl_sys_defines.h"
 #include "cl_types.h"
-
-#include <CL/cl_ext.h>
 
 // Disable warning 'deprecated-declarations' emitted from
 // opencl-headers/CL/cl_icd.h

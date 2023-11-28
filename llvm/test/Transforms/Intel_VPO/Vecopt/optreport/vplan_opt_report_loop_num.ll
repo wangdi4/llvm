@@ -1,13 +1,13 @@
 ; Test to check the loop number is printed correctly in opt report.
 
 ; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-report-loop-number -vplan-force-vf=2 -intel-opt-report=high < %s -disable-output 2>&1 | FileCheck %s
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-report-loop-number -vplan-force-vf=2 -intel-opt-report=high < %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-report-loop-number -vplan-force-vf=2 -intel-opt-report=high < %s -disable-output 2>&1 | FileCheck %s
 
 ; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-report-loop-number -vplan-force-vf=2 -intel-opt-report=high -vplan-vec-range=1 < %s -disable-output 2>&1 | FileCheck %s --check-prefixes=ONLY1st
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-report-loop-number -vplan-force-vf=2 -intel-opt-report=high -vplan-vec-range=1 < %s -disable-output 2>&1 | FileCheck %s --check-prefixes=ONLY1st
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-report-loop-number -vplan-force-vf=2 -intel-opt-report=high -vplan-vec-range=1 < %s -disable-output 2>&1 | FileCheck %s --check-prefixes=ONLY1st
 
 ; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-report-loop-number -vplan-force-vf=2 -intel-opt-report=high -vplan-vec-range="~1:2" < %s -disable-output 2>&1 | FileCheck %s --check-prefixes=NONE
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-report-loop-number -vplan-force-vf=2 -intel-opt-report=high -vplan-vec-range="~1:2" < %s -disable-output 2>&1 | FileCheck %s --check-prefixes=NONE
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -vplan-report-loop-number -vplan-force-vf=2 -intel-opt-report=high -vplan-vec-range="~1:2" < %s -disable-output 2>&1 | FileCheck %s --check-prefixes=NONE
 
 
 ;For the vplan-vec-range=1. This is valid until bailout is not reported.

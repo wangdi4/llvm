@@ -1,22 +1,22 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-pch -o %t -std=c++14 -fopenmp \
-// RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s
+// RUN: %clang_cc1 -emit-pch -o %t -std=c++14 -fopenmp \
+// RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
 // RUN:  -include-pch %t -verify \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses \
+//RUN:  -fopenmp-late-outline \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
+//RUN: %clang_cc1 -triple spir64 \
 //RUN:  -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses \
+//RUN:  -fopenmp-late-outline \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s -check-prefix TARG

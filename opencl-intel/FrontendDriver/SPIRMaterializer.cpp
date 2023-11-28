@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2022 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -134,22 +134,11 @@ static PointerType *getOrCreateOpaquePtrType(Module *M, const std::string &Name,
   return PointerType::get(OpaqueType, AS);
 }
 
-#ifndef NDEBUG
-static bool isPointerToOpaqueStructType(llvm::Type *Ty) {
-  if (auto PT = dyn_cast<PointerType>(Ty))
-    if (auto ST = dyn_cast<StructType>(PT->getNonOpaquePointerElementType()))
-      if (ST->isOpaque())
-        return true;
-  return false;
-}
-#endif // NDEBUG
-
-static reflection::TypePrimitiveEnum getPrimitiveType(Type *T) {
-  assert(isPointerToOpaqueStructType(T) && "Invalid type");
-  auto Name = T->getNonOpaquePointerElementType()->getStructName();
-#define CASE(X, Y)                                                             \
-  StartsWith("opencl.image" #X, reflection::PRIMITIVE_IMAGE_##Y)
-  return StringSwitch<reflection::TypePrimitiveEnum>(Name)
+static reflection::TypePrimitiveEnum
+getPrimitiveType(const std::string &ImageTypeName) {
+  assert(ImageTypeName.find("image") != std::string::npos && "Invalid type");
+#define CASE(X, Y) StartsWith("image" #X, reflection::PRIMITIVE_IMAGE_##Y)
+  return StringSwitch<reflection::TypePrimitiveEnum>(ImageTypeName)
       .CASE(1d_ro_t, 1D_RO_T)
       .CASE(1d_wo_t, 1D_WO_T)
       .CASE(1d_rw_t, 1D_RW_T)
@@ -201,20 +190,21 @@ changeImageCall(llvm::CallInst *CI,
                   .Case("write_imagei", "wo_")
                   .Case("write_imageui", "wo_")
                   .Default("ro_");
-  auto ImgArg = CI->getArgOperand(0);
-  auto ImgArgTy = ImgArg->getType();
-  assert(isPointerToOpaqueStructType(ImgArgTy) && "Expect image type argument");
-  auto STName = ImgArgTy->getNonOpaquePointerElementType()->getStructName();
-  assert(STName.startswith("opencl.image") && "Expect image type argument");
+  // Get human readable function's prototype using FunctionDescriptor, e.g.,
+  // get get_image_width(image1d_ro_t) from
+  // _Z15get_image_width14ocl_image1d_ro, image1d_ro_t is first parameter.
+  auto STName = FD.Parameters[0]->toString();
+  assert(STName.find("image") != std::string::npos &&
+         "Expect image type argument");
   if (STName.find("_ro_t") != std::string::npos ||
       STName.find("_wo_t") != std::string::npos ||
       STName.find("_rw_t") != std::string::npos)
     return;
   std::vector<Value *> Args;
   std::vector<Type *> ArgTys;
+  auto UpdatedImageName = updateImageTypeName(STName, AccQ);
   ArgTys.push_back(getOrCreateOpaquePtrType(CI->getParent()->getModule(),
-                                            updateImageTypeName(STName, AccQ),
-                                            SPIRAS_Global));
+                                            UpdatedImageName, SPIRAS_Global));
   Args.push_back(
       BitCastInst::CreatePointerCast(CI->getArgOperand(0), ArgTys[0], "", CI));
   for (unsigned i = 1; i < CI->arg_size(); ++i) {
@@ -239,7 +229,7 @@ changeImageCall(llvm::CallInst *CI,
   auto OldImgTy = dyn_cast<reflection::PrimitiveType>(
       (reflection::ParamType *)FD.Parameters[0].get());
   assert(OldImgTy && "Illformed function descriptor");
-  OldImgTy->setPrimitive(getPrimitiveType(ArgTys[0]));
+  OldImgTy->setPrimitive(getPrimitiveType(UpdatedImageName));
   auto NewName = mangle(FD);
 
   // Check if a new function is already added to the module.

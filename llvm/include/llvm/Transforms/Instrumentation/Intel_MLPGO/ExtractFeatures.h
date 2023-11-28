@@ -48,7 +48,7 @@ struct Parameters {
 
   bool DumpFeatures{false}; // need dump raw features
   bool RemoveNonRun{false}; // remove non-Run feature vector
-  bool DumpJSON{false};     // dump features in JSON format
+  bool DumpJSON{true};      // dump features in JSON format
   bool DumpFeaturesWithInfRes{
       false}; // whether to dump raw features with inference results or not
   bool DumpFeaturesWithDebugInfo{

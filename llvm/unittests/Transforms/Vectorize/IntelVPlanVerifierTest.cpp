@@ -15,7 +15,8 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-namespace {
+namespace llvm {
+namespace vpo {
 // Test base including verifier and builder utilities
 class VPlanVerifierTestBase : public VPlanTestBase {
 protected:
@@ -33,10 +34,56 @@ protected:
         *Plan->getDT(), *Plan->getPDT(), false /*Not in LCSSA form.*/);
   }
 
+  template <class T> void setMergeId(T *VPVal, unsigned Id) {
+    VPVal->MergeId = Id;
+  }
+
+  template <class T> Value *getUnderlying(T *VPVal) {
+    return VPVal->getUnderlyingValue();
+  }
+
+  template <class T> void setUnderlying(T *VPVal, Value *NewUnderlying) {
+    VPVal->setUnderlyingValue(*NewUnderlying);
+  }
+
+  SmallVectorImpl<std::unique_ptr<VPLiveInValue>> *getLiveIns() {
+    return &(Plan->LiveInValues);
+  }
+
+  SmallVectorImpl<std::unique_ptr<VPLiveOutValue>> *getLiveOuts() {
+    return &(Plan->LiveOutValues);
+  }
+
+  SmallVectorImpl<std::unique_ptr<VPExternalUse>> *getExtUses() {
+    return &(Plan->getExternals().VPExternalUses);
+  }
+
+  SmallVectorImpl<std::unique_ptr<VPExternalDef>> *getExtDefs() {
+    return &(Plan->getExternals().VPExternalDefs);
+  }
+
   std::unique_ptr<VPlanVerifier> Verifier;
   std::unique_ptr<VPlanNonMasked> Plan;
   VPBuilder Builder;
 };
+} // namespace vpo
+} // namespace llvm
+
+namespace {
+const char *SmallLoopIR = R"(
+    define void @foo(i64 %N, ptr %Idx) {
+      entry:
+        %outer.idx = load i64, ptr %Idx
+        br label %for.body
+      for.body:
+        %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+        %indvars.iv.next = add i64 %indvars.iv, 1
+        %exitcond = icmp ne i64 %indvars.iv.next, %N
+        br i1 %exitcond, label %for.body, label %for.end
+      for.end:
+        ret void
+      }
+    )";
 
 // Test for SSA verification
 TEST_F(VPlanVerifierTestBase, VerifySSATest) {
@@ -129,20 +176,7 @@ TEST_F(VPlanVerifierTestBase, DTUpdateTest) {
 // Tests include missing shapes and differing shapes between
 // stored shape and the result of a fresh calculation
 TEST_F(VPlanVerifierTestBase, DATests) {
-  Module &M = parseModule(R"(
-    define void @foo(i64 %N, i64* %Idx) {
-      entry:
-        %outer.idx = load i64, i64* %Idx
-        br label %for.body
-      for.body:
-        %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-        %indvars.iv.next = add i64 %indvars.iv, 1
-        %exitcond = icmp ne i64 %indvars.iv.next, %N
-        br i1 %exitcond, label %for.body, label %for.end
-      for.end:
-        ret void
-      }
-    )");
+  Module &M = parseModule(SmallLoopIR);
 
   Function *Func = M.getFunction("foo");
   BasicBlock *LoopHeader = Func->getEntryBlock().getSingleSuccessor();
@@ -170,5 +204,130 @@ TEST_F(VPlanVerifierTestBase, DATests) {
   DA->markDivergent(*CmpInst);
   EXPECT_DEATH(Verifier->verifyVPlan(Plan.get(), VPlanVerifier::CheckDAShapes),
                "Recalculated shape for DA is different");
+}
+
+TEST_F(VPlanVerifierTestBase, EntryExitPredicates) {
+  Module &M = parseModule(R"(
+    define void @foo(i64 %N, ptr %Idx) {
+      entry:
+        %outer.idx = load i64, ptr %Idx
+        br label %for.body.a
+      for.body.a:
+        %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body.b ]
+        %indvars.iv.next = add i64 %indvars.iv, 1
+        br label %for.body.b
+      for.body.b:
+        %exitcond = icmp ne i64 %indvars.iv.next, %N
+        br i1 %exitcond, label %for.body.a, label %for.end
+      for.end:
+        br label %exit
+      exit:
+        ret void
+      }
+    )");
+
+  Function *Func = M.getFunction("foo");
+  BasicBlock *LoopHeader = Func->getEntryBlock().getSingleSuccessor();
+  getHCFGPlan(LoopHeader);
+
+  VPLoop *Lp = *Plan->getVPLoopInfo()->begin();
+  assert(Lp);
+
+  VPBasicBlock *Header = Lp->getHeader();
+  VPBasicBlock *Exit = Lp->getExitingBlock();
+  assert(Header && Exit && Header != Exit);
+
+  Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipDA);
+
+  auto *I32Ty = IntegerType::get(*Ctx, 32);
+
+  // Set exit predicate, but not entry
+  Builder.setInsertPointFirstNonPhi(Exit);
+  Exit->setBlockPredicate(Builder.createPred(new VPValue(I32Ty)));
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipDA),
+               "both be predicated or neither");
+
+  // Remove exit predicate and re-verify to ensure it passes
+  Exit->setBlockPredicate(nullptr);
+  Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipDA);
+
+  // Set header predicate without an exit predicate
+  Builder.setInsertPointFirstNonPhi(Header);
+  Header->setBlockPredicate(Builder.createPred(new VPValue(I32Ty)));
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipDA),
+               "both be predicated or neither");
+
+  // Set exit predicate to different value than entry predicate
+  Builder.setInsertPointFirstNonPhi(Exit);
+  Exit->setBlockPredicate(Builder.createPred(new VPValue(I32Ty)));
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipDA),
+               "do not have the same predicate");
+
+  // Set matching predicate for entry and exit
+  Exit->setBlockPredicate(Header->getBlockPredicate());
+  Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipDA);
+}
+
+TEST_F(VPlanVerifierTestBase, ExtUseTest) {
+  Module &M = parseModule(SmallLoopIR);
+
+  Function *Func = M.getFunction("foo");
+  BasicBlock *LoopHeader = Func->getEntryBlock().getSingleSuccessor();
+  getHCFGPlan(LoopHeader);
+  Verifier->verifyVPlan(Plan.get());
+
+  VPExternalValues *Exts = &Plan->getExternals();
+  VPExternalUse *First = *Exts->externalUses().begin();
+  Type *Ty = First->getType();
+  auto *NewExtUse = Exts->createVPExternalUseNoIR(Ty);
+
+  // NewExtUse will be in index 1 -> mismatch between merge id
+  setMergeId<VPExternalUse>(NewExtUse, 0);
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get()),
+               "index and merge ID do not match");
+
+  // Set back to index 1, should pass
+  setMergeId<VPExternalUse>(NewExtUse, 1);
+  Verifier->verifyVPlan(Plan.get());
+
+  // Change the first ext use's underlying to a value, exactly which doesn't
+  // matter as long as it's a phi
+  setUnderlying<VPExternalUse>(First, &*LoopHeader->begin());
+  Verifier->verifyVPlan(Plan.get());
+
+  // Set the same value as the underlying for the new ext use, should fail
+  // with duplicate/repeated external use
+  setUnderlying<VPExternalUse>(NewExtUse, &*LoopHeader->begin());
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get()), "Repeated VPExternalUse");
+}
+
+TEST_F(VPlanVerifierTestBase, LiveInOutTest) {
+  Module &M = parseModule(SmallLoopIR);
+
+  Function *Func = M.getFunction("foo");
+  BasicBlock *LoopHeader = Func->getEntryBlock().getSingleSuccessor();
+  getHCFGPlan(LoopHeader);
+  Verifier->verifyVPlan(Plan.get());
+
+  auto &LiveIns = *getLiveIns();
+  assert(LiveIns.size() == 1);
+  Type *Ty = LiveIns[0]->getType();
+
+  // Sizes of external use and livein list don't match
+  LiveIns.emplace_back(new VPLiveInValue(1, Ty));
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get()), "exceeds");
+
+  VPExternalValues *Exts = &Plan->getExternals();
+  // Create ext use to pad out the list so the sizes match
+  Exts->createVPExternalUseNoIR(Ty);
+
+  LiveIns.pop_back();
+  LiveIns.emplace_back(new VPLiveInValue(3, Ty));
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get()),
+               "Live in index and merge ID do not match");
+
+  // LiveIns may have null values but LiveOuts should not
+  getLiveOuts()->emplace_back(nullptr);
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get()), "Null live out");
 }
 } // namespace

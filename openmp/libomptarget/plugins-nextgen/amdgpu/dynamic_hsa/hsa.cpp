@@ -150,10 +150,10 @@ static bool checkForHSA() {
   auto DynlibHandle = std::make_unique<llvm::sys::DynamicLibrary>(
       llvm::sys::DynamicLibrary::getPermanentLibrary(HsaLib, &ErrMsg));
   if (!DynlibHandle->isValid()) {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
     if (ErrMsg.empty())
       ErrMsg = "unknown error";
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
     DP("Unable to load library '%s': %s!\n", HsaLib, ErrMsg.c_str());
     return false;
   }

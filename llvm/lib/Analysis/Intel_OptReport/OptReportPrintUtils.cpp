@@ -1,6 +1,6 @@
 //===----- OptReportPrintUtils.cpp - Utils to print Loop Reports -*- C++ -*-==//
 //
-// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -32,6 +32,83 @@ static unsigned getMDNodeAsUnsigned(const ConstantAsMetadata *CM) {
 
 static const unsigned IntentationStep = 4;
 
+#ifndef NDEBUG
+void validateRemarkFormatArguments(OptRemark Remark) {
+  const OptRemarkID RemarkID = Remark.getRemarkID();
+  const char *const Format = OptReportDiag::getMsg(RemarkID);
+  SmallVector<const char *> ValidSpecifiers;
+  for (const char *Specifier = Format; *Specifier != '\0'; ++Specifier) {
+    if (*Specifier != '%')
+      continue;
+    switch (Specifier[1]) {
+    case '\0':
+      errs() << "Remark #" << RemarkID << ": "
+             << StringRef(Format, Specifier - Format) << raw_ostream::RED << "%"
+             << raw_ostream::RESET << "\n";
+      llvm_unreachable("Unpaired % at end of format string");
+    case '%':
+      ++Specifier;
+      break;
+    case 'd':
+    case 's':
+      ValidSpecifiers.push_back(Specifier);
+      ++Specifier;
+      break;
+    default:
+      errs() << "Remark #" << RemarkID << ": "
+             << StringRef(Format, Specifier - Format) << raw_ostream::RED
+             << StringRef(Specifier, 2) << raw_ostream::RESET << (Specifier + 2)
+             << "\n";
+      llvm_unreachable("Only %d and %s are supported as format specifiers");
+    }
+  }
+  if (Remark.getNumOperands() != ValidSpecifiers.size() + 1) {
+    errs() << ValidSpecifiers.size() << " specifier(s) in format:\n";
+    errs() << "Remark #" << RemarkID << ": ";
+    const char *FormatToPrint = Format;
+    for (const char *const Specifier : ValidSpecifiers) {
+      errs() << StringRef(FormatToPrint, Specifier - FormatToPrint)
+             << raw_ostream::RED << StringRef(Specifier, 2)
+             << raw_ostream::RESET;
+      FormatToPrint = Specifier + 2;
+    }
+    errs() << FormatToPrint << "\n";
+    errs() << (Remark.getNumOperands() - 1) << " argument(s) in metadata:\n";
+    for (unsigned Idx = 1; Idx < Remark.getNumOperands(); ++Idx) {
+      errs() << "  " << *Remark.getOperand(Idx) << "\n";
+    }
+    llvm_unreachable(
+        "Number of arguments doesn't match number of format specifiers");
+  }
+  for (const auto [ArgIdx, Specifier] : enumerate(ValidSpecifiers)) {
+    switch (Specifier[1]) {
+    case 's':
+      if (!isa<MDString>(Remark.getOperand(ArgIdx + 1))) {
+        errs() << "Remark #" << RemarkID << ": "
+               << StringRef(Format, Specifier - Format) << raw_ostream::RED
+               << StringRef(Specifier, 2) << raw_ostream::RESET
+               << (Specifier + 2) << "\n";
+        errs() << "Argument " << (ArgIdx + 1) << ": "
+               << *Remark.getOperand(ArgIdx + 1);
+        llvm_unreachable("Argument for %s is not a string");
+      }
+      break;
+    case 'd':
+      if (!mdconst::hasa<ConstantInt>(Remark.getOperand(ArgIdx + 1))) {
+        errs() << "Remark #" << RemarkID << ": "
+               << StringRef(Format, Specifier - Format) << raw_ostream::RED
+               << StringRef(Specifier, 2) << raw_ostream::RESET
+               << (Specifier + 2) << "\n";
+        errs() << "Argument " << (ArgIdx + 1) << ": "
+               << *Remark.getOperand(ArgIdx + 1);
+        llvm_unreachable("Argument for %d is not an integer");
+      }
+      break;
+    }
+  }
+}
+#endif // NDEBUG
+
 // The purpose of this function is to create a printable remark message.
 // \p OptReportRemark looks like this :
 // !{!"Partially unrolled with %d factor", i32 8}
@@ -40,29 +117,17 @@ static const unsigned IntentationStep = 4;
 // TODO Alexander: Replace the format string parameter with msg ID.
 //                 Add the support for %u, %f.
 //                 Add unit tests for this function.
-std::string formatRemarkMessage(OptRemark Remark, unsigned RemarkID) {
-  std::string FormatString;
-  if (RemarkID == static_cast<unsigned>(OptRemarkID::InvalidRemarkID)) {
-    // Valid remark ID was not provided, format string is obtained from metadata
-    // operands (2nd operand).
-    // TODO: Remove this code when all remarks have valid IDs i.e. legacy
-    // interface is retired.
-    const MDString *R = cast<MDString>(Remark.getOperand(1));
-    FormatString = std::string(R->getString());
-  } else {
-    // Obtain format string from message catalogue using valid remark ID.
-    FormatString = std::string(OptReportDiag::getMsg(RemarkID));
-  }
-
-  // Temporary assert to validate correctness of remark id and remark message.
-  // Should be dropped in future.
-  assert(FormatString == cast<MDString>(Remark.getOperand(1))->getString() &&
-         "Remark messages don't match.");
+std::string formatRemarkMessage(OptRemark Remark, OptRemarkID RemarkID) {
+  assert(RemarkID != OptRemarkID::InvalidRemarkID && "Remark ID is invalid!");
+#ifndef NDEBUG
+  validateRemarkFormatArguments(Remark);
+#endif // NDEBUG
+  std::string FormatString = std::string(OptReportDiag::getMsg(RemarkID));
 
   std::string Msg;
   // First, reserve some space in the string to avoid memory rellocations.
   Msg.reserve(2 * FormatString.length());
-  unsigned CurOpIdx = 2; // 0 -> RemarkID, 1 -> FormatString
+  unsigned CurOpIdx = 1; // 0 -> RemarkID
   unsigned Idx = 0;
   unsigned FormatStringLength = FormatString.length();
   while (Idx < FormatStringLength) {
@@ -144,21 +209,16 @@ std::string formatRemarkMessage(OptRemark Remark, unsigned RemarkID) {
 void printRemark(raw_ostream &OS, unsigned Depth, OptRemark Remark) {
   assert(Remark && "Client code is responsible for providing non-null Remark");
   OS.indent(IntentationStep * Depth);
-  std::string RemarkPrefixStr;
-  unsigned RemarkID = Remark.getRemarkID();
-  if (RemarkID == static_cast<unsigned>(OptRemarkID::InvalidRemarkID))
-    RemarkPrefixStr = "remark: ";
-  else
-    RemarkPrefixStr = "remark #" + std::to_string(RemarkID) + ": ";
-  OS << RemarkPrefixStr << formatRemarkMessage(Remark, RemarkID) << "\n";
+  OptRemarkID RemarkID = Remark.getRemarkID();
+  OS << "remark #" << RemarkID << ": " << formatRemarkMessage(Remark, RemarkID)
+     << "\n";
 }
 
 void printOrigin(raw_ostream &OS, unsigned Depth, OptRemark Origin) {
   assert(Origin && "Client code is responsible for providing non-null Origin");
 
   OS.indent(IntentationStep * Depth);
-  unsigned RemarkID = Origin.getRemarkID();
-  OS << "<" << formatRemarkMessage(Origin, RemarkID) << ">\n";
+  OS << "<" << formatRemarkMessage(Origin, Origin.getRemarkID()) << ">\n";
 }
 
 void printDebugLocation(raw_ostream &OS, unsigned Depth, const DILocation *DL,

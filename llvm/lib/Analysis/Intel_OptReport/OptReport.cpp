@@ -1,6 +1,6 @@
 //===--- OptReport.cpp ------------------------------------------*- C++ -*-==//
 //
-// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -23,48 +23,36 @@ using namespace llvm;
 ///
 /// Metadata dictionary is a tuple of tagged tuples. A tagged tuple is a tuple
 /// whose first element is MDString, which is considered to be the tag.
-/// If an element was found, returns its index. Otherwise, returns -1.
-static int findNamedTupleField(MDTuple *Dict, StringRef Key) {
-  int NumOps = Dict->getNumOperands();
-  for (int i = 0; i < NumOps; ++i) {
-    if (MDTuple *T = dyn_cast<MDTuple>(Dict->getOperand(i)))
+/// If an element was found, returns its index. Otherwise, returns nullopt.
+static std::optional<unsigned> findNamedTupleField(const MDTuple *Dict,
+                                                   StringRef Key) {
+  const unsigned NumOps = Dict->getNumOperands();
+  for (unsigned Idx = 0; Idx < NumOps; ++Idx) {
+    if (MDTuple *T = dyn_cast<MDTuple>(Dict->getOperand(Idx)))
       if (T->getNumOperands() > 0)
         if (MDString *S = dyn_cast<MDString>(T->getOperand(0)))
           if (S->getString() == Key)
-            return i;
+            return Idx;
   }
-  return -1;
+  return std::nullopt;
 }
 
 /// Erase field tagged with \p Key from \p OptReport.
 static void removeOptReportField(MDTuple *OptReport, StringRef Key) {
   assert(OptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
 
-  MDTuple *OptReportImpl = cast<MDTuple>(OptReport->getOperand(1));
-  SmallVector<Metadata *, 4> Ops;
-  auto It = OptReportImpl->op_begin();
-  // Always store first Tag of Opt Report into new Operands.
-  Ops.push_back(*It++);
-  std::copy_if(It, OptReportImpl->op_end(), std::back_inserter(Ops),
-               [Key](Metadata *M) {
-                 Metadata *Name = cast<MDTuple>(M)->getOperand(0);
-                 return cast<MDString>(Name)->getString() != Key;
-               });
-
-  // No need to modify OptReport if there's nothing to be removed (no \p Key
-  // field in the report).
-  if (OptReportImpl->getNumOperands() == Ops.size())
+  // Look for the key; bail if it isn't found.
+  const std::optional<unsigned> IdxToDelete =
+      findNamedTupleField(OptReport, Key);
+  if (!IdxToDelete)
     return;
 
-  // Empty impl node doesn't need to be distinct (nothing to be modified
-  // in-place with replaceOperandWith).
-  LLVMContext &Context = OptReport->getContext();
-  MDTuple *NewImpl = (Ops.size() > 1) ? MDTuple::getDistinct(Context, Ops)
-                                      : MDTuple::get(Context, Ops);
-
-  assert(OptReport->isDistinct() &&
-         "Operands can be safely replaced only in distinct metadata");
-  OptReport->replaceOperandWith(1, NewImpl);
+  // If it is found, delete it by shifting all later operands and removing the
+  // last one.
+  for (unsigned Idx = *IdxToDelete; Idx + 1 < OptReport->getNumOperands();
+       ++Idx)
+    OptReport->replaceOperandWith(Idx, OptReport->getOperand(Idx + 1));
+  OptReport->pop_back();
 }
 
 /// Add a new Key-Value pair (tuple) to OptReport. It is an error to add a key
@@ -74,21 +62,11 @@ static void addOptReportSingleValue(MDTuple *OptReport, StringRef Key,
   assert(OptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
 
   LLVMContext &Context = OptReport->getContext();
-  MDString *MDKey = MDString::get(Context, Key);
-  MDTuple *KeyValue = MDTuple::get(Context, {MDKey, Value});
-  MDTuple *OptReportImpl = cast<MDTuple>(OptReport->getOperand(1));
-  assert(findNamedTupleField(OptReportImpl, Key) == -1 &&
+  MDString *const MDKey = MDString::get(Context, Key);
+  MDTuple *const KeyValue = MDTuple::get(Context, {MDKey, Value});
+  assert(!findNamedTupleField(OptReport, Key) &&
          "A field with the same key already exists in OptReport");
-  SmallVector<Metadata *, 4> Ops(OptReportImpl->op_begin(),
-                                 OptReportImpl->op_end());
-  Ops.push_back(KeyValue);
-  // Non-empty impl node must be distinct, as some of its data may be replaced
-  // (e.g. remarks tuple after adding a new remark).
-  MDTuple *NewImpl = MDTuple::getDistinct(Context, Ops);
-
-  assert(OptReport->isDistinct() &&
-         "Operands can be safely replaced only in distinct metadata");
-  OptReport->replaceOperandWith(1, NewImpl);
+  OptReport->push_back(KeyValue);
 }
 
 /// Associate a new \p Value with \p Key in \p OptReport. Multiple values can be
@@ -98,22 +76,19 @@ static void addOptReportMultiValue(MDTuple *OptReport, StringRef Key,
                                    Metadata *Value) {
   assert(OptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
 
-  MDTuple *OptReportImpl = cast<MDTuple>(OptReport->getOperand(1));
-  int Idx = findNamedTupleField(OptReportImpl, Key);
-  if (Idx < 0) {
-    addOptReportSingleValue(OptReport, Key, Value);
-    return;
-  }
+  const std::optional<unsigned> Idx = findNamedTupleField(OptReport, Key);
+  if (!Idx)
+    return addOptReportSingleValue(OptReport, Key, Value);
 
   LLVMContext &Context = OptReport->getContext();
-  MDTuple *OldTuple = cast<MDTuple>(OptReportImpl->getOperand(Idx));
+  const MDTuple *const OldTuple = cast<MDTuple>(OptReport->getOperand(*Idx));
   SmallVector<Metadata *, 4> Ops(OldTuple->op_begin(), OldTuple->op_end());
   Ops.push_back(Value);
-  MDTuple *NewTuple = MDTuple::get(Context, Ops);
+  MDTuple *const NewTuple = MDTuple::get(Context, Ops);
 
-  assert(OptReportImpl->isDistinct() &&
+  assert(OptReport->isDistinct() &&
          "Operands can be safely replaced only in distinct metadata");
-  OptReportImpl->replaceOperandWith(Idx, NewTuple);
+  OptReport->replaceOperandWith(*Idx, NewTuple);
 }
 
 /// Look for a value associated with \p Key in \p OptReport. It is expected that
@@ -123,11 +98,10 @@ static Metadata *findOptReportSingleValue(const MDTuple *OptReport,
                                           StringRef Key) {
   assert(OptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
 
-  MDTuple *OptReportImpl = cast<MDTuple>(OptReport->getOperand(1));
-  int Idx = findNamedTupleField(OptReportImpl, Key);
-  if (Idx < 0)
+  const std::optional<unsigned> Idx = findNamedTupleField(OptReport, Key);
+  if (!Idx)
     return nullptr;
-  MDTuple *OriginTuple = cast<MDTuple>(OptReportImpl->getOperand(Idx));
+  const MDTuple *const OriginTuple = cast<MDTuple>(OptReport->getOperand(*Idx));
   assert(OriginTuple->getNumOperands() == 2 && "Unsupported field format");
   return cast<Metadata>(OriginTuple->getOperand(1));
 }
@@ -143,12 +117,11 @@ static OptReport::op_range findOptReportMultiValue(const MDTuple *OptReport,
   using op_range = OptReport::op_range;
   op_range Empty{op_iterator(), op_iterator()};
 
-  MDTuple *OptReportImpl = cast<MDTuple>(OptReport->getOperand(1));
-  int Idx = findNamedTupleField(OptReportImpl, Key);
-  if (Idx < 0)
+  const std::optional<unsigned> Idx = findNamedTupleField(OptReport, Key);
+  if (!Idx)
     return Empty;
 
-  MDTuple *OriginTuple = cast<MDTuple>(OptReportImpl->getOperand(Idx));
+  const MDTuple *const OriginTuple = cast<MDTuple>(OptReport->getOperand(*Idx));
   assert(OriginTuple->getNumOperands() > 1 && "Field without values");
   return op_range(std::next(OriginTuple->op_begin()), OriginTuple->op_end());
 }
@@ -204,15 +177,8 @@ MDNode *OptReport::addOptReportToLoopID(MDNode *LoopID, OptReport OR,
 }
 
 OptReport OptReport::createEmptyOptReport(LLVMContext &Context) {
-  MDString *ProxyTitle = MDString::get(Context, OptReportTag::Proxy);
-  MDString *RootTitle = MDString::get(Context, OptReportTag::Root);
-
-  // No need for distinct !{!"intel.optreport"}, as no replaceOperandWith
-  // will be ever called on it.
-  MDTuple *Empty = MDTuple::get(Context, {ProxyTitle});
-  // Root node must be distinct, as we are going to replace its second operand.
-  MDTuple *Root = MDTuple::getDistinct(Context, {RootTitle, Empty});
-  return Root;
+  return MDTuple::getDistinct(Context,
+                              MDString::get(Context, OptReportTag::Report));
 }
 
 void OptReport::addOrigin(OptRemark Origin) const {
@@ -359,10 +325,16 @@ unsigned OptRemark::getNumOperands() const {
   return Remark->getNumOperands() - 1;
 }
 
-unsigned OptRemark::getRemarkID() const {
+OptRemarkID OptRemark::getRemarkID() const {
   assert(getNumOperands() > 0 && "No remark ID present!");
+  // Avoid crash on release build.
+  if (getNumOperands() == 0)
+    return OptRemarkID::InvalidRemarkID;
   const Metadata *MD = getOperand(0);
   const ConstantAsMetadata *ConstMD = cast_or_null<ConstantAsMetadata>(MD);
   assert(ConstMD && "Remark ID is not a constant!");
-  return cast<ConstantInt>(ConstMD->getValue())->getZExtValue();
+  // Avoid crash on release build.
+  uint64_t Val =
+      ConstMD ? cast<ConstantInt>(ConstMD->getValue())->getZExtValue() : 0;
+  return static_cast<OptRemarkID>(Val);
 }

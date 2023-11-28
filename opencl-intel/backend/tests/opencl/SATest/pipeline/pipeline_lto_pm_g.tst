@@ -19,12 +19,12 @@
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: InternalizeNonKernelFuncPass
+; CHECK:      Running pass: LinearIdResolverPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: SROAPass
 ; CHECK:      Running pass: InstCombinePass
 ; CHECK:      Running pass: InstSimplifyPass
-; CHECK:      Running pass: LinearIdResolverPass
 ; CHECK:      Running pass: ResolveVarTIDCallPass
 ; CHECK:      Running pass: SGRemapWICallPass
 ; CHECK:      Running pass: PromotePass
@@ -55,8 +55,10 @@
 ; CHECK:      Running pass: WGLoopBoundariesPass
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass
+; CHECK:      Running pass: LoopUnrollPass
 ; CHECK:      Running pass: DeduceMaxWGDimPass
 ; CHECK:      Running analysis: CallGraphAnalysis
+; CHECK:      Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: MathFuncSelectPass
 ; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
@@ -82,7 +84,7 @@
 ; CHECK:      Running pass: LICMPass
 
 ; CHECK-NOT:  Running pass: VecClonePass
-; CHECK:      Running pass: vpo::VPlanDriverPass
+; CHECK:      Running pass: vpo::VPlanDriverLLVMPass
 
 ; CHECK:      Running pass: SYCLKernelPostVecPass
 ; CHECK:      Running pass: InstCombinePass
@@ -117,7 +119,8 @@
 
 ; CHECK:      Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: BarrierInFunction
-; CHECK:      Running pass: SGBuiltinPass
+; CHECK:      Running pass: RemoveDuplicatedBarrierPass
+; CHECK-NEXT: Running pass: SGBuiltinPass
 ; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
@@ -156,7 +159,6 @@
 ; CHECK:      Running pass: ModuleInlinerWrapperPass
 ; CHECK:      Running pass: InlinerPass
 ; CHECK:      Running pass: PatchCallbackArgsPass
-; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: DeadArgumentEliminationPass
 ; CHECK:      Running pass: ArgumentPromotionPass
 ; CHECK:      Running pass: SROAPass
@@ -167,6 +169,7 @@
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PrepareKernelArgsPass
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
+; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: SROAPass on test
 ; CHECK:      Running pass: InstCombinePass on test
 ; CHECK:      Running pass: SimplifyCFGPass on test

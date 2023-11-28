@@ -1,6 +1,6 @@
 //===-- IntelVPlanCallVecDecisions.cpp -------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -132,10 +132,11 @@ static VPVectorShape getShapeFromTrunc(VPlanVector &Plan,
 void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
     const VPCallInstruction *VPCall, bool Masked, int VF,
     SmallVectorImpl<bool> &ArgIsLinearPrivateMem,
-    SmallVectorImpl<VFInfo> &VFInfos) {
+    SmallVectorImpl<VFInfo> &VFInfos, const TargetTransformInfo *TTI) {
 
   std::vector<std::vector<VFParameter>> Encodings;
-  auto VPAA = VPlanAlignmentAnalysis(*Plan.getVPSE(), *Plan.getVPVT(), VF);
+  auto VPAA =
+      VPlanAlignmentAnalysis(*Plan.getVPSE(), *Plan.getVPVT(), *TTI, VF);
 
   auto *DA = Plan.getVPlanDA();
   auto SkippedArgs = VPCall->isIntelIndirectCall() ? 1 : 0;
@@ -318,7 +319,7 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
   const Function *F = Call->getParent()->getParent();
   bool OptNoneFunc = F->hasFnAttribute(Attribute::OptimizeNone);
   SmallVector<VFInfo, 4> FilteredVariants;
-  for (auto Variant : Variants) {
+  for (auto &Variant : Variants) {
     ArrayRef<VFParameter> Parms = Variant.getParameters();
     if (OptNoneFunc && any_of(Parms, [](VFParameter Parm) {
                 return Parm.isLinearUVal();
@@ -326,7 +327,6 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
       continue;
     FilteredVariants.push_back(Variant);
   }
-
 
   if (VPCall->isIntelIndirectCall())
      Masked |= Plan.getVPlanDA()->isDivergent(*VPCall->getOperand(0));
@@ -341,7 +341,7 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
   SmallVector<bool, 8> ArgIsLinearPrivateMem;
   SmallVector<VFInfo, 8> VFInfos;
   getVectorVariantsForCallParameters(VPCall, Masked, VF, ArgIsLinearPrivateMem,
-                                     VFInfos);
+                                     VFInfos, TTI);
 
   int VariantIdx =
       TTI->getMatchingVectorVariant(VFInfos, FilteredVariants,
@@ -399,6 +399,17 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     return;
   }
 
+  // Call to builtin_prefetch should not be vectorized(widened/scalarized).
+  // This is especially problematic for cases where the pointer being prefetched
+  // is unit strided where we unnecessarily generate VF prefetches from
+  // {ptr, ptr + 1, ..., ptr + VF -1}. This can lead to big performance
+  // regressions especially in hot loops due to the extracts needed to generate
+  // the scalarized calls. Classic compiler handles prefetches the same way.
+  if (VPCall->isIntrinsicFromList({Intrinsic::prefetch})) {
+    VPCall->setShouldNotBeWidened();
+    return;
+  }
+
   // DPC++'s unmasked functions. The implementation is vector-variant based but
   // no pumping allowed and the mask needs to be ignore when making the call
   // (the whole purpose of the feature), hence separate scenario.
@@ -448,24 +459,40 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   VPBasicBlock *VPBB = VPCall->getParent();
   bool IsMasked = VPBB->getPredicate() != nullptr;
 
-  // Function calls with available vector variants.
-  if (auto VecVariant = matchVectorVariant(VPCall, IsMasked, VF, TTI)) {
-    VPCall->setVectorizeWithVectorVariant(std::move(VecVariant->first),
-                                          VecVariant->second);
-    return;
+  // Track if this call has a match via vector-library based vectorization.
+  bool HasVecLibMatch =
+      UnderlyingCI &&
+      TLI->isFunctionVectorizable(*UnderlyingCI, ElementCount::getFixed(VF),
+                                  IsMasked, TTI);
+
+  // Function calls with available vector variants. This is not preferred if
+  // call already has a vector-library match.
+  if (!HasVecLibMatch) {
+    if (auto VecVariant = matchVectorVariant(VPCall, IsMasked, VF, TTI)) {
+      VPCall->setVectorizeWithVectorVariant(std::move(VecVariant->first),
+                                            VecVariant->second);
+      return;
+    }
   }
 
   // Use masked vector variant with all-zero mask for unmasked calls without
-  // matching vector variant.
+  // matching vector variant. This is not preferred if call already has a
+  // vector-library match.
   // TODO: Same optimization can be done for calls with vectorizable library
   // function.
-  if (!IsMasked) {
+  if (!IsMasked && !HasVecLibMatch) {
     if (auto MaskedVecVariant = matchVectorVariant(VPCall, true, VF, TTI)) {
       VPCall->setVectorizeWithVectorVariant(std::move(MaskedVecVariant->first),
                                             MaskedVecVariant->second,
                                             true /*UseMaskedForUnmasked*/);
       return;
     }
+  }
+
+  // Calls with kernel-call-once cannot be serialized or pumped
+  if (VPCall->isKernelCallOnce()) {
+    VPCall->setShouldNotBeWidened();
+    return;
   }
 
   // If underlying CallInst is not available for further analysis, serialize
@@ -504,8 +531,7 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
 
   // Vectorizable library function like SVML calls. Set vector function name in
   // CallVecProperties.
-  if (TLI->isFunctionVectorizable(*UnderlyingCI, ElementCount::getFixed(VF),
-                                  IsMasked, TTI)) {
+  if (HasVecLibMatch) {
     VPCall->setVectorizeWithLibraryFn(TLI->getVectorizedFunction(
         CalledFuncName, ElementCount::getFixed(VF), IsMasked, TTI));
     return;

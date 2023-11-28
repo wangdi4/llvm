@@ -7,7 +7,7 @@
 ; CHECK-LABEL: Global optimization report for : foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT: FUNCTION REPORT BEGIN
-; CHECK-NEXT:     remark: Dummy function level remark
+; CHECK-NEXT:     remark #99999: Dummy remark for testing
 ; CHECK-NEXT: FUNCTION REPORT END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN
@@ -16,7 +16,7 @@
 ; CHECK-NEXT: LOOP END
 ; CHECK-NEXT: =================================================================
 
-define void @foo(i64* %A) local_unnamed_addr !intel.optreport.rootnode !0 {
+define void @foo(i64* %A) local_unnamed_addr !intel.optreport !0 {
 entry:
   br label %VPlannedBB3
 
@@ -38,15 +38,13 @@ loop.exit:                                        ; preds = %final.merge
   ret void
 }
 
-!0 = distinct !{!"intel.optreport.rootnode", !1}
-!1 = distinct !{!"intel.optreport", !2, !3}
+!0 = distinct !{!"intel.optreport", !2, !3}
 !2 = !{!"intel.optreport.title", !"FUNCTION REPORT"}
 !3 = !{!"intel.optreport.remarks", !4}
-!4 = !{!"intel.optreport.remark", i32 0, !"Dummy function level remark"}
+!4 = !{!"intel.optreport.remark", i32 99999}
 !5 = distinct !{!5, !6, !11}
-!6 = distinct !{!"intel.optreport.rootnode", !7}
-!7 = distinct !{!"intel.optreport", !8}
+!6 = distinct !{!"intel.optreport", !8}
 !8 = !{!"intel.optreport.remarks", !9, !10}
-!9 = !{!"intel.optreport.remark", i32 15301, !"SIMD LOOP WAS VECTORIZED"}
-!10 = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", !"4"}
+!9 = !{!"intel.optreport.remark", i32 15301}
+!10 = !{!"intel.optreport.remark", i32 15305, !"4"}
 !11 = !{!"llvm.loop.isvectorized", i32 1}

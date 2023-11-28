@@ -1,5 +1,4 @@
 #include "CL/cl.h"
-#include "CL/cl_platform.h"
 #include "test_utils.h"
 #include <iostream>
 

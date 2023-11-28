@@ -114,7 +114,7 @@ multiclass RYLWriteResPair<X86FoldableSchedWrite SchedRW,
   // Register variant is using a single cycle on ExePort.
   def : WriteRes<SchedRW, ExePorts> {
     let Latency = Lat;
-    let ResourceCycles = Res;
+    let ReleaseAtCycles = Res;
     let NumMicroOps = UOps;
   }
 
@@ -122,7 +122,7 @@ multiclass RYLWriteResPair<X86FoldableSchedWrite SchedRW,
   // the latency (default = 5).
   def : WriteRes<SchedRW.Folded, !listconcat([RYLPort06_08_10_12], ExePorts)> {
     let Latency = !add(Lat, LoadLat);
-    let ResourceCycles = !listconcat([1], Res);
+    let ReleaseAtCycles = !listconcat([1], Res);
     let NumMicroOps = !add(UOps, 1);
   }
 }
@@ -506,21 +506,21 @@ def : InstRW<[RYLWriteResGroup1, ReadAfterLd, ReadDefault, ReadDefault, ReadDefa
                                                                                                                            "^SHLX(32|64)rm$")>;
 
 def RYLWriteResGroup2 : SchedWriteRes<[RYLPort06_08_10_12, RYLPort16_17_20_21]> {
-  let ResourceCycles = [1, 2];
+  let ReleaseAtCycles = [1, 2];
   let Latency = 3;
   let NumMicroOps = 3;
 }
 def : InstRW<[RYLWriteResGroup2, ReadAfterVecLd], (instregex "^(V?)(ADD|SUB)SSrm((_Int)?)$")>;
 
 def RYLWriteResGroup3 : SchedWriteRes<[RYLPort16_17_20_21]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let Latency = 2;
   let NumMicroOps = 2;
 }
 def : InstRW<[RYLWriteResGroup3], (instregex "^(V?)(ADD|SUB)SSrr((_Int)?)$")>;
 
 def RYLWriteResGroup4 : SchedWriteRes<[RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let Latency = 2;
   let NumMicroOps = 2;
 }
@@ -530,14 +530,14 @@ def : InstRW<[RYLWriteResGroup4], (instrs CLFLUSH,
                                           XGETBV)>;
 
 def RYLWriteResGroup5 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15]> {
-  let ResourceCycles = [3, 1, 1, 1, 1];
+  let ReleaseAtCycles = [3, 1, 1, 1, 1];
   let Latency = 7;
   let NumMicroOps = 7;
 }
 def : InstRW<[RYLWriteResGroup5], (instregex "^BT(C|R|S)(16|32|64)mr$")>;
 
 def RYLWriteResGroup6 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15]> {
-  let ResourceCycles = [1, 1, 2, 1, 1, 1];
+  let ReleaseAtCycles = [1, 1, 2, 1, 1, 1];
   let Latency = 7;
   let NumMicroOps = 7;
 }
@@ -551,14 +551,14 @@ def : InstRW<[RYLWriteResGroup7], (instregex "^CALL((64)?)pcrel32$")>;
 def : InstRW<[RYLWriteResGroup7], (instrs CALLpcrel16)>;
 
 def RYLWriteResGroup8 : SchedWriteRes<[RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [4];
+  let ReleaseAtCycles = [4];
   let Latency = 4;
   let NumMicroOps = 4;
 }
 def : InstRW<[RYLWriteResGroup8], (instregex "^(CL|ST)AC$")>;
 
 def RYLWriteResGroup9 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05]> {
-  let ResourceCycles = [4, 1];
+  let ReleaseAtCycles = [4, 1];
   let Latency = 5;
   let NumMicroOps = 5;
 }
@@ -576,28 +576,28 @@ def : InstRW<[RYLWriteResGroup10], (instrs CLDEMOTE,
                                            PUSH16i)>;
 
 def RYLWriteResGroup11 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [2, 2];
+  let ReleaseAtCycles = [2, 2];
   let Latency = 4;
   let NumMicroOps = 4;
 }
 def : InstRW<[RYLWriteResGroup11], (instrs CLTS)>;
 
 def RYLWriteResGroup12 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05, RYLPort06_08_10_12]> {
-  let ResourceCycles = [3, 1, 2];
+  let ReleaseAtCycles = [3, 1, 2];
   let Latency = 6;
   let NumMicroOps = 6;
 }
 def : InstRW<[RYLWriteResGroup12], (instregex "^CMPS(B|L|Q|W)$")>;
 
 def RYLWriteResGroup13 : SchedWriteRes<[RYLPort00, RYLPort00_01_02_03_04_05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort18_19, RYLPort22_23_24]> {
-  let ResourceCycles = [8, 9, 1, 1, 2, 9];
+  let ReleaseAtCycles = [8, 9, 1, 1, 2, 9];
   let Latency = 30;
   let NumMicroOps = 30;
 }
 def : InstRW<[RYLWriteResGroup13], (instrs CMPXCHG16B)>;
 
 def RYLWriteResGroup14 : SchedWriteRes<[RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [7];
+  let ReleaseAtCycles = [7];
   let Latency = 7;
   let NumMicroOps = 7;
 }
@@ -605,42 +605,42 @@ def : InstRW<[RYLWriteResGroup14], (instregex "^RCR(16|32|64)rCL$")>;
 def : InstRW<[RYLWriteResGroup14], (instrs CMPXCHG32rr)>;
 
 def RYLWriteResGroup15 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15]> {
-  let ResourceCycles = [12, 1, 1, 1];
+  let ReleaseAtCycles = [12, 1, 1, 1];
   let Latency = 15;
   let NumMicroOps = 15;
 }
 def : InstRW<[RYLWriteResGroup15], (instrs CMPXCHG8B)>;
 
 def RYLWriteResGroup16 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05]> {
-  let ResourceCycles = [9, 2];
+  let ReleaseAtCycles = [9, 2];
   let Latency = 11;
   let NumMicroOps = 11;
 }
 def : InstRW<[RYLWriteResGroup16], (instrs CPUID)>;
 
 def RYLWriteResGroup17 : SchedWriteRes<[RYLPort06_08_10_12, RYLPort18_19]> {
-  let ResourceCycles = [1, 7];
+  let ReleaseAtCycles = [1, 7];
   let Latency = 8;
   let NumMicroOps = 8;
 }
 def : InstRW<[RYLWriteResGroup17, ReadAfterVecLd], (instregex "^(V?)DIVSSrm((_Int)?)$")>;
 
 def RYLWriteResGroup18 : SchedWriteRes<[RYLPort18_19]> {
-  let ResourceCycles = [7];
+  let ReleaseAtCycles = [7];
   let Latency = 7;
   let NumMicroOps = 7;
 }
 def : InstRW<[RYLWriteResGroup18], (instregex "^(V?)DIVSSrr((_Int)?)$")>;
 
 def RYLWriteResGroup19 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort07_09_11, RYLPort13_14_15]> {
-  let ResourceCycles = [12, 1, 1, 1, 2];
+  let ReleaseAtCycles = [12, 1, 1, 1, 2];
   let Latency = 17;
   let NumMicroOps = 17;
 }
 def : InstRW<[RYLWriteResGroup19], (instrs ENTER)>;
 
 def RYLWriteResGroup20 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [3, 3, 18, 8];
+  let ReleaseAtCycles = [3, 3, 18, 8];
   let Latency = 32;
   let NumMicroOps = 32;
 }
@@ -653,7 +653,7 @@ def RYLWriteResGroup21 : SchedWriteRes<[RYLPort07_09_11, RYLPort18_19, RYLPort22
 def : InstRW<[RYLWriteResGroup21], (instrs FBSTPm)>;
 
 def RYLWriteResGroup22 : SchedWriteRes<[RYLPort16_17]> {
-  let ResourceCycles = [4];
+  let ReleaseAtCycles = [4];
   let Latency = 4;
   let NumMicroOps = 4;
 }
@@ -663,14 +663,14 @@ def : InstRW<[RYLWriteResGroup22], (instrs FCOMPP,
                                            UCOM_FPPr)>;
 
 def RYLWriteResGroup23 : SchedWriteRes<[RYLPort00, RYLPort00_01_02_03_04_05, RYLPort05, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [4, 3, 1, 2, 4];
+  let ReleaseAtCycles = [4, 3, 1, 2, 4];
   let Latency = 14;
   let NumMicroOps = 14;
 }
 def : InstRW<[RYLWriteResGroup23], (instrs FCOS)>;
 
 def RYLWriteResGroup24 : SchedWriteRes<[RYLPort16_17]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let Latency = 2;
   let NumMicroOps = 2;
 }
@@ -679,7 +679,7 @@ def : InstRW<[RYLWriteResGroup24], (instrs FDECSTP,
                                            SHA256RNDS2rr)>;
 
 def RYLWriteResGroup25 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05, RYLPort06_08_10_12, RYLPort16_17, RYLPort16_17_18_19_20_21, RYLPort22_23_24]> {
-  let ResourceCycles = [1, 1, 1, 1, 1, 4];
+  let ReleaseAtCycles = [1, 1, 1, 1, 1, 4];
   let Latency = 9;
   let NumMicroOps = 9;
 }
@@ -692,7 +692,7 @@ def RYLWriteResGroup26 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort07_09_1
 def : InstRW<[RYLWriteResGroup26], (instrs FNSTCW16m)>;
 
 def RYLWriteResGroup27 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort22_23_24]> {
-  let ResourceCycles = [1, 8];
+  let ReleaseAtCycles = [1, 8];
   let Latency = 9;
   let NumMicroOps = 9;
 }
@@ -705,133 +705,133 @@ def RYLWriteResGroup28 : SchedWriteRes<[RYLPort07_09_11, RYLPort16_17, RYLPort22
 def : InstRW<[RYLWriteResGroup28], (instrs FNSTSWm)>;
 
 def RYLWriteResGroup29 : SchedWriteRes<[RYLPort00, RYLPort00_01_02_03_04_05, RYLPort05, RYLPort16_17, RYLPort18_19, RYLPort22_23_24]> {
-  let ResourceCycles = [24, 14, 9, 229, 1, 44];
+  let ReleaseAtCycles = [24, 14, 9, 229, 1, 44];
   let Latency = 321;
   let NumMicroOps = 321;
 }
 def : InstRW<[RYLWriteResGroup29], (instrs FPATAN)>;
 
 def RYLWriteResGroup30 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort16_17]> {
-  let ResourceCycles = [1, 13];
+  let ReleaseAtCycles = [1, 13];
   let Latency = 14;
   let NumMicroOps = 14;
 }
 def : InstRW<[RYLWriteResGroup30], (instrs FPREM)>;
 
 def RYLWriteResGroup31 : SchedWriteRes<[RYLPort16_17]> {
-  let ResourceCycles = [11];
+  let ReleaseAtCycles = [11];
   let Latency = 11;
   let NumMicroOps = 11;
 }
 def : InstRW<[RYLWriteResGroup31], (instrs FPREM1)>;
 
 def RYLWriteResGroup32 : SchedWriteRes<[RYLPort16_17, RYLPort16_17_18_19_20_21]> {
-  let ResourceCycles = [14, 2];
+  let ReleaseAtCycles = [14, 2];
   let Latency = 16;
   let NumMicroOps = 16;
 }
 def : InstRW<[RYLWriteResGroup32], (instrs FPTAN)>;
 
 def RYLWriteResGroup33 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05, RYLPort16_17, RYLPort16_17_20_21, RYLPort18_19]> {
-  let ResourceCycles = [4, 1, 16, 2, 1];
+  let ReleaseAtCycles = [4, 1, 16, 2, 1];
   let Latency = 24;
   let NumMicroOps = 24;
 }
 def : InstRW<[RYLWriteResGroup33], (instrs FRNDINT)>;
 
 def RYLWriteResGroup34 : SchedWriteRes<[RYLPort00, RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort07_09_11, RYLPort13_14_15, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [32, 12, 72, 1, 27, 7, 23, 52];
+  let ReleaseAtCycles = [32, 12, 72, 1, 27, 7, 23, 52];
   let Latency = 226;
   let NumMicroOps = 226;
 }
 def : InstRW<[RYLWriteResGroup34], (instrs FSAVEm)>;
 
 def RYLWriteResGroup35 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05, RYLPort16_17]> {
-  let ResourceCycles = [3, 1, 4];
+  let ReleaseAtCycles = [3, 1, 4];
   let Latency = 8;
   let NumMicroOps = 8;
 }
 def : InstRW<[RYLWriteResGroup35], (instrs FSCALE)>;
 
 def RYLWriteResGroup36 : SchedWriteRes<[RYLPort00, RYLPort00_01_02_03_04_05, RYLPort05, RYLPort16_17, RYLPort16_17_18_19_20_21, RYLPort22_23_24]> {
-  let ResourceCycles = [12, 21, 6, 130, 2, 32];
+  let ReleaseAtCycles = [12, 21, 6, 130, 2, 32];
   let Latency = 203;
   let NumMicroOps = 203;
 }
 def : InstRW<[RYLWriteResGroup36], (instrs FSIN)>;
 
 def RYLWriteResGroup37 : SchedWriteRes<[RYLPort16_17, RYLPort16_17_18_19_20_21]> {
-  let ResourceCycles = [22, 2];
+  let ReleaseAtCycles = [22, 2];
   let Latency = 24;
   let NumMicroOps = 24;
 }
 def : InstRW<[RYLWriteResGroup37], (instrs FSINCOS)>;
 
 def RYLWriteResGroup38 : SchedWriteRes<[RYLPort00, RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort07_09_11, RYLPort13_14_15, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [32, 12, 48, 1, 11, 7, 10, 36];
+  let ReleaseAtCycles = [32, 12, 48, 1, 11, 7, 10, 36];
   let Latency = 157;
   let NumMicroOps = 157;
 }
 def : InstRW<[RYLWriteResGroup38], (instrs FSTENVm)>;
 
 def RYLWriteResGroup39 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort06_08_10_12, RYLPort16_17, RYLPort16_17_18_19_20_21, RYLPort22_23_24]> {
-  let ResourceCycles = [24, 52, 1, 33, 4, 16, 4];
+  let ReleaseAtCycles = [24, 52, 1, 33, 4, 16, 4];
   let Latency = 134;
   let NumMicroOps = 134;
 }
 def : InstRW<[RYLWriteResGroup39], (instrs FXRSTOR)>;
 
 def RYLWriteResGroup40 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort06_08_10_12, RYLPort16_17, RYLPort16_17_18_19_20_21, RYLPort22_23_24]> {
-  let ResourceCycles = [48, 50, 1, 31, 4, 16, 4];
+  let ReleaseAtCycles = [48, 50, 1, 31, 4, 16, 4];
   let Latency = 154;
   let NumMicroOps = 154;
 }
 def : InstRW<[RYLWriteResGroup40], (instrs FXRSTOR64)>;
 
 def RYLWriteResGroup41 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort07_09_11, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [40, 1, 36, 2, 36];
+  let ReleaseAtCycles = [40, 1, 36, 2, 36];
   let Latency = 115;
   let NumMicroOps = 115;
 }
 def : InstRW<[RYLWriteResGroup41], (instrs FXSAVE)>;
 
 def RYLWriteResGroup42 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort07_09_11, RYLPort13_14_15, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [37, 1, 32, 1, 2, 31];
+  let ReleaseAtCycles = [37, 1, 32, 1, 2, 31];
   let Latency = 104;
   let NumMicroOps = 104;
 }
 def : InstRW<[RYLWriteResGroup42], (instrs FXSAVE64)>;
 
 def RYLWriteResGroup43 : SchedWriteRes<[RYLPort16_17]> {
-  let ResourceCycles = [14];
+  let ReleaseAtCycles = [14];
   let Latency = 14;
   let NumMicroOps = 14;
 }
 def : InstRW<[RYLWriteResGroup43], (instrs FXTRACT)>;
 
 def RYLWriteResGroup44 : SchedWriteRes<[RYLPort00, RYLPort00_01_02_03_04_05, RYLPort05, RYLPort16_17, RYLPort18_19, RYLPort22_23_24]> {
-  let ResourceCycles = [12, 6, 4, 118, 1, 24];
+  let ReleaseAtCycles = [12, 6, 4, 118, 1, 24];
   let Latency = 165;
   let NumMicroOps = 165;
 }
 def : InstRW<[RYLWriteResGroup44], (instrs FYL2X)>;
 
 def RYLWriteResGroup45 : SchedWriteRes<[RYLPort16_17]> {
-  let ResourceCycles = [10];
+  let ReleaseAtCycles = [10];
   let Latency = 10;
   let NumMicroOps = 10;
 }
 def : InstRW<[RYLWriteResGroup45], (instrs FYL2XP1)>;
 
 def RYLWriteResGroup46 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort05]> {
-  let ResourceCycles = [12, 3, 2];
+  let ReleaseAtCycles = [12, 3, 2];
   let Latency = 17;
   let NumMicroOps = 17;
 }
 def : InstRW<[RYLWriteResGroup46], (instrs GETSEC)>;
 
 def RYLWriteResGroup47 : SchedWriteRes<[RYLPort06_08_10_12, RYLPort18_19]> {
-  let ResourceCycles = [1, 4];
+  let ReleaseAtCycles = [1, 4];
   let Latency = 5;
   let NumMicroOps = 5;
 }
@@ -839,7 +839,7 @@ def : InstRW<[RYLWriteResGroup47, ReadAfterVecXLd], (instregex "^GF2P8AFFINE((IN
 def : InstRW<[RYLWriteResGroup47, ReadAfterVecXLd], (instrs GF2P8MULBrm)>;
 
 def RYLWriteResGroup48 : SchedWriteRes<[RYLPort18_19]> {
-  let ResourceCycles = [4];
+  let ReleaseAtCycles = [4];
   let Latency = 4;
   let NumMicroOps = 4;
 }
@@ -854,7 +854,7 @@ def : InstRW<[RYLWriteResGroup49], (instregex "^MOV(32|64)cr$")>;
 def : InstRW<[RYLWriteResGroup49], (instrs HLT)>;
 
 def RYLWriteResGroup50 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort05]> {
-  let ResourceCycles = [13, 4, 3];
+  let ReleaseAtCycles = [13, 4, 3];
   let Latency = 20;
   let NumMicroOps = 20;
 }
@@ -869,21 +869,21 @@ def : InstRW<[RYLWriteResGroup51], (instregex "^ILD_F(16|32|64)m$",
 def : InstRW<[RYLWriteResGroup51, ReadAfterVecXLd], (instregex "^(V?)PADDQrm$")>;
 
 def RYLWriteResGroup52 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15]> {
-  let ResourceCycles = [5, 2, 1, 1, 1];
+  let ReleaseAtCycles = [5, 2, 1, 1, 1];
   let Latency = 10;
   let NumMicroOps = 10;
 }
 def : InstRW<[RYLWriteResGroup52], (instregex "^INS(B|L|W)$")>;
 
 def RYLWriteResGroup53 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11]> {
-  let ResourceCycles = [24, 5, 1, 3, 1, 2];
+  let ReleaseAtCycles = [24, 5, 1, 3, 1, 2];
   let Latency = 36;
   let NumMicroOps = 36;
 }
 def : InstRW<[RYLWriteResGroup53], (instrs INVLPG)>;
 
 def RYLWriteResGroup54 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11]> {
-  let ResourceCycles = [32, 3, 1, 1, 1, 2];
+  let ReleaseAtCycles = [32, 3, 1, 1, 1, 2];
   let Latency = 40;
   let NumMicroOps = 40;
 }
@@ -941,35 +941,35 @@ def : InstRW<[RYLWriteResGroup61], (instrs LFENCE,
                                            VZEROALL)>;
 
 def RYLWriteResGroup62 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort06_08_10_12]> {
-  let ResourceCycles = [1, 1, 1, 3];
+  let ReleaseAtCycles = [1, 1, 1, 3];
   let Latency = 6;
   let NumMicroOps = 6;
 }
 def : InstRW<[RYLWriteResGroup62], (instregex "^LGDT(16|32|64)m$")>;
 
 def RYLWriteResGroup63 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_05, RYLPort06_08_10_12]> {
-  let ResourceCycles = [1, 1, 3];
+  let ReleaseAtCycles = [1, 1, 3];
   let Latency = 5;
   let NumMicroOps = 5;
 }
 def : InstRW<[RYLWriteResGroup63], (instregex "^LIDT(16|32|64)m$")>;
 
 def RYLWriteResGroup64 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort03_04_05]> {
-  let ResourceCycles = [10, 1];
+  let ReleaseAtCycles = [10, 1];
   let Latency = 11;
   let NumMicroOps = 11;
 }
 def : InstRW<[RYLWriteResGroup64], (instrs LOOP)>;
 
 def RYLWriteResGroup65 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort03_04_05]> {
-  let ResourceCycles = [12, 1];
+  let ReleaseAtCycles = [12, 1];
   let Latency = 13;
   let NumMicroOps = 13;
 }
 def : InstRW<[RYLWriteResGroup65], (instregex "^LOOP(N?)E$")>;
 
 def RYLWriteResGroup66 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12]> {
-  let ResourceCycles = [24, 1, 1, 2, 1];
+  let ReleaseAtCycles = [24, 1, 1, 2, 1];
   let Latency = 29;
   let NumMicroOps = 29;
 }
@@ -982,7 +982,7 @@ def RYLWriteResGroup67 : SchedWriteRes<[RYLPort07_09_11, RYLPort20_21, RYLPort22
 def : InstRW<[RYLWriteResGroup67], (instregex "^(V?)MASKMOVDQU((64)?)$")>;
 
 def RYLWriteResGroup68 : SchedWriteRes<[RYLPort16_17_18_19, RYLPort18_19]> {
-  let ResourceCycles = [2, 1];
+  let ReleaseAtCycles = [2, 1];
   let Latency = 3;
   let NumMicroOps = 3;
 }
@@ -992,7 +992,7 @@ def : InstRW<[RYLWriteResGroup68], (instrs MMX_CVTPI2PSrr,
                                            VCVTPD2PSrr)>;
 
 def RYLWriteResGroup69 : SchedWriteRes<[RYLPort00_01_02]> {
-  let ResourceCycles = [12];
+  let ReleaseAtCycles = [12];
   let Latency = 12;
   let NumMicroOps = 12;
 }
@@ -1008,7 +1008,7 @@ def : InstRW<[RYLWriteResGroup70], (instregex "^MMX_MOVQ2(DQ|FR64)rr$",
 def : InstRW<[RYLWriteResGroup70], (instrs VPMOVMSKBrr)>;
 
 def RYLWriteResGroup71 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05]> {
-  let ResourceCycles = [13, 3, 1, 1];
+  let ReleaseAtCycles = [13, 3, 1, 1];
   let Latency = 18;
   let NumMicroOps = 18;
 }
@@ -1027,14 +1027,14 @@ def : InstRW<[RYLWriteResGroup72], (instrs MOV64mi32,
                                            VMPTRSTm)>;
 
 def RYLWriteResGroup73 : SchedWriteRes<[RYLPort00_01_02, RYLPort07_09_11, RYLPort13_14_15]> {
-  let ResourceCycles = [12, 1, 1];
+  let ReleaseAtCycles = [12, 1, 1];
   let Latency = 14;
   let NumMicroOps = 14;
 }
 def : InstRW<[RYLWriteResGroup73], (instrs MOV16ms)>;
 
 def RYLWriteResGroup74 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [12, 1];
+  let ReleaseAtCycles = [12, 1];
   let Latency = 13;
   let NumMicroOps = 13;
 }
@@ -1058,7 +1058,7 @@ def : InstRW<[RYLWriteResGroup76], (instregex "^MOVBE(16|32|64)mr$",
                                               "^STOS(B|L|Q|W)$")>;
 
 def RYLWriteResGroup77 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15]> {
-  let ResourceCycles = [2, 1, 1, 1, 1];
+  let ReleaseAtCycles = [2, 1, 1, 1, 1];
   let Latency = 6;
   let NumMicroOps = 6;
 }
@@ -1068,7 +1068,7 @@ def RYLWriteResGroup78 : SchedWriteRes<[RYLPort18_19_20_21]>;
 def : InstRW<[RYLWriteResGroup78], (instregex "^(V?)MOVS(D|S)rr((_REV)?)$")>;
 
 def RYLWriteResGroup79 : SchedWriteRes<[RYLPort06_08_10_12, RYLPort16_17, RYLPort18_19]> {
-  let ResourceCycles = [1, 4, 1];
+  let ReleaseAtCycles = [1, 4, 1];
   let Latency = 6;
   let NumMicroOps = 6;
 }
@@ -1076,21 +1076,21 @@ def : InstRW<[RYLWriteResGroup79], (instregex "^MUL_F(32|64)m$",
                                               "^MUL_FI(16|32)m$")>;
 
 def RYLWriteResGroup80 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort05]> {
-  let ResourceCycles = [13, 5, 1];
+  let ReleaseAtCycles = [13, 5, 1];
   let Latency = 19;
   let NumMicroOps = 19;
 }
 def : InstRW<[RYLWriteResGroup80], (instrs MWAITrr)>;
 
 def RYLWriteResGroup81 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11]> {
-  let ResourceCycles = [5, 2, 1, 1];
+  let ReleaseAtCycles = [5, 2, 1, 1];
   let Latency = 9;
   let NumMicroOps = 9;
 }
 def : InstRW<[RYLWriteResGroup81], (instregex "^OUTS(B|L|W)$")>;
 
 def RYLWriteResGroup82 : SchedWriteRes<[RYLPort05, RYLPort16_17_18_19_20_21]> {
-  let ResourceCycles = [1, 3];
+  let ReleaseAtCycles = [1, 3];
   let Latency = 4;
   let NumMicroOps = 4;
 }
@@ -1103,14 +1103,14 @@ def RYLWriteResGroup83 : SchedWriteRes<[RYLPort07_09_11, RYLPort13_14_15, RYLPor
 def : InstRW<[RYLWriteResGroup83], (instrs PEXTRBmr)>;
 
 def RYLWriteResGroup84 : SchedWriteRes<[RYLPort16_17_18_19_20_21, RYLPort22_23_24]> {
-  let ResourceCycles = [1, 4];
+  let ReleaseAtCycles = [1, 4];
   let Latency = 5;
   let NumMicroOps = 5;
 }
 def : InstRW<[RYLWriteResGroup84], (instregex "^(V?)PEXTRWrr((_REV)?)$")>;
 
 def RYLWriteResGroup85 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15]> {
-  let ResourceCycles = [2, 2, 1, 1, 1];
+  let ReleaseAtCycles = [2, 2, 1, 1, 1];
   let Latency = 7;
   let NumMicroOps = 7;
 }
@@ -1128,7 +1128,7 @@ def RYLWriteResGroup87 : SchedWriteRes<[RYLPort00_01_05, RYLPort06_08_10_12, RYL
 def : InstRW<[RYLWriteResGroup87], (instregex "^PUSH(16|32|64)rmm$")>;
 
 def RYLWriteResGroup88 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_05, RYLPort07_09_11, RYLPort13_14_15]> {
-  let ResourceCycles = [12, 1, 1, 1];
+  let ReleaseAtCycles = [12, 1, 1, 1];
   let Latency = 15;
   let NumMicroOps = 15;
 }
@@ -1140,14 +1140,14 @@ def RYLWriteResGroup89 : SchedWriteRes<[RYLPort00_01_02_03_04_05]> {
 def : InstRW<[RYLWriteResGroup89, WriteRMW], (instregex "^RCL(8|16|32|64)m(1|i)$")>;
 
 def RYLWriteResGroup90 : SchedWriteRes<[RYLPort00, RYLPort00_01_02_03_04_05, RYLPort22_23_24]> {
-  let ResourceCycles = [4, 11, 4];
+  let ReleaseAtCycles = [4, 11, 4];
   let Latency = 19;
   let NumMicroOps = 19;
 }
 def : InstRW<[RYLWriteResGroup90], (instregex "^RCL(8|16|32|64)rCL$")>;
 
 def RYLWriteResGroup91 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort06_08_10_12, RYLPort07_09_11]> {
-  let ResourceCycles = [2, 1, 1];
+  let ReleaseAtCycles = [2, 1, 1];
   let Latency = 4;
   let NumMicroOps = 4;
 }
@@ -1155,21 +1155,21 @@ def : InstRW<[RYLWriteResGroup91], (instregex "^RCR(8|16|32|64)m(1|i)$")>;
 def : InstRW<[RYLWriteResGroup91], (instrs WBINVD)>;
 
 def RYLWriteResGroup92 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort06_08_10_12, RYLPort07_09_11]> {
-  let ResourceCycles = [3, 1, 1];
+  let ReleaseAtCycles = [3, 1, 1];
   let Latency = 5;
   let NumMicroOps = 5;
 }
 def : InstRW<[RYLWriteResGroup92], (instregex "^RCR(8|16|32|64)mCL$")>;
 
 def RYLWriteResGroup93 : SchedWriteRes<[RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [8];
+  let ReleaseAtCycles = [8];
   let Latency = 8;
   let NumMicroOps = 8;
 }
 def : InstRW<[RYLWriteResGroup93], (instregex "^RCR(16|32|64)r(1|i)$")>;
 
 def RYLWriteResGroup94 : SchedWriteRes<[RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [5];
+  let ReleaseAtCycles = [5];
   let Latency = 5;
   let NumMicroOps = 5;
 }
@@ -1177,21 +1177,21 @@ def : InstRW<[RYLWriteResGroup94], (instregex "^RCR8r(1|i|CL)$")>;
 def : InstRW<[RYLWriteResGroup94], (instrs XSETBV)>;
 
 def RYLWriteResGroup95 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort05]> {
-  let ResourceCycles = [12, 6, 1];
+  let ReleaseAtCycles = [12, 6, 1];
   let Latency = 19;
   let NumMicroOps = 19;
 }
 def : InstRW<[RYLWriteResGroup95], (instrs RDMSR)>;
 
 def RYLWriteResGroup96 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [12, 2];
+  let ReleaseAtCycles = [12, 2];
   let Latency = 14;
   let NumMicroOps = 14;
 }
 def : InstRW<[RYLWriteResGroup96], (instregex "^RDPID(32|64)$")>;
 
 def RYLWriteResGroup97 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [1, 3];
+  let ReleaseAtCycles = [1, 3];
   let Latency = 4;
   let NumMicroOps = 4;
 }
@@ -1199,35 +1199,35 @@ def : InstRW<[RYLWriteResGroup97], (instregex "^(RD|WR)PKRUr$")>;
 def : InstRW<[RYLWriteResGroup97], (instrs TRAP)>;
 
 def RYLWriteResGroup98 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [12, 20];
+  let ReleaseAtCycles = [12, 20];
   let Latency = 32;
   let NumMicroOps = 32;
 }
 def : InstRW<[RYLWriteResGroup98], (instrs RDPMC)>;
 
 def RYLWriteResGroup99 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort06_08_10_12]> {
-  let ResourceCycles = [6, 1];
+  let ReleaseAtCycles = [6, 1];
   let Latency = 7;
   let NumMicroOps = 7;
 }
 def : InstRW<[RYLWriteResGroup99], (instregex "^RDRAND(16|32|64)r$")>;
 
 def RYLWriteResGroup100 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort06_08_10_12]> {
-  let ResourceCycles = [4, 1];
+  let ReleaseAtCycles = [4, 1];
   let Latency = 5;
   let NumMicroOps = 5;
 }
 def : InstRW<[RYLWriteResGroup100], (instregex "^RDSEED(16|32|64)r$")>;
 
 def RYLWriteResGroup101 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [12, 3];
+  let ReleaseAtCycles = [12, 3];
   let Latency = 15;
   let NumMicroOps = 15;
 }
 def : InstRW<[RYLWriteResGroup101], (instrs RDTSC)>;
 
 def RYLWriteResGroup102 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [24, 20];
+  let ReleaseAtCycles = [24, 20];
   let Latency = 44;
   let NumMicroOps = 44;
 }
@@ -1246,7 +1246,7 @@ def RYLWriteResGroup104 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05, RY
 def : InstRW<[RYLWriteResGroup104], (instregex "^RETI(16|32|64)$")>;
 
 def RYLWriteResGroup105 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort07_09_11, RYLPort13_14_15]> {
-  let ResourceCycles = [37, 14, 1, 4, 2, 2];
+  let ReleaseAtCycles = [37, 14, 1, 4, 2, 2];
   let Latency = 60;
   let NumMicroOps = 60;
 }
@@ -1261,21 +1261,21 @@ def : InstRW<[RYLWriteResGroup106], (instregex "^VPS(L|R)L(D|Q|W)rr$",
 def : InstRW<[RYLWriteResGroup106], (instrs SHA1MSG1rr)>;
 
 def RYLWriteResGroup107 : SchedWriteRes<[RYLPort16_17_18_19_20_21]> {
-  let ResourceCycles = [6];
+  let ReleaseAtCycles = [6];
   let Latency = 6;
   let NumMicroOps = 6;
 }
 def : InstRW<[RYLWriteResGroup107], (instrs SHA1MSG2rr)>;
 
 def RYLWriteResGroup108 : SchedWriteRes<[RYLPort16_17_18_19_20_21]> {
-  let ResourceCycles = [3];
+  let ReleaseAtCycles = [3];
   let Latency = 3;
   let NumMicroOps = 3;
 }
 def : InstRW<[RYLWriteResGroup108], (instrs SHA1NEXTErr)>;
 
 def RYLWriteResGroup109 : SchedWriteRes<[RYLPort18_19]> {
-  let ResourceCycles = [3];
+  let ReleaseAtCycles = [3];
   let Latency = 3;
   let NumMicroOps = 3;
 }
@@ -1283,14 +1283,14 @@ def : InstRW<[RYLWriteResGroup109], (instregex "^SHA256MSG(1|2)rr$")>;
 def : InstRW<[RYLWriteResGroup109], (instrs SHA1RNDS4rri)>;
 
 def RYLWriteResGroup110 : SchedWriteRes<[RYLPort06_08_10_12, RYLPort18_19]> {
-  let ResourceCycles = [1, 3];
+  let ReleaseAtCycles = [1, 3];
   let Latency = 4;
   let NumMicroOps = 4;
 }
 def : InstRW<[RYLWriteResGroup110, ReadAfterVecXLd], (instregex "^SHA256MSG(1|2)rm$")>;
 
 def RYLWriteResGroup111 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05]> {
-  let ResourceCycles = [2, 1];
+  let ReleaseAtCycles = [2, 1];
   let Latency = 3;
   let NumMicroOps = 3;
 }
@@ -1303,42 +1303,42 @@ def RYLWriteResGroup112 : SchedWriteRes<[RYLPort07_09_11, RYLPort22_23_24]> {
 def : InstRW<[RYLWriteResGroup112], (instrs ST_FP80m)>;
 
 def RYLWriteResGroup113 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort06_08_10_12]> {
-  let ResourceCycles = [50, 1, 2];
+  let ReleaseAtCycles = [50, 1, 2];
   let Latency = 53;
   let NumMicroOps = 53;
 }
 def : InstRW<[RYLWriteResGroup113], (instrs SWAPGS)>;
 
 def RYLWriteResGroup114 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort05, RYLPort06_08_10_12]> {
-  let ResourceCycles = [72, 27, 6, 9];
+  let ReleaseAtCycles = [72, 27, 6, 9];
   let Latency = 114;
   let NumMicroOps = 114;
 }
 def : InstRW<[RYLWriteResGroup114], (instrs SYSCALL)>;
 
 def RYLWriteResGroup115 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort05, RYLPort06_08_10_12]> {
-  let ResourceCycles = [48, 16, 2, 5];
+  let ReleaseAtCycles = [48, 16, 2, 5];
   let Latency = 71;
   let NumMicroOps = 71;
 }
 def : InstRW<[RYLWriteResGroup115], (instrs SYSENTER)>;
 
 def RYLWriteResGroup116 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort01_02, RYLPort05, RYLPort06_08_10_12]> {
-  let ResourceCycles = [24, 34, 2, 2, 5];
+  let ReleaseAtCycles = [24, 34, 2, 2, 5];
   let Latency = 67;
   let NumMicroOps = 67;
 }
 def : InstRW<[RYLWriteResGroup116], (instregex "^SYSEXIT((64)?)$")>;
 
 def RYLWriteResGroup117 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort05, RYLPort06_08_10_12]> {
-  let ResourceCycles = [24, 24, 3, 5];
+  let ReleaseAtCycles = [24, 24, 3, 5];
   let Latency = 56;
   let NumMicroOps = 56;
 }
 def : InstRW<[RYLWriteResGroup117], (instregex "^SYSRET((64)?)$")>;
 
 def RYLWriteResGroup118 : SchedWriteRes<[RYLPort06_08_10_12, RYLPort16_17_18_19_20_21]> {
-  let ResourceCycles = [1, 2];
+  let ReleaseAtCycles = [1, 2];
   let Latency = 3;
   let NumMicroOps = 3;
 }
@@ -1346,7 +1346,7 @@ def : InstRW<[RYLWriteResGroup118, ReadAfterVecXLd, ReadAfterVecXLd, ReadDefault
 def : InstRW<[RYLWriteResGroup118, ReadAfterVecXLd, ReadAfterVecXLd, ReadDefault, ReadDefault, ReadDefault, ReadDefault, ReadDefault], (instrs VPBLENDVBrm)>;
 
 def RYLWriteResGroup119 : SchedWriteRes<[RYLPort16_17_18_19_20_21]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let Latency = 2;
   let NumMicroOps = 2;
 }
@@ -1354,7 +1354,7 @@ def : InstRW<[RYLWriteResGroup119], (instregex "^VBLENDVP(D|S)rr$")>;
 def : InstRW<[RYLWriteResGroup119], (instrs VPBLENDVBrr)>;
 
 def RYLWriteResGroup120 : SchedWriteRes<[RYLPort20_21]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let Latency = 2;
   let NumMicroOps = 2;
 }
@@ -1363,7 +1363,7 @@ def : InstRW<[RYLWriteResGroup120], (instrs VBROADCASTSSrr,
                                             VPBROADCASTQrr)>;
 
 def RYLWriteResGroup121 : SchedWriteRes<[RYLPort06_08_10_12, RYLPort16_17_18_19, RYLPort18_19]> {
-  let ResourceCycles = [1, 2, 1];
+  let ReleaseAtCycles = [1, 2, 1];
   let Latency = 4;
   let NumMicroOps = 4;
 }
@@ -1372,21 +1372,21 @@ def : InstRW<[RYLWriteResGroup121], (instrs VCVTPD2PSrm)>;
 def : InstRW<[RYLWriteResGroup121, ReadAfterVecLd], (instregex "^VCVTSI642SSrm((_Int)?)$")>;
 
 def RYLWriteResGroup122 : SchedWriteRes<[RYLPort00, RYLPort16_17_18_19, RYLPort18_19]> {
-  let ResourceCycles = [4, 2, 1];
+  let ReleaseAtCycles = [4, 2, 1];
   let Latency = 7;
   let NumMicroOps = 7;
 }
 def : InstRW<[RYLWriteResGroup122, ReadDefault, ReadInt2Fpu], (instregex "^VCVTSI642SSrr((_Int)?)$")>;
 
 def RYLWriteResGroup123 : SchedWriteRes<[RYLPort16_17_18_19]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let Latency = 2;
   let NumMicroOps = 2;
 }
 def : InstRW<[RYLWriteResGroup123], (instregex "^VCVTSS2SDrr((_Int)?)$")>;
 
 def RYLWriteResGroup124 : SchedWriteRes<[RYLPort16_17_18_19, RYLPort20_21, RYLPort22_23_24]> {
-  let ResourceCycles = [2, 2, 4];
+  let ReleaseAtCycles = [2, 2, 4];
   let Latency = 8;
   let NumMicroOps = 8;
 }
@@ -1394,21 +1394,21 @@ def : InstRW<[RYLWriteResGroup124], (instregex "^VCVTTSS2SI((64)?)rr_Int$")>;
 def : InstRW<[RYLWriteResGroup124, ReadDefault], (instregex "^VCVTTSS2SI((64)?)rr$")>;
 
 def RYLWriteResGroup125 : SchedWriteRes<[RYLPort06_08_10_12, RYLPort16_17_18_19, RYLPort16_17_20_21, RYLPort18_19]> {
-  let ResourceCycles = [1, 3, 4, 1];
+  let ReleaseAtCycles = [1, 3, 4, 1];
   let Latency = 9;
   let NumMicroOps = 9;
 }
 def : InstRW<[RYLWriteResGroup125, ReadAfterVecXLd], (instrs VDPPSrmi)>;
 
 def RYLWriteResGroup126 : SchedWriteRes<[RYLPort16_17_18_19, RYLPort16_17_20_21, RYLPort18_19]> {
-  let ResourceCycles = [3, 4, 1];
+  let ReleaseAtCycles = [3, 4, 1];
   let Latency = 8;
   let NumMicroOps = 8;
 }
 def : InstRW<[RYLWriteResGroup126], (instrs VDPPSrri)>;
 
 def RYLWriteResGroup127 : SchedWriteRes<[RYLPort00_01_05, RYLPort06_08_10_12, RYLPort16_17_18_19_20_21, RYLPort18_19, RYLPort22_23_24]> {
-  let ResourceCycles = [1, 4, 2, 2, 8];
+  let ReleaseAtCycles = [1, 4, 2, 2, 8];
   let Latency = 17;
   let NumMicroOps = 17;
 }
@@ -1416,7 +1416,7 @@ def : InstRW<[RYLWriteResGroup127, WriteVecMaskedGatherWriteback], (instregex "^
                                                                               "^VPGATHERD(D|QY)rm$")>;
 
 def RYLWriteResGroup128 : SchedWriteRes<[RYLPort06_08_10_12, RYLPort16_17_18_19_20_21, RYLPort18_19, RYLPort22_23_24]> {
-  let ResourceCycles = [2, 2, 1, 4];
+  let ReleaseAtCycles = [2, 2, 1, 4];
   let Latency = 9;
   let NumMicroOps = 9;
 }
@@ -1424,7 +1424,7 @@ def : InstRW<[RYLWriteResGroup128, WriteVecMaskedGatherWriteback], (instrs VGATH
                                                                            VPGATHERDQrm)>;
 
 def RYLWriteResGroup129 : SchedWriteRes<[RYLPort00_01_05, RYLPort06_08_10_12, RYLPort16_17_18_19_20_21, RYLPort18_19, RYLPort22_23_24]> {
-  let ResourceCycles = [1, 8, 2, 4, 16];
+  let ReleaseAtCycles = [1, 8, 2, 4, 16];
   let Latency = 31;
   let NumMicroOps = 31;
 }
@@ -1432,28 +1432,28 @@ def : InstRW<[RYLWriteResGroup129, WriteVecMaskedGatherWriteback], (instrs VGATH
                                                                            VPGATHERDDYrm)>;
 
 def RYLWriteResGroup130 : SchedWriteRes<[RYLPort00_01_05, RYLPort06_08_10_12, RYLPort16_17_18_19_20_21, RYLPort18_19, RYLPort22_23_24]> {
-  let ResourceCycles = [1, 4, 2, 2, 16];
+  let ReleaseAtCycles = [1, 4, 2, 2, 16];
   let Latency = 25;
   let NumMicroOps = 25;
 }
 def : InstRW<[RYLWriteResGroup130, WriteVecMaskedGatherWriteback], (instregex "^VGATHERQP(D|S)Yrm$")>;
 
 def RYLWriteResGroup131 : SchedWriteRes<[RYLPort00_01_05, RYLPort06_08_10_12, RYLPort16_17_18_19_20_21, RYLPort18_19, RYLPort22_23_24]> {
-  let ResourceCycles = [1, 2, 2, 1, 8];
+  let ReleaseAtCycles = [1, 2, 2, 1, 8];
   let Latency = 14;
   let NumMicroOps = 14;
 }
 def : InstRW<[RYLWriteResGroup131, WriteVecMaskedGatherWriteback], (instregex "^VGATHERQP(D|S)rm$")>;
 
 def RYLWriteResGroup132 : SchedWriteRes<[RYLPort06_08_10_12, RYLPort16_17_20_21, RYLPort18_19]> {
-  let ResourceCycles = [1, 2, 2];
+  let ReleaseAtCycles = [1, 2, 2];
   let Latency = 5;
   let NumMicroOps = 5;
 }
 def : InstRW<[RYLWriteResGroup132, ReadAfterVecXLd], (instregex "^VH(ADD|SUB)P(D|S)rm$")>;
 
 def RYLWriteResGroup133 : SchedWriteRes<[RYLPort16_17_20_21, RYLPort18_19]> {
-  let ResourceCycles = [2, 2];
+  let ReleaseAtCycles = [2, 2];
   let Latency = 4;
   let NumMicroOps = 4;
 }
@@ -1466,14 +1466,14 @@ def RYLWriteResGroup134 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort06_08_
 def : InstRW<[RYLWriteResGroup134], (instrs VLDMXCSR)>;
 
 def RYLWriteResGroup135 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15]> {
-  let ResourceCycles = [567, 128, 22, 54, 66, 66];
+  let ReleaseAtCycles = [567, 128, 22, 54, 66, 66];
   let Latency = 903;
   let NumMicroOps = 903;
 }
 def : InstRW<[RYLWriteResGroup135], (instrs VMCALL)>;
 
 def RYLWriteResGroup136 : SchedWriteRes<[RYLPort00]> {
-  let ResourceCycles = [4];
+  let ReleaseAtCycles = [4];
   let Latency = 4;
   let NumMicroOps = 4;
 }
@@ -1481,56 +1481,56 @@ def : InstRW<[RYLWriteResGroup136], (instregex "^VMOV64to(SD|PQI)rr$",
                                                "^VMOVDI2(SS|PDI)rr$")>;
 
 def RYLWriteResGroup137 : SchedWriteRes<[RYLPort22_23_24]> {
-  let ResourceCycles = [4];
+  let ReleaseAtCycles = [4];
   let Latency = 4;
   let NumMicroOps = 4;
 }
 def : InstRW<[RYLWriteResGroup137], (instregex "^VMOVMSKP(D|S)Yrr$")>;
 
 def RYLWriteResGroup138 : SchedWriteRes<[RYLPort18_19, RYLPort20_21]> {
-  let ResourceCycles = [1, 2];
+  let ReleaseAtCycles = [1, 2];
   let Latency = 3;
   let NumMicroOps = 3;
 }
 def : InstRW<[RYLWriteResGroup138], (instrs VMPSADBWrri)>;
 
 def RYLWriteResGroup139 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05, RYLPort07_09_11, RYLPort13_14_15]> {
-  let ResourceCycles = [5, 1, 1, 1];
+  let ReleaseAtCycles = [5, 1, 1, 1];
   let Latency = 8;
   let NumMicroOps = 8;
 }
 def : InstRW<[RYLWriteResGroup139], (instregex "^VMREAD(32|64)mr$")>;
 
 def RYLWriteResGroup140 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05]> {
-  let ResourceCycles = [3, 1];
+  let ReleaseAtCycles = [3, 1];
   let Latency = 4;
   let NumMicroOps = 4;
 }
 def : InstRW<[RYLWriteResGroup140], (instregex "^VMREAD(32|64)rr$")>;
 
 def RYLWriteResGroup141 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort05, RYLPort06_08_10_12]> {
-  let ResourceCycles = [1, 5, 3, 1];
+  let ReleaseAtCycles = [1, 5, 3, 1];
   let Latency = 10;
   let NumMicroOps = 10;
 }
 def : InstRW<[RYLWriteResGroup141], (instregex "^VMWRITE(32|64)rm$")>;
 
 def RYLWriteResGroup142 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort05]> {
-  let ResourceCycles = [5, 2];
+  let ReleaseAtCycles = [5, 2];
   let Latency = 7;
   let NumMicroOps = 7;
 }
 def : InstRW<[RYLWriteResGroup142], (instregex "^VMWRITE(32|64)rr$")>;
 
 def RYLWriteResGroup143 : SchedWriteRes<[RYLPort00, RYLPort00_01_02_03_04_05, RYLPort06_08_10_12, RYLPort16_17_18_19, RYLPort22_23_24]> {
-  let ResourceCycles = [8, 1, 1, 12, 4];
+  let ReleaseAtCycles = [8, 1, 1, 12, 4];
   let Latency = 26;
   let NumMicroOps = 26;
 }
 def : InstRW<[RYLWriteResGroup143, ReadAfterVecXLd], (instrs VPCMPESTRIrm)>;
 
 def RYLWriteResGroup144 : SchedWriteRes<[RYLPort00, RYLPort00_01_02_03_04_05, RYLPort05, RYLPort06_08_10_12, RYLPort16_17_18_19, RYLPort16_17_18_19_20_21, RYLPort22_23_24]> {
-  let ResourceCycles = [8, 1, 1, 1, 12, 1, 4];
+  let ReleaseAtCycles = [8, 1, 1, 1, 12, 1, 4];
   let Latency = 28;
   let NumMicroOps = 28;
 }
@@ -1543,112 +1543,112 @@ def RYLWriteResGroup145 : SchedWriteRes<[RYLPort07_09_11, RYLPort18_19_20_21, RY
 def : InstRW<[RYLWriteResGroup145], (instrs VSTMXCSR)>;
 
 def RYLWriteResGroup146 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11]> {
-  let ResourceCycles = [1, 10, 6, 1, 1];
+  let ReleaseAtCycles = [1, 10, 6, 1, 1];
   let Latency = 19;
   let NumMicroOps = 19;
 }
 def : InstRW<[RYLWriteResGroup146], (instrs WRMSR)>;
 
 def RYLWriteResGroup147 : SchedWriteRes<[RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [5];
+  let ReleaseAtCycles = [5];
   let Latency = 8;
   let NumMicroOps = 5;
 }
 def : InstRW<[RYLWriteResGroup147, WriteRMW], (instregex "^XADD(8|16|32|64)rm$")>;
 
 def RYLWriteResGroup148 : SchedWriteRes<[RYLPort00_01_02_03_04_05]> {
-  let ResourceCycles = [2];
+  let ReleaseAtCycles = [2];
   let Latency = 5;
   let NumMicroOps = 2;
 }
 def : InstRW<[RYLWriteResGroup148, WriteRMW], (instregex "^XCHG(8|16|32|64)rm$")>;
 
 def RYLWriteResGroup149 : SchedWriteRes<[RYLPort16_17]> {
-  let ResourceCycles = [3];
+  let ReleaseAtCycles = [3];
   let Latency = 3;
   let NumMicroOps = 3;
 }
 def : InstRW<[RYLWriteResGroup149], (instrs XCH_F)>;
 
 def RYLWriteResGroup150 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort16_17, RYLPort16_17_18_19_20_21, RYLPort20_21, RYLPort22_23_24]> {
-  let ResourceCycles = [108, 217, 14, 29, 103, 13, 72, 96, 4];
+  let ReleaseAtCycles = [108, 217, 14, 29, 103, 13, 72, 96, 4];
   let Latency = 656;
   let NumMicroOps = 656;
 }
 def : InstRW<[RYLWriteResGroup150], (instrs XRSTOR)>;
 
 def RYLWriteResGroup151 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort16_17, RYLPort16_17_18_19_20_21, RYLPort20_21, RYLPort22_23_24]> {
-  let ResourceCycles = [132, 243, 16, 38, 102, 13, 64, 96, 4];
+  let ReleaseAtCycles = [132, 243, 16, 38, 102, 13, 64, 96, 4];
   let Latency = 708;
   let NumMicroOps = 708;
 }
 def : InstRW<[RYLWriteResGroup151], (instrs XRSTOR64)>;
 
 def RYLWriteResGroup152 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort16_17, RYLPort16_17_18_19_20_21, RYLPort18_19, RYLPort18_19_20_21, RYLPort20_21, RYLPort22_23_24]> {
-  let ResourceCycles = [168, 110, 3, 7, 48, 17, 17, 3, 18, 2, 12];
+  let ReleaseAtCycles = [168, 110, 3, 7, 48, 17, 17, 3, 18, 2, 12];
   let Latency = 405;
   let NumMicroOps = 405;
 }
 def : InstRW<[RYLWriteResGroup152], (instrs XRSTORS)>;
 
 def RYLWriteResGroup153 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort16_17, RYLPort16_17_18_19_20_21, RYLPort20_21, RYLPort22_23_24]> {
-  let ResourceCycles = [144, 221, 2, 41, 100, 13, 64, 96, 4];
+  let ReleaseAtCycles = [144, 221, 2, 41, 100, 13, 64, 96, 4];
   let Latency = 685;
   let NumMicroOps = 685;
 }
 def : InstRW<[RYLWriteResGroup153], (instrs XRSTORS64)>;
 
 def RYLWriteResGroup154 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [12, 162, 4, 23, 1, 152, 10, 2, 142];
+  let ReleaseAtCycles = [12, 162, 4, 23, 1, 152, 10, 2, 142];
   let Latency = 508;
   let NumMicroOps = 508;
 }
 def : InstRW<[RYLWriteResGroup154], (instrs XSAVE)>;
 
 def RYLWriteResGroup155 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [12, 216, 5, 28, 1, 186, 10, 4, 176];
+  let ReleaseAtCycles = [12, 216, 5, 28, 1, 186, 10, 4, 176];
   let Latency = 638;
   let NumMicroOps = 638;
 }
 def : InstRW<[RYLWriteResGroup155], (instrs XSAVE64)>;
 
 def RYLWriteResGroup156 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [12, 185, 3, 22, 1, 169, 10, 2, 159];
+  let ReleaseAtCycles = [12, 185, 3, 22, 1, 169, 10, 2, 159];
   let Latency = 563;
   let NumMicroOps = 563;
 }
 def : InstRW<[RYLWriteResGroup156], (instrs XSAVEC)>;
 
 def RYLWriteResGroup157 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [24, 234, 5, 27, 1, 183, 10, 4, 173];
+  let ReleaseAtCycles = [24, 234, 5, 27, 1, 183, 10, 4, 173];
   let Latency = 661;
   let NumMicroOps = 661;
 }
 def : InstRW<[RYLWriteResGroup157], (instrs XSAVEC64)>;
 
 def RYLWriteResGroup158 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [138, 3, 12, 1, 156, 10, 2, 146];
+  let ReleaseAtCycles = [138, 3, 12, 1, 156, 10, 2, 146];
   let Latency = 468;
   let NumMicroOps = 468;
 }
 def : InstRW<[RYLWriteResGroup158], (instrs XSAVEOPT)>;
 
 def RYLWriteResGroup159 : SchedWriteRes<[RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [152, 4, 15, 1, 156, 10, 2, 146];
+  let ReleaseAtCycles = [152, 4, 15, 1, 156, 10, 2, 146];
   let Latency = 486;
   let NumMicroOps = 486;
 }
 def : InstRW<[RYLWriteResGroup159], (instrs XSAVEOPT64)>;
 
 def RYLWriteResGroup160 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [12, 178, 2, 21, 1, 169, 10, 2, 159];
+  let ReleaseAtCycles = [12, 178, 2, 21, 1, 169, 10, 2, 159];
   let Latency = 554;
   let NumMicroOps = 554;
 }
 def : InstRW<[RYLWriteResGroup160], (instrs XSAVES)>;
 
 def RYLWriteResGroup161 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05, RYLPort00_01_05, RYLPort05, RYLPort06_08_10_12, RYLPort07_09_11, RYLPort13_14_15, RYLPort16_17, RYLPort22_23_24]> {
-  let ResourceCycles = [24, 227, 4, 26, 1, 183, 10, 4, 173];
+  let ReleaseAtCycles = [24, 227, 4, 26, 1, 183, 10, 4, 173];
   let Latency = 652;
   let NumMicroOps = 652;
 }

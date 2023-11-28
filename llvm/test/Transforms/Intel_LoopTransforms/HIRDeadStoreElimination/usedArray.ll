@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir-framework>,hir-dead-store-elimination,print<hir-framework>" -hir-create-function-level-region 2>&1 < %s | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir-framework>,hir-dead-store-elimination,print<hir-framework>" -hir-create-function-level-region 2>&1 < %s | FileCheck %s
 ;
 ; FORTRAN Source Code:
 ;subroutine sub(a,b,n)
@@ -24,8 +24,8 @@
 ; CHECK:           (%addressof)[0][2] = 1;
 ; CHECK:           (%addressof)[0][3] = 0;
 ; CHECK:           (%ARGBLOCK_0)[0].0 = 4 * %slct;
-; CHECK:           (float**)(%ARGBLOCK_0)[0].1 = &((%"sub_$C")[0]);
-; CHECK:           %func_result40 = @for_write_seq_lis(&((i8*)(%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &((i8*)(%ARGBLOCK_0)[0]));
+; CHECK:           (%ARGBLOCK_0)[0].1 = &((%"sub_$C")[0]);
+; CHECK:           %func_result40 = @for_write_seq_lis(&((%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &((%ARGBLOCK_0)[0]));
 ; CHECK:           ret ;
 ; CHECK:     END REGION
 
@@ -46,8 +46,8 @@
 ; CHECK:           (%addressof)[0][2] = 1;
 ; CHECK:           (%addressof)[0][3] = 0;
 ; CHECK:           (%ARGBLOCK_0)[0].0 = 4 * %slct;
-; CHECK:           (float**)(%ARGBLOCK_0)[0].1 = &((%"sub_$C")[0]);
-; CHECK:           %func_result40 = @for_write_seq_lis(&((i8*)(%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &((i8*)(%ARGBLOCK_0)[0]));
+; CHECK:           (%ARGBLOCK_0)[0].1 = &((%"sub_$C")[0]);
+; CHECK:           %func_result40 = @for_write_seq_lis(&((%"var$1")[0]),  -1,  1239157112576,  &((%addressof)[0][0]),  &((%ARGBLOCK_0)[0]));
 ; CHECK:           ret ;
 ; CHECK:     END REGION
 
@@ -58,12 +58,12 @@ source_filename = "usedArray.f90"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @sub_(float* noalias nocapture readonly %"sub_$A", float* noalias nocapture readonly %"sub_$B", i32* noalias nocapture readonly %"sub_$N") local_unnamed_addr #0 {
+define void @sub_(ptr noalias nocapture readonly %"sub_$A", ptr noalias nocapture readonly %"sub_$B", ptr noalias nocapture readonly %"sub_$N") local_unnamed_addr #0 {
 alloca:
   %"var$1" = alloca [8 x i64], align 16
   %addressof = alloca [4 x i8], align 1
-  %ARGBLOCK_0 = alloca { i64, i8* }, align 8
-  %"sub_$N_fetch" = load i32, i32* %"sub_$N", align 4
+  %ARGBLOCK_0 = alloca { i64, ptr }, align 8
+  %"sub_$N_fetch" = load i32, ptr %"sub_$N", align 4
   %int_sext = sext i32 %"sub_$N_fetch" to i64
   %rel = icmp sgt i64 %int_sext, 0
   %slct = select i1 %rel, i64 %int_sext, i64 0
@@ -77,14 +77,14 @@ bb13.preheader:                                   ; preds = %alloca
 
 bb13:                                             ; preds = %bb13.preheader, %bb13
   %"var$3.055" = phi i64 [ %add18, %bb13 ], [ 1, %bb13.preheader ]
-  %"sub_$A[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"sub_$A", i64 %"var$3.055")
-  %"sub_$A[]_fetch" = load float, float* %"sub_$A[]", align 4
-  %"sub_$B[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"sub_$B", i64 %"var$3.055")
-  %"sub_$B[]_fetch" = load float, float* %"sub_$B[]", align 4
+  %"sub_$A[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %"sub_$A", i64 %"var$3.055")
+  %"sub_$A[]_fetch" = load float, ptr %"sub_$A[]", align 4
+  %"sub_$B[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %"sub_$B", i64 %"var$3.055")
+  %"sub_$B[]_fetch" = load float, ptr %"sub_$B[]", align 4
   %add = fadd float %"sub_$A[]_fetch", %"sub_$B[]_fetch"
   %add8 = fadd float %add, 1.000000e+00
-  %"sub_$C[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"sub_$C", i64 %"var$3.055")
-  store float %add8, float* %"sub_$C[]", align 4
+  %"sub_$C[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) nonnull %"sub_$C", i64 %"var$3.055")
+  store float %add8, ptr %"sub_$C[]", align 4
   %add18 = add nuw nsw i64 %"var$3.055", 1
   %exitcond = icmp eq i64 %"var$3.055", %int_sext
   br i1 %exitcond, label %bb22.loopexit, label %bb13
@@ -94,28 +94,28 @@ bb22.loopexit:                                    ; preds = %bb13
 
 bb22:                                             ; preds = %bb22.loopexit, %alloca
   %.fca.0.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 0
-  store i8 26, i8* %.fca.0.gep, align 1
+  store i8 26, ptr %.fca.0.gep, align 1
   %.fca.1.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 1
-  store i8 5, i8* %.fca.1.gep, align 1
+  store i8 5, ptr %.fca.1.gep, align 1
   %.fca.2.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 2
-  store i8 1, i8* %.fca.2.gep, align 1
+  store i8 1, ptr %.fca.2.gep, align 1
   %.fca.3.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 3
-  store i8 0, i8* %.fca.3.gep, align 1
-  %BLKFIELD_ = getelementptr inbounds { i64, i8* }, { i64, i8* }* %ARGBLOCK_0, i64 0, i32 0
+  store i8 0, ptr %.fca.3.gep, align 1
+  %BLKFIELD_ = getelementptr inbounds { i64, ptr }, ptr %ARGBLOCK_0, i64 0, i32 0
   store i64 %mul, i64* %BLKFIELD_, align 8
-  %BLKFIELD_32 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %ARGBLOCK_0, i64 0, i32 1
-  %0 = bitcast i8** %BLKFIELD_32 to float**
-  store float* %"sub_$C", float** %0, align 8
-  %ptr_cast34 = bitcast [8 x i64]* %"var$1" to i8*
-  %ptr_cast38 = bitcast { i64, i8* }* %ARGBLOCK_0 to i8*
-  %func_result40 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %ptr_cast34, i32 -1, i64 1239157112576, i8* nonnull %.fca.0.gep, i8* nonnull %ptr_cast38)
+  %BLKFIELD_32 = getelementptr inbounds { i64, ptr }, ptr %ARGBLOCK_0, i64 0, i32 1
+  %0 = bitcast ptr %BLKFIELD_32 to ptr
+  store ptr %"sub_$C", ptr %0, align 8
+  %ptr_cast34 = bitcast [8 x i64]* %"var$1" to ptr
+  %ptr_cast38 = bitcast ptr %ARGBLOCK_0 to ptr
+  %func_result40 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %ptr_cast34, i32 -1, i64 1239157112576, ptr nonnull %.fca.0.gep, ptr nonnull %ptr_cast38)
   ret void
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
-declare i32 @for_write_seq_lis(i8*, i32, i64, i8*, i8*, ...) local_unnamed_addr
+declare i32 @for_write_seq_lis(ptr, i32, i64, ptr, ptr, ...) local_unnamed_addr
 
 attributes #0 = { "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" }
 attributes #1 = { nounwind readnone speculatable }

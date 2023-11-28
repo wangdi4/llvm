@@ -1,51 +1,107 @@
-; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -S -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,hir-vec-dir-insert,print<hir>" -hir-loop-distribute-skip-vectorization-profitability-check=true -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that %tmp4650 is scalar expanded and not recomputed,
 ; because RVal %tmp4646 of the dependent instruction %tmp4649
 ; does not have a use in the last loop chunk.
 
+; Previously, loop was distributed into 3 chunks and only one small chunk was
+; vectorizable. Now, loop is distributed into 4 chunks with 2 main chunks as
+; vectorizable.
+
+; HIR-
+; + DO i1 = 0, 25, 1   <DO_LOOP>
+; |   %tmp4442 = (undef)[0];
+; |   %tmp4443 = %tmp4442  *  5.000000e-01;
+; |   (undef)[0] = undef;
+; |   (undef)[0] = undef;
+; |   (undef)[0] = undef;
+; |   (undef)[0] = undef;
+; |   (undef)[0] = undef;
+; |   (undef)[0] = undef;
+; |   (undef)[0] = undef;
+; |   (undef)[0] = undef;
+; |   %tmp4517 = (undef)[0];
+; |   %tmp4518 = %tmp4517  *  5.000000e-01;
+; |   (undef)[0] = undef;
+; |   (undef)[0] = undef;
+; |   (undef)[0] = undef;
+; |   %tmp4561 = (undef)[0];
+; |   %tmp4562 = %tmp4561  *  5.000000e-01;
+; |   (undef)[0] = %tmp4562;
+; |   %tmp4565 = (undef)[0];
+; |   %tmp4566 = %tmp4565  *  5.000000e-01;
+; |   (undef)[0] = undef;
+; |   %tmp4587 = (undef)[0];
+; |   %tmp4588 = undef  /  %tmp4587;
+; |   %tmp4646 = @llvm.minnum.f64(undef,  1.500000e+01);
+; |   %tmp4649 = %tmp4646  +  4.000000e+00;
+; |   %tmp4650 = @zot(%tmp4649);
+; |   %tmp4654 = undef  *  %tmp4650;
+; |   %tmp4655 = %tmp4646  +  1.000000e+00;
+; |   %tmp4656 = @zot(%tmp4655);
+; |   %tmp4678 = %tmp4650  *  undef;
+; |   (undef)[0] = undef;
+; |   (undef)[0] = undef;
+; + END LOOP
+
 ; CHECK: BEGIN REGION { modified }
+; CHECK: %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+
 ; CHECK: + DO i1 = 0, 25, 1   <DO_LOOP>
-;        |   %tmp4443 = (undef)[0]  *  5.000000e-01;
-;        |   (undef)[0] = undef;
-;        |   (undef)[0] = undef;
-;        |   (undef)[0] = undef;
-;        |   (undef)[0] = undef;
-;        |   (undef)[0] = undef;
-;        |   (undef)[0] = undef;
-;        |   (undef)[0] = undef;
-;        |   (undef)[0] = undef;
-;        |   %tmp4518 = (undef)[0]  *  5.000000e-01;
-;        |   (undef)[0] = undef;
-;        |   (undef)[0] = undef;
-;        |   (undef)[0] = undef;
-;        |   %tmp4562 = (undef)[0]  *  5.000000e-01;
-;        |   (undef)[0] = %tmp4562;
-;        |   %tmp4566 = (undef)[0]  *  5.000000e-01;
-;        |   (undef)[0] = undef;
-;        |   %tmp4588 = undef  /  (undef)[0];
-;        |   %tmp4646 = @llvm.minnum.f64(undef,  1.500000e+01);
-;        |   %tmp4649 = %tmp4646  +  4.000000e+00;
-;        |   %tmp4650 = @zot(%tmp4649);
-;        |   (%.TempArray)[0][i1] = %tmp4650;
+; CHECK: |   %tmp4442 = (undef)[0];
+; CHECK: |   %tmp4443 = %tmp4442  *  5.000000e-01;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   %tmp4517 = (undef)[0];
+; CHECK: |   %tmp4518 = %tmp4517  *  5.000000e-01;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   %tmp4561 = (undef)[0];
+; CHECK: |   %tmp4562 = %tmp4561  *  5.000000e-01;
+; CHECK: |   (undef)[0] = %tmp4562;
+; CHECK: |   %tmp4565 = (undef)[0];
+; CHECK: |   %tmp4566 = %tmp4565  *  5.000000e-01;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   %tmp4587 = (undef)[0];
+; CHECK: |   %tmp4588 = undef  /  %tmp4587;
+; CHECK: |   %tmp4646 = @llvm.minnum.f64(undef,  1.500000e+01);
+; CHECK: |   %tmp4649 = %tmp4646  +  4.000000e+00;
+; CHECK: |   (%.TempArray)[0][i1] = %tmp4649;
 ; CHECK: + END LOOP
-;
-;
+
+; CHECK: @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
+
 ; CHECK: + DO i1 = 0, 25, 1   <DO_LOOP>
-; CHECK-NOT: %tmp4649 =
-;        |   %tmp4646 = @llvm.minnum.f64(undef,  1.500000e+01);
-;        |   %tmp4650 = (%.TempArray)[0][i1];
-;        |   %tmp4654 = undef  *  %tmp4650;
-;        |   %tmp4655 = %tmp4646  +  1.000000e+00;
-;        |   %tmp4656 = @zot(%tmp4655);
+; CHECK: |   %tmp4649 = (%.TempArray)[0][i1];
+; CHECK: |   %tmp4650 = @zot(%tmp4649);
+; CHECK: |   (%.TempArray20)[0][i1] = %tmp4650;
 ; CHECK: + END LOOP
-;
-;
+
+; CHECK: %entry.region24 = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+
 ; CHECK: + DO i1 = 0, 25, 1   <DO_LOOP>
-; CHECK: |   %tmp4650 = (%.TempArray)[0][i1];
-;        |   %tmp4678 = %tmp4650  *  undef;
-;        |   (undef)[0] = undef;
-;        |   (undef)[0] = undef;
+; CHECK: |   %tmp4646 = @llvm.minnum.f64(undef,  1.500000e+01);
+; CHECK: |   %tmp4650 = (%.TempArray20)[0][i1];
+; CHECK: |   %tmp4654 = undef  *  %tmp4650;
+; CHECK: |   %tmp4655 = %tmp4646  +  1.000000e+00;
+; CHECK: |   (%.TempArray22)[0][i1] = %tmp4655;
+; CHECK: |   %tmp4678 = %tmp4650  *  undef;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: |   (undef)[0] = undef;
+; CHECK: + END LOOP
+
+; CHECK: @llvm.directive.region.exit(%entry.region24); [ DIR.VPO.END.AUTO.VEC() ]
+
+; CHECK: + DO i1 = 0, 25, 1   <DO_LOOP>
+; CHECK: |   %tmp4655 = (%.TempArray22)[0][i1];
+; CHECK: |   %tmp4656 = @zot(%tmp4655);
 ; CHECK: + END LOOP
 ; CHECK: END REGION
 

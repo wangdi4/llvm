@@ -78,6 +78,6 @@ attributes #0 = { nofree norecurse noreturn nosync nounwind readnone }
 !1 = !{!"int*"}
 !2 = !{i1 true}
 !3 = !{i32 0}
-!4 = !{i32 addrspace(3)* null}
+!4 = !{ptr addrspace(3) null}
 
 ; DEBUGIFY-NOT: WARNING:

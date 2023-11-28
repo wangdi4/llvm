@@ -46,12 +46,10 @@ L4:
 ; CHECK: [[SB_LocalId_Offset:%.*]] = add nuw i32 [[SBIndex]], 4
 ; CHECK: [[pSB_LocalId:%.*]] = getelementptr inbounds i8, ptr %pSB, i32 [[SB_LocalId_Offset]]
 ; CHECK: %loadedValue = load i32, ptr [[pSB_LocalId]]
-; CHECK: [[SBIndex1:%.*]] = load i32, ptr %pCurrSBIndex
-; CHECK: [[SB_LocalId_Offset2:%.*]] = add nuw i32 [[SBIndex1]], 0
+; CHECK: [[SB_LocalId_Offset2:%.*]] = add nuw i32 [[SBIndex]], 0
 ; CHECK: [[pSB_LocalId2:%.*]] = getelementptr inbounds i8, ptr %pSB, i32 [[SB_LocalId_Offset2]]
 ; CHECK: store i32 %loadedValue, ptr [[pSB_LocalId2]]
-; CHECK: [[SBIndex4:%.*]] = load i32, ptr %pCurrSBIndex
-; CHECK: [[SB_LocalId_Offset5:%.*]] = add nuw i32 [[SBIndex4]], 0
+; CHECK: [[SB_LocalId_Offset5:%.*]] = add nuw i32 [[SBIndex]], 0
 ; CHECK: [[pSB_LocalId5:%.*]] = getelementptr inbounds i8, ptr %pSB, i32 [[SB_LocalId_Offset5]]
 ; CHECK: [[loadedValue7:%.*]] = load i32, ptr [[pSB_LocalId5]]
 ; CHECK: %w = and i32 [[loadedValue7]], [[loadedValue7]]

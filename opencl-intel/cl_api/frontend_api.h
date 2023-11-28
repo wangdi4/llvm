@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2009-2022 Intel Corporation.
+// Copyright 2009 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <CL/cl.h>
+#include "CL/cl.h"
 #include <memory>
 #include <stddef.h>
 #include <stdint.h>

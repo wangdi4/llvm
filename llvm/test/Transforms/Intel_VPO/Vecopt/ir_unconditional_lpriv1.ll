@@ -3,7 +3,7 @@
 ;
 ; Test code gen for unconditional last private of a vector data type.
 ;
-define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {
+define void @simd_loop(ptr %A, ptr %B) #0 {
 ;
 ; CHECK-LABEL:  VPlan after live in/out lists creation:
 ; CHECK-NEXT:  VPlan IR for: simd_loop:omp.inner.for.body.#{{[0-9]+}}
@@ -11,9 +11,8 @@ define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     <2 x i32>* [[VP_PRIVATE:%.*]] = allocate-priv <2 x i32>, OrigAlign = 8
-; CHECK-NEXT:     i8* [[VP_PRIVATE_BCAST:%.*]] = bitcast <2 x i32>* [[VP_PRIVATE]]
-; CHECK-NEXT:     call i64 8 i8* [[VP_PRIVATE_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECK-NEXT:     ptr [[VP_PRIVATE:%.*]] = allocate-priv <2 x i32>, OrigAlign = 8
+; CHECK-NEXT:     call i64 8 ptr [[VP_PRIVATE]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
@@ -21,8 +20,8 @@ define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:     <2 x i32>* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds <2 x i32>* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     <2 x i32> [[VP0:%.*]] = load <2 x i32>* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds <2 x i32>, ptr [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     <2 x i32> [[VP0:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i32 [[VP1:%.*]] = extractelement <2 x i32> [[VP0]] i64 0
 ; CHECK-NEXT:     i1 [[VP_CMP3:%.*]] = icmp sgt i32 [[VP1]] i32 0
 ; CHECK-NEXT:     <2 x i32> [[VP_PRIV_OUTGOING:%.*]] = select i1 [[VP_CMP3]] <2 x i32> [[VP0]] <2 x i32> zeroinitializer
@@ -33,8 +32,7 @@ define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     <2 x i32> [[VP_PRIV_OUTGOING_PRIV_FINAL:%.*]] = private-final-uc <2 x i32> [[VP_PRIV_OUTGOING]]
-; CHECK-NEXT:     i8* [[VP_PRIVATE_BCAST1:%.*]] = bitcast <2 x i32>* [[VP_PRIVATE]]
-; CHECK-NEXT:     call i64 8 i8* [[VP_PRIVATE_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECK-NEXT:     call i64 8 ptr [[VP_PRIVATE]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
@@ -53,12 +51,12 @@ define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {
 ; CHECK-NEXT:      Phi: nullptr    Start op: -1
 ; CHECK-NEXT:      Live-Out:   [[PRIV_OUTGOING0]] = select i1 [[CMP30:%.*]], <2 x i32> [[TMP0:%.*]], <2 x i32> zeroinitializer
 ;
-; CHECK:  define void @simd_loop(<2 x i32>* [[A0]], <2 x i32>* [[B0:%.*]]) {
+; CHECK:  define void @simd_loop(ptr [[A0]], ptr [[B0:%.*]]) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[PRIVATE0:%.*]] = alloca <2 x i32>, align 8
 ; CHECK-NEXT:    [[PRIVATE_VEC0:%.*]] = alloca <8 x i32>, align 32
-; CHECK-NEXT:    [[PRIVATE_VEC_BC0:%.*]] = bitcast <8 x i32>* [[PRIVATE_VEC0]] to <2 x i32>*
-; CHECK-NEXT:    [[PRIVATE_VEC_BASE_ADDR0:%.*]] = getelementptr <2 x i32>, <2 x i32>* [[PRIVATE_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[PRIVATE_VEC_BASE_ADDR0:%.*]] = getelementptr <2 x i32>, ptr [[PRIVATE_VEC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[PRIVATE_VEC_BASE_ADDR0_EXTRACT0:%.*]] = extractelement <4 x ptr> [[PRIVATE_VEC_BASE_ADDR0]], i32 0
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.SIMD.3:
@@ -68,16 +66,14 @@ define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    [[PRIVATE_VEC0_BCAST:%.*]] = bitcast <8 x i32>* [[PRIVATE_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 32, i8* [[PRIVATE_VEC0_BCAST]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 32, ptr [[PRIVATE_VEC_BASE_ADDR0_EXTRACT0]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB10]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[A0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP0]] to <8 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <8 x i32>, <8 x i32>* [[TMP0]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds <2 x i32>, ptr [[A0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <8 x i32>, ptr [[SCALAR_GEP0]], align 8
 ; CHECK-NEXT:    [[WIDE_EXTRACT0:%.*]] = shufflevector <8 x i32> [[WIDE_LOAD0]], <8 x i32> undef, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp sgt <4 x i32> [[WIDE_EXTRACT0]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = shufflevector <4 x i1> [[TMP1]], <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
@@ -89,8 +85,7 @@ define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    [[EXTRACTED_PRIV0:%.*]] = shufflevector <8 x i32> [[TMP3]], <8 x i32> undef, <2 x i32> <i32 6, i32 7>
-; CHECK-NEXT:    [[PRIVATE_VEC0_BCAST:%.*]] = bitcast <8 x i32>* [[PRIVATE_VEC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 32, i8* [[PRIVATE_VEC0_BCAST]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 32, ptr [[PRIVATE_VEC_BASE_ADDR0_EXTRACT0]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
@@ -103,7 +98,7 @@ define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {
 ;
 ; CHECK:       omp.loop.exit:
 ; CHECK-NEXT:    [[DOT_LCSSA0]] = phi <2 x i32> [ [[UNI_PHI50]], [[FINAL_MERGE0]] ]
-; CHECK-NEXT:    store <2 x i32> [[DOT_LCSSA0]], <2 x i32>* [[PRIVATE0]], align 8
+; CHECK-NEXT:    store <2 x i32> [[DOT_LCSSA0]], ptr [[PRIVATE0]], align 8
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.END.SIMD.1:
@@ -115,13 +110,13 @@ entry:
   br label %DIR.OMP.SIMD.3
 
 DIR.OMP.SIMD.3:                                   ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(<2 x i32>* %private, <2 x i32> zeroinitializer, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(ptr %private, <2 x i32> zeroinitializer, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.3, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.3 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds <2 x i32>, <2 x i32>* %A, i64 %indvars.iv
-  %0 = load <2 x i32>, <2 x i32>* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds <2 x i32>, ptr %A, i64 %indvars.iv
+  %0 = load <2 x i32>, ptr %arrayidx, align 8
   %1 = extractelement <2 x i32> %0, i64 0
   %cmp3 = icmp sgt i32 %1, 0
   %priv.outgoing = select i1 %cmp3, <2 x i32> %0, <2 x i32> zeroinitializer
@@ -131,7 +126,7 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.3, %om
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
   %..lcssa = phi <2 x i32> [ %priv.outgoing, %omp.inner.for.body ]
-  store <2 x i32> %..lcssa, <2 x i32>* %private, align 8
+  store <2 x i32> %..lcssa, ptr %private, align 8
   br label %DIR.OMP.END.SIMD.1
 
 DIR.OMP.END.SIMD.1:                               ; preds = %omp.loop.exit

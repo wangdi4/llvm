@@ -1,15 +1,15 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -I%S/Inputs -emit-pch -o %t -std=c++14 -fopenmp \
-// RUN:  -fopenmp-typed-clauses -fopenmp-version=51 -fopenmp-late-outline \
+// RUN: %clang_cc1 -I%S/Inputs -emit-pch -o %t -std=c++14 -fopenmp \
+// RUN:  -fopenmp-version=51 -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s
 
-// RUN: %clang_cc1 -opaque-pointers -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
-// RUN:  -fopenmp-typed-clauses -fopenmp-version=51 -fopenmp-late-outline \
+// RUN: %clang_cc1 -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
+// RUN:  -fopenmp-version=51 -fopenmp-late-outline \
 // RUN:  -include-pch %t -verify \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
-// RUN: %clang_cc1 -opaque-pointers -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
-// RUN:  -fopenmp-typed-clauses -fopenmp-version=51 -fopenmp-late-outline \
+// RUN: %clang_cc1 -I%S/Inputs -emit-llvm -o - -std=c++14 -fopenmp \
+// RUN:  -fopenmp-version=51 -fopenmp-late-outline \
 // RUN:  -verify -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // expected-no-diagnostics

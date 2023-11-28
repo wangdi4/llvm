@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,10 +16,10 @@
 
 #include "build_event.h"
 #include "cl_shared_ptr.h"
+#include "cl_types.h"
 #include "fe_compiler.h"
 #include "program.h"
 #include "task_executor.h"
-#include <cl_types.h>
 
 namespace Intel {
 namespace OpenCL {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Intel Corporation
+// Copyright (c) 2020 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -18,9 +18,9 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
+#include "CL/cl.h"
 #include "FrameworkTestThreads.h"
 #include "TestsHelpClasses.h"
-#include <CL/cl.h>
 #include <numeric>
 
 extern cl_device_type gDeviceType;
@@ -174,6 +174,8 @@ __kernel void test(__global int *dst, ulong size)
 
   err = clEnqueueUnmapMemObject(m_queue, buffer, mapped, 0, nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueUnmapMemObject");
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
 
   err = clReleaseMemObject(buffer);
   ASSERT_OCL_SUCCESS(err, "clReleaseMemObject");

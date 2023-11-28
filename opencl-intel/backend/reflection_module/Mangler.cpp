@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2022 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -90,8 +90,7 @@ std::string Mangler::mangle(const std::string &name) {
         V_ASSERT(!fdesc.isNull() && "demangle operation failed!");
         // Currently, we only support two dimension images masked built-ins.
         reflection::PrimitiveType *pTy =
-            reflection::dyn_cast<reflection::PrimitiveType>(
-                fdesc.Parameters[0].get());
+            dyn_cast<reflection::PrimitiveType>(fdesc.Parameters[0].get());
         bool isImage2d = pTy && is2DImage(pTy->getPrimitive());
         if (!isImage2d) {
           // Do not have implementation for masked built-ins, break to use
@@ -230,12 +229,11 @@ std::string Mangler::getVectorizedPrefetchName(const std::string &name,
 
   reflection::FunctionDescriptor prefetchDesc = ::demangle(mangledName.c_str());
   // First argument of prefetch built-in must be pointer.
-  V_ASSERT(reflection::dyn_cast<reflection::PointerType>(
-               prefetchDesc.Parameters[0].get()) &&
-           "First argument of prefetch built-in is expected to a pointer.");
+  V_ASSERT(
+      dyn_cast<reflection::PointerType>(prefetchDesc.Parameters[0].get()) &&
+      "First argument of prefetch built-in is expected to a pointer.");
   reflection::PointerType *pPtrTy =
-      reflection::dyn_cast<reflection::PointerType>(
-          prefetchDesc.Parameters[0].get());
+      dyn_cast<reflection::PointerType>(prefetchDesc.Parameters[0].get());
   assert(pPtrTy && "not a pointer");
   reflection::RefParamType scalarType = pPtrTy->getPointee();
   V_ASSERT(scalarType->getTypeId() == reflection::PrimitiveType::enumTy &&
@@ -352,10 +350,9 @@ std::string Mangler::getRetByArrayBuiltinName(const std::string &name) {
   // Create the name of the builtin function we will be replacing with.
   // If the orginal function was scalar, use the same function that will
   // planted by the Scalarizer
-  ret.Name =
-      reflection::dyn_cast<reflection::VectorType>(ret.Parameters[0].get())
-          ? retbyarray_builtin_prefix + ret.Name
-          : retbyvector_builtin_prefix + ret.Name;
+  ret.Name = dyn_cast<reflection::VectorType>(ret.Parameters[0].get())
+                 ? retbyarray_builtin_prefix + ret.Name
+                 : retbyvector_builtin_prefix + ret.Name;
   return ::mangle(ret);
 }
 

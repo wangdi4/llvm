@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_DeadArrayOpsElimination.cpp ----------------------------===//
 //
-// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -79,6 +79,8 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <optional>
@@ -491,6 +493,8 @@ void CandidateInfo::fixQsortCallsites() {
     NewCB->setAttributes(NewPAL);
     if (!CB->use_empty() || CB->isUsedByMetadata())
       CB->replaceAllUsesWith(NewCB);
+    getInlineReport()->replaceCallBaseWithCallBase(CB, NewCB);
+    getMDInlineReport()->replaceCallBaseWithCallBase(CB, NewCB);
     CB->eraseFromParent();
     return NewCB;
   };
@@ -509,7 +513,8 @@ void CandidateInfo::fixQsortCallsites() {
   });
   Value *AArg = FirstCall->getArgOperand(0);
   Type *FirstArgTy = AArg->getType();
-  Type *ArrayElemAddrType = ArrayElemTy->getPointerTo(0);
+  LLVMContext &Ctx = NewSortFn->getParent()->getContext();
+  Type *ArrayElemAddrType = PointerType::getUnqual(Ctx);
   Value *GEPPtrOp = AArg;
   DEBUG_WITH_TYPE(DEAD_ARRAY_OPS_ELIMI,
                   { dbgs() << "    FirstCall after:\n"; });
@@ -548,6 +553,8 @@ void CandidateInfo::transform() {
   // Wrap RecursionCall under newly created condition.
   wrapRecursionCallUnderCond();
   // Remove original SortFn.
+  getInlineReport()->removeFunctionReference(*SortFn);
+  getMDInlineReport()->removeFunctionReference(*SortFn);
   SortFn->eraseFromParent();
 }
 

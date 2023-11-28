@@ -1,6 +1,6 @@
 //==--------------- ReduceCrossBarrierValues.cpp ---------------- C++ -*---==//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -10,6 +10,8 @@
 
 #include "llvm/Transforms/SYCLTransforms/ReduceCrossBarrierValues.h"
 #include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
@@ -26,31 +28,6 @@ using namespace llvm;
 static cl::opt<unsigned> SYCLBarrierCopyInstructionThreshold(
     "sycl-barrier-copy-instruction-threshold", cl::init(15), cl::Hidden);
 
-PreservedAnalyses
-ReduceCrossBarrierValuesPass::run(Module &M, ModuleAnalysisManager &MAM) {
-  auto *BLI = &MAM.getResult<BuiltinLibInfoAnalysis>(M);
-  auto *DPV = &MAM.getResult<DataPerValueAnalysis>(M);
-  auto *WIRV = &MAM.getResult<WIRelatedValueAnalysis>(M);
-  auto *DPB = &MAM.getResult<DataPerBarrierAnalysis>(M);
-
-  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto GetDF = [&FAM](Function &F) -> DominanceFrontier & {
-    return FAM.getResult<DominanceFrontierAnalysis>(F);
-  };
-  auto GetDT = [&FAM](Function &F) -> DominatorTree & {
-    return FAM.getResult<DominatorTreeAnalysis>(F);
-  };
-  if (!runImpl(M, BLI, DPV, WIRV, DPB, GetDF, GetDT))
-    return PreservedAnalyses::all();
-  PreservedAnalyses PA;
-  PA.preserveSet<CFGAnalyses>();
-  PA.preserve<DataPerBarrierAnalysis>();
-  PA.preserve<DominanceFrontierAnalysis>();
-  PA.preserve<DominatorTreeAnalysis>();
-  PA.preserve<WIRelatedValueAnalysis>();
-  return PA;
-}
-
 using UseSet = DataPerValue::UseSet;
 using InstMap = DenseMap<Instruction *, Instruction *>;
 
@@ -58,6 +35,14 @@ static bool isSafeToCopy(Instruction *Inst, RuntimeService &RTS) {
   // Alloca can't be copied.
   if (isa<AllocaInst>(Inst))
     return false;
+
+  // In case TID builtins's memory(none) attribute is removed, check their names
+  // before checking if it may read or write memory.
+  if (auto *Call = dyn_cast<CallBase>(Inst)) {
+    Function *CalledFunc = Call->getCalledFunction();
+    if (CalledFunc && RTS.isSafeToSpeculativeExecute(CalledFunc->getName()))
+      return true;
+  }
 
   // TODO:
   // If the instruction is a load, we must guarantee that all paths from where
@@ -71,15 +56,10 @@ static bool isSafeToCopy(Instruction *Inst, RuntimeService &RTS) {
       Inst->mayThrow())
     return false;
 
-  if (auto *Call = dyn_cast<CallBase>(Inst)) {
-    Function *CalledFunc = Call->getCalledFunction();
-    if (CalledFunc && RTS.isSafeToSpeculativeExecute(CalledFunc->getName()))
-      return true;
-
-    // For other function calls, cloning them can be more expensive than save
-    // to/load from special buffer. So we choose to bail out.
+  // For other function calls, cloning them can be more expensive than save
+  // to/load from special buffer. So we choose to bail out.
+  if (isa<CallBase>(Inst))
     return false;
-  }
 
   return true;
 }
@@ -141,7 +121,8 @@ static bool collectDependencies(Use *TheUse, size_t Threshold,
 static void copyAndReplaceUses(
     SmallVectorImpl<Use *> &Uses, BasicBlock *RegionHeader,
     Instruction *InsertPt, DenseMap<BasicBlock *, InstMap> &OriginToCopyMaps,
-    InstMap &CopyToOriginMap, WIRelatedValue *WIRV, BarrierRegionInfo *BRI) {
+    InstMap &CopyToOriginMap, SmallPtrSetImpl<Instruction *> &RemoveCandidates,
+    WIRelatedValue *WIRV, BarrierRegionInfo *BRI) {
 
   auto IsDomFrontier = [](BasicBlock *RegionHeader) {
     return !BarrierUtils::isBarrierOrDummyBarrierCall(&*RegionHeader->begin());
@@ -204,11 +185,14 @@ static void copyAndReplaceUses(
       LLVM_DEBUG(dbgs() << "  Create a new copy.\n");
       Clone = OrigInst->clone();
       Clone->insertBefore(InsertPt);
+      Clone->setDebugLoc(InsertPt->getDebugLoc());
     }
     OriginToCopyMap[OrigInst] = Clone;
     CopyToOriginMap[Clone] = OrigInst;
     Clone->setName(OrigInst->getName() + ".copy");
     WIRV->setWIRelated(Clone, true);
+    // Cloned instruction may have no use.
+    RemoveCandidates.insert(Clone);
   }
 
   // Query from CopyToOriginMap and OriginToCopyMap to get the unique copy of
@@ -241,11 +225,7 @@ static void copyAndReplaceUses(
   unsigned OpIdx = U->getOperandNo();
   Instruction *Inst = cast<Instruction>(U->get());
   UserInst->setOperand(OpIdx, GetTheUniqueCopyOfInst(Inst));
-  // TODO: Erasing the dead instruction here can lead to invalid values in
-  // CopyToOriginMap and assertion failures. So I just leave dead instructions
-  // to DCE pass until there's a better solution.
-  // if (Inst->use_empty())
-  //   Inst->eraseFromParent();
+  RemoveCandidates.insert(Inst);
 
   // 3. Fix operands for all cloned instructions
   for (auto II = Uses.rbegin() + 1, EE = Uses.rend(); II != EE; ++II) {
@@ -256,14 +236,14 @@ static void copyAndReplaceUses(
     OpIdx = U->getOperandNo();
     Inst = cast<Instruction>(U->get());
     UserInst->setOperand(OpIdx, GetTheUniqueCopyOfInst(Inst));
-    // if (Inst->use_empty())
-    //   Inst->eraseFromParent();
+    RemoveCandidates.insert(Inst);
   }
 }
 
 static bool runOnFunction(Function &F, BuiltinLibInfo *BLI, DataPerValue *DPV,
                           WIRelatedValue *WIRV, DataPerBarrier *DPB,
-                          DominanceFrontier *DF, DominatorTree *DT) {
+                          DominanceFrontier *DF, DominatorTree *DT,
+                          OptimizationRemarkEmitter *ORE) {
   const auto *CrossBarrierUseMap = DPV->getCrossBarrierUses(&F);
   if (!CrossBarrierUseMap || CrossBarrierUseMap->empty())
     return false;
@@ -314,6 +294,8 @@ static bool runOnFunction(Function &F, BuiltinLibInfo *BLI, DataPerValue *DPV,
     return BRI.compare(LBB, RBB);
   });
 
+  unsigned NumReduced = 0;
+  SmallPtrSet<Instruction *, 16> RemoveCandidates;
   for (Use *TheUse : CrossBarrierUses) {
     auto *UserInst = cast<Instruction>(TheUse->getUser());
     LLVM_DEBUG(dbgs() << "Handle instruction"; UserInst->dump());
@@ -340,22 +322,60 @@ static bool runOnFunction(Function &F, BuiltinLibInfo *BLI, DataPerValue *DPV,
     }
 
     copyAndReplaceUses(Uses, RegionHeader, InsertPt, CopiedInsts,
-                       CopyToOriginMap, WIRV, &BRI);
+                       CopyToOriginMap, RemoveCandidates, WIRV, &BRI);
+    NumReduced++;
     Changed = true;
+  }
+
+  if (Changed) {
+    bool Removed;
+    do {
+      Removed = false;
+      for (Instruction *I : make_early_inc_range(RemoveCandidates)) {
+        if (I->use_empty()) {
+          I->eraseFromParent();
+          RemoveCandidates.erase(I);
+          Removed = true;
+        }
+      }
+    } while (Removed);
+
+    ORE->emit([&]() {
+      return OptimizationRemark(DEBUG_TYPE, "ReduceCrossBarrierValues", &F)
+             << Twine(NumReduced).str()
+             << " cross-barrier uses are erased in function " << F.getName();
+    });
   }
 
   return Changed;
 }
 
-bool ReduceCrossBarrierValuesPass::runImpl(
-    Module &M, BuiltinLibInfo *BLI, DataPerValue *DPV, WIRelatedValue *WIRV,
-    DataPerBarrier *DPB, function_ref<DominanceFrontier &(Function &)> GetDF,
-    function_ref<DominatorTree &(Function &)> GetDT) {
+PreservedAnalyses
+ReduceCrossBarrierValuesPass::run(Module &M, ModuleAnalysisManager &MAM) {
+  auto *BLI = &MAM.getResult<BuiltinLibInfoAnalysis>(M);
+  auto *DPV = &MAM.getResult<DataPerValueAnalysis>(M);
+  auto *WIRV = &MAM.getResult<WIRelatedValueAnalysis>(M);
+  auto *DPB = &MAM.getResult<DataPerBarrierAnalysis>(M);
+
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
   bool Changed = false;
   for (auto &F : M) {
     if (F.hasOptNone() || F.isDeclaration())
       continue;
-    Changed |= runOnFunction(F, BLI, DPV, WIRV, DPB, &GetDF(F), &GetDT(F));
+    auto &DF = FAM.getResult<DominanceFrontierAnalysis>(F);
+    auto &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(F);
+    Changed |= runOnFunction(F, BLI, DPV, WIRV, DPB, &DF, &DT, &ORE);
   }
-  return Changed;
+
+  if (!Changed)
+    return PreservedAnalyses::all();
+  PreservedAnalyses PA;
+  PA.preserveSet<CFGAnalyses>();
+  PA.preserve<DataPerBarrierAnalysis>();
+  PA.preserve<DominanceFrontierAnalysis>();
+  PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<WIRelatedValueAnalysis>();
+  return PA;
 }

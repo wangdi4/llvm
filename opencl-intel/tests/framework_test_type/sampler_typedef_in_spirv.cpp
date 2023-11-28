@@ -1,12 +1,10 @@
 #include "CL/cl.h"
-#include "cl_types.h"
-
-#include <fstream>
-#include <stdio.h>
-
 #include "FrameworkTest.h"
+#include "cl_types.h"
 #include "common_utils.h"
 #include "gtest_wrapper.h"
+#include <fstream>
+#include <stdio.h>
 
 extern cl_device_type gDeviceType;
 

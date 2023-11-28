@@ -3,7 +3,7 @@
 // REQUIRES: x86-registered-target
 // INTEL_CUSTOMIZATION
 // It looks like certain coroutine optimizations only work with opaque ptrs.
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -std=c++20 %s -O3 -S -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++20 %s -O3 -S -o - | FileCheck %s
 // end INTEL_CUSTOMIZATION
 
 #include "Inputs/coroutine.h"

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,11 +17,8 @@
 #include "Exception.h"
 #include "Image.h"
 #include "SATestException.h"
-
-#include "mem_utils.h"
-
 #include "cpu_dev_limits.h"
-
+#include "mem_utils.h"
 #include <algorithm>
 #include <functional>
 

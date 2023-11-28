@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsycl-is-device -fsycl-allow-func-ptr -DINTEL_CUSTOMIZATION -internal-isystem %S/Inputs -disable-llvm-passes -triple spir64-unknown-unknown-sycldevice -emit-llvm -no-opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fsycl-is-device -fsycl-allow-func-ptr -DINTEL_CUSTOMIZATION=1 -internal-isystem %S/Inputs -disable-llvm-passes -triple spir64-unknown-unknown-sycldevice -emit-llvm -o - %s | FileCheck %s
 
 #include "sycl.hpp"
 
@@ -14,7 +14,7 @@ queue q;
 
 class A {
 public:
-  // CHECK-DAG: define linkonce_odr spir_func void @_ZN1AclEi(%class.A addrspace(4)* {{[^,]*}}%this, i32 {{[^,]*}}%i) #[[ATTRS_UNMASKED]]
+  // CHECK-DAG: define linkonce_odr spir_func void @_ZN1AclEi(ptr addrspace(4) {{[^,]*}}%this, i32 {{[^,]*}}%i) #[[ATTRS_UNMASKED]]
   // CHECK-DAG: define dso_local spir_func {{[^,]*}}i32 @_Z5bar20i(i32 {{[^,]*}}%a) #[[ATTRS_NOT_UNMASKED]]
   [[intel::unmasked]] void operator()(int i) { bar20(i); }
 };

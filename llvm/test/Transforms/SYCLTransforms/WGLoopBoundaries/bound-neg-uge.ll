@@ -44,6 +44,5 @@ declare i64 @_Z13get_global_idj(i32 noundef)
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
 
-; DEBUGIFY-COUNT-4: WARNING: Instruction with empty DebugLoc in function test
-; DEBUGIFY-COUNT-14: WARNING: Instruction with empty DebugLoc in function WG.boundaries.test
+; DEBUGIFY-COUNT-6: WARNING: Instruction with empty DebugLoc in function test
 ; DEBUGIFY-NOT: WARNING

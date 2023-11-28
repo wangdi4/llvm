@@ -1,6 +1,6 @@
-; RUN: opt < %s -passes='print<hir-region-identification>' -disable-output 2>&1 | FileCheck %s --check-prefix=LEX
+; RUN: opt < %s -passes='print<hir-region-identification>' -hir-allow-loop-materialization-regions=true -disable-output 2>&1 | FileCheck %s --check-prefix=LEX
 
-; RUN: opt < %s -passes='print<hir-region-identification>' -disable-output -hir-region-lexical-insertion-func-size-threshold=5 2>&1 | FileCheck %s --check-prefix=NO-LEX
+; RUN: opt < %s -passes='print<hir-region-identification>' -disable-output -hir-allow-loop-materialization-regions=true -hir-region-lexical-insertion-func-size-threshold=5 2>&1 | FileCheck %s --check-prefix=NO-LEX
 
 ; Verify that when function size is within the threshold, regions created for 
 ; materialization are inserted in lexical order otherwise they are inserted
@@ -50,7 +50,7 @@ for.body3:                                        ; preds = %for.body3, %for.pre
   %add = add nsw i32 %0, %0
   store i32 %add, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 10
+  %exitcond = icmp eq i64 %indvars.iv.next, 20
   br i1 %exitcond, label %for.inc4, label %for.body3
 
 for.inc4:                                         ; preds = %for.body3

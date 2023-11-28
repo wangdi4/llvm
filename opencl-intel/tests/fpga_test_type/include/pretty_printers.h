@@ -15,8 +15,7 @@
 #ifndef __PRETTY_PRINTERS_H__
 #define __PRETTY_PRINTERS_H__
 
-#include <CL/cl.h>
-
+#include "CL/cl.h"
 #include <string>
 
 std::string ErrToStr(cl_int error);

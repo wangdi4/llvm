@@ -1,6 +1,6 @@
 //===- AddImplicitArgs.cpp - Add implicit arguments to DPC++ kernel  ------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -235,56 +235,9 @@ void AddImplicitArgsPass::runOnFunction(Function *F) {
 
   // All users which need to be replaced are handled here.
   SmallVector<User *, 16> Users(F->users());
-  for (User *U : Users) {
-    if (auto *CI = dyn_cast<CallInst>(U)) {
-      if (CI->getCalledOperand() == F) {
-        replaceCallInst(CI, NewTypes, NewF);
-      } else if (F->getContext().supportsTypedPointers()) {
-        // The function is used as an argument.
-        auto *Cast = CastInst::CreatePointerCast(NewF, F->getType(), "", CI);
-        Cast->setDebugLoc(CI->getDebugLoc());
-        CI->replaceUsesOfWith(F, Cast);
-#ifndef NDEBUG
-        // FIXME:
-        // The only case that a function ptr is passed as an argument is in
-        // task_sequence, and in such case, we assume the passed function won't
-        // be called directly inside the task_sequence, so we don't do extra
-        // work except bitcast'ing the argument's pointer type. We add an
-        // assert here to assure it won't be called. If the passed function ptr
-        // is called inside the function in the future, we need to fix call
-        // instructions in the function.
-        auto *CalledF = dyn_cast<Function>(CI->getCalledOperand());
-        if (!CalledF)
-          continue;
-        for (int i = 0, e = CI->arg_size(); i < e; ++i) {
-          if (CI->getArgOperand(i) != Cast)
-            continue;
-          assert(llvm::all_of(CalledF->getArg(i)->users(),
-                              [](User *U) { return !isa<CallBase>(U); }) &&
-                 "Calling a function pointer from argument isn't implemented.");
-        }
-#endif
-      }
-      continue;
-    }
-
-    if (!F->getContext().supportsTypedPointers())
-      continue;
-
-    if (auto *SI = dyn_cast<StoreInst>(U)) {
-      // This function was stored as a function pointer, but the type of
-      // function was changed (implicit args were added) - to avoid changing
-      // types let's just cast new function type into the old one before
-      // storing.
-      Type *OldFPtrTy = SI->getValueOperand()->getType();
-
-      auto *Cast = CastInst::CreatePointerCast(NewF, OldFPtrTy, "", SI);
-      auto *NewSI = new StoreInst(Cast, SI->getPointerOperand(), SI);
-      NewSI->setDebugLoc(SI->getDebugLoc());
-      SI->replaceAllUsesWith(NewSI);
-      SI->eraseFromParent();
-    }
-  }
+  for (User *U : Users)
+    if (auto *CI = dyn_cast<CallInst>(U); CI && CI->getCalledOperand() == F)
+      replaceCallInst(CI, NewTypes, NewF);
 
   FuncTypeRemapper TypeMapper;
   ValueToValueMapTy VMap;
@@ -292,66 +245,13 @@ void AddImplicitArgsPass::runOnFunction(Function *F) {
   ValueMapper VMapper(VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals,
                       &TypeMapper);
 
-  if (F->getContext().supportsTypedPointers()) {
-    SmallPtrSet<Type *, 4> Visited{F->getType()};
-    TypeMapper.addMapping(F->getType(), NewF->getType());
-
-    // It seems that removing function use (by changing its operand to another
-    // function) somehow breaks data structure used to hold uses and for example
-    // for two uses, the loop stops after the first one.
-    // Let's store info which need to be updated and perform updates outside
-    // of the loop over function uses.
-    DenseMap<User *, std::pair<unsigned, Value *>> UsersToReplace;
-
-    // All users which are not to be replaced are handled here.
-    for (Use &U : F->uses()) {
-      User *Usr = U.getUser();
-      if (auto *SI = dyn_cast<SelectInst>(Usr)) {
-        unsigned OpNo = U.getOperandNo();
-        // This function goes though a select instruction, but the type of the
-        // function was changed (implicit args were added) - to avoid changing
-        // types let's just cast new function type into the old one before
-        // select.
-        if (SI->getOperand(OpNo)->getType() != NewF->getType()) {
-          auto *Cast = CastInst::CreatePointerCast(
-              NewF, SI->getOperand(OpNo)->getType(), "", SI);
-          UsersToReplace[SI] = {OpNo, Cast};
-        } else {
-          UsersToReplace[SI] = {OpNo, NewF};
-        }
-      } else if (auto *C = dyn_cast<Constant>(Usr)) {
-        std::ignore = TypeMapper.get(C->getType(), Visited);
-      }
-    }
-
-    for (const auto &I : UsersToReplace) {
-      const std::pair<unsigned, Value *> &R = I.second;
-      I.first->setOperand(R.first, R.second);
-    }
-  }
-
   for (User *U : make_early_inc_range(F->users())) {
     if (auto *I = dyn_cast<Instruction>(U)) {
       VMapper.remapInstruction(*I);
+    } else if (auto *GV = dyn_cast<GlobalVariable>(U)) {
+      GV->setInitializer(VMapper.mapConstant(*GV->getInitializer()));
     } else if (auto *C = dyn_cast<Constant>(U)) {
-      Constant *NewC = nullptr;
-      if (F->getContext().supportsTypedPointers() &&
-          isa<ConstantAggregate>(C)) {
-        SmallVector<Constant *, 8> Data;
-        for (auto *Op : C->operand_values()) {
-          Constant *OpC = cast<Constant>(Op);
-          Data.push_back(ConstantExpr::getBitCast(VMapper.mapConstant(*OpC),
-                                                  OpC->getType()));
-        }
-        if (auto *CA = dyn_cast<ConstantArray>(C))
-          NewC = ConstantArray::get(CA->getType(), Data);
-        else if (auto *CS = dyn_cast<ConstantStruct>(C))
-          NewC = ConstantStruct::get(CS->getType(), Data);
-        else
-          NewC = ConstantVector::get(Data);
-      } else {
-        NewC = VMapper.mapConstant(*C);
-      }
+      Constant *NewC = VMapper.mapConstant(*C);
       C->replaceAllUsesWith(NewC);
     } else {
       llvm_unreachable("unhandled kernel user");

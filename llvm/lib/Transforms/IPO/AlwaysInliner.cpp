@@ -59,6 +59,9 @@ AlwaysInlinerPass::AlwaysInlinerPass(bool InsertLifetime)
   Report = getInlineReport();
   MDReport = getMDInlineReport();
 }
+
+AlwaysInlinerPass::~AlwaysInlinerPass() { getReport()->testAndPrint(this); }
+
 #endif // INTEL_CUSTOMIZATION
 
 bool AlwaysInlineImpl(
@@ -97,6 +100,18 @@ bool AlwaysInlineImpl(
         BasicBlock *Block = CB->getParent();
 
 #if INTEL_CUSTOMIZATION
+        getInlineReport()->beginUpdate(CB);
+        getMDInlineReport()->beginUpdate(CB);
+        // if only the callee has the 'alwaysinline' attribute, then set inline
+        // reason to "callee always inline", otherwise "callsite always inline"
+        // is used.
+        if (!CB->hasFnAttrOnCallsite(Attribute::AlwaysInline)) {
+          llvm::setMDReasonIsInlined(CB, InlrAlwaysInline);
+          getInlineReport()->setReasonIsInlined(CB, InlrAlwaysInline);
+        } else {
+          llvm::setMDReasonIsInlined(CB, InlrCSAlwaysInline);
+          getInlineReport()->setReasonIsInlined(CB, InlrCSAlwaysInline);
+        }
         InlineFunctionInfo IFI(GetAssumptionCache, &PSI,
 #endif // INTEL_CUSTOMIZATION
                                GetBFI ? &GetBFI(*Caller) : nullptr,
@@ -108,6 +123,13 @@ bool AlwaysInlineImpl(
             /*MergeAttributes=*/true, &GetAAR(F), InsertLifetime);
 #endif // INTEL_CUSTOMIZATION
         if (!Res.isSuccess()) {
+#if INTEL_CUSTOMIZATION
+          InlineReason Reason = Res.getIntelInlReason();
+          getInlineReport()->setReasonNotInlined(CB, Reason);
+          getInlineReport()->endUpdate();
+          llvm::setMDReasonNotInlined(CB, Reason);
+          getMDInlineReport()->endUpdate();
+#endif // INTEL_CUSTOMIZATION
           ORE.emit([&]() {
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", // INTEL
                                             CB->getDebugLoc(), CB->getParent()) // INTEL
@@ -117,6 +139,13 @@ bool AlwaysInlineImpl(
           });
           continue;
         }
+
+#if INTEL_CUSTOMIZATION
+        getInlineReport()->inlineCallSite();
+        getInlineReport()->endUpdate();
+        getMDInlineReport()->inlineCallSite();
+        getMDInlineReport()->endUpdate();
+#endif // INTEL_CUSTOMIZATION
 
         emitInlinedIntoBasedOnCost(
             ORE, DLoc, Block, F, *Caller,
@@ -174,8 +203,8 @@ struct AlwaysInlinerLegacyPass : public ModulePass {
     initializeAlwaysInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
-  ~AlwaysInlinerLegacyPass() {
 #if INTEL_CUSTOMIZATION
+  ~AlwaysInlinerLegacyPass() {
     getInlineReport()->testAndPrint(this);
   }
 #endif // INTEL_CUSTOMIZATION
@@ -219,8 +248,8 @@ Pass *llvm::createAlwaysInlinerLegacyPass(bool InsertLifetime) {
   return new AlwaysInlinerLegacyPass(InsertLifetime);
 }
 
-/// Main run interface method.  We override here to avoid calling skipSCC().
 #if INTEL_CUSTOMIZATION
+/// Main run interface method.  We override here to avoid calling skipSCC().
 class UnskippableAlwaysInlinerLegacyPass : public AlwaysInlinerLegacyPass {
 public:
   UnskippableAlwaysInlinerLegacyPass(bool InsertLietime)
@@ -246,9 +275,12 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
     return FAM.getResult<AAManager>(F);
   };
   auto &PSI = MAM.getResult<ProfileSummaryAnalysis>(M);
-
+  getInlineReport()->beginModule(this); // INTEL
   bool Changed = AlwaysInlineImpl(M, InsertLifetime, PSI, GetAssumptionCache,
+#if INTEL_CUSTOMIZATION
                                   GetAAR, GetBFI, getReport(), getMDReport());
+#endif // INTEL_CUSTOMIZATION
 
+  getInlineReport()->endModule(); // INTEL
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

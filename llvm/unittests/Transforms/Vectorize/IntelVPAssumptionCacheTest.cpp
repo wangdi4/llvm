@@ -1,6 +1,6 @@
 //===- IntelVPAssumptionCacheTest.cpp ---------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
+//   Copyright (C) 2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -53,13 +53,13 @@ protected:
 TEST_F(VPAssumptionCacheTest, AssumeInsidePlan) {
   buildVPlanFromString(R"(
       declare void @llvm.assume(i1)
-      define void @foo(i32* %p) {
+      define void @foo(ptr %p) {
       entry:
         br label %for.body
       for.body:
         %ind = phi i32 [ 0, %entry ], [ %ind.next, %for.body ]
-        call void @llvm.assume(i1 true) [ "align"(i32* %p, i32 16) ]
-        store i32 1, i32* %p
+        call void @llvm.assume(i1 true) [ "align"(ptr %p, i32 16) ]
+        store i32 1, ptr %p
         %ind.next = add nuw nsw i32 %ind, 1
         %cond = icmp eq i32 %ind.next, 256
         br i1 %cond, label %for.body, label %exit
@@ -83,13 +83,13 @@ TEST_F(VPAssumptionCacheTest, AssumeInsidePlan) {
 TEST_F(VPAssumptionCacheTest, AssumeOutsidePlan) {
   buildVPlanFromString(R"(
       declare void @llvm.assume(i1)
-      define void @foo(i32* %p) {
+      define void @foo(ptr %p) {
       entry:
-        call void @llvm.assume(i1 true) [ "align"(i32* %p, i32 16) ]
+        call void @llvm.assume(i1 true) [ "align"(ptr %p, i32 16) ]
         br label %for.body
       for.body:
         %ind = phi i32 [ 0, %entry ], [ %ind.next, %for.body ]
-        store i32 1, i32* %p
+        store i32 1, ptr %p
         %ind.next = add nuw nsw i32 %ind, 1
         %cond = icmp eq i32 %ind.next, 256
         br i1 %cond, label %for.body, label %exit
@@ -114,13 +114,13 @@ TEST_F(VPAssumptionCacheTest, AssumeOutsidePlan) {
 TEST_F(VPAssumptionCacheTest, AssumeOp) {
   buildVPlanFromString(R"(
       declare void @llvm.assume(i1)
-      define void @foo(i32* %p) {
+      define void @foo(ptr %p) {
       entry:
         br label %for.body
       for.body:
         %ind = phi i32 [ 0, %entry ], [ %ind.next, %for.body ]
-        %gep = getelementptr i32, i32* %p, i32 %ind
-        %elem = load i32, i32* %p, align 4
+        %gep = getelementptr i32, ptr %p, i32 %ind
+        %elem = load i32, ptr %p, align 4
         %eq = icmp eq i32 %elem, 0
         call void @llvm.assume(i1 %eq)
         %ind.next = add nuw nsw i32 %ind, 1

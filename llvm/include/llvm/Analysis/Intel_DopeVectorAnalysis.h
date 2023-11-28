@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorAnalysis.h -----------------------------------===//
 //
-// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -36,6 +36,10 @@ const unsigned RankOpNum = 0;
 const unsigned LBOpNum = 1;
 const unsigned StrideOpNum = 2;
 const unsigned PtrOpNum = 3;
+const unsigned IndexOpNum = 4;
+
+// Number of fields in the dimension structure (extent, stride, and lower bound)
+const unsigned int PerDimensionCount = 3;
 
 // Enumeration fields related to dope vectors. The first 7 items in this
 // list correspond exactly to the field layout of the corresponding dope
@@ -80,8 +84,8 @@ using UplevelDVField = std::pair<Value *, uint64_t>;
 
 // Helper routine for checking and getting a constant integer from a GEP
 // operand. If the value is not a constant, returns an empty object.
-extern std::optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
-                                           unsigned int OpNum);
+extern std::optional<uint64_t> getConstGEPIndex(GEPOperator &GEP,
+                                                unsigned int OpNum);
 
 // Helper routine to get the argument index corresponding to \p Val within the
 // call \p CI. If the operand is not passed to the function, or is in more than
@@ -102,11 +106,10 @@ extern std::optional<unsigned int> getArgumentPosition(const CallBase &CI,
 // In the future the FE will provide some metadata to avoid the need to
 // pattern match this.
 //
-// When this function returns 'true', the '*ArrayRank' and '*ElementType'
-// are filled in with the rank and element type of the dope vector.
+// When this function returns 'true', the '*ArrayRank' is filled in with the
+// rank of the dope vector.
 extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
-                             uint32_t *ArrayRank,
-                             Type **ElementType);
+                             uint32_t *ArrayRank);
 // Similar to the above function, but to be used when we don't need to
 // know the array rank and element type.
 extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL);
@@ -184,8 +187,31 @@ public:
     }
     return SIV.has_value();
   }
-
-  void addFieldAddr(Value *V, bool IsNotForDVCP = false) {
+  // Get a single value which is not an initialization value (an assignment
+  // to zero before all other references are made.)
+  // For example, this is an assignment of an initialization value:
+  //     %"var$236_fetch.2590.fca.6.0.0.gep" =
+  //         getelementptr inbounds %"QNCA_a0$float*$rank2$",
+  //             ptr %"evlrnf_$UTRSBT", i64 0, i32 6, i64 0, i32 0
+  //     store i64 0, ptr %"var$236_fetch.2590.fca.6.0.0.gep", align 8
+  Value *getSingleNonInitValue() {
+    StoreInst *RSI = nullptr;
+    for (StoreInst *SI : stores()) {
+      if (auto CI = dyn_cast<ConstantInt>(SI->getValueOperand()))
+        if (CI->isZero())
+          if (SI->getPointerOperand() == SI->getPrevNonDebugInstruction())
+            continue;
+      if (RSI)
+        return nullptr;
+      RSI = SI;
+    }
+    return RSI ? RSI->getValueOperand() : nullptr;
+  }
+  // Add 'V' as a field address. If 'IsNotForDVCP', this is not for
+  // dope vector constant propagation. If 'SubsOnly', only look
+  // through subscript uses of 'V' to find loads and stores.
+  void addFieldAddr(Value *V, bool IsNotForDVCP = false,
+                    bool SubsOnly = false) {
     // If AllowMultipleFieldAddresses is disabled then only one
     // value should access the current field.
     if (!AllowMultipleFieldAddresses &&
@@ -194,6 +220,8 @@ public:
     FieldAddr.insert(V);
     if (IsNotForDVCP)
       NotForDVCPFieldAddr.insert(V);
+    if (SubsOnly)
+      SubsOnlyFieldAddr.insert(V);
   }
 
   // Check if the field address has been set.
@@ -219,6 +247,9 @@ public:
   // field to Bottom if there are any unsupported uses. Exclude 'CB' from the
   // testing, if not 'nullptr'.
   void analyzeUses(CallBase *CB = nullptr);
+
+  // Similar to 'analyzeUses' but only targeting 'this' with this 'DimIndex'.
+  void analyzeUsesWithDims(uint64_t DimIndex);
 
   // Collect the load and store instructions that access the field address
   // through a subscript.
@@ -266,9 +297,21 @@ public:
 
   // Return true if the input value V is a load instruction, or a store
   // instruction where the pointer operand is Pointer.
-  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer, bool IsNotForDVCP);
+  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer,
+                                     bool IsNotForDVCP);
+
+  // Similar to analyzeLoadOrStoreInstruction(), but extended to accomodate
+  // cases where this = FieldVector[DimIndex], but is also used as a base
+  // to assign FieldVector[1], ..., FieldVector[Rank]. See the example under
+  // analyzeUsesWithDims() above.
+  bool analyzeLoadStoreOrSubscriptWithDims(Value *V, Value *Pointer,
+                                           bool IsNotForDVCP, bool SubsOnly,
+                                           uint64_t DimIndex);
   bool isAddrNotForDVCP(Value* Addr) const {
     return NotForDVCPFieldAddr.contains(Addr);
+  }
+  bool isAddrSubsOnly(Value *Addr) const {
+    return SubsOnlyFieldAddr.contains(Addr);
   }
 
   LoadInstSet &getLoadsSet() { return Loads; }
@@ -286,6 +329,8 @@ private:
   // SetVector that contains the addresses for the field that should not
   // be used for dope vector constant propagation.
   SetVector<Value *> NotForDVCPFieldAddr;
+
+  SetVector<Value *> SubsOnlyFieldAddr;
 
   // Set of locations the field is written to. Used to check what
   // value(s) is stored.
@@ -347,28 +392,11 @@ public:
   DopeVectorAnalyzer(Value *DVObject, const Type *DVTy,
     std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) :
     DVObject(DVObject), GetTLI(GetTLI) {
-    if (DVObject->getContext().supportsTypedPointers()) {
-      assert(
-          DVObject->getType()->isPointerTy() &&
-          DVObject->getType()->getNonOpaquePointerElementType()->isStructTy() &&
-          DVObject->getType()
-                  ->getNonOpaquePointerElementType()
-                  ->getStructNumElements() == 7 &&
-          DVObject->getType()
-              ->getNonOpaquePointerElementType()
-              ->getContainedType(6)
-              ->isArrayTy() &&
-          "Invalid type for dope vector object");
-      if (!DVTy)
-        DVTy = DVObject->getType()->getNonOpaquePointerElementType();
-    } else {
-      if (!DVTy)
-        DVTy = inferPtrElementType(*DVObject);
-      assert(DVTy && DVTy->isStructTy() && DVTy->getStructNumElements() == 7 &&
-          DVTy->getContainedType(DV_PerDimensionArray)->isArrayTy() && 
-          "Invalid type for dope vector object");
-    }
-
+    if (!DVTy)
+      DVTy = inferPtrElementType(*DVObject);
+    assert(DVTy && DVTy->isStructTy() && DVTy->getStructNumElements() == 7 &&
+           DVTy->getContainedType(DV_PerDimensionArray)->isArrayTy() &&
+           "Invalid type for dope vector object");
     // The rank of the dope vector can be determined by the array length of
     // array that is the last field of the dope vector.
     Rank = DVTy->getContainedType(DV_PerDimensionArray)->getArrayNumElements();
@@ -412,10 +440,28 @@ public:
     return nullptr;
   }
 
+  // Similar to getLowerBound(), but uses getSingleNonInitValue() to exclude
+  // initializations to null.  See getSingleNonInitValue() for an example.
+  Value *getNonInitLowerBound(uint32_t Dim) {
+    assert(LowerBoundAddr.size() > Dim && "Invalid dimension");
+    if (LowerBoundAddr[Dim].hasFieldAddr())
+      return LowerBoundAddr[Dim].getSingleNonInitValue();
+    return nullptr;
+  }
+
   Value *getStride(uint32_t Dim) {
     assert(StrideAddr.size() > Dim && "Invalid dimension");
     if (StrideAddr[Dim].hasFieldAddr())
       return StrideAddr[Dim].getSingleValue();
+    return nullptr;
+  }
+
+  // Similar to getStride(), but uses getSingleNonInitValue() to exclude
+  // initializations to null.  See getSingleNonInitValue() for an example.
+  Value *getNonInitStride(uint32_t Dim) {
+    assert(StrideAddr.size() > Dim && "Invalid dimension");
+    if (StrideAddr[Dim].hasFieldAddr())
+      return StrideAddr[Dim].getSingleNonInitValue();
     return nullptr;
   }
 
@@ -481,6 +527,15 @@ public:
     return nullptr;
   }
 
+  // Similar to getExtent(), but uses getSingleNonInitValue() to exclude
+  // initializations to null.  See getSingleNonInitValue() for an example.
+  Value *getNonInitExtent(uint32_t Dim) {
+    assert(ExtentAddr.size() > Dim && "Invalid dimension");
+    if (ExtentAddr[Dim].hasFieldAddr())
+      return ExtentAddr[Dim].getSingleNonInitValue();
+    return nullptr;
+  }
+
   // Get all the store instructions for the extent field for the specified
   // dimension.
   iterator_range<DopeVectorFieldUse::StoreInstSetIter>
@@ -534,7 +589,14 @@ public:
   // objects holding field addresses. If IsLocal is true, then it means that
   // the analysis process will verify that the dope vector is not used outside
   // of the function.
-  void analyze(bool ForCreation, bool IsLocal = false);
+  //
+  // If 'AfterInstCombine' accomodate collapsed GEP accesses to the dimension
+  // fields of the dope vectors with five operands. For example:
+  //   %"var$236_fetch.2590.fca.6.1.0.gep" =
+  //       getelementptr inbounds %"QNCA_a0$float*$rank2$",
+  //           ptr %"evlrnf_$UTRSBT", i64 0, i32 6, i64 1, i32 0
+  void analyze(bool ForCreation, bool IsLocal = false,
+               bool AfterInstCombine = false);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
@@ -563,7 +625,70 @@ public:
   //
   // The default value is 0.
   static DopeVectorFieldType
-  identifyDopeVectorField(const GEPOperator &GEP, uint64_t DopeVectorIndex = 0);
+  identifyDopeVectorField(GEPOperator &GEP, uint64_t DopeVectorIndex = 0);
+
+  // A 4-tuple representing a GEPOperator for a DimIndex for a specific
+  // DopeVectorFieldType which is either extent, stride, or lower bound,
+  // and a bool which indicates whether only the users of the subscript users
+  // of the GEPOperator should be searched to find loads and stores of
+  // the extent, stride, and lower bounds of the dope vector.
+  using DVQuad = std::tuple<GEPOperator *, unsigned, DopeVectorFieldType, bool>;
+
+  // Similar to identifyDopeVectorField(),create a list of DVQuads each of
+  // which contains a GEPOperator whose users are searched to find loads
+  // and stores of the extent, stride, and lower bounds of a dope vector.
+  // If 'CheckNestedGEPsAndSubs' is 'true', we check for the following
+  // patterns which can appear after InstCombine:
+  //
+  // Pattern 1:
+  //   %"var$236_fetch.2589.fca.6.0.0.gep" = getelementptr inbounds
+  //     %"QNCA_a0$float*$rank2$", ptr %"evlrnf_$DTRSBT",
+  //     i64 0, i32 6, i64 0, i32 0
+  //   (F:0,EX)  store i64 0, ptr %"var$236_fetch.2589.fca.6.0.0.gep", align 8
+  //   %"evlrnf_$DTRSBT.dim_info$.extent$[]" = call ptr
+  //     @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24,
+  //     ptr nonnull elementtype(i64) %"var$236_fetch.2589.fca.6.0.0.gep",
+  //     i32 0)
+  //   (R:0,EX) store i64 %slct.42, ptr %"evlrnf_$DTRSBT.dim_info$.extent$[]",
+  //     align 1
+  //   %"evlrnf_$DTRSBT.dim_info$.extent$[]873" = call ptr
+  //     @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24,
+  //     ptr nonnull elementtype(i64) %"var$236_fetch.2589.fca.6.0.0.gep",
+  //     i32 1)
+  //   (R:1,EX)  store i64 %slct.42, ptr
+  //     %"evlrnf_$DTRSBT.dim_info$.extent$[]873", align 1
+  //
+  // Pattern 2:
+  //   %"var$236_fetch.2589.fca.6.0.0.gep" = getelementptr inbounds
+  //      %"QNCA_a0$float*$rank2$", ptr %"evlrnf_$DTRSBT",
+  //      i64 0, i32 6, i64 0, i32 0
+  //   (F:0,EX) store i64 0, ptr %"var$236_fetch.2589.fca.6.0.0.gep", align 1
+  //   %"evlrnf_$DTRSBT.dim_info$.lower_bound$863" = getelementptr inboundsi
+  //      { i64, i64, i64 }, ptr %"var$236_fetch.2589.fca.6.0.0.gep",
+  //      i64 0, i32 2
+  //   %"evlrnf_$DTRSBT.dim_info$.lower_bound$[]864" = call ptr
+  //      @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24,
+  //      ptr nonnull elementtype(i64)
+  //      %"evlrnf_$DTRSBT.dim_info$.lower_bound$863", i32 0)
+  //   (R:0,LB) store i64 1, ptr %"evlrnf_$DTRSBT.dim_info$.lower_bound$[]864",
+  //      align 1
+  //   %"evlrnf_$DTRSBT.dim_info$.lower_bound$[]870" = call ptr
+  //      @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24,
+  //      ptr nonnull elementtype(i64)
+  //      %"evlrnf_$DTRSBT.dim_info$.lower_bound$863", i32 1)
+  //   (R:1,LB) store i64 1, ptr %"evlrnf_$DTRSBT.dim_info$.lower_bound$[]870",
+  //      align 1
+  //
+  // In the annotation ([F,R]:Dim,Type)
+  // F means a 'fake' store (just there for initialization) while R means
+  // a 'real' store. 'Dim' is the 'DimIndex' and 'Type' is the type, which is
+  // either EX (extent), S (stride), or LB (lower bound)
+  //
+  static bool identifyDopeVectorFieldTypes(GEPOperator &GEP,
+                                           SmallVectorImpl<DVQuad> &GUV,
+                                           uint64_t DopeVectorIndex = 0,
+                                           bool CheckNestedGEPsAndSubs = false,
+                                           unsigned Rank = 0);
 
   // For the per-dimension array, we expect to find a sequence of the following
   // form that gets the address of the per-dimensional fields: (This is the GEP
@@ -587,8 +712,8 @@ public:
   //           i64 0, i32 2
   //
   enum FindResult { FR_Invalid, FR_Valid };
-  std::pair<GetElementPtrInst *, FindResult>
-  findPerDimensionArrayFieldGEP(GetElementPtrInst &GEP,
+  std::pair<GEPOperator *, FindResult>
+  findPerDimensionArrayFieldGEP(GEPOperator &GEP,
                                 DopeVectorRankFields RankFieldType);
   //
   // Find the object that holds the address for the element of the variable
@@ -617,7 +742,7 @@ public:
   //                     i8 0, i64 0, i32 24, i64* %STRIDE, i32 1)
   // %130 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(
   //                     i8 0, i64 0, i32 24, i64* %STRIDE, i32 0)
-  Value *findPerDimensionArrayFieldPtr(GetElementPtrInst &FieldGEP,
+  Value *findPerDimensionArrayFieldPtr(GEPOperator &FieldGEP,
                                        unsigned Dimension);
 
   // Check that the subscript calls are using stride values from the dope

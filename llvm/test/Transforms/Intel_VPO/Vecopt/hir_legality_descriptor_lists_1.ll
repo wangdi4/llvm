@@ -71,7 +71,7 @@ define dso_local i32 @_Z3fooPiii(ptr %ptr, i32 %step, i32 %n) local_unnamed_addr
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    AliasRef: [[INC170:%.*]]
 ; CHECK-NEXT:    UpdateInstructions:
-; CHECK-NEXT:    <31>         [[INC170]] = i1 + [[C_PROMOTED0]] + 1
+; CHECK-NEXT:             [[INC170]] = i1 + [[C_PROMOTED0]] + 1
 ; CHECK-NEXT:      InitValue: [[INC170]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    AliasRef: [[INC0:%.*]]

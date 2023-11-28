@@ -1,4 +1,4 @@
-// Copyright (C) 2012-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2012 Intel Corporation. All rights reserved.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were

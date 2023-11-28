@@ -134,7 +134,21 @@ public:
     unsigned NumExitBlocks = std::numeric_limits<unsigned>::max();
     Type *RetTy = nullptr; // INTEL
 
+    // Mapping from the original exit blocks, to the new blocks inside
+    // the function.
+    SmallVector<BasicBlock *, 4> OldTargets;
+
+    // Suffix to use when creating extracted function (appended to the original
+    // function name + "."). If empty, the default is to use the entry block
+    // label, if non-empty, otherwise "extracted".
+    std::string Suffix;
+
+    // If true, the outlined function has aggregate argument in zero address
+    // space.
+    bool ArgsInZeroAddressSpace = false; // INTEL
 #if INTEL_COLLAB
+    // Start of Intel members. Please keep new llorg members above this line.
+    //
     // If there is an associated "omp target" directive for this sequence of
     // basic blocks then keep track of the order in which mapped variables
     // appear in the map clause.
@@ -159,15 +173,6 @@ public:
     // Declaration location for extracted routine.
     DebugLoc DeclLoc;
 #endif // INTEL_COLLAB
-
-    // Mapping from the original exit blocks, to the new blocks inside
-    // the function.
-    SmallVector<BasicBlock *, 4> OldTargets;
-
-    // Suffix to use when creating extracted function (appended to the original
-    // function name + "."). If empty, the default is to use the entry block
-    // label, if non-empty, otherwise "extracted".
-    std::string Suffix;
 
   public:
     /// Create a code extractor for a sequence of blocks.
@@ -195,6 +200,9 @@ public:
     /// corresponding zext/trunc instructions are emitted before/after
     /// store/load of them.
 #endif // INTEL_COLLAB
+    /// If ArgsInZeroAddressSpace param is set to true, then the aggregate
+    /// param pointer of the outlined function is declared in zero address
+    /// space.
     CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT = nullptr,
                   bool AggregateArgs = false, BlockFrequencyInfo *BFI = nullptr,
                   BranchProbabilityInfo *BPI = nullptr,
@@ -203,12 +211,16 @@ public:
                   BasicBlock *AllocationBlock = nullptr,
 #if INTEL_COLLAB
                   std::string Suffix = "",
+                  bool ArgsInZeroAddressSpace = false,
+                  // Start of Intel args. New args from llorg need to be
+                  // merged above this line. They can be merged outside the
+                  // COLLAB region, if the formatting is 100% the same.
                   bool AllowEHTypeID = false,
                   bool AllowUnreachableBlocks = false,
                   const OrderedArgs *TgtClauseArgs = nullptr,
                   bool SimdPrivatization = false);
 #else // INTEL_COLLAB
-                  std::string Suffix = "");
+                  std::string Suffix = "", bool ArgsInZeroAddressSpace = false);
 #endif // INTEL_COLLAB
 
     /// Create a code extractor for a loop body.
@@ -225,11 +237,12 @@ public:
     /// Routines for updating debug information during code extraction.
     void setDeclLoc(DebugLoc DL) { DeclLoc = DL; }
 #endif // INTEL_COLLAB
-
     /// Perform the extraction, returning the new function.
+#if INTEL_COLLAB
     /// HoistAlloca: local allocas in the extracted region will
     /// be hoisted to the entry. This improves scalar optimizations and is also
     /// required for nested simd loops.
+#endif // INTEL_COLLAB
     ///
     /// Returns zero when called on a CodeExtractor instance where isEligible
     /// returns false.
@@ -368,13 +381,13 @@ public:
         const ValueSet &inputs, const ValueSet &outputs,
         const ValueMap<Value *, Value *> &RewrittenValues);
 #endif // INTEL_COLLAB
-
     void moveCodeToFunction(Function *newFunction);
 
     void calculateNewCallTerminatorWeights(
         BasicBlock *CodeReplacer,
         DenseMap<BasicBlock *, BlockFrequency> &ExitWeights,
         BranchProbabilityInfo *BPI);
+
     CallInst *emitCallAndSwitchStatement(Function *newFunction,
                                          BasicBlock *newHeader,
 #if INTEL_COLLAB

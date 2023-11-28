@@ -1,6 +1,6 @@
 ; Test that the stride is being applied correctly to struct field accesses.
 
-; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN4l32_foo
 ; CHECK: simd.begin.region:
@@ -9,19 +9,19 @@
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 4
 ; CHECK-SAME: QUAL.OMP.LINEAR
-; CHECK-SAME: %struct.my_struct** %alloca.s
+; CHECK-SAME: ptr %alloca.s
 ; CHECK-SAME: QUAL.OMP.PRIVATE
-; CHECK-SAME: %struct.my_struct** %s.addr
+; CHECK-SAME: ptr %s.addr
 ; CHECK: simd.loop.header:
-; CHECK: %stride.mul = mul i32 1, %index
-; CHECK-NEXT: %load.s.gep = getelementptr %struct.my_struct, %struct.my_struct* %load.s, i32 %stride.mul
-; CHECK-NEXT: store %struct.my_struct* %load.s.gep, %struct.my_struct** %s.addr, align 8
-; CHECK-NEXT: %0 = load %struct.my_struct*, %struct.my_struct** %s.addr, align 8
-; CHECK-NEXT: %field1 = getelementptr inbounds %struct.my_struct, %struct.my_struct* %0, i32 0, i32 0
-; CHECK-NEXT: %1 = load float, float* %field1, align 8
-; CHECK-NEXT: %2 = load %struct.my_struct*, %struct.my_struct** %s.addr, align 8
-; CHECK-NEXT: %field5 = getelementptr inbounds %struct.my_struct, %struct.my_struct* %2, i32 0, i32 4
-; CHECK-NEXT: %3 = load float, float* %field5, align 8
+; CHECK: %stride.bytes = mul i32 32, %index
+; CHECK-NEXT: %load.s.gep = getelementptr i8, ptr %load.s, i32 %stride.bytes
+; CHECK-NEXT: store ptr %load.s.gep, ptr %s.addr, align 8
+; CHECK-NEXT: %0 = load ptr, ptr %s.addr, align 8
+; CHECK-NEXT: %field1 = getelementptr inbounds %struct.my_struct, ptr %0, i32 0, i32 0
+; CHECK-NEXT: %1 = load float, ptr %field1, align 8
+; CHECK-NEXT: %2 = load ptr, ptr %s.addr, align 8
+; CHECK-NEXT: %field5 = getelementptr inbounds %struct.my_struct, ptr %2, i32 0, i32 4
+; CHECK-NEXT: %3 = load float, ptr %field5, align 8
 ; CHECK-NEXT: %add = fadd float %1, %3
 
 ; ModuleID = 'struct_linear_ptr.c'
@@ -31,16 +31,16 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.my_struct = type { float, i8, i32, i16, float, i64 }
 
 ; Function Attrs: nounwind uwtable
-define float @foo(%struct.my_struct* %s) #0 {
+define float @foo(ptr %s) #0 {
 entry:
-  %s.addr = alloca %struct.my_struct*, align 8
-  store %struct.my_struct* %s, %struct.my_struct** %s.addr, align 8
-  %0 = load %struct.my_struct*, %struct.my_struct** %s.addr, align 8
-  %field1 = getelementptr inbounds %struct.my_struct, %struct.my_struct* %0, i32 0, i32 0
-  %1 = load float, float* %field1, align 8
-  %2 = load %struct.my_struct*, %struct.my_struct** %s.addr, align 8
-  %field5 = getelementptr inbounds %struct.my_struct, %struct.my_struct* %2, i32 0, i32 4
-  %3 = load float, float* %field5, align 8
+  %s.addr = alloca ptr, align 8
+  store ptr %s, ptr %s.addr, align 8
+  %0 = load ptr, ptr %s.addr, align 8
+  %field1 = getelementptr inbounds %struct.my_struct, ptr %0, i32 0, i32 0
+  %1 = load float, ptr %field1, align 8
+  %2 = load ptr, ptr %s.addr, align 8
+  %field5 = getelementptr inbounds %struct.my_struct, ptr %2, i32 0, i32 4
+  %3 = load float, ptr %field5, align 8
   %add = fadd float %1, %3
   ret float %add
 }

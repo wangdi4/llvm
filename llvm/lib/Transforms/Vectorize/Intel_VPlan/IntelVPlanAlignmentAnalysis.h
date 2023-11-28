@@ -12,8 +12,10 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTEL_VPLAN_ALIGNMENT_ANALYSIS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTEL_VPLAN_ALIGNMENT_ANALYSIS_H
 
-#include "IntelVPlanScalarEvolution.h"
+#include "ScalarEvolution.h"
 
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include <llvm/IR/DataLayout.h>
 #include <llvm/Support/InstructionCost.h>
 #include <llvm/Support/KnownBits.h>
@@ -28,7 +30,15 @@ class VPlanValueTracking;
 class VPLoadStoreInst;
 
 /// Supported peeling kinds.
-enum VPlanPeelingKind { VPPK_StaticPeeling, VPPK_DynamicPeeling };
+enum VPlanPeelingKind {
+  VPPK_NoPeeling,
+  // "llvm.loop.intel.vector.aligned" metadata is specified
+  VPPK_NoPeelingAligned,
+  // "llvm.loop.intel.vector.unaligned" metadata is specified
+  VPPK_NoPeelingUnaligned,
+  VPPK_StaticPeeling,
+  VPPK_DynamicPeeling
+};
 
 /// A single peeling variant.
 /// This is an empty base class.
@@ -59,21 +69,48 @@ private:
   VPlanPeelingKind Kind;
 };
 
+/// No peeling class variant where Pragma can be one of VPPK_NoPeeling,
+/// VPPK_NoPeelingAligned or VPPK_NoPeelingUnaligned.
+template <VPlanPeelingKind Pragma>
+class VPlanNoPeelingT final : public VPlanPeelingVariant {
+public:
+  VPlanNoPeelingT() : VPlanPeelingVariant(Pragma) {}
+
+  int maxPeelCount() const override { return 0; }
+  bool isGuaranteedToExecuteBeforeMainLoop() const override { return true; }
+
+  static VPlanNoPeelingT<Pragma> LoopObject;
+
+  static bool classof(const VPlanPeelingVariant *Peeling) {
+    return Peeling->getKind() == Pragma;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS) const final { OS << "VPlanNoPeeling\n"; }
+#endif
+};
+
+using VPlanNoPeeling = VPlanNoPeelingT<VPPK_NoPeeling>;
+using VPlanNoPeelingAligned = VPlanNoPeelingT<VPPK_NoPeelingAligned>;
+using VPlanNoPeelingUnaligned = VPlanNoPeelingT<VPPK_NoPeelingUnaligned>;
+
+template <> VPlanNoPeeling VPlanNoPeeling::LoopObject;
+template <> VPlanNoPeelingAligned VPlanNoPeelingAligned::LoopObject;
+template <> VPlanNoPeelingUnaligned VPlanNoPeelingUnaligned::LoopObject;
+
 /// Static peeling is fully described with a single number that is the number of
-/// iterations to peel. Notice that "no peeling" is actually a "static peeling
-/// with PeelCount = 0".
+/// iterations to peel.
 class VPlanStaticPeeling final : public VPlanPeelingVariant {
 public:
   VPlanStaticPeeling(int PeelCount)
-      : VPlanPeelingVariant(VPPK_StaticPeeling), PeelCount(PeelCount) {}
+      : VPlanPeelingVariant(VPPK_StaticPeeling), PeelCount(PeelCount) {
+    assert(PeelCount && "unexpected zero peel count");
+  }
 
   int peelCount() const { return PeelCount; }
   int maxPeelCount() const override { return peelCount(); }
 
   bool isGuaranteedToExecuteBeforeMainLoop() const override { return true; }
-
-  // VPlanStaticPeeling{0}
-  static VPlanStaticPeeling NoPeelLoop;
 
   static bool classof(const VPlanPeelingVariant *Peeling) {
     return Peeling->getKind() == VPPK_StaticPeeling;
@@ -246,11 +283,11 @@ public:
   selectBestPeelingVariant(int VF, VPlanPeelingCostModel &CM,
                            bool EnableDynamic);
 
-  /// Returns best static peeling variant and its profit. The algorithm for
-  /// selecting best peeling variant always succeeds. In the worst case
-  /// {StaticPeeling(0), 0} is returned.
-  std::pair<VPlanStaticPeeling, VPInstructionCost>
-  selectBestStaticPeelingVariant(int VF, VPlanPeelingCostModel &CM);
+  /// Returns best static peeling value and its profit. The algorithm for
+  /// selecting best peeling value always succeeds. In the worst case
+  /// {0, 0} is returned.
+  std::pair<int, VPInstructionCost>
+  selectBestStaticPeelCount(int VF, VPlanPeelingCostModel &CM);
 
   /// Returns best dynamic peeling variant and its profit. None is returned when
   /// there's no analyzable memrefs in the loop.
@@ -305,8 +342,8 @@ private:
 class VPlanAlignmentAnalysis {
 public:
   VPlanAlignmentAnalysis(VPlanScalarEvolution &VPSE, VPlanValueTracking &VPVT,
-                         int VF)
-      : VPSE(&VPSE), VPVT(&VPVT), VF(VF) {}
+                         const TargetTransformInfo &TTI, int VF)
+      : VPSE(&VPSE), VPVT(&VPVT), TTI(&TTI), VF(VF) {}
 
   /// Compute alignment of a \p UnitStrideMemref in the vectorized loop with the
   /// given \p GuaranteedPeeling (nullptr should be passed if the peeling is not
@@ -349,12 +386,13 @@ public:
   /// method can be called on remainder VPlans, which do not have peeling set;
   /// in such a case, the peeling variant should come from the peeling selected
   /// on the main VPlan.
-  static void propagateAlignment(VPlanVector *Plan, unsigned VF,
+  static void propagateAlignment(VPlanVector *Plan,
+                                 const TargetTransformInfo *TTI, unsigned VF,
                                  const VPlanPeelingVariant *GuaranteedPeeling);
 
 private:
   Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
-                                   const VPlanStaticPeeling &SP) const;
+                                   const VPlanPeelingVariant &P) const;
 
   Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
                                    const VPlanDynamicPeeling &DP) const;
@@ -362,6 +400,7 @@ private:
 private:
   VPlanScalarEvolution *VPSE;
   VPlanValueTracking *VPVT;
+  const TargetTransformInfo *TTI;
   int VF;
 };
 

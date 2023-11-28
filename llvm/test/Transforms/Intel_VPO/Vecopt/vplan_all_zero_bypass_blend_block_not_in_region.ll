@@ -5,13 +5,13 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test_blend_outside_bypass_region(i32* %a, i32 %b) local_unnamed_addr {
+define void @test_blend_outside_bypass_region(ptr %a, i32 %b) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after all-zero bypass for VPlan Function vectorization:
 ; CHECK-NEXT:  VPlan IR for: test_blend_outside_bypass_region
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_GEP:%.*]] = getelementptr i32* [[A0:%.*]] i32 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_GEP:%.*]] = getelementptr i32, ptr [[A0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD:%.*]] = load ptr [[VP_GEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp eq i32 [[B0:%.*]] i32 42
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
@@ -73,8 +73,8 @@ define void @test_blend_outside_bypass_region(i32* %a, i32 %b) local_unnamed_add
 ;    BB4<----+
 entry:
   %lane = call i32 @llvm.vplan.laneid()
-  %gep = getelementptr i32, i32 *%a, i32 %lane
-  %ld = load i32, i32* %gep, align 4
+  %gep = getelementptr i32, ptr %a, i32 %lane
+  %ld = load i32, ptr %gep, align 4
   %uniform = icmp eq i32 %b,  42
   %varying = icmp eq i32 %ld,  42
   br label %bb0

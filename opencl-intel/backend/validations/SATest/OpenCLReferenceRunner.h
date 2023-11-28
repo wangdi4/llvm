@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,26 +15,25 @@
 #ifndef OPEN_CL_REFERENCE_RUNNER_H
 #define OPEN_CL_REFERENCE_RUNNER_H
 
-#include <cstddef> // for std::size_t
-#include <vector>
-
 #include "IBufferContainerList.h"
 #include "IMemoryObject.h"
 #include "IProgram.h"
 #include "IProgramRunner.h"
 #include "IRunResult.h"
+#include "InterpreterPlugIn.h"
+#include "InterpreterPluggable.h"
 #include "OpenCLProgramConfiguration.h"
 #include "OpenCLRunConfiguration.h"
+#include "PlugInNEAT.h"
 #include "cl_dynamic_lib.h"
 #include "cl_types.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Type.h"
+#include <cstddef> // for std::size_t
+#include <vector>
 
-#include "InterpreterPlugIn.h"
-#include "InterpreterPluggable.h"
-#include "PlugInNEAT.h"
 namespace Validation {
 class OpenCLKernelConfiguration;
 
@@ -80,12 +79,11 @@ private:
   ///                      pointer.
   /// @param [OUT] outBuffer Buffer with the copy of input data, which will be
   ///                        passed in reality.
-  /// @param [IN] argType Type of function argument expected to be passed via
+  /// @param [IN] ArgTyStr Type of function argument expected to be passed via
   ///                     pointer.
   /// @return Pointer to the argument value.
   void *GetPointerToTheArgValues(const IMemoryObject *inBuffer,
                                  IMemoryObject *outBuffer,
-                                 const llvm::Type *argType,
                                  llvm::StringRef ArgTyStr);
 
   /// @brief Reads integer value from buffer of vectors, copies it to the

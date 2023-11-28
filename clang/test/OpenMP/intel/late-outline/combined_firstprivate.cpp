@@ -1,7 +1,7 @@
 // INTEL_COLLAB
 
-// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp \
-// RUN:  -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-targets=spir64 -emit-llvm -o - %s | FileCheck %s
 //
 // expected-no-diagnostics

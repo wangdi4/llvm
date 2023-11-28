@@ -1,6 +1,6 @@
 //==---------------- Intel_ResolveMatrixLayout.cpp -  C++ -*---------------==//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -78,6 +78,117 @@ static std::pair<bool, Value *> resolveMatrixLayoutLoadHelper(
   return std::make_pair(true, NewMatrixLoad);
 }
 
+// transform
+// call void @llvm.experimental.matrix.store.v8f32.p4.v2(<8 x float>
+// %0, ptr %dst,  i64 %stride, i1 false, i32 4, i32 2, metadata
+// !"matrix.rowmajor", metadata !"matrix.columnmajor", metadata
+// !"scope.subgroup", metadata !"matrix.use.unnecessary")
+//
+// into:
+// %alloc = alloca [float x 8]
+// %ptr = bitcast %alloc to i8*
+// %stride = 2 * sizeof(float)
+// %newstride =
+// call void @llvm.experimental.matrix.store.v8f32.p4.v2(<8 x float>
+// %0, ptr %ptr,  i64 %stride, i1 false, i32 4, i32 2, metadata
+// !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup",
+// metadata !"matrix.use.unnecessary")
+//
+// call @_Z44matrix_layout_transform_rowmajor_to_colmajorPU3AS4sS0_iii(float*
+//   %ptr, float* %dst, i32 8, i32 16, i64 32)
+//
+// Thus NewMemL OldStride NewStride should be re-calculated
+static std::pair<bool, Value *> resolveMatrixLayoutStoreHelper(
+    IRBuilder<> &Builder, CallInst *CI, StringRef BuiltinName,
+    PointerType *PtrType, Value *NewMemL, Value *OldStride, Value *NewStride,
+    bool ShouldAddWorkList, SmallVector<User *> &WorkList) {
+  FixedVectorType *MatrixType =
+      cast<FixedVectorType>(CI->getOperand(0)->getType());
+  Value *MatAlloca = createMatrixAllocaInst(*CI->getFunction(), MatrixType);
+  Value *Ptr =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(CI->getOperand(1), PtrType);
+  Value *Dst = Builder.CreateBitCast(MatAlloca, PtrType);
+
+  // stride should be calculated according to the size of the temporary matrix
+  // we do tilestore for rowmajor matrix and then tranpose the matrix.
+  SmallVector<Value *, 8> ArgsForNewStore = {CI->getOperand(0),  // Matrix
+                                             Dst,                // Dst Ptr
+                                             NewStride,          // Stride
+                                             CI->getOperand(3),  // IsVolatile
+                                             CI->getOperand(4),  // Row
+                                             CI->getOperand(5),  // Col
+                                             CI->getOperand(6),  // Mat Layout
+                                             NewMemL,            // Mem Layout
+                                             CI->getOperand(8),  // Group
+                                             CI->getOperand(9)}; // MatrixUse
+  SmallVector<Type *, 2> TypesForNewStore = {MatrixType,         // Matrix
+                                             Dst->getType()};    // Ptr
+  CallInst *NewMatrixStore = Builder.CreateIntrinsic(
+      Intrinsic::experimental_matrix_store, TypesForNewStore, ArgsForNewStore);
+  SmallVector<Value *, 5> Args = {Dst,               // Src Mem
+                                  Ptr,               // Dst Mem
+                                  CI->getOperand(4), // Row
+                                  CI->getOperand(5), // Col
+                                  OldStride};        // Stride
+  CallInst *BuiltinCall = generateCall(CI->getModule(), BuiltinName,
+                                       Builder.getVoidTy(), Args, Builder);
+  if (ShouldAddWorkList)
+    WorkList.push_back(NewMatrixStore);
+  return std::make_pair(true, BuiltinCall);
+}
+
+static std::pair<bool, Value *>
+resolveMatrixLayoutStore(CallInst *CI, SmallVector<User *> &WorkList) {
+  int64_t MCols = cast<ConstantInt>(CI->getOperand(5))->getSExtValue();
+  FixedVectorType *MatrixType =
+      cast<FixedVectorType>(CI->getOperand(0)->getType());
+  Metadata *MatL = cast<MetadataAsValue>(CI->getOperand(6))->getMetadata();
+  Metadata *MemL = cast<MetadataAsValue>(CI->getOperand(7))->getMetadata();
+  Metadata *MatUse = cast<MetadataAsValue>(CI->getOperand(9))->getMetadata();
+  bool IsMatUseUnnecessary =
+      cast<MDString>(MatUse)->getString().equals("matrix.use.unnecessary");
+  bool IsMatUseA = cast<MDString>(MatUse)->getString().equals("matrix.use.a");
+  bool IsMatUseB = cast<MDString>(MatUse)->getString().equals("matrix.use.b");
+  bool IsMatUseC =
+      cast<MDString>(MatUse)->getString().equals("matrix.use.accumulator");
+  bool IsMemLPacked = cast<MDString>(MemL)->getString().equals("matrix.packed");
+  bool IsMemLRowMajor =
+      cast<MDString>(MemL)->getString().equals("matrix.rowmajor");
+  bool IsMemLColMajor =
+      cast<MDString>(MemL)->getString().equals("matrix.columnmajor");
+  // bool IsMatLPackedB =
+  //     cast<MDString>(MatL)->getString().equals("matrix.packed.b");
+  bool IsMatLRowMajor =
+      cast<MDString>(MatL)->getString().equals("matrix.rowmajor");
+  if ((cast<MDString>(MatL)->getString() == cast<MDString>(MemL)->getString() &&
+       IsMatUseUnnecessary) ||
+      (IsMatUseB && IsMemLPacked) || (IsMatUseA && IsMemLRowMajor) ||
+      (IsMatUseC && IsMemLRowMajor) ||
+      (IsMatUseB && IsMemLRowMajor &&
+       MatrixType->getElementType()->isFloatTy()))
+    return std::make_pair(false, CI);
+  IRBuilder<> Builder(CI);
+  LLVMContext &Ctx = Builder.getContext();
+  if (((IsMatLRowMajor && IsMemLColMajor && IsMatUseUnnecessary) ||
+       ((IsMatUseA || IsMatUseC) && IsMemLColMajor)) &&
+      MatrixType->getElementType()->isFloatTy()) {
+    return resolveMatrixLayoutStoreHelper(
+        Builder, CI,
+        "_Z44matrix_layout_transform_rowmajor_to_colmajorPU3AS4fS0_iii",
+        PointerType::get(Ctx, 0),
+        MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
+        Builder.CreateMul(CI->getOperand(2), Builder.getInt64(4)), // OldStride
+        Builder.getInt64(MCols),                                   // NewStride
+        false, WorkList);
+  } else {
+    errs() << "Unsuppoted combination of matrix.use&matL&memL:\n"
+           << "Unsuppoted matrix.use:" << cast<MDString>(MatUse)->getString()
+           << "!\n"
+           << "Unsuppoted matL:" << cast<MDString>(MatL)->getString() << "!\n"
+           << "Unsuppoted memL:" << cast<MDString>(MemL)->getString() << "!\n";
+    llvm_unreachable(nullptr);
+  }
+}
 static std::pair<bool, Value *>
 resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
   int64_t MCols = cast<ConstantInt>(CI->getOperand(4))->getSExtValue();
@@ -142,7 +253,7 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z40matrix_layout_transform_rowmajor_to_vnniPU3AS4sS0_iii",
-        Type::getInt16PtrTy(Ctx),
+        PointerType::get(Ctx, 0),
         IsMatUseUnnecessary
             ? MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.packed.b"))
             : MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.packed")),
@@ -157,6 +268,16 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
         Builder.getInt8PtrTy(),
         MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
         CI->getOperand(1), Builder.getInt64(MCols), false, WorkList);
+  } else if (((IsMatLRowMajor && IsMemLColMajor && IsMatUseUnnecessary) ||
+              ((IsMatUseA || IsMatUseC) && IsMemLColMajor)) &&
+             MatrixType->getElementType()->isFloatTy()) {
+    return resolveMatrixLayoutLoadHelper(
+        Builder, CI,
+        "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4fS0_iii",
+        PointerType::get(Ctx, 0),
+        MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
+        Builder.CreateMul(CI->getOperand(1), Builder.getInt64(4)),
+        Builder.getInt64(MCols), false, WorkList);
   } else if (((IsMatLRowMajor && IsMemLColMajor && IsMatUseUnnecessary) ||
               ((IsMatUseA || IsMatUseC) && IsMemLColMajor)) &&
              MatrixType->getElementType()->isIntegerTy(16)) {
@@ -176,7 +297,7 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii",
-        Type::getInt16PtrTy(Ctx),
+        PointerType::get(Ctx, 0),
         MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
         Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
         Builder.getInt64(MCols), false, WorkList);
@@ -219,7 +340,7 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
     return resolveMatrixLayoutLoadHelper(
         Builder, CI,
         "_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii",
-        Type::getInt16PtrTy(Ctx),
+        PointerType::get(Ctx, 0),
         MetadataAsValue::get(Ctx, MDString::get(Ctx, "matrix.rowmajor")),
         Builder.CreateMul(CI->getOperand(1), Builder.getInt64(2)),
         Builder.getInt64(MCols), true, WorkList);
@@ -238,14 +359,19 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
 bool ResolveMatrixLayoutPass::runImpl(Module &M) {
   bool Changed = false;
   for (auto &F : M) {
-    if (F.getIntrinsicID() != Intrinsic::experimental_matrix_load)
+    if (F.getIntrinsicID() != Intrinsic::experimental_matrix_load &&
+        F.getIntrinsicID() != Intrinsic::experimental_matrix_store)
       continue;
     SmallVector<User *> WorkList(F.users());
     for (auto *U : WorkList) {
       CallInst *CI = cast<CallInst>(U);
       bool Resolved;
       Value *Replacement;
-      std::tie(Resolved, Replacement) = resolveMatrixLayoutLoad(CI, WorkList);
+      if (F.getIntrinsicID() == Intrinsic::experimental_matrix_load)
+        std::tie(Resolved, Replacement) = resolveMatrixLayoutLoad(CI, WorkList);
+      else if (F.getIntrinsicID() == Intrinsic::experimental_matrix_store)
+        std::tie(Resolved, Replacement) =
+            resolveMatrixLayoutStore(CI, WorkList);
       if (Resolved) {
         CI->replaceAllUsesWith(Replacement);
         CI->eraseFromParent();

@@ -1,4 +1,4 @@
-; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-local-buffers -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-local-buffers -S %s | FileCheck %s
 
 ; Check for tls mode. Local variable used in scalar kernel and vector kernel has
 ; the same offset in both kernels. Local buffer size is the same for both kernels.
@@ -8,16 +8,16 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 @test.i = external addrspace(3) global i32, !dbg !0
-@pLocalMemBase = linkonce_odr thread_local global ptr addrspace(3) undef, align 8
+@__pLocalMemBase = linkonce_odr thread_local global ptr addrspace(3) undef, align 8
 
-; CHECK-NOT: @test.i = external addrspace(3) global i32,
-; CHECK: @pLocalMemBase = linkonce_odr thread_local global ptr addrspace(3) undef, align 8
+; CHECK: @test.i = external addrspace(3) global i32,
+; CHECK: @__pLocalMemBase = linkonce_odr thread_local global ptr addrspace(3) undef, align 8
 
 define internal fastcc void @foo() {
 ; CHECK: define internal fastcc void @foo()
 ; CHECK-NOT: !local_buffer_size
 ; CHECK-SAME: {
-; CHECK:   %LocalMemBase = load ptr addrspace(3), ptr @pLocalMemBase, align 8
+; CHECK:   %LocalMemBase = load ptr addrspace(3), ptr @__pLocalMemBase, align 8
 ; CHECK:   [[GEP0:%[0-9]+]] = getelementptr i8, ptr addrspace(3) %LocalMemBase, i32 0
 ; CHECK:   store i32 1, ptr addrspace(3) [[GEP0]], align 4, !dbg
 ;
@@ -31,7 +31,7 @@ define dso_local void @test(ptr addrspace(1) noundef align 4 %dst) !dbg !2 !kern
 ; CHECK-SAME: !vectorized_kernel [[VECTORIZED_KERNEL:![0-9]+]]
 ; CHECK-SAME: !vectorized_width [[VECTORIZED_WIDTH1:![0-9]+]]
 ; CHECK-SAME: !local_buffer_size [[LOCAL_SIZE:![0-9]+]]
-; CHECK:   %LocalMemBase = load ptr addrspace(3), ptr @pLocalMemBase, align 8
+; CHECK:   %LocalMemBase = load ptr addrspace(3), ptr @__pLocalMemBase, align 8
 ; CHECK:   [[GEP1:%[0-9]+]] = getelementptr i8, ptr addrspace(3) %LocalMemBase, i32 0
 ; CHECK:   call void @llvm.dbg.value(metadata ptr addrspace(3) [[GEP1]], metadata {{.*}}, metadata !DIExpression(DW_OP_deref)), !dbg
 ; CHECK:   store i32 %conv, ptr addrspace(3) [[GEP1]], align 4, !dbg
@@ -59,7 +59,7 @@ define dso_local void @_ZGVeN16u_test(ptr addrspace(1) noundef align 4 %dst) !ve
 ; CHECK-SAME: !vectorized_width [[VECTORIZED_WIDTH16:![0-9]+]]
 ; CHECK-SAME: !scalar_kernel [[SCALAR_KERNEL:![0-9]+]]
 ; CHECK-SAME: !local_buffer_size [[LOCAL_SIZE]]
-; CHECK:   %LocalMemBase = load ptr addrspace(3), ptr @pLocalMemBase, align 8
+; CHECK:   %LocalMemBase = load ptr addrspace(3), ptr @__pLocalMemBase, align 8
 ; CHECK:   [[GEP2:%[0-9]+]] = getelementptr i8, ptr addrspace(3) %LocalMemBase, i32 0
 ; CHECK:   store i32 %.extract.15..lcssa, ptr addrspace(3) [[GEP2]], align 4, !dbg
 ; CHECK:   tail call fastcc void @foo() {{.*}}, !dbg

@@ -30,7 +30,7 @@
 ; CHECK-NEXT:    Increments:
 ; CHECK-NEXT:      i32 [[VP9:%.*]] = add i32 [[VP7]] i32 3
 ; CHECK-NEXT:    Loads:
-; CHECK-NEXT:      i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT:%.*]]
+; CHECK-NEXT:      i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT:%.*]]
 ; CHECK-NEXT:    Indices:
 ; CHECK-NEXT:      i64 [[VP10:%.*]] = sext i32 [[VP9]] to i64
 ; CHECK-EMPTY:
@@ -50,8 +50,8 @@
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i32 [[VP7]] = phi  [ i32 [[VP14]], [[BB1]] ],  [ i32 [[VP15:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP6]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP5]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP6]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp ne i32 [[VP_LOAD_1]] i32 0
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
@@ -60,10 +60,10 @@
 ; CHECK-NEXT:       i32 [[VP9]] = add i32 [[VP7]] i32 3
 ; CHECK-NEXT:       i64 [[VP10]] = sext i32 [[VP9]] to i64
 ; CHECK-NEXT:       i64 [[VP16:%.*]] = compress-expand-index {stride: 3} i64 [[VP10]]
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT]] = subscript inbounds i32* [[D20]] i64 [[VP16]]
-; CHECK-NEXT:       i32 [[VP17:%.*]] = expand-load-nonu i32* [[VP_SUBSCRIPT]] i64 [[MASK]]
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[V20:%.*]] i64 [[VP6]]
-; CHECK-NEXT:       store i32 [[VP17]] i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT]] = subscript inbounds ptr [[D20]] i64 [[VP16]]
+; CHECK-NEXT:       i32 [[VP17:%.*]] = expand-load-nonu ptr [[VP_SUBSCRIPT]] i64 [[MASK]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[V20:%.*]] i64 [[VP6]]
+; CHECK-NEXT:       store i32 [[VP17]] ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:       br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
@@ -106,7 +106,7 @@
 ; CHECK-NEXT:        |   [[CAST90:%.*]] = bitcast.i8.<8 x i1>([[XOR0]])
 ; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP50]] + 3,  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD100:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 3, i64 6, i64 9, i64 12, i64 15, i64 18, i64 21>
-; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v8i32.v8p0i32(&((<8 x i32*>)([[D20]])[%add10]),  0,  [[CAST90]],  poison)
+; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v8i32.v8p0(&((<8 x ptr>)([[D20]])[%add10]),  0,  [[CAST90]],  poison)
 ; CHECK-NEXT:        |   [[EXPAND0:%.*]] = @llvm.x86.avx512.mask.expand.v8i32([[GATHER0]],  poison,  [[DOTVEC80]])
 ; CHECK-NEXT:        |   (<8 x i32>*)([[V20]])[i1] = [[EXPAND0]], Mask = @{[[DOTVEC80]]}
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC80]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
@@ -148,7 +148,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fooPiS_S_S_S_S_S_i(i32* noalias nocapture noundef readonly %a, i32* noalias nocapture noundef writeonly %d1, i32* noalias nocapture noundef readonly %v1, i32* noalias nocapture noundef readonly %d2, i32* noalias nocapture noundef writeonly %v2, i32* noalias nocapture noundef writeonly %d3, i32* noalias nocapture noundef readonly %v3, i32 noundef %n) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPiS_S_S_S_S_S_i(ptr noalias nocapture noundef readonly %a, ptr noalias nocapture noundef writeonly %d1, ptr noalias nocapture noundef readonly %v1, ptr noalias nocapture noundef readonly %d2, ptr noalias nocapture noundef writeonly %v2, ptr noalias nocapture noundef writeonly %d3, ptr noalias nocapture noundef readonly %v3, i32 noundef %n) local_unnamed_addr #0 {
 entry:
   %cmp33 = icmp sgt i32 %n, 0
   br i1 %cmp33, label %for.body.preheader, label %for.cond.cleanup
@@ -166,18 +166,18 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %k.034 = phi i32 [ 0, %for.body.preheader ], [ %k.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %tobool.not = icmp eq i32 %0, 0
   br i1 %tobool.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
   %add = add nsw i32 %k.034, 3
   %idxprom7 = sext i32 %add to i64
-  %arrayidx8 = getelementptr inbounds i32, i32* %d2, i64 %idxprom7
-  %ld2 = load i32, i32* %arrayidx8, align 4, !tbaa !3
-  %arrayidx10 = getelementptr inbounds i32, i32* %v2, i64 %indvars.iv
-  store i32 %ld2, i32* %arrayidx10, align 4, !tbaa !3
+  %arrayidx8 = getelementptr inbounds i32, ptr %d2, i64 %idxprom7
+  %ld2 = load i32, ptr %arrayidx8, align 4, !tbaa !3
+  %arrayidx10 = getelementptr inbounds i32, ptr %v2, i64 %indvars.iv
+  store i32 %ld2, ptr %arrayidx10, align 4, !tbaa !3
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

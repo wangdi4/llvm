@@ -30,8 +30,8 @@
 // RUN:   | FileCheck -check-prefix=GOODARG %s
 // GOODARG-NOT: unsupported argument
 
-// RUN: %clangxx -### -xSKYLAKE -vecabi=unknown -c %s 2>&1 \
+// RUN: not %clangxx -### -xSKYLAKE -vecabi=unknown -c %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=BADARG %s
-// RUN: %clang_cl -### /QxCORE-AVX-I -Qvecabi:unknown -c %s 2>&1 \
+// RUN: not %clang_cl -### /QxCORE-AVX-I -Qvecabi:unknown -c %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=BADARG %s
 // BADARG: unsupported argument

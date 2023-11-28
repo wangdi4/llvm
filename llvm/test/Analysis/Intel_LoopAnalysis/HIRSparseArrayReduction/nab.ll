@@ -32,7 +32,6 @@
 
 ; RUN: opt < %s -mattr=+avx512f -enable-intel-advanced-opts -aa-pipeline=basic-aa -passes="loop-simplify,hir-ssa-deconstruction,print<hir-sparse-array-reduction-analysis>" -hir-cost-model-throttling=0 -force-hir-sparse-array-reduction-analysis -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt < %s -opaque-pointers -mattr=+avx512f -enable-intel-advanced-opts -aa-pipeline=basic-aa -passes="loop-simplify,hir-ssa-deconstruction,print<hir-sparse-array-reduction-analysis>" -hir-cost-model-throttling=0 -force-hir-sparse-array-reduction-analysis -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:   <Sparse Array Reduction>
 ; CHECK:   <Sparse Array Reduction>

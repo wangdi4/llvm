@@ -14,18 +14,19 @@ target triple = "x86_64-unknown-linux-gnu"
 @test_var07 = internal global [9 x [9 x i32]] zeroinitializer
 @test_var08 = internal global [9 x [9 x i32]] zeroinitializer
 
+%"QNCA_a0$i32*$rank2$" = type { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 
 ; In this case a dope vector is being created to represent the entire array.
 ; This should be a valid candidate for the transpose transformation.
 define void @test01() {
 bb:
-  %"var$01" = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
-  %"var$01_$field0$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 0
-  %"var$01_$field1$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 1
-  %"var$01_$field2$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 2
-  %"var$01_$field3$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 3
-  %"var$01_$field4$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 4
-  %"var$01_$field6$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$01", i64 0, i32 6, i64 0
+  %"var$01" = alloca %"QNCA_a0$i32*$rank2$", align 8
+  %"var$01_$field0$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$01", i64 0, i32 0
+  %"var$01_$field1$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$01", i64 0, i32 1
+  %"var$01_$field2$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$01", i64 0, i32 2
+  %"var$01_$field3$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$01", i64 0, i32 3
+  %"var$01_$field4$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$01", i64 0, i32 4
+  %"var$01_$field6$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$01", i64 0, i32 6, i64 0
   %"var$01_$field6$_$field0$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$01_$field6$", i64 0, i32 0
   %"var$01_$field6$_$field1$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$01_$field6$", i64 0, i32 1
   %"var$01_$field6$_$field2$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$01_$field6$", i64 0, i32 2
@@ -56,15 +57,15 @@ bb:
 ; This should be a valid candidate for the transpose transformation.
 define void @test02() {
 bb:
-  %"var$02" = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
-  %"var$02_$field0$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$02", i64 0, i32 0
-  %"var$02_$field1$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$02", i64 0, i32 1
-  %"var$02_$field2$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$02", i64 0, i32 2
-  %"var$02_$field3$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$02", i64 0, i32 3
-  %"var$02_$field4$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$02", i64 0, i32 4
-  %"var$02_$field6$_$field0$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$02", i64 0, i32 6, i64 0, i32 0
-  %"var$02_$field6$_$field1$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$02", i64 0, i32 6, i64 0, i32 1
-  %"var$02_$field6$_$field2$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$02", i64 0, i32 6, i64 0, i32 2
+  %"var$02" = alloca %"QNCA_a0$i32*$rank2$", align 8
+  %"var$02_$field0$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$02", i64 0, i32 0
+  %"var$02_$field1$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$02", i64 0, i32 1
+  %"var$02_$field2$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$02", i64 0, i32 2
+  %"var$02_$field3$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$02", i64 0, i32 3
+  %"var$02_$field4$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$02", i64 0, i32 4
+  %"var$02_$field6$_$field0$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$02", i64 0, i32 6, i64 0, i32 0
+  %"var$02_$field6$_$field1$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$02", i64 0, i32 6, i64 0, i32 1
+  %"var$02_$field6$_$field2$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$02", i64 0, i32 6, i64 0, i32 2
   store i64 4, ptr %"var$02_$field1$", align 8
   store i64 2, ptr %"var$02_$field4$", align 8
   store i64 0, ptr %"var$02_$field2$", align 8
@@ -92,13 +93,13 @@ bb:
 ; This case should be considered invalid.
 define void @test03() {
 bb:
-  %"var$03" = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
-  %"var$03_$field0$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$03", i64 0, i32 0
-  %"var$03_$field1$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$03", i64 0, i32 1
-  %"var$03_$field2$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$03", i64 0, i32 2
-  %"var$03_$field3$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$03", i64 0, i32 3
-  %"var$03_$field4$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$03", i64 0, i32 4
-  %"var$03_$field6$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$03", i64 0, i32 6, i64 0
+  %"var$03" = alloca %"QNCA_a0$i32*$rank2$", align 8
+  %"var$03_$field0$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$03", i64 0, i32 0
+  %"var$03_$field1$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$03", i64 0, i32 1
+  %"var$03_$field2$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$03", i64 0, i32 2
+  %"var$03_$field3$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$03", i64 0, i32 3
+  %"var$03_$field4$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$03", i64 0, i32 4
+  %"var$03_$field6$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$03", i64 0, i32 6, i64 0
   %"var$03_$field6$_$field0$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$03_$field6$", i64 0, i32 0
   %"var$03_$field6$_$field1$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$03_$field6$", i64 0, i32 1
   %"var$03_$field6$_$field2$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$03_$field6$", i64 0, i32 2
@@ -128,14 +129,14 @@ bb:
 ; This case should be considered invalid.
 define void @test04() {
 bb:
-  %"var$04" = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
-  %"var$04_$field0$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$04", i64 0, i32 0
+  %"var$04" = alloca %"QNCA_a0$i32*$rank2$", align 8
+  %"var$04_$field0$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$04", i64 0, i32 0
   %bad_bitcast = bitcast ptr %"var$04_$field0$" to ptr
-  %"var$04_$field1$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$04", i64 0, i32 1
-  %"var$04_$field2$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$04", i64 0, i32 2
-  %"var$04_$field3$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$04", i64 0, i32 3
-  %"var$04_$field4$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$04", i64 0, i32 4
-  %"var$04_$field6$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$04", i64 0, i32 6, i64 0
+  %"var$04_$field1$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$04", i64 0, i32 1
+  %"var$04_$field2$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$04", i64 0, i32 2
+  %"var$04_$field3$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$04", i64 0, i32 3
+  %"var$04_$field4$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$04", i64 0, i32 4
+  %"var$04_$field6$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$04", i64 0, i32 6, i64 0
   %"var$04_$field6$_$field0$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$04_$field6$", i64 0, i32 0
   %"var$04_$field6$_$field1$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$04_$field6$", i64 0, i32 1
   %"var$04_$field6$_$field2$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$04_$field6$", i64 0, i32 2
@@ -165,14 +166,14 @@ bb:
 ; This case should be considered invalid.
 define void @test05() {
 bb:
-  %"var$05" = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
+  %"var$05" = alloca %"QNCA_a0$i32*$rank2$", align 8
   %var14ptr = bitcast ptr %"var$05" to ptr
-  %"var$05_$field0$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$05", i64 0, i32 0
-  %"var$05_$field1$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$05", i64 0, i32 1
-  %"var$05_$field2$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$05", i64 0, i32 2
-  %"var$05_$field3$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$05", i64 0, i32 3
-  %"var$05_$field4$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$05", i64 0, i32 4
-  %"var$05_$field6$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$05", i64 0, i32 6, i64 0
+  %"var$05_$field0$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$05", i64 0, i32 0
+  %"var$05_$field1$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$05", i64 0, i32 1
+  %"var$05_$field2$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$05", i64 0, i32 2
+  %"var$05_$field3$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$05", i64 0, i32 3
+  %"var$05_$field4$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$05", i64 0, i32 4
+  %"var$05_$field6$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$05", i64 0, i32 6, i64 0
   %"var$05_$field6$_$field0$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$05_$field6$", i64 0, i32 0
   %"var$05_$field6$_$field1$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$05_$field6$", i64 0, i32 1
   %"var$05_$field6$_$field2$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$05_$field6$", i64 0, i32 2
@@ -205,13 +206,13 @@ bb:
 ; function creating the dope vector).
 define void @test06() {
 bb:
-  %"var$06" = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
-  %"var$06_$field0$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$06", i64 0, i32 0
-  %"var$06_$field1$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$06", i64 0, i32 1
-  %"var$06_$field2$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$06", i64 0, i32 2
-  %"var$06_$field3$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$06", i64 0, i32 3
-  %"var$06_$field4$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$06", i64 0, i32 4
-  %"var$06_$field6$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$06", i64 0, i32 6, i64 0
+  %"var$06" = alloca %"QNCA_a0$i32*$rank2$", align 8
+  %"var$06_$field0$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$06", i64 0, i32 0
+  %"var$06_$field1$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$06", i64 0, i32 1
+  %"var$06_$field2$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$06", i64 0, i32 2
+  %"var$06_$field3$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$06", i64 0, i32 3
+  %"var$06_$field4$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$06", i64 0, i32 4
+  %"var$06_$field6$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$06", i64 0, i32 6, i64 0
   %"var$06_$field6$_$field1$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$06_$field6$", i64 0, i32 1
   %"var$06_$field6$_$field2$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$06_$field6$", i64 0, i32 2
   store i64 4, ptr %"var$06_$field1$", align 8
@@ -236,13 +237,13 @@ bb:
 ; happen in normal operation. Verify that it gets rejected.
 define void @test07() {
 bb:
-  %"var$07" = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
-  %"var$07_$field0$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$07", i64 0, i32 0
-  %"var$07_$field1$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$07", i64 0, i32 1
-  %"var$07_$field2$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$07", i64 0, i32 2
-  %"var$07_$field3$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$07", i64 0, i32 3
-  %"var$07_$field4$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$07", i64 0, i32 4
-  %"var$07_$field6$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$07", i64 0, i32 6, i64 0
+  %"var$07" = alloca %"QNCA_a0$i32*$rank2$", align 8
+  %"var$07_$field0$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$07", i64 0, i32 0
+  %"var$07_$field1$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$07", i64 0, i32 1
+  %"var$07_$field2$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$07", i64 0, i32 2
+  %"var$07_$field3$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$07", i64 0, i32 3
+  %"var$07_$field4$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$07", i64 0, i32 4
+  %"var$07_$field6$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$07", i64 0, i32 6, i64 0
   %"var$07_$field6$_$field0$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$07_$field6$", i64 0, i32 0
   %"var$07_$field6$_$field1$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$07_$field6$", i64 0, i32 1
   %"var$07_$field6$_$field2$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$07_$field6$", i64 0, i32 2
@@ -273,14 +274,14 @@ bb:
 ; another memory location. This should disqualify the candidate.
 define void @test08() {
 bb:
-  %"var$08" = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
+  %"var$08" = alloca %"QNCA_a0$i32*$rank2$", align 8
   %escape = alloca ptr, align 8
-  %"var$08_$field0$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$08", i64 0, i32 0
-  %"var$08_$field1$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$08", i64 0, i32 1
-  %"var$08_$field2$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$08", i64 0, i32 2
-  %"var$08_$field3$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$08", i64 0, i32 3
-  %"var$08_$field4$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$08", i64 0, i32 4
-  %"var$08_$field6$" = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %"var$08", i64 0, i32 6, i64 0
+  %"var$08_$field0$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$08", i64 0, i32 0
+  %"var$08_$field1$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$08", i64 0, i32 1
+  %"var$08_$field2$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$08", i64 0, i32 2
+  %"var$08_$field3$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$08", i64 0, i32 3
+  %"var$08_$field4$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$08", i64 0, i32 4
+  %"var$08_$field6$" = getelementptr inbounds %"QNCA_a0$i32*$rank2$", ptr %"var$08", i64 0, i32 6, i64 0
   %"var$08_$field6$_$field0$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$08_$field6$", i64 0, i32 0
   %"var$08_$field6$_$field1$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$08_$field6$", i64 0, i32 1
   %"var$08_$field6$_$field2$" = getelementptr inbounds { i64, i64, i64 }, ptr %"var$08_$field6$", i64 0, i32 2
@@ -311,3 +312,7 @@ bb:
 declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #0
 
 attributes #0 = { nounwind readnone speculatable }
+
+!ifx.types.dv = !{!0}
+!0 = !{%"QNCA_a0$i32*$rank2$" zeroinitializer, i32 0}
+

@@ -1,9 +1,5 @@
 #include "CL.h"
-#include "CL/cl.h"
-#include "CL/cl_platform.h"
-#include "CL_BASE.h"
 #include "test_utils.h"
-
 #include "FrameworkTest.h"
 #include "common_utils.h"
 

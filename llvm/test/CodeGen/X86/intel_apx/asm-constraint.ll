@@ -1,4 +1,3 @@
-; REQUIRES: intel_feature_isa_apx_f
 ; Check r16-r31 can not be used with 'q','r','l' constraint for backward compatibility.
 ; RUN: not llc < %s -mtriple=x86_64-unknown-unknown -mattr=+egpr 2>&1 | FileCheck %s
 

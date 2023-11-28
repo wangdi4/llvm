@@ -21,6 +21,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 
 #include <bitset>
@@ -71,6 +72,9 @@ public:
 
   virtual bool instNeedsLastScalarCode(const VPInstruction *Inst) const = 0;
 
+  /// Return true if \p Inst will be serialized.
+  virtual bool instWillBeSerialized(const VPInstruction *Inst) const = 0;
+
   // Getter interfaces for querying SVA results at operand-level.
   virtual bool operandNeedsVectorCode(const VPInstruction *Inst,
                                       unsigned OpIdx) const = 0;
@@ -89,6 +93,11 @@ public:
 
   virtual bool instNeedsExtractFromLastActiveLane(
     const VPInstruction *Inst) const = 0;
+
+  // Extracts from all lanes are needed if given instruction has a user that
+  // will be serialized.
+  virtual bool
+  instNeedsExtractFromAllLanes(const VPInstruction *Inst) const = 0;
 
   // Getter interfaces for querying SVA results at return value level.
   virtual bool retValNeedsVectorCode(const VPInstruction *Inst) const = 0;
@@ -155,6 +164,10 @@ public:
         static_cast<unsigned>(SVAKind::LastScalar));
   }
 
+  bool instWillBeSerialized(const VPInstruction *Inst) const override {
+    return SerializedInsts.count(Inst) == 1;
+  }
+
   // Getter interfaces for querying SVA results at operand-level.
   bool operandNeedsVectorCode(const VPInstruction *Inst,
                               unsigned OpIdx) const override {
@@ -182,6 +195,8 @@ public:
 
   bool instNeedsExtractFromLastActiveLane(
     const VPInstruction *Inst) const override;
+
+  bool instNeedsExtractFromAllLanes(const VPInstruction *Inst) const override;
 
   // Getter interfaces for querying SVA results at return value level.
   bool retValNeedsVectorCode(const VPInstruction *Inst) const override {
@@ -254,6 +269,9 @@ private:
 
   // Central data structure to track results of analysis.
   SmallDenseMap<const VPInstruction *, VPInstSVABits> VPlanSVAResults;
+
+  // Data structure to track results of serialization analysis.
+  SmallPtrSet<const VPInstruction *, 4> SerializedInsts;
 
   // Container to track loop header PHIs that are skipped during forward
   // propagation. Such PHIs occur when they do not have any processed users i.e.
@@ -369,6 +387,10 @@ private:
     VPlanSVAResults[Inst].InstBits = SetBits;
   }
 
+  void setInstWillBeSerialized(const VPInstruction *Inst) {
+    SerializedInsts.insert(Inst);
+  }
+
   /// Set SVA result for specific operand of given instruction.
   void setSVAKindForOperand(const VPInstruction *Inst, unsigned OpIdx,
                             const SVAKind Kind);
@@ -429,6 +451,10 @@ private:
   /// Helper utility to check if given instruction is processed specially in
   /// SVA.
   bool isSVASpecialProcessedInst(const VPInstruction *Inst);
+
+  /// Helper utility to check if given instruction will be serialized during
+  /// codegen. If yes, the instruction is tracked in a special internal cache.
+  void checkIfInstWillBeSerialized(const VPInstruction *Inst);
 };
 
 /// This class implementation for so called Scalar ScalVec analysis, which
@@ -460,6 +486,10 @@ public:
     return false;
   }
 
+  bool instWillBeSerialized(const VPInstruction *Inst) const override {
+    return false;
+  }
+
   // Getter interfaces for querying SVA results at operand-level.
   bool operandNeedsVectorCode(const VPInstruction *Inst,
                               unsigned OpIdx) const override {
@@ -488,6 +518,10 @@ public:
 
   bool instNeedsExtractFromLastActiveLane(
     const VPInstruction *Inst) const override {
+    return false;
+  }
+
+  bool instNeedsExtractFromAllLanes(const VPInstruction *Inst) const override {
     return false;
   }
 

@@ -33,5 +33,11 @@ find_sources()
 calculate_target_sources()
 
 # add a target named ${TARGET_NAME}
-add_opencl_library(${TARGET_NAME} STATIC ${TARGET_SOURCES})
+add_opencl_library(
+  ${TARGET_NAME}
+  STATIC
+  ${TARGET_SOURCES}
+  LINK_LIBS
+  cl_sys_utils)
+
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME})

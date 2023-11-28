@@ -10,13 +10,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 
-define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %ub, i32 %k) local_unnamed_addr {
+define dso_local void @foo(ptr nocapture %a, i32 %m, ptr nocapture readonly %ub, i32 %k) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LANE:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[UB0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP__PRE:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[UB0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32, ptr [[A0:%.*]] i64 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP__PRE:%.*]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE_TRUNC:%.*]] = trunc i64 [[VP_LANE]] to i32
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -27,8 +27,8 @@ define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %u
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB1]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_MUL:%.*]] = mul i32 [[VP_REC]] i32 [[VP_LANE_TRUNC]]
-; CHECK-NEXT:       [DA: Div] store i32 [[VP_MUL]] i32* [[VP_ARRAYIDX2]]
-; CHECK-NEXT:       [DA: Div] i32 [[VP_LD]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       [DA: Div] store i32 [[VP_MUL]] ptr [[VP_ARRAYIDX2]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_LD]] = load ptr [[VP_ARRAYIDX]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp sgt i32 [[VP_LD]] i32 0
 ; CHECK-NEXT:       [DA: Uni] br [[BB2]]
 ; CHECK-EMPTY:
@@ -46,17 +46,17 @@ define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %u
 ;
 entry:
   %lane = call i64 @llvm.vplan.laneid()
-  %arrayidx = getelementptr inbounds i32, i32* %ub, i64 %lane
-  %arrayidx2 = getelementptr inbounds i32, i32* %a, i64 %lane
-  %.pre = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ub, i64 %lane
+  %arrayidx2 = getelementptr inbounds i32, ptr %a, i64 %lane
+  %.pre = load i32, ptr %arrayidx, align 4
   %lane.trunc = trunc i64 %lane to i32
   br label %header
 
 header:
   %rec = phi i32 [ %.pre, %entry ], [ %ld, %header ]
   %mul = mul nsw i32 %rec, %lane.trunc
-  store i32 %mul, i32* %arrayidx2, align 4
-  %ld = load i32, i32* %arrayidx, align 4
+  store i32 %mul, ptr %arrayidx2, align 4
+  %ld = load i32, ptr %arrayidx, align 4
   %continue.cond = icmp sgt i32 %ld, 0
   br i1 %continue.cond, label %header, label %loop.exit
 

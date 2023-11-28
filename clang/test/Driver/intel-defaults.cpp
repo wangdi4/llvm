@@ -8,3 +8,15 @@
 // RUN: %clang_cl -### -fsycl -fsycl-targets=spir64-unknown-unknown -fsycl-device-only --intel -mllvm -loopopt=1 -QxAVX2 -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT1 %s
 // CHECK-INTEL-LOOPOPT1: "-mllvm" "-loopopt=1"
 // CHECK-INTEL-LOOPOPT1-NOT: "-floopopt-pipeline={{.*}}"
+
+// -fclang-abi-compat setting.  We force a specific ABI for a given major
+// release range so we don't break anything when an update is performed.
+// We are using version 17 for the 2024.0 release (and updates)
+// RUN: %clang -### --intel -c %s 2>&1 \
+// RUN:  | FileCheck %s -check-prefix CHECK_ABI_COMPAT
+// CHECK_ABI_COMPAT: "-fclang-abi-compat=17"
+
+// RUN: %clang -### --intel -c -fclang-abi-compat=15 %s 2>&1 \
+// RUN:  | FileCheck %s -check-prefix CHECK_ABI_COMPAT_VAL
+// CHECK_ABI_COMPAT_VAL: "-fclang-abi-compat=15"
+// CHECK_ABI_COMPAT_VAL-NOT: "-fclang-abi-compat=17"

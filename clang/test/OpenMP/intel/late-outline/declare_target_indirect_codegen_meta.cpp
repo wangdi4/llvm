@@ -1,16 +1,16 @@
 // INTEL_COLLAB
-//RUN: %clang_cc1 -opaque-pointers -O0 -verify -triple x86_64-unknown-linux-gnu -fopenmp \
+//RUN: %clang_cc1 -O0 -verify -triple x86_64-unknown-linux-gnu -fopenmp \
 //RUN:  -fintel-compatibility -fopenmp-late-outline  -fopenmp-version=51 \
 //RUN:  -fopenmp-targets=spir64 -emit-llvm %s -o - \
 //RUN:  | FileCheck %s --check-prefix HOST
 
-//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -fopenmp-version=51 \
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp-version=51 \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -opaque-pointers -triple spir64 -fopenmp-version=51 \
+//RUN: %clang_cc1 -triple spir64 -fopenmp-version=51 \
 //RUN:  -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \

@@ -1,6 +1,6 @@
 //==SYCLKernelWGLoopCreator.cpp - Create WG loops in SYCL kernels -*- C++-==//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -33,17 +33,15 @@ using namespace SYCLKernelMetadataAPI;
 #define DEBUG_TYPE "sycl-kernel-wgloop-creator"
 
 using MapFunctionToReturnInst = DenseMap<Function *, ReturnInst *>;
-extern bool EnableTLSGlobals;
 static constexpr StringRef PatchLocalIDsName = "local.ids";
 
 namespace {
 class WGLoopCreatorImpl {
 public:
-  WGLoopCreatorImpl(Module &M, bool UseTLSGlobals,
-                    MapFunctionToReturnInst &FuncReturn, FuncSet &AllKernels)
-      : M(M), Ctx(M.getContext()), Builder(Ctx),
-        UseTLSGlobals(UseTLSGlobals || EnableTLSGlobals),
-        FuncReturn(FuncReturn), AllKernels(AllKernels) {}
+  WGLoopCreatorImpl(Module &M, MapFunctionToReturnInst &FuncReturn,
+                    FuncSet &AllKernels)
+      : M(M), Ctx(M.getContext()), Builder(Ctx), FuncReturn(FuncReturn),
+        AllKernels(AllKernels) {}
 
   /// Run on the module.
   bool run();
@@ -65,7 +63,7 @@ private:
 
   IRBuilder<> Builder;
 
-  bool UseTLSGlobals;
+  bool UseTLSGlobals = false;
 
   /// Prefix for name of instructions used for loop of the dimension.
   std::string DimStr;
@@ -305,6 +303,9 @@ bool WGLoopCreatorImpl::run() {
   ConstZero = ConstantInt::get(IndTy, 0);
   ConstOne = ConstantInt::get(IndTy, 1);
 
+  auto Kernels = getKernels(M);
+  UseTLSGlobals = !M.debug_compile_units().empty();
+
   bool Changed = createTLSLocalIds();
 
   Changed |= processTIDInNotInlinedFuncs();
@@ -312,7 +313,6 @@ bool WGLoopCreatorImpl::run() {
   // processTIDInNotInlinedFuncs may create new TID calls in kernels.
   collectTIDCalls();
 
-  auto Kernels = getKernels(M);
   for (auto *F : Kernels) {
     KernelInternalMetadataAPI KIMD(F);
     // No need to check if NoBarrierPath Value exists, it is guaranteed that
@@ -365,7 +365,7 @@ bool WGLoopCreatorImpl::createTLSLocalIds() {
   if (UseTLSGlobals) {
     // Add TLS for local IDs.
     LocalIds = new GlobalVariable(
-        M, LIDArrayTy, /*isConstant*/ false, GlobalValue::LinkOnceODRLinkage,
+        M, LIDArrayTy, /*isConstant*/ false, GlobalValue::InternalLinkage,
         UndefValue::get(LIDArrayTy), getTLSLocalIdsName(),
         /*InsertBefore*/ nullptr, GlobalValue::GeneralDynamicTLSModel);
     LocalIds->setAlignment(M.getDataLayout().getPreferredAlign(LocalIds));
@@ -1508,7 +1508,8 @@ std::pair<LoopRegion, Value *> WGLoopCreatorImpl::addWGLoops(
       Value *Ptr = createGetPtrToLocalId(
           LocalIds, LIDArrayTy, ConstantInt::get(Type::getInt32Ty(Ctx), Dim),
           Builder);
-      Builder.CreateStore(LIDPhi, Ptr);
+      auto *StoreInst = Builder.CreateStore(LIDPhi, Ptr);
+      StoreInst->setDebugLoc(Builder.GetInsertPoint()->getDebugLoc());
     }
 
     // head, latch for the next loop are the pre-header and exit block
@@ -1558,6 +1559,6 @@ PreservedAnalyses SYCLKernelWGLoopCreatorPass::run(Module &M,
     if (It != F->end())
       FuncReturn[F] = cast<ReturnInst>(It->getTerminator());
   }
-  WGLoopCreatorImpl Impl(M, UseTLSGlobals, FuncReturn, AllKernels);
+  WGLoopCreatorImpl Impl(M, FuncReturn, AllKernels);
   return Impl.run() ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

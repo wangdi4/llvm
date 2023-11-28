@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -aa-pipeline=basic-aa -hir-details 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -aa-pipeline=basic-aa -hir-details -hir-allow-loop-materialization-regions=true -disable-output 2>&1 | FileCheck %s
 
 ; Verify that the consecutive stores in region created for materialization
 ; candidate has different symbases.

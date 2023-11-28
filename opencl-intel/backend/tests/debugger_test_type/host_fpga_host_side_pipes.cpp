@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2017-2018 Intel Corporation.
+// Copyright 2017 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,9 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "CL/cl_fpga_ext.h"
 #include "host_program_common.h"
 #include "test_utils.h"
-#include <CL/cl_fpga_ext.h>
 #include <stdexcept>
 
 #define CHECK(success, message)                                                \

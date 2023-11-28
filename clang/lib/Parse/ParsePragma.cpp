@@ -1637,8 +1637,10 @@ static std::string PragmaLoopHintString(Token PragmaName, Token Option) {
 }
 
 bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
+#if INTEL_CUSTOMIZATION
   assert(Tok.isOneOf(tok::annot_pragma_loop_hint,
-                     tok::annot_pragma_intel_fpga_loop)); // INTEL
+                     tok::annot_pragma_intel_fpga_loop));
+#endif // INTEL_CUSTOMIZATION
   PragmaLoopHintInfo *Info =
       static_cast<PragmaLoopHintInfo *>(Tok.getAnnotationValue());
 
@@ -4831,7 +4833,7 @@ void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP,
 /// Handle the \#pragma vector directive.
 ///
 /// The syntax is
-/// \#pragma vector {always[assert]|aligned|dynamic_align|nodynamic_align|
+/// \#pragma vector {always[assert]|[un]aligned|dynamic_align|nodynamic_align|
 ///         [no]vecremainder|temporal|nontemporal|vectorlength(n1[, n2]...)}
 ///
 void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
@@ -4922,6 +4924,9 @@ bool Parser::HandlePragmaVector(LoopHint &Hint,
   ConsumeToken(); // Consume vector token
 
   bool HasAlways = false;
+  bool HasAligned = false;
+  bool HasUnAligned = false;
+  SourceLocation AlignedLoc, UnAlignedLoc;
   while (Tok.is(tok::identifier)) {
     OptionInfo = Tok.getIdentifierInfo();
     if (OptionInfo->isStr("always"))
@@ -4930,6 +4935,7 @@ bool Parser::HandlePragmaVector(LoopHint &Hint,
                            .Case("always", true)
                            .Case("assert", HasAlways)
                            .Case("aligned", true)
+                           .Case("unaligned", true)
                            .Case("dynamic_align", true)
                            .Case("nodynamic_align", true)
                            .Case("vecremainder", true)
@@ -4942,6 +4948,24 @@ bool Parser::HandlePragmaVector(LoopHint &Hint,
       bool MissingOption = !HasAlways && OptionInfo->getName() == "assert";
       Diag(Tok.getLocation(), diag::warn_pragma_vector_invalid_option)
           << MissingOption << OptionInfo;
+    }
+    bool IsAligned = OptionInfo->getName() == "aligned";
+    bool IsUnAligned = OptionInfo->getName() == "unaligned";
+    if (IsAligned || IsUnAligned) {
+      HasAligned |= IsAligned;
+      HasUnAligned |= IsUnAligned;
+      if (IsAligned)
+        AlignedLoc = Tok.getLocation();
+      else
+        UnAlignedLoc = Tok.getLocation();
+      if (IsAligned && HasUnAligned || IsUnAligned && HasAligned) {
+        Diag(Tok.getLocation(),
+             diag::warn_pragma_vector_conflicting_aligned_unaligned)
+            << ((IsAligned && HasUnAligned) ? 0 : 1);
+        Diag(IsAligned ? UnAlignedLoc : AlignedLoc,
+             diag::note_pragma_vector_conflicting_aligned_unaligned)
+            << ((IsAligned && HasUnAligned) ? 1 : 0);
+      }
     }
     if (OptionInfo->getName() == "vectorlength") {
       Hint.OptionLoc =

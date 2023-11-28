@@ -1,6 +1,6 @@
 //==--- SYCLKernelAnalysis.h - Analyze SYCL kernel properties -- C++ -*---==//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -32,7 +32,8 @@ class RuntimeService;
 ///      instructions in the kernel.
 class SYCLKernelAnalysisPass : public PassInfoMixin<SYCLKernelAnalysisPass> {
 public:
-  SYCLKernelAnalysisPass(bool IsAMX = false) : IsAMX(IsAMX) {}
+  SYCLKernelAnalysisPass(bool IsAMX = false, bool IsAMXFP16 = false)
+      : IsAMX(IsAMX), IsAMXFP16(IsAMXFP16) {}
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   /// Glue for old PM.
@@ -69,6 +70,8 @@ private:
 
   bool IsAMX;
 
+  bool IsAMXFP16;
+
   /// Kernels.
   FuncSet Kernels;
 
@@ -85,7 +88,8 @@ private:
 };
 
 enum SYCLKernelAnalysisDiagKind {
-  DKDK_Error_MatrixIntrinOnUnsupportedCPU,
+  SKDK_Error_MatrixIntrinOnUnsupportedCPU,
+  SKDK_Error_FPGA_UnsupportedMemoryScope
 };
 
 class SYCLKernelAnalysisDiagInfo : public DiagnosticInfoWithLocationBase {
@@ -96,8 +100,8 @@ public:
   static DiagnosticKind Kind;
 
   SYCLKernelAnalysisDiagInfo(const Function &F, const Twine &Msg,
-                              SYCLKernelAnalysisDiagKind DKDiagKind,
-                              DiagnosticSeverity Severity = DS_Error)
+                             SYCLKernelAnalysisDiagKind DKDiagKind,
+                             DiagnosticSeverity Severity = DS_Error)
       : DiagnosticInfoWithLocationBase(Kind, Severity, F, DiagnosticLocation()),
         Msg(Msg), DKDiagKind(DKDiagKind) {}
 

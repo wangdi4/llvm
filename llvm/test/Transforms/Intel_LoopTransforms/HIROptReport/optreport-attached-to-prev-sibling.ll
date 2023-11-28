@@ -27,13 +27,11 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg" -intel-opt-report=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]], [[M2:!.*]]}
-; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
-; CHECK: [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]]}
+; CHECK: [[M2]] = distinct !{!"intel.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.next_sibling", [[M5:!.*]]}
-; CHECK: [[M5]] = distinct !{!"intel.optreport.rootnode", [[M6:!.*]]}
-; CHECK: [[M6]] = distinct !{!"intel.optreport", [[M7:!.*]]}
+; CHECK: [[M5]] = distinct !{!"intel.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
-; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
+; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, i32 10}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

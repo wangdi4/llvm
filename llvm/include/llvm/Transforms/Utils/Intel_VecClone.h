@@ -1,6 +1,6 @@
 //===-------- Intel_VecClone.h - Class definition -*- C++ -*---------------===//
 //
-// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -66,12 +66,12 @@ class VecCloneImpl {
     /// The non-key value is the stride
     MapVector<Value *, Value *> LinearMemory;
 
-    /// The map of linear pointer args to pointee type size.
-    const DenseMap<Value *, Value *> &PointeeTypeSize;
+    /// The vector of linear pointer args to pointee type size. If the arg is
+    /// not a pointer, its position in the vector will be nullptr.
+    const SmallVectorImpl<Value *> &PointeeTypeSize;
 
-    /// Maps of values between the original function and a copy and vise versa.
+    /// Maps of values between the original function and a copy.
     ValueToValueMapTy VMap;
-    ValueToValueMapTy ReverseVMap;
 
     Module &M;
     const DataLayout &DL;
@@ -81,7 +81,7 @@ class VecCloneImpl {
   public:
     Factory(VecCloneImpl *Parent, Module &M, const DataLayout &DL, Function &Fn,
             const VFInfo &Variant,
-            const DenseMap<Value *, Value *> &PointeeTypeSize)
+            const SmallVectorImpl<Value *> &PointeeTypeSize)
         : Parent(Parent), PointeeTypeSize(PointeeTypeSize), M(M), DL(DL), F(Fn),
           V(Variant) {}
 
@@ -126,6 +126,9 @@ class VecCloneImpl {
     /// Mark memory as uniform for SIMD directives.
     void processUniformArgs();
 
+    /// Returns the pointer element type of a pointer argument.
+    Type* getArgPointerElementType(Argument *Arg, Value *ScalarArg);
+
     /// Update the values of linear arguments by adding the stride before the
     /// use and mark memory and linear for SIMD directives.
     void processLinearArgs(PHINode *Phi);
@@ -157,9 +160,9 @@ class VecCloneImpl {
 
     /// Utility function that generates instructions that calculate the
     /// stride for a linear argument.
-    Value *generateStrideForArgument(Value *ArgVal, Instruction *ParmUser,
-                                     Value *Stride, PHINode *Phi,
-                                     const VFParameter &Parm);
+    Value *generateStrideForArgument(Value *ArgVal, unsigned ArgIdx,
+                                     Instruction *ParmUser, Value *Stride,
+                                     PHINode *Phi, const VFParameter &Parm);
     /// Adds metadata to the conditional branch of the simd loop latch to
     /// prevent loop unrolling.
     void disableLoopUnrolling();

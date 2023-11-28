@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,29 +12,27 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <iomanip>
-
-#include <CL/cl_fpga_ext.h>
-#include <CL/cl_gvp_ext.h>
-#include <cl_cpu_detect.h>
-#include <cl_objects_map.h>
-#include <cl_shared_ptr.hpp>
-#include <ocl_itt.h>
-
-#include "UserLoggerOutputParams.h"
 #include "cl_framework.h"
+#include "CL/cl_fpga_ext.h"
+#include "CL/cl_internal_ext.h"
+#include "UserLoggerOutputParams.h"
+#include "cl_cpu_detect.h"
+#include "cl_objects_map.h"
+#include "cl_shared_ptr.hpp"
 #include "cl_user_logger.h"
 #include "framework_proxy.h"
+#include "ocl_itt.h"
+#include "tracing_api.h"
+#include "tracing_notify.h"
+
+#include <iomanip>
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
 #include "cl_framework_alias_linux.h"
-#include <cl_linux_utils.h>
+#include "cl_linux_utils.h"
 #endif
-
-#include <tracing_api.h>
-#include <tracing_notify.h>
 
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
@@ -1811,6 +1809,36 @@ cl_int CL_API_CALL clGetKernelWorkGroupInfo(
   }
 }
 SET_ALIAS(clGetKernelWorkGroupInfo);
+
+cl_int CL_API_CALL clGetKernelMaxConcurrentWorkGroupCountINTEL(
+    cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim,
+    const size_t *global_work_offset, const size_t *local_work_size,
+    size_t *max_work_group_count) {
+  if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()) {
+    START_LOG_API(clGetKernelMaxConcurrentWorkGroupCountINTEL);
+    apiLogger << "cl_command_queue command_queue: " << command_queue
+              << ", cl_kernel kernel: " << kernel
+              << ", cl_uint work_dim: " << work_dim
+              << ", const size_t *global_work_offset: " << global_work_offset
+              << ", const size_t *local_work_size: " << local_work_size
+              << ", size_t *max_work_group_count: " << max_work_group_count;
+    CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+                                 GetKernelMaxConcurrentWorkGroupCount(
+                                     command_queue, kernel, work_dim,
+                                     global_work_offset, local_work_size,
+                                     max_work_group_count));
+  } else {
+    CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+                          GetKernelMaxConcurrentWorkGroupCount(
+                              command_queue, kernel, work_dim,
+                              global_work_offset, local_work_size,
+                              max_work_group_count));
+  }
+}
+SET_ALIAS(clGetKernelMaxConcurrentWorkGroupCountINTEL);
+REGISTER_EXTENSION_FUNCTION(clGetKernelMaxConcurrentWorkGroupCountINTEL,
+                            clGetKernelMaxConcurrentWorkGroupCountINTEL);
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Event Object APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -103,6 +103,11 @@ static cl::opt<bool> UserSinkCommonInsts(
     "sink-common-insts", cl::Hidden, cl::init(false),
     cl::desc("Sink common instructions (default = false)"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> UserInvalidateAndersRes(
+    "invalidate-anders-res", cl::Hidden, cl::init(false),
+    cl::desc("Invalidate Andersens Res (default = false)"));
+#endif // INTEL_CUSTOMIZATION
 
 STATISTIC(NumSimpl, "Number of blocks simplified");
 
@@ -258,7 +263,10 @@ static bool tailMergeBlocksWithSimilarFunctionTerminators(Function &F,
 /// iterating until no more changes are made.
 static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
                                    DomTreeUpdater *DTU,
-                                   const SimplifyCFGOptions &Options) {
+#if INTEL_CUSTOMIZATION
+                                   const SimplifyCFGOptions &Options,
+                                   AndersensAAResult *AndersRes = nullptr) {
+#endif // INTEL_CUSTOMIZATION
   bool Changed = false;
   bool LocalChange = true;
 
@@ -289,7 +297,9 @@ static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
         while (BBIt != F.end() && DTU->isBBPendingDeletion(&*BBIt))
           ++BBIt;
       }
-      if (simplifyCFG(&BB, TTI, DTU, Options, LoopHeaders)) {
+#if INTEL_CUSTOMIZATION
+      if (simplifyCFG(&BB, TTI, DTU, Options, LoopHeaders, AndersRes)) {
+#endif // INTEL_CUSTOMIZATION
         LocalChange = true;
         ++NumSimpl;
       }
@@ -301,13 +311,19 @@ static bool iterativelySimplifyCFG(Function &F, const TargetTransformInfo &TTI,
 
 static bool simplifyFunctionCFGImpl(Function &F, const TargetTransformInfo &TTI,
                                     DominatorTree *DT,
-                                    const SimplifyCFGOptions &Options) {
+#if INTEL_CUSTOMIZATION
+                                    const SimplifyCFGOptions &Options,
+                                    AndersensAAResult *AndersRes = nullptr) {
+#endif // INTEL_CUSTOMIZATION
   DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
 
   bool EverChanged = removeUnreachableBlocks(F, DT ? &DTU : nullptr);
   EverChanged |=
       tailMergeBlocksWithSimilarFunctionTerminators(F, DT ? &DTU : nullptr);
-  EverChanged |= iterativelySimplifyCFG(F, TTI, DT ? &DTU : nullptr, Options);
+#if INTEL_CUSTOMIZATION
+  EverChanged |=
+      iterativelySimplifyCFG(F, TTI, DT ? &DTU : nullptr, Options, AndersRes);
+#endif // INTEL_CUSTOMIZATION
 
   // If neither pass changed anything, we're done.
   if (!EverChanged) return false;
@@ -321,7 +337,10 @@ static bool simplifyFunctionCFGImpl(Function &F, const TargetTransformInfo &TTI,
     return true;
 
   do {
-    EverChanged = iterativelySimplifyCFG(F, TTI, DT ? &DTU : nullptr, Options);
+#if INTEL_CUSTOMIZATION
+    EverChanged =
+        iterativelySimplifyCFG(F, TTI, DT ? &DTU : nullptr, Options, AndersRes);
+#endif // INTEL_CUSTOMIZATION
     EverChanged |= removeUnreachableBlocks(F, DT ? &DTU : nullptr);
   } while (EverChanged);
 
@@ -330,12 +349,17 @@ static bool simplifyFunctionCFGImpl(Function &F, const TargetTransformInfo &TTI,
 
 static bool simplifyFunctionCFG(Function &F, const TargetTransformInfo &TTI,
                                 DominatorTree *DT,
-                                const SimplifyCFGOptions &Options) {
+#if INTEL_CUSTOMIZATION
+                                const SimplifyCFGOptions &Options,
+                                AndersensAAResult *AndersRes = nullptr) {
+#endif // INTEL_CUSTOMIZATION
   assert((!RequireAndPreserveDomTree ||
           (DT && DT->verify(DominatorTree::VerificationLevel::Full))) &&
          "Original domtree is invalid?");
 
-  bool Changed = simplifyFunctionCFGImpl(F, TTI, DT, Options);
+#if INTEL_CUSTOMIZATION
+  bool Changed = simplifyFunctionCFGImpl(F, TTI, DT, Options, AndersRes);
+#endif // INTEL_CUSTOMIZATION
 
   assert((!RequireAndPreserveDomTree ||
           (DT && DT->verify(DominatorTree::VerificationLevel::Full))) &&
@@ -360,6 +384,10 @@ static void applyCommandLineOverridesToOptions(SimplifyCFGOptions &Options) {
     Options.HoistCommonInsts = UserHoistCommonInsts;
   if (UserSinkCommonInsts.getNumOccurrences())
     Options.SinkCommonInsts = UserSinkCommonInsts;
+#if INTEL_CUSTOMIZATION
+  if (UserInvalidateAndersRes.getNumOccurrences())
+    Options.InvalidateAndersRes = UserInvalidateAndersRes;
+#endif // INTEL_CUSTOMIZATION
 }
 
 SimplifyCFGPass::SimplifyCFGPass() {
@@ -386,7 +414,10 @@ void SimplifyCFGPass::printPipeline(
   OS << (Options.HoistCommonInsts ? "" : "no-") << "hoist-common-insts;";
   OS << (Options.SinkCommonInsts ? "" : "no-") << "sink-common-insts;";
   OS << (Options.SpeculateBlocks ? "" : "no-") << "speculate-blocks;";
-  OS << (Options.SimplifyCondBranch ? "" : "no-") << "simplify-cond-branch";
+#if INTEL_CUSTOMIZATION
+  OS << (Options.SimplifyCondBranch ? "" : "no-") << "simplify-cond-branch;";
+  OS << (Options.InvalidateAndersRes ? "" : "no-") << "invalidate-anders-res";
+#endif // INTEL_CUSTOMIZATION
   OS << '>';
 }
 
@@ -397,7 +428,14 @@ PreservedAnalyses SimplifyCFGPass::run(Function &F,
   DominatorTree *DT = nullptr;
   if (RequireAndPreserveDomTree)
     DT = &AM.getResult<DominatorTreeAnalysis>(F);
-  if (!simplifyFunctionCFG(F, TTI, DT, Options))
+#if INTEL_CUSTOMIZATION
+  AndersensAAResult *AndersRes = nullptr;
+  if (!F.hasOptNone() && Options.InvalidateAndersRes) {
+    auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
+    AndersRes = MAMProxy.getCachedResult<AndersensAA>(*F.getParent());
+  }
+#endif // INTEL_CUSTOMIZATION
+  if (!simplifyFunctionCFG(F, TTI, DT, Options, AndersRes)) // INTEL
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   if (RequireAndPreserveDomTree)

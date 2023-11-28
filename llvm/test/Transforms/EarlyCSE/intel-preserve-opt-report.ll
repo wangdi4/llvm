@@ -34,7 +34,7 @@ target device_triples = "spir64"
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo() local_unnamed_addr #0 !dbg !8 {
 ; CHECK-LABEL: define dso_local void @foo(
-; CHECK-SAME: !intel.optreport.rootnode !{{[0-9]+}}
+; CHECK-SAME: !intel.optreport !{{[0-9]+}}
 DIR.OMP.END.TARGET.4:
   %.offload_baseptrs = alloca [1 x i8*], align 8
   %.offload_ptrs = alloca [1 x i8*], align 8
@@ -68,7 +68,7 @@ DIR.OMP.END.TARGET.5:                             ; preds = %DIR.OMP.END.TARGET.
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readnone uwtable willreturn
-define internal void @__omp_offloading_35_d7907b26__Z3foo_l3(i64 %X.val.zext) #1 !dbg !17 !intel.optreport.rootnode !18 {
+define internal void @__omp_offloading_35_d7907b26__Z3foo_l3(i64 %X.val.zext) #1 !dbg !17 !intel.optreport !18 {
 DIR.OMP.END.TARGET.5.exitStub:
   ret void
 }
@@ -110,11 +110,9 @@ attributes #2 = { nounwind }
 !15 = !DILocation(line: 3, column: 1, scope: !8)
 !16 = !DILocation(line: 5, column: 1, scope: !8)
 !17 = distinct !DISubprogram(name: "foo.DIR.OMP.TARGET.2.split.split.split", scope: !1, file: !1, line: 3, type: !9, scopeLine: 3, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
-!18 = distinct !{!"intel.optreport.rootnode", !19}
-!19 = distinct !{!"intel.optreport", !20}
+!18 = distinct !{!"intel.optreport", !20}
 !20 = !{!"intel.optreport.first_child", !21}
-!21 = distinct !{!"intel.optreport.rootnode", !22}
-!22 = distinct !{!"intel.optreport", !23, !25, !26}
+!21 = distinct !{!"intel.optreport", !23, !25, !26}
 !23 = !{!"intel.optreport.debug_location", !24}
 !24 = !DILocation(line: 3, column: 1, scope: !17)
 !25 = !{!"intel.optreport.title", !"OMP TARGET"}

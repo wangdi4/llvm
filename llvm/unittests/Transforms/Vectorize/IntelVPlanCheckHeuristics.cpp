@@ -11,13 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h"
-#include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModelHeuristics.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModel.h"
+#include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModelHeuristics.h"
 #include "IntelVPlanTestBase.h"
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/TargetParser/Triple.h"
 #include "gtest/gtest.h"
 
 using namespace llvm::vpo;
@@ -35,7 +35,7 @@ createTargetMachine(std::string CPUStr, std::string FeaturesStr) {
   const Target *TheTarget = TargetRegistry::lookupTarget(TT, Error);
   return std::unique_ptr<TargetMachine>(TheTarget->createTargetMachine(
       TT, CPUStr, FeaturesStr, TargetOptions(), std::nullopt, std::nullopt,
-      CodeGenOpt::Default));
+      CodeGenOptLevel::Default));
 }
 
 class VPlanCheckPsadbwHeuristicTest : public VPlanTestBase {};
@@ -55,11 +55,11 @@ for.cond.cleanup:
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %s.010 = phi i32 [ %t, %entry ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x i8], [1024 x i8]* @a, i64 0, i64 %indvars.iv
-  %val1 = load i8, i8* %arrayidx, align 1
+  %arrayidx = getelementptr inbounds [1024 x i8], ptr @a, i64 0, i64 %indvars.iv
+  %val1 = load i8, ptr %arrayidx, align 1
   %conv = zext i8 %val1 to i32
-  %arrayidx2 = getelementptr inbounds [1024 x i8], [1024 x i8]* @b, i64 0, i64 %indvars.iv
-  %val2 = load i8, i8* %arrayidx2, align 1
+  %arrayidx2 = getelementptr inbounds [1024 x i8], ptr @b, i64 0, i64 %indvars.iv
+  %val2 = load i8, ptr %arrayidx2, align 1
   %conv3 = zext i8 %val2 to i32
   %sub = sub nsw i32 %conv, %conv3
   %abs = call i32 @llvm.abs.i32(i32 %sub, i1 true)
@@ -86,9 +86,9 @@ declare i32 @llvm.abs.i32(i32, i1))";
 
   auto TM = createTargetMachine("skx", "");
   auto TTIPass =
-    createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis());
+      createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis());
   const TargetTransformInfo &TTI =
-    (static_cast<TargetTransformInfoWrapperPass *>(TTIPass))->getTTI(*F);
+      (static_cast<TargetTransformInfoWrapperPass *>(TTIPass))->getTTI(*F);
   auto DL = std::make_unique<DataLayout>(&M);
 
   LoopVectorizationPlanner LVP(
@@ -99,12 +99,12 @@ declare i32 @llvm.abs.i32(i32, i1))";
   // Base CM is expected to be created.
   TM.get()->Options.IntelAdvancedOptim = false;
   std::unique_ptr<VPlanCostModelInterface> CMBase =
-    LVP.createCostModel(Plan.get(), 1);
+      LVP.createCostModel(Plan.get(), 1);
 
   // Full CM is expected to be created.
   TM.get()->Options.IntelAdvancedOptim = true;
   std::unique_ptr<VPlanCostModelInterface> CMFull =
-    LVP.createCostModel(Plan.get(), 1);
+      LVP.createCostModel(Plan.get(), 1);
 
   VPInstructionCost BaseCost;
   std::tie(BaseCost, std::ignore) = CMBase.get()->getCost();

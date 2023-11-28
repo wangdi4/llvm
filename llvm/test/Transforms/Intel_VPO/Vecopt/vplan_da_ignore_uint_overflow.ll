@@ -2,10 +2,10 @@
 ; Test to check that DA ignores integer overflow clamping pattern, and propagates shape of operand being checked for overflow.
 
 ; REQUIRES: asserts
-; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -passes="vplan-vec" -vplan-force-vf=4 -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -vplan-da-enable-and-optimization=true -vplan-dump-da -passes="vplan-vec" -vplan-force-vf=4 -disable-output 2>&1 | FileCheck %s
 
 
-define void @test1(i64 %n, i64* %arr, float* %arr1) {
+define void @test1(i64 %n, ptr %arr, ptr %arr1) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]]<latch><exiting>
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header><latch><exiting>
 ; CHECK-EMPTY:
@@ -13,9 +13,9 @@ define void @test1(i64 %n, i64* %arr, float* %arr1) {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP_IV_IND_INIT:%.*]], [[BB3:BB[0-9]+]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i64 [[VP_OUTER_IV:%.*]] = sext i32 [[VP_IV]] to i64
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_UNIT_ADD:%.*]] = add i64 [[VP_OUTER_IV]] i64 [[UNI_CALL0:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64* [[VP_OUTER_GEP:%.*]] = getelementptr inbounds i64* [[ARR0:%.*]] i64 42
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_OUTER_LOAD:%.*]] = load i64* [[VP_OUTER_GEP]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] float* [[VP_OUTER_GEP2:%.*]] = getelementptr inbounds float* [[ARR10:%.*]] i64 [[VP_OUTER_LOAD]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] ptr [[VP_OUTER_GEP:%.*]] = getelementptr inbounds i64, ptr [[ARR0:%.*]] i64 42
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_OUTER_LOAD:%.*]] = load ptr [[VP_OUTER_GEP]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] ptr [[VP_OUTER_GEP2:%.*]] = getelementptr inbounds float, ptr [[ARR10:%.*]] i64 [[VP_OUTER_LOAD]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
@@ -23,16 +23,16 @@ define void @test1(i64 %n, i64* %arr, float* %arr1) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_MUL:%.*]] = mul i64 [[VP_IV2]] i64 [[UNI_CALL20:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD:%.*]] = add i64 [[VP_MUL]] i64 [[VP_UNIT_ADD]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OVERFLOW_CLAMP:%.*]] = and i64 [[VP_ADD]] i64 4294967295
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] float* [[VP_UNIT_STRIDE_GEP:%.*]] = getelementptr inbounds float* [[VP_OUTER_GEP2]] i64 [[VP_OVERFLOW_CLAMP]]
-; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_UNIT_STRIDE_LOAD:%.*]] = load float* [[VP_UNIT_STRIDE_GEP]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP_UNIT_STRIDE_GEP:%.*]] = getelementptr inbounds float, ptr [[VP_OUTER_GEP2]] i64 [[VP_OVERFLOW_CLAMP]]
+; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_UNIT_STRIDE_LOAD:%.*]] = load ptr [[VP_UNIT_STRIDE_GEP]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV_NEXT2]] = add i64 [[VP_IV2]] i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND2:%.*]] = icmp eq i64 [[VP_IV_NEXT2]] i64 [[N0:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND2]], [[BB2]], [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 [[VP_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i32 [[VP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB4:BB[0-9]+]], [[BB0]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i32 [[VP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB4:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
@@ -48,16 +48,16 @@ entry:
   br i1 %cmp, label %for.body.lr.ph, label %exit
 
 for.body.lr.ph:                                   ; preds = %entry
-%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(float* %arr1, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(i64* %arr, i64 0, i32 1) ]
+%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(ptr %arr1, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %arr, i64 0, i32 1) ]
   br label %for.body
 
 for.body:
   %iv = phi i32 [ 0, %for.body.lr.ph ], [ %iv.next, %for.latch ]
   %outer.iv = sext i32 %iv to i64
   %unit.add = add i64 %outer.iv, %uni.call
-  %outer.gep = getelementptr inbounds i64, i64* %arr, i64 42
-  %outer.load = load i64, i64* %outer.gep
-  %outer.gep2 = getelementptr inbounds float, float* %arr1, i64 %outer.load
+  %outer.gep = getelementptr inbounds i64, ptr %arr, i64 42
+  %outer.load = load i64, ptr %outer.gep
+  %outer.gep2 = getelementptr inbounds float, ptr %arr1, i64 %outer.load
   br label %for.body2
 
 for.body2:
@@ -65,8 +65,8 @@ for.body2:
   %mul = mul i64 %iv2, %uni.call2
   %add = add i64 %mul, %unit.add
   %overflow.clamp = and i64 %add, 4294967295
-  %unit.stride.gep = getelementptr inbounds float, float* %outer.gep2, i64 %overflow.clamp
-  %unit.stride.load = load float, float* %unit.stride.gep
+  %unit.stride.gep = getelementptr inbounds float, ptr %outer.gep2, i64 %overflow.clamp
+  %unit.stride.load = load float, ptr %unit.stride.gep
   %iv.next2 = add nuw nsw i64 %iv2, 1
   %exitcond2 = icmp eq i64 %iv.next2, %n
   br i1 %exitcond2, label %for.latch, label %for.body2

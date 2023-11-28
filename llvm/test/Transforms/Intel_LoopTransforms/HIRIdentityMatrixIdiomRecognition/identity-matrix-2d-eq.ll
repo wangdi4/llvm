@@ -14,11 +14,10 @@
 ;  }
 ;}
 ;
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-identity-matrix-idiom-recognition,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-identity-matrix-idiom-recognition,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-identity-matrix-idiom-recognition,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s -disable-output | FileCheck %s
 
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-identity-matrix-idiom-recognition" -print-changed -disable-output  2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-identity-matrix-idiom-recognition" -print-changed -disable-output  2>&1 < %s -disable-output | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ;*** IR Dump Before HIR Identity Matrix Idiom Recognition ***
 ;Function: foo

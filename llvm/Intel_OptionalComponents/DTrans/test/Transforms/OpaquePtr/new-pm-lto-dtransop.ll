@@ -18,6 +18,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Basic orientation checks.
 ; CHECK: Running pass: CrossDSOCFIPass
+; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::DopeVectorTypeAnalysis, llvm::Module, llvm::AnalysisManager<Module>> on [module]
+; CHECK-NEXT: Running analysis: DopeVectorTypeAnalysis on [module]
 ; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis

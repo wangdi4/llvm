@@ -1,29 +1,29 @@
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 // RUN:   -fintel-openmp-region-late-collapsed-loops \
 // RUN:   -triple x86_64-unknown-linux-gnu \
 // RUN:   | FileCheck %s --check-prefixes CHECK,HOST
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm-bc -o %t_host.bc %s -std=c++14 -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm-bc -o %t_host.bc %s -std=c++14 -fopenmp \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 // RUN:   -fintel-openmp-region-late-collapsed-loops \
 // RUN:   -triple x86_64-unknown-linux-gnu
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 // RUN:   -fintel-openmp-region-late-collapsed-loops \
 // RUN:   -triple spir64 -fopenmp-is-device \
 // RUN:   -fopenmp-host-ir-file-path %t_host.bc \
 // RUN:   | FileCheck %s --check-prefixes CHECK,TARG
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 // RUN:   -fintel-openmp-region-late-collapsed-loops \
 // RUN:   -triple x86_64-unknown-linux-gnu \
 // RUN:   | FileCheck %s --check-prefixes CHECK,HOST
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 // RUN:   -triple x86_64-unknown-linux-gnu \
 // RUN:   -fintel-openmp-region-early-collapsed-loops \
 // RUN:   | FileCheck %s --check-prefix OFF
@@ -111,10 +111,12 @@ void test_one(float *A0, float *A1, int Ni, int Nj, int Nk) {
   //CHECK: [[L47:%[0-9]*]] = load i64, ptr[[AS]] [[IV_J]]
   //CHECK: [[ADD54:%add[0-9]*]] = add nsw i64 [[L47]], 1
   //CHECK: store i64 [[ADD54]], ptr[[AS]] [[IV_J]]
+  //CHECK: br
   // Outer Inc
   //CHECK: [[L48:%[0-9]*]] = load i64, ptr[[AS]] [[IV_I]]
   //CHECK: [[ADD56:%add[0-9]*]] = add nsw i64 [[L48]], 1
   //CHECK: store i64 [[ADD56]], ptr[[AS]] [[IV_I]]
+  //CHECK: br
   //CHECK: "DIR.OMP.END.DISTRIBUTE.PARLOOP"()
   //CHECK: "DIR.OMP.END.TEAMS"()
   //CHECK: "DIR.OMP.END.TARGET"()
@@ -229,14 +231,17 @@ void test_two(float *A0, float *A1, int Ni, int Nj, int Nk) {
   //CHECK: [[L47:%[0-9]*]] = load i64, ptr[[AS]] [[IV_K]]
   //CHECK: [[ADD54:%add[0-9]*]] = add nsw i64 [[L47]], 1
   //CHECK: store i64 [[ADD54]], ptr[[AS]] [[IV_K]]
+  //CHECK: br
   // Next Inc
   //CHECK: [[L48:%[0-9]*]] = load i64, ptr[[AS]] [[IV_J]]
   //CHECK: [[ADD56:%add[0-9]*]] = add nsw i64 [[L48]], 1
   //CHECK: store i64 [[ADD56]], ptr[[AS]] [[IV_J]]
+  //CHECK: br
   // Outer Inc
   //CHECK: [[LI1:%[0-9]*]] = load i64, ptr[[AS]] [[IV_I]]
   //CHECK: [[ADDL:%add[0-9]*]] = add nsw i64 [[LI1]], 1
   //CHECK: store i64 [[ADDL]], ptr[[AS]] [[IV_I]]
+  //CHECK: br
   //CHECK: "DIR.OMP.END.SIMD"()
   //CHECK: "DIR.OMP.END.DISTRIBUTE.PARLOOP"()
   //CHECK: "DIR.OMP.END.TEAMS"()

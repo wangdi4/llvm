@@ -1,11 +1,11 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -target-feature +avx2 -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx2 -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple i686-pc-linux -target-feature +avx2 -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple i686-pc-linux -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple i686-pc-win32 -target-feature +avx2 -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple i686-pc-win32 -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -target-feature +avx2 -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx2 -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i686-pc-linux -target-feature +avx2 -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i686-pc-linux -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i686-pc-win32 -target-feature +avx2 -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i686-pc-win32 -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
 // Check SVML calling conventions are assigned correctly when compiling 256-bit SVML functions.
 
 typedef long long __m128i __attribute__((__vector_size__(16), __aligned__(16)));

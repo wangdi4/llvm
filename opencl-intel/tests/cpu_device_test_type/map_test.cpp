@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -25,6 +25,7 @@
 #include "CL/cl.h"
 #include "cl_device_api.h"
 #include "cpu_dev_test.h"
+#include "image_test.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -33,7 +34,6 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
-#include "image_test.h"
 
 extern IOCLDeviceAgent *dev_entry;
 extern RTMemObjService localRTMemService;

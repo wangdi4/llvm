@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -triple -x86_64-linux-gnu %s -opaque-pointers -emit-llvm -o - | FileCheck %s -check-prefix=LINUX
-// RUN: %clang_cc1 -triple -x86_64-windows-msvc -fintel-compatibility %s --extended_float_types -emit-llvm -opaque-pointers -o - | FileCheck %s -check-prefix=WINDOWS
+// RUN: %clang_cc1 -triple -x86_64-linux-gnu %s -emit-llvm -o - | FileCheck %s -check-prefix=LINUX
+// RUN: %clang_cc1 -triple -x86_64-windows-msvc -fintel-compatibility %s --extended_float_types -emit-llvm -o - | FileCheck %s -check-prefix=WINDOWS
 
 __float128 foo(__float128 x){
 // LINUX: define{{.*}}fp128 @foo(fp128 noundef [[X:%.*]])

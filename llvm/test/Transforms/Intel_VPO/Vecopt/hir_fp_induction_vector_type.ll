@@ -14,7 +14,7 @@
 
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -debug-only=LoopVectorizationPlanner -disable-output < %s 2>&1 | FileCheck %s
 
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 
 ; CHECK: A reduction or induction of a vector type is not supported.
 ; CHECK: DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>

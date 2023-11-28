@@ -1,16 +1,16 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN: -disable-llvm-passes \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-targets=spir64 -emit-llvm -o - %s \
 // RUN:  | FileCheck %s  --check-prefix HOST
 //
-// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN: -disable-llvm-passes \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-targets=spir64 -emit-llvm-bc %s -o %t-host.bc
 //
-// RUN: %clang_cc1 -opaque-pointers -verify -triple spir64 -fopenmp \
+// RUN: %clang_cc1 -verify -triple spir64 -fopenmp \
 // RUN: -disable-llvm-passes \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-targets=spir64 -fopenmp-is-device \
@@ -80,10 +80,10 @@ int main() {
 //TARG-NEXT: [[LOAD2:%1]] = load {{.*}} [[Nodes_TGT_REF_PTR]]
 //TARG-NEXT: [[LOAD3:%.+]] = load ptr addrspace(4), ptr addrspace(4) [[LOAD2]]
 
-//HOST: !{i32 1, !"array_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, ptr [[ARRTAG]]}
-//HOST: !{i32 1, !"arr_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, ptr [[ATAG]]}
 //HOST: !{i32 1, !"Nodes_base_decl_tgt_ref_ptr", i32 0, i32 {{.*}} ptr [[Nodes_TGT_REF_PTR]]
-//TARG: !{i32 1, !"array_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, ptr addrspace(1) [[ARRTAG]]}
-//TARG: !{i32 1, !"arr_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, ptr addrspace(1) [[ATAG]]}
+//HOST: !{i32 1, !"arr_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, ptr [[ATAG]]}
+//HOST: !{i32 1, !"array_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, ptr [[ARRTAG]]}
 //TARG: !{i32 1, !"Nodes_base_decl_tgt_ref_ptr", i32 0, i32 1, ptr addrspace(1) [[Nodes_TGT_REF_PTR]]
+//TARG: !{i32 1, !"arr_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, ptr addrspace(1) [[ATAG]]}
+//TARG: !{i32 1, !"array_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, ptr addrspace(1) [[ARRTAG]]}
 //end INTEL_COLLAB

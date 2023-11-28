@@ -419,3 +419,6 @@ attributes #2 = { nofree "intel-lang"="fortran" }
 attributes #3 = { nounwind readnone speculatable }
 attributes #4 = { argmemonly nocallback nofree nounwind willreturn writeonly }
 attributes #5 = { nounwind }
+
+!ifx.types.dv = !{!0}
+!0 = !{%"QNCA_a0$float*$rank3$" zeroinitializer, float 0.000000e+00}

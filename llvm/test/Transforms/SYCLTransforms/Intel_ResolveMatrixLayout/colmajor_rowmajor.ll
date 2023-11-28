@@ -7,8 +7,8 @@ define void @test_load_store_same_addrspace_int8(ptr %ptr, i64 %stride, ptr %dst
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca <8 x i8>, align 8
 ; CHECK-NEXT:    call void @_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4cS0_iii(ptr [[PTR:%.*]], ptr [[TMP0]], i32 4, i32 2, i64 [[STRIDE:%.*]])
-; CHECK-NEXT:    [[TMP3:%.*]] = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p0(ptr [[TMP0]], i64 2, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8i8.p0(<8 x i8> [[TMP3]], ptr [[DST:%.*]], i64 [[STRIDE]], i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p0(ptr [[TMP0]], i64 2, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8i8.p0(<8 x i8> [[TMP1]], ptr [[DST:%.*]], i64 [[STRIDE]], i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -23,8 +23,8 @@ define void @test_load_store_same_addrspace_bf16(ptr %ptr, i64 %stride, ptr %dst
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca <8 x i16>, align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = mul i64 [[STRIDE:%.*]], 2
 ; CHECK-NEXT:    call void @_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii(ptr [[PTR:%.*]], ptr [[TMP0]], i32 4, i32 2, i64 [[TMP1]])
-; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x i16> @llvm.experimental.matrix.load.v8i16.p0(ptr [[TMP0]], i64 2, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8i16.p0(<8 x i16> [[TMP4]], ptr [[DST:%.*]], i64 [[STRIDE]], i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+; CHECK-NEXT:    [[TMP2:%.*]] = call <8 x i16> @llvm.experimental.matrix.load.v8i16.p0(ptr [[TMP0]], i64 2, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8i16.p0(<8 x i16> [[TMP2]], ptr [[DST:%.*]], i64 [[STRIDE]], i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -33,13 +33,32 @@ entry:
   ret void
 }
 
+define void @test_load_store_same_addrspace_float(ptr %ptr, i64 %stride, ptr %dst) !kernel_arg_base_type !0 !arg_type_null_val !1 {
+; CHECK-LABEL: @test_load_store_same_addrspace_float(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[TMP0:%.*]] = alloca <8 x float>, align 32
+; CHECK-NEXT:    [[TMP1:%.*]] = alloca <8 x float>, align 32
+; CHECK-NEXT:    [[TMP2:%.*]] = mul i64 [[STRIDE:%.*]], 4
+; CHECK-NEXT:    call void @_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4fS0_iii(ptr [[PTR:%.*]], ptr [[TMP1]], i32 4, i32 2, i64 [[TMP2]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call <8 x float> @llvm.experimental.matrix.load.v8f32.p0(ptr [[TMP1]], i64 2, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+; CHECK-NEXT:    [[TMP4:%.*]] = mul i64 [[STRIDE]], 4
+; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8f32.p0(<8 x float> [[TMP3]], ptr [[TMP0]], i64 2, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+; CHECK-NEXT:    call void @_Z44matrix_layout_transform_rowmajor_to_colmajorPU3AS4fS0_iii(ptr [[TMP0]], ptr [[DST:%.*]], i32 4, i32 2, i64 [[TMP4]])
+; CHECK-NEXT:    ret void
+;
+entry:
+  %0 = call <8 x float> @llvm.experimental.matrix.load.v8f32.p4.v2(ptr %ptr,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.columnmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  call void @llvm.experimental.matrix.store.v8f32.p4.v2(<8 x float> %0, ptr %dst,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.columnmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  ret void
+}
+
 define void @test_load_store_same_addrspace_int8_with_use(ptr %ptr, i64 %stride, ptr %dst) !kernel_arg_base_type !0 !arg_type_null_val !1 {
 ; CHECK-LABEL: @test_load_store_same_addrspace_int8_with_use(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca <8 x i8>, align 8
 ; CHECK-NEXT:    call void @_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4cS0_iii(ptr [[PTR:%.*]], ptr [[TMP0]], i32 4, i32 2, i64 [[STRIDE:%.*]])
-; CHECK-NEXT:    [[TMP3:%.*]] = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p0(ptr [[TMP0]], i64 2, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
-; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8i8.p0(<8 x i8> [[TMP3]], ptr [[DST:%.*]], i64 [[STRIDE]], i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
+; CHECK-NEXT:    [[TMP1:%.*]] = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p0(ptr [[TMP0]], i64 2, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
+; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8i8.p0(<8 x i8> [[TMP1]], ptr [[DST:%.*]], i64 [[STRIDE]], i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -54,8 +73,8 @@ define void @test_load_store_same_addrspace_bf16_with_use(ptr %ptr, i64 %stride,
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca <8 x i16>, align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = mul i64 [[STRIDE:%.*]], 2
 ; CHECK-NEXT:    call void @_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4sS0_iii(ptr [[PTR:%.*]], ptr [[TMP0]], i32 4, i32 2, i64 [[TMP1]])
-; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x i16> @llvm.experimental.matrix.load.v8i16.p0(ptr [[TMP0]], i64 2, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
-; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8i16.p0(<8 x i16> [[TMP4]], ptr [[DST:%.*]], i64 [[STRIDE]], i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
+; CHECK-NEXT:    [[TMP2:%.*]] = call <8 x i16> @llvm.experimental.matrix.load.v8i16.p0(ptr [[TMP0]], i64 2, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
+; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8i16.p0(<8 x i16> [[TMP2]], ptr [[DST:%.*]], i64 [[STRIDE]], i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
 ; CHECK-NEXT:    ret void
 ;
 entry:
@@ -64,16 +83,42 @@ entry:
   ret void
 }
 
+define void @test_load_store_same_addrspace_float_with_use(ptr %ptr, i64 %stride, ptr %dst) !kernel_arg_base_type !0 !arg_type_null_val !1 {
+; CHECK-LABEL: @test_load_store_same_addrspace_float_with_use(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[TMP0:%.*]] = alloca <8 x float>, align 32
+; CHECK-NEXT:    [[TMP1:%.*]] = alloca <8 x float>, align 32
+; CHECK-NEXT:    [[TMP2:%.*]] = mul i64 [[STRIDE:%.*]], 4
+; CHECK-NEXT:    call void @_Z44matrix_layout_transform_colmajor_to_rowmajorPU3AS4fS0_iii(ptr [[PTR:%.*]], ptr [[TMP1]], i32 4, i32 2, i64 [[TMP2]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call <8 x float> @llvm.experimental.matrix.load.v8f32.p0(ptr [[TMP1]], i64 2, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
+; CHECK-NEXT:    [[TMP4:%.*]] = mul i64 [[STRIDE]], 4
+; CHECK-NEXT:    call void @llvm.experimental.matrix.store.v8f32.p0(<8 x float> [[TMP3]], ptr [[TMP0]], i64 2, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
+; CHECK-NEXT:    call void @_Z44matrix_layout_transform_rowmajor_to_colmajorPU3AS4fS0_iii(ptr [[TMP0]], ptr [[DST:%.*]], i32 4, i32 2, i64 [[TMP4]])
+; CHECK-NEXT:    ret void
+;
+entry:
+  %0 = call <8 x float> @llvm.experimental.matrix.load.v8f32.p4.v2(ptr %ptr,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.columnmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
+  call void @llvm.experimental.matrix.store.v8f32.p4.v2(<8 x float> %0, ptr %dst,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.rowmajor", metadata !"matrix.columnmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
+  ret void
+}
+
 declare <8 x i8> @llvm.experimental.matrix.load.v8i8.p4.v2(ptr, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
 declare void @llvm.experimental.matrix.store.v8i8.p4.v2(<8 x i8>, ptr, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
 declare <8 x i16> @llvm.experimental.matrix.load.v8i16.p4.v2(ptr, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
 declare void @llvm.experimental.matrix.store.v8i16.p4.v2(<8 x i16>, ptr, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
+declare <8 x float> @llvm.experimental.matrix.load.v8f32.p4.v2(ptr, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
+declare void @llvm.experimental.matrix.store.v8f32.p4.v2(<8 x float>, ptr, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
+
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_load_store_same_addrspace_int8 -- %0 = alloca <8 x i8>, align 8
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_load_store_same_addrspace_bf16 -- %0 = alloca <8 x i16>, align 16
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_load_store_same_addrspace_float -- %0 = alloca <8 x float>, align 32
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_load_store_same_addrspace_float -- %1 = alloca <8 x float>, align 32
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_load_store_same_addrspace_int8_with_use -- %0 = alloca <8 x i8>, align 8
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_load_store_same_addrspace_bf16_with_use -- %0 = alloca <8 x i16>, align 16
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_load_store_same_addrspace_float_with_use -- %0 = alloca <8 x float>, align 32
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_load_store_same_addrspace_float_with_use -- %1 = alloca <8 x float>, align 32
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: PASS
 
 !0 = !{!"int*", !"long", !"int*"}
-!1 = !{i32* null, i64 0, i32* null}
+!1 = !{ptr null, i64 0, ptr null}

@@ -13,36 +13,42 @@
 ; CHECK:  %4 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 4
 ; CHECK:  %5 = load ptr, ptr %4
 ; CHECK:  %callee.check = icmp ne ptr %5, null
-; CHECK:  br i1 %callee.check, label %6, label %54
+; CHECK:  br i1 %callee.check, label %6, label %56
 
 ; CHECK: 6:
 ; CHECK:  %7 = getelementptr inbounds %"__DFT___SOADT__DPRE_class._ZTSN11xercesc_2_713FieldValueMapE.xercesc_2_7::FieldValueMap", ptr %i226, i64 0, i32 0
 ; CHECK:  %8 = load ptr, ptr %7
 ; CHECK:  %callee.check1 = icmp ne ptr %8, null
-; CHECK:  br i1 %callee.check1, label %9, label %54
+; CHECK:  br i1 %callee.check1, label %9, label %56
 
 ; CHECK: 9:
 ; CHECK:  %10 = getelementptr inbounds %"__SOADT_AR_class._ZTSN11xercesc_2_713ValueVectorOfIPNS_8IC_FieldEEE.xercesc_2_7::ValueVectorOf", ptr %8, i64 0, i32 1
 ; CHECK:  %11 = load i32, ptr %10
-; CHECK:  %callee.check2 = icmp eq i32 %11, 1
-; CHECK:  br i1 %callee.check2, label %12, label %54
+; CHECK:  %callee.check2 = icmp uge i32 %11, 1
+; CHECK:  br i1 %callee.check2, label %12, label %56
 
 ; CHECK: 12:
 ; CHECK:  %13 = tail call noundef ptr @_ZNK11xercesc_2_713FieldValueMap22getDatatypeValidatorAtEj(ptr noundef nonnull align 8 dereferenceable(32) %i226, i32 noundef 0)
 ; CHECK:  %nunull = icmp ne ptr %13, null
-; CHECK:  br i1 %nunull, label %14, label %54
+; CHECK:  br i1 %nunull, label %14, label %56
 
 ; CHECK: 14:
 ; CHECK:  %15 = getelementptr %"class._ZTSN11xercesc_2_717DatatypeValidatorE.xercesc_2_7::DatatypeValidator", ptr %13, i64 0, i32 0, i32 0
 ; CHECK:  %16 = load ptr, ptr %15
 ; CHECK:  %17 = getelementptr inbounds ptr, ptr %16, i64 10
-; CHECK:  %18 = load ptr, ptr %17, align 8
-; CHECK:  %callee.check3 = icmp eq ptr %18, @_ZN11xercesc_2_721NameDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
-; CHECK:  %callee.check4 = icmp eq ptr %18, @_ZN11xercesc_2_723ENTITYDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %18 = load ptr, ptr %17
+; CHECK:  %callee.check3 = icmp eq ptr %18, @_ZN11xercesc_2_717DatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %callee.check4 = icmp eq ptr %18, @_ZN11xercesc_2_721NameDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
 ; CHECK:  %19 = select i1 %callee.check3, i1 true, i1 %callee.check4
-; CHECK:  %callee.check5 = icmp eq ptr %18, @_ZN11xercesc_2_723NCNameDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %callee.check5 = icmp eq ptr %18, @_ZN11xercesc_2_723AbstractStringValidator7compareEPKtS2_PNS_13MemoryManagerE
 ; CHECK:  %20 = select i1 %19, i1 true, i1 %callee.check5
-; CHECK:  br i1 %20, label %21, label %54
+; CHECK:  %callee.check6 = icmp eq ptr %18, @_ZN11xercesc_2_723ENTITYDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %21 = select i1 %20, i1 true, i1 %callee.check6
+; CHECK:  %callee.check7 = icmp eq ptr %18, @_ZN11xercesc_2_723NCNameDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %22 = select i1 %21, i1 true, i1 %callee.check7
+; CHECK:  %callee.check8 = icmp eq ptr %18, @_ZN11xercesc_2_724BooleanDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %23 = select i1 %22, i1 true, i1 %callee.check8
+; CHECK:  br i1 %23, label %24, label %56
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -4352,7 +4358,7 @@ bb21:                                             ; preds = %bb15, %bb
 }
 
 ; Function Attrs: inlinehint mustprogress uwtable
-define dso_local noundef "intel_dtrans_func_index"="1" ptr @_ZNK11xercesc_2_713FieldValueMap10getValueAtEj(ptr nocapture noundef nonnull readonly align 8 dereferenceable(32) "intel_dtrans_func_index"="2" %arg, i32 noundef %arg1) local_unnamed_addr #38 comdat align 2 personality ptr @__gxx_personality_v0 !intel.dtrans.func.type !1782 {
+define dso_local noundef "intel_dtrans_func_index"="1" ptr @_ZNK11xercesc_2_713FieldValueMap10getValueAtEj(ptr nocapture noundef nonnull readonly align 8 dereferenceable(32) "intel_dtrans_func_index"="2" %arg, i32 noundef %arg1) local_unnamed_addr #56 comdat align 2 personality ptr @__gxx_personality_v0 !intel.dtrans.func.type !1782 {
 bb:
   %i = getelementptr inbounds %"__DFT___SOADT__DPRE_class._ZTSN11xercesc_2_713FieldValueMapE.xercesc_2_7::FieldValueMap", ptr %arg, i64 0, i32 0, !intel-tbaa !1540
   %i2 = load ptr, ptr %i, align 8, !tbaa !1540
@@ -4383,11 +4389,13 @@ bb13:                                             ; preds = %bb8
   resume { ptr, i32 } %i14
 
 bb15:                                             ; preds = %bb4
+  call void @llvm.lifetime.start.p0(i64 8, ptr %i2)
   %i16 = getelementptr inbounds %"__SOADT_AR_class._ZTSN11xercesc_2_713ValueVectorOfIPNS_8IC_FieldEEE.xercesc_2_7::ValueVectorOf", ptr %i2, i64 0, i32 3, !intel-tbaa !1546
   %i17 = load ptr, ptr %i16, align 8, !tbaa !1546
   %i18 = zext i32 %arg1 to i64
   %i19 = getelementptr inbounds %"__SOADT_EL__DPRE_class._ZTSN11xercesc_2_713FieldValueMapE.xercesc_2_7::FieldValueMap", ptr %i17, i64 %i18, i32 2
   %i20 = load ptr, ptr %i19, align 8, !tbaa !1547
+  call void @llvm.lifetime.end.p0(i64 8, ptr %i2)
   br label %bb21
 
 bb21:                                             ; preds = %bb15, %bb
@@ -8001,6 +8009,7 @@ attributes #52 = { noreturn }
 attributes #53 = { cold }
 attributes #54 = { nounwind willreturn memory(none) }
 attributes #55 = { builtin nounwind }
+attributes #56 = { inlinehint mustprogress uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "noinline-dtrans" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 
 !intel.dtrans.types = !{!823, !826, !829, !830, !831, !832, !839, !840, !843, !844, !845, !849, !850, !852, !853, !854, !857, !858, !861, !864, !865, !866, !869, !870, !871, !872, !873, !874, !895, !896, !898, !900, !903, !909, !913, !915, !917, !922, !923, !924, !928, !929, !934, !938, !940, !941, !952, !955, !957, !965, !966, !969, !971, !972, !973, !979, !982, !983, !988, !990, !995, !997, !999, !1002, !1005, !1006, !1009, !1010, !1011, !1012, !1014, !1016, !1018, !1020, !1021, !1023, !1025, !1028, !1030, !1032, !1034, !1037, !1038, !1042, !1044, !1045, !1047, !1049, !1052, !1053, !1054, !1055, !1057, !1058, !1059, !1061, !1062, !1063, !1064, !1068, !1069, !1070, !1074, !1076, !1077, !1090, !1092, !1094, !1097, !1099, !1101, !1103, !1105, !1108, !1109, !1112, !1114, !1116, !1118, !1120, !1121, !1122, !1123, !1124, !1126, !1127, !1129, !1130, !1131, !1133, !1134, !1135, !1136, !1140, !1141, !1143, !1145, !1147, !1149, !1153, !1158, !1160, !1163, !1166, !1168, !1170, !1173, !1175, !1177, !1180, !1182, !1184, !1186, !1188, !1190, !1192, !1194, !1196, !1200, !1202, !1203, !1204, !1205, !1207, !1210, !1212, !1214, !1216, !1217, !1219, !1221, !1223, !1225, !1227, !1229, !1231, !1233, !1235, !1237, !1239, !1242, !1244, !1247, !1249, !1252, !1253, !1255, !1256, !1258, !1259, !1261, !1263, !1265, !1267, !1269, !1271, !1273, !1275, !1277, !1279, !1281, !1283, !1284, !1286, !1290, !1292, !1294, !1296, !1298, !1300, !1302, !1304, !1306, !1308, !1311, !1313, !1316, !1317, !1319, !1321, !1324, !1326, !1327, !1328, !1330, !1331, !1332, !1333, !1334}
 !llvm.ident = !{!1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335, !1335}

@@ -28,13 +28,16 @@
 //===----------------------------------------------------------------------===//
 
 #if INTEL_CUSTOMIZATION
-#include "omptarget-tools.h"
 #include "xpti_registry.h"
 #endif // INTEL_CUSTOMIZATION
 #include "device.h"
+#include "OmptCallback.h"
+#include "OmptInterface.h"
 #include "omptarget.h"
 #include "private.h"
 #include "rtl.h"
+
+#include "Utilities.h"
 
 #include <cassert>
 #include <climits>
@@ -44,9 +47,12 @@
 #include <string>
 #include <thread>
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 using llvm::SmallVector;
 #endif // INTEL_CUSTOMIZATION
+#ifdef OMPT_SUPPORT
+using namespace llvm::omp::target::ompt;
+#endif
 
 int HostDataToTargetTy::addEventIfNecessary(DeviceTy &Device,
                                             AsyncInfoTy &AsyncInfo) const {
@@ -253,12 +259,12 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
     int64_t TgtPadding, int64_t Size, map_var_info_t HstPtrName, bool HasFlagTo,
     bool HasFlagAlways, bool IsImplicit, bool UpdateRefCount,
     bool HasCloseModifier, bool HasPresentModifier, bool HasHoldModifier,
-    AsyncInfoTy &AsyncInfo,
-#if INTEL_COLLAB
-    HostDataToTargetTy *OwnedTPR, bool ReleaseHDTTMap, bool UseHostMem) {
-#else  // INTEL_COLLAB
-    HostDataToTargetTy *OwnedTPR, bool ReleaseHDTTMap) {
-#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+    AsyncInfoTy &AsyncInfo, HostDataToTargetTy *OwnedTPR, bool ReleaseHDTTMap,
+    bool UseHostMem) {
+#else  // INTEL_CUSTOMIZATION
+    AsyncInfoTy &AsyncInfo, HostDataToTargetTy *OwnedTPR, bool ReleaseHDTTMap) {
+#endif // INTEL_CUSTOMIZATION
 
   LookupResult LR = lookupMapping(HDTTMap, HstPtrBegin, Size, OwnedTPR);
   LR.TPR.Flags.IsPresent = true;
@@ -310,7 +316,7 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
       MESSAGE("device mapping required by 'present' map type modifier does not "
               "exist for host address " DPxMOD " (%" PRId64 " bytes)",
               DPxPTR(HstPtrBegin), Size);
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   } else if (!requiresMapping(HstPtrBegin, Size)) {
     // Let plugin decide if HstPtrBegin and Size requires mapping. Size check is
     // done to differentiated implicit/explicit mapping
@@ -320,7 +326,7 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
       LR.TPR.Flags.IsHostPointer = true;
     LR.TPR.Flags.IsPresent = false;
     LR.TPR.TargetPointer = HstPtrBegin;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
              !HasCloseModifier) {
     // If unified shared memory is active, implicitly mapped variables that are
@@ -347,14 +353,14 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
   } else if (Size) {
     // If it is not contained and Size > 0, we should create a new entry for it.
     LR.TPR.Flags.IsNewEntry = true;
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
     int32_t AllocOpt = UseHostMem ? ALLOC_OPT_HOST_MEM : ALLOC_OPT_NONE;
     uintptr_t TgtAllocBegin = (uintptr_t)dataAllocBase(
         TgtPadding + Size, HstPtrBegin, HstPtrBase, AllocOpt);
-#else  // INTEL_COLLAB
+#else  // INTEL_CUSTOMIZATION
     uintptr_t TgtAllocBegin =
         (uintptr_t)allocData(TgtPadding + Size, HstPtrBegin);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
     uintptr_t TgtPtrBegin = TgtAllocBegin + TgtPadding;
     // Release the mapping table lock only after the entry is locked by
     // attaching it to TPR.
@@ -369,13 +375,13 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
 #endif // INTEL_CUSTOMIZATION
     INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
          "Creating new map entry with HstPtrBase=" DPxMOD
-         ", HstPtrBegin=" DPxMOD ", TgtAllocBegin=" DPxMOD", TgtPtrBegin=" DPxMOD
-#if INTEL_COLLAB
-         ", Size=%" PRId64 ", "
-#else  // INTEL_COLLAB
-         ", Size=%ld, "
-#endif // INTEL_COLLAB
-         "DynRefCount=%s, HoldRefCount=%s, Name=%s\n",
+         ", HstPtrBegin=" DPxMOD ", TgtAllocBegin=" DPxMOD
+         ", TgtPtrBegin=" DPxMOD
+#if INTEL_CUSTOMIZATION
+         ", Size=%" PRId64 ", DynRefCount=%s, HoldRefCount=%s, Name=%s\n",
+#else  // INTEL_CUSTOMIZATION
+         ", Size=%ld, DynRefCount=%s, HoldRefCount=%s, Name=%s\n",
+#endif // INTEL_CUSTOMIZATION
          DPxPTR(HstPtrBase), DPxPTR(HstPtrBegin), DPxPTR(TgtAllocBegin),
          DPxPTR(TgtPtrBegin), Size,
          LR.TPR.getEntry()->dynRefCountToStr().c_str(),
@@ -498,7 +504,7 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool UpdateRefCount,
          LR.TPR.getEntry()->dynRefCountToStr().c_str(), DynRefCountAction,
          LR.TPR.getEntry()->holdRefCountToStr().c_str(), HoldRefCountAction);
     LR.TPR.TargetPointer = (void *)TP;
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   } else if (!requiresMapping(HstPtrBegin, Size)) {
     DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64
        " for device-accessible memory\n", DPxPTR(HstPtrBegin), Size);
@@ -506,9 +512,8 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool UpdateRefCount,
       LR.TPR.Flags.IsHostPointer = true;
     LR.TPR.Flags.IsPresent = false;
     LR.TPR.TargetPointer = HstPtrBegin;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
-
     // If the value isn't found in the mapping and unified shared memory
     // is on then it means we have stumbled upon a value which we need to
     // use directly from the host.
@@ -546,7 +551,8 @@ void *DeviceTy::getTgtPtrBegin(HDTTMapAccessorTy &HDTTMap, void *HstPtrBegin,
 int DeviceTy::eraseMapEntry(HDTTMapAccessorTy &HDTTMap,
                             HostDataToTargetTy *Entry, int64_t Size) {
   assert(Entry && "Trying to delete a null entry from the HDTT map.");
-  assert(Entry->getTotalRefCount() == 0 && Entry->getDataEndThreadCount() == 0 &&
+  assert(Entry->getTotalRefCount() == 0 &&
+         Entry->getDataEndThreadCount() == 0 &&
          "Trying to delete entry that is in use or owned by another thread.");
 
   INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
@@ -596,6 +602,28 @@ void DeviceTy::init() {
   if (Ret != OFFLOAD_SUCCESS)
     return;
 
+  // Enables recording kernels if set.
+  llvm::omp::target::BoolEnvar OMPX_RecordKernel("LIBOMPTARGET_RECORD", false);
+  if (OMPX_RecordKernel) {
+    // Enables saving the device memory kernel output post execution if set.
+    llvm::omp::target::BoolEnvar OMPX_ReplaySaveOutput(
+        "LIBOMPTARGET_RR_SAVE_OUTPUT", false);
+    // Sets the maximum to pre-allocate device memory.
+    llvm::omp::target::UInt64Envar OMPX_DeviceMemorySize(
+        "LIBOMPTARGET_RR_DEVMEM_SIZE", 16);
+#if INTEL_CUSTOMIZATION
+    DP("Activating Record-Replay for Device %d with %lu GB memory\n",
+       RTLDeviceID, (unsigned long) OMPX_DeviceMemorySize.get());
+#else // INTEL_CUSTOMIZATION
+    DP("Activating Record-Replay for Device %d with %lu GB memory\n",
+       RTLDeviceID, OMPX_DeviceMemorySize.get());
+#endif // INTEL_CUSTOMIZATION
+
+    RTL->activate_record_replay(RTLDeviceID,
+                                OMPX_DeviceMemorySize * 1024 * 1024 * 1024,
+                                nullptr, true, OMPX_ReplaySaveOutput);
+  }
+
   IsInit = true;
 }
 
@@ -627,19 +655,30 @@ __tgt_target_table *DeviceTy::loadBinary(void *Img) {
 
 void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
 #if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
   auto CorrID = XPTIRegistry->traceMemAllocBegin(Size, 0 /* GuardZone */);
-  void *Ret = RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
-  XPTIRegistry->traceMemAllocEnd((uintptr_t)Ret, Size, 0 /* GuardZone */,
-                                 CorrID);
-  OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, Ret));
-  return Ret;
-#else  // INTEL_CUSTOMIZATION
-  return RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
 #endif // INTEL_CUSTOMIZATION
+  /// RAII to establish tool anchors before and after data allocation
+  void *TargetPtr = nullptr;
+  OMPT_IF_BUILT(InterfaceRAII TargetDataAllocRAII(
+                    RegionInterface.getCallbacks<ompt_target_data_alloc>(),
+                    DeviceID, HstPtr, &TargetPtr, Size,
+                    /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
+
+  TargetPtr = RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
+#if INTEL_CUSTOMIZATION
+  XPTIRegistry->traceMemAllocEnd((uintptr_t)TargetPtr, Size, 0 /* GuardZone */,
+                                 CorrID);
+#endif // INTEL_CUSTOMIZATION
+  return TargetPtr;
 }
 
 int32_t DeviceTy::deleteData(void *TgtAllocBegin, int32_t Kind) {
+  /// RAII to establish tool anchors before and after data deletion
+  OMPT_IF_BUILT(InterfaceRAII TargetDataDeleteRAII(
+                    RegionInterface.getCallbacks<ompt_target_data_delete>(),
+                    DeviceID, TgtAllocBegin,
+                    /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
+
 #if INTEL_CUSTOMIZATION
   auto CorrID = XPTIRegistry->traceMemReleaseBegin((uintptr_t)TgtAllocBegin);
   auto Rc = RTL->data_delete(RTLDeviceID, TgtAllocBegin, Kind);
@@ -678,23 +717,17 @@ int32_t DeviceTy::submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
                   Entry);
   }
 
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(
-      targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
-  int32_t ret;
-  if (!AsyncInfo || !RTL->data_submit_async || !RTL->synchronize)
-    ret = RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
-  else
-    ret = RTL->data_submit_async(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
-                                 AsyncInfo);
-  OMPT_TRACE(targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
-  return ret;
-#else  // INTEL_CUSTOMIZATION
+  /// RAII to establish tool anchors before and after data submit
+  OMPT_IF_BUILT(
+      InterfaceRAII TargetDataSubmitRAII(
+          RegionInterface.getCallbacks<ompt_target_data_transfer_to_device>(),
+          DeviceID, TgtPtrBegin, HstPtrBegin, Size,
+          /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
+
   if (!AsyncInfo || !RTL->data_submit_async || !RTL->synchronize)
     return RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
   return RTL->data_submit_async(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
                                 AsyncInfo);
-#endif // INTEL_CUSTOMIZATION
 }
 
 // Retrieve data from device
@@ -712,24 +745,17 @@ int32_t DeviceTy::retrieveData(void *HstPtrBegin, void *TgtPtrBegin,
                   Entry);
   }
 
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(
-      targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
-  int32_t ret;
-  if (!RTL->data_retrieve_async || !RTL->synchronize)
-    ret = RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
-  else
-    ret = RTL->data_retrieve_async(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
-                                   AsyncInfo);
-  OMPT_TRACE(
-      targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
-  return ret;
-#else  // INTEL_CUSTOMIZATION
+  /// RAII to establish tool anchors before and after data retrieval
+  OMPT_IF_BUILT(
+      InterfaceRAII TargetDataRetrieveRAII(
+          RegionInterface.getCallbacks<ompt_target_data_transfer_from_device>(),
+          DeviceID, HstPtrBegin, TgtPtrBegin, Size,
+          /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
+
   if (!RTL->data_retrieve_async || !RTL->synchronize)
     return RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
   return RTL->data_retrieve_async(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
                                   AsyncInfo);
-#endif // INTEL_CUSTOMIZATION
 }
 
 // Copy data from current device to destination device directly
@@ -776,16 +802,8 @@ int32_t DeviceTy::launchKernel(void *TgtEntryPtr, void **TgtVarsPtr,
                                ptrdiff_t *TgtOffsets,
                                const KernelArgsTy &KernelArgs,
                                AsyncInfoTy &AsyncInfo) {
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, KernelArgs.NumTeams[0]));
-  int32_t Ret = RTL->launch_kernel(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                   TgtOffsets, &KernelArgs, AsyncInfo);
-  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, KernelArgs.NumTeams[0]));
-  return Ret;
-#else  // INTEL_CUSTOMIZATION
   return RTL->launch_kernel(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                             &KernelArgs, AsyncInfo);
-#endif // INTEL_CUSTOMIZATION
 }
 
 // Run region on device
@@ -796,7 +814,14 @@ bool DeviceTy::printDeviceInfo(int32_t RTLDevId) {
   return true;
 }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+int32_t DeviceTy::getGroupsShape(void *TgtEntryPtr, int32_t NumTeams,
+                                 int32_t ThreadLimit, void *GroupSizes,
+                                 void *GroupCounts, void *LoopDesc) {
+  return RTL->get_groups_shape(RTLDeviceID, NumTeams, ThreadLimit, TgtEntryPtr,
+                               GroupSizes, GroupCounts, LoopDesc);
+}
+
 int32_t DeviceTy::manifestDataForRegion(void *TgtEntryPtr) {
   if (!RTL->manifest_data_for_region)
     return OFFLOAD_SUCCESS;
@@ -894,40 +919,33 @@ char *DeviceTy::getDeviceName(char *Buffer, size_t BufferMaxSize) {
 
 void *DeviceTy::dataAllocBase(int64_t Size, void *HstPtrBegin,
                               void *HstPtrBase, int32_t AllocOpt) {
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
+  if (!RTL->data_alloc_base)
+    return allocData(Size, HstPtrBegin, TARGET_ALLOC_DEFAULT);
+
   auto CorrID = XPTIRegistry->traceMemAllocBegin(Size, 0 /* GuardZone */);
-#endif // INTEL_CUSTOMIZATION
-  void *Ret = nullptr;
-  if (RTL->data_alloc_base)
-    Ret = RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase,
-                               AllocOpt);
-  else
-    Ret = RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin, TARGET_ALLOC_DEFAULT);
-#if INTEL_CUSTOMIZATION
-  XPTIRegistry->traceMemAllocEnd((uintptr_t)Ret, Size, 0 /* GuardZone */,
+  void *TargetPtr = nullptr;
+  OMPT_IF_BUILT(InterfaceRAII TargetDataAllocRAII(
+                    RegionInterface.getCallbacks<ompt_target_data_alloc>(),
+                    RTLDeviceID, HstPtrBegin, &TargetPtr, Size,
+                    /* CodePtr */ OMPT_GET_RETURN_ADDRESS(0));)
+
+  TargetPtr = RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase,
+                                   AllocOpt);
+  XPTIRegistry->traceMemAllocEnd((uintptr_t)TargetPtr, Size, 0 /* GuardZone */,
                                  CorrID);
-  OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, Ret));
-#endif // INTEL_CUSTOMIZATION
-  return Ret;
+  return TargetPtr;
 }
 
 int32_t DeviceTy::runTeamNDRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                                   ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                   int32_t NumTeams, int32_t ThreadLimit,
                                   void *TgtNDLoopDesc, AsyncInfoTy &AsyncInfo) {
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
-#endif // INTEL_CUSTOMIZATION
   int32_t Ret =
       RTL->run_team_nd_region
           ? RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                     TgtOffsets, TgtVarsSize, NumTeams,
                                     ThreadLimit, TgtNDLoopDesc, AsyncInfo)
           : OFFLOAD_FAIL;
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
-#endif // INTEL_CUSTOMIZATION
   return Ret;
 }
 
@@ -1011,7 +1029,6 @@ int32_t DeviceTy::isSupportedDevice(void *DeviceType) {
     return false;
 }
 
-#if INTEL_CUSTOMIZATION
 __tgt_interop *DeviceTy::createInterop(int32_t InteropContext,
                                        int32_t NumPrefers,
                                        int32_t *PreferIDs) {
@@ -1072,7 +1089,6 @@ const char *DeviceTy::getInteropRcDesc(int32_t RetCode) {
   else
     return NULL;
 }
-#endif // INTEL_CUSTOMIZATION
 
 int32_t DeviceTy::setSubDevice(int32_t Level) {
   if (RTL->get_num_sub_devices) {
@@ -1117,14 +1133,12 @@ int32_t DeviceTy::isAccessibleAddrRange(const void *Ptr, size_t Size) {
     return 0;
 }
 
-#if INTEL_CUSTOMIZATION
 int32_t DeviceTy::notifyIndirectAccess(const void *Ptr, size_t Offset) {
   if (RTL->notify_indirect_access)
     return RTL->notify_indirect_access(RTLDeviceID, Ptr, Offset);
   else
     return OFFLOAD_SUCCESS;
 }
-#endif // INTEL_CUSTOMIZATION
 
 int32_t DeviceTy::isPrivateArgOnHost(const void *TgtEntryPtr, uint32_t Idx) {
   if (RTL->is_private_arg_on_host)
@@ -1192,7 +1206,12 @@ int DeviceTy::prefetchSharedMem(size_t NumPtrs, void **Ptrs, size_t *Sizes) {
   else
     return OFFLOAD_SUCCESS; // no-op if not supported
 }
-#endif // INTEL_COLLAB
+
+void DeviceTy::notifyLegacyOffload(void) {
+  if (RTL->notify_legacy_offload)
+    RTL->notify_legacy_offload();
+}
+#endif // INTEL_CUSTOMIZATION
 
 // Whether data can be copied to DstDevice directly
 bool DeviceTy::isDataExchangable(const DeviceTy &DstDevice) {
@@ -1254,19 +1273,6 @@ int32_t DeviceTy::destroyEvent(void *Event) {
   return OFFLOAD_SUCCESS;
 }
 
-#if INTEL_CUSTOMIZATION
-int32_t DeviceTy::memcpyRect3D(void *Dst, const void *Src, size_t ElementSize,
-                               int32_t NumDims, const size_t *Volume,
-                               const size_t *DstOffsets,
-                               const size_t *SrcOffsets, const size_t *DstDims,
-                               const size_t *SrcDims) {
-  if (RTL->memcpy_rect_3d)
-    return RTL->memcpy_rect_3d(RTLDeviceID, Dst, Src, ElementSize, NumDims,
-                               Volume, DstOffsets, SrcOffsets, DstDims,
-                               SrcDims);
-  return OFFLOAD_FAIL;
-}
-#endif // INTEL_CUSTOMIZATION
 /// Check whether a device has an associated RTL and initialize it if it's not
 /// already initialized.
 bool deviceIsReady(int DeviceNum) {
@@ -1301,6 +1307,18 @@ bool deviceIsReady(int DeviceNum) {
 }
 
 #if INTEL_CUSTOMIZATION
+int32_t DeviceTy::memcpyRect3D(void *Dst, const void *Src, size_t ElementSize,
+                               int32_t NumDims, const size_t *Volume,
+                               const size_t *DstOffsets,
+                               const size_t *SrcOffsets, const size_t *DstDims,
+                               const size_t *SrcDims) {
+  if (RTL->memcpy_rect_3d)
+    return RTL->memcpy_rect_3d(RTLDeviceID, Dst, Src, ElementSize, NumDims,
+                               Volume, DstOffsets, SrcOffsets, DstDims,
+                               SrcDims);
+  return OFFLOAD_FAIL;
+}
+
 bool __tgt_interop::isCompatibleWith(
     int32_t InteropType, uint32_t NumPrefers, int32_t *PreferIDs,
     int64_t DeviceNum_, int GTID, void *CurrentTask) {
@@ -1381,4 +1399,4 @@ void InteropTblTy::clear() {
   }
   Interops.clear();
 }
-#endif
+#endif // INTEL_CUSTOMIZATION

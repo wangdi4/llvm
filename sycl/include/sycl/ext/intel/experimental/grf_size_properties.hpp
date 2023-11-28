@@ -1,4 +1,21 @@
 //==- grf_size_properties.hpp - GRF size kernel properties for Intel GPUs -==//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -8,6 +25,7 @@
 
 #pragma once
 
+#include <sycl/detail/kernel_properties.hpp>
 #include <sycl/ext/oneapi/properties/property.hpp>
 #include <sycl/ext/oneapi/properties/property_value.hpp>
 
@@ -63,7 +81,16 @@ struct IsCompileTimeProperty<
 template <unsigned int Size>
 struct PropertyMetaInfo<
     sycl::ext::intel::experimental::grf_size_key::value_t<Size>> {
-  static_assert(Size == 128 || Size == 256, "Unsupported GRF size");
+  static_assert(Size == 128 ||
+                    Size == 256
+                    /* INTEL_CUSTOMIZATION */
+                    /* INTEL_FEATURE_ESIMD_EMBARGO */
+                    || Size == 512
+                /* end INTEL_FEATURE_ESIMD_EMBARGO */
+                /* end INTEL_CUSTOMIZATION */
+                ,
+                "Unsupported GRF size");
+
   static constexpr const char *name = "sycl-grf-size";
   static constexpr unsigned int value = Size;
 };
@@ -77,14 +104,30 @@ struct PropertyMetaInfo<
 template <typename Properties>
 struct ConflictingProperties<sycl::ext::intel::experimental::grf_size_key,
                              Properties>
-    : ContainsProperty<sycl::ext::intel::experimental::grf_size_automatic_key,
-                       Properties> {};
+    : std::bool_constant<
+          ContainsProperty<
+              sycl::ext::intel::experimental::grf_size_automatic_key,
+              Properties>::value ||
+          ContainsProperty<sycl::detail::register_alloc_mode_key,
+                           Properties>::value> {};
 
 template <typename Properties>
 struct ConflictingProperties<
     sycl::ext::intel::experimental::grf_size_automatic_key, Properties>
-    : ContainsProperty<sycl::ext::intel::experimental::grf_size_key,
-                       Properties> {};
+    : std::bool_constant<
+          ContainsProperty<sycl::ext::intel::experimental::grf_size_key,
+                           Properties>::value ||
+          ContainsProperty<sycl::detail::register_alloc_mode_key,
+                           Properties>::value> {};
+
+template <typename Properties>
+struct ConflictingProperties<sycl::detail::register_alloc_mode_key, Properties>
+    : std::bool_constant<
+          ContainsProperty<sycl::ext::intel::experimental::grf_size_key,
+                           Properties>::value ||
+          ContainsProperty<
+              sycl::ext::intel::experimental::grf_size_automatic_key,
+              Properties>::value> {};
 
 } // namespace detail
 } // namespace ext::oneapi::experimental

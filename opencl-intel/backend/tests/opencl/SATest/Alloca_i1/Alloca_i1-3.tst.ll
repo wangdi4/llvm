@@ -6,7 +6,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; Function Attrs: convergent nounwind
 define spir_kernel void @do_nothing(i1 %x) #0 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_name !9 {
   %p1 = alloca i1, align 1
-  store i1 %x, i1* %p1, align 1
+  store i1 %x, ptr %p1, align 1
   ret void
 }
 
@@ -25,7 +25,7 @@ attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="f
 !1 = !{i32 1, i32 2}
 !2 = !{}
 !3 = !{!"-Idevice/"}
-!4 = !{!"clang version 6.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 7fc81fc8922b226ea2e2c069ddae2e44619ea074) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm fcec820f4b80de4ed49d51d31292f09593b932e6)"}
+!4 = !{!"clang version 6.0.0"}
 !5 = !{!"none"}
 !6 = !{!"bool"}
 !7 = !{!""}

@@ -8,7 +8,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define dso_local void @vectorize(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #0 !dbg !7 !intel.optreport.rootnode !9 {
+define dso_local void @vectorize(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #0 !dbg !7 !intel.optreport !9 {
 DIR.OMP.SIMD.118:
   %0 = bitcast float* %b to <8 x float>*, !dbg !27
   %gepload = load <8 x float>, <8 x float>* %0, align 4, !dbg !27, !tbaa !28
@@ -159,7 +159,7 @@ DIR.OMP.SIMD.118:
 }
 
 ; Function Attrs: nofree noinline norecurse nosync nounwind uwtable
-define dso_local void @complete_unroll(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #1 !dbg !38 !intel.optreport.rootnode !39 {
+define dso_local void @complete_unroll(float* nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c) local_unnamed_addr #1 !dbg !38 !intel.optreport !39 {
 entry:
   %gepload = load float, float* %c, align 4, !dbg !48, !tbaa !28
   %gepload11 = load float, float* %b, align 4, !dbg !49, !tbaa !28
@@ -233,24 +233,21 @@ attributes #1 = { nofree noinline norecurse nosync nounwind uwtable "denormal-fp
 !6 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2021.4.0 (2021.x.0.YYYYMMDD)"}
 !7 = distinct !DISubprogram(name: "vectorize", scope: !1, file: !1, line: 1, type: !8, scopeLine: 1, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
 !8 = !DISubroutineType(types: !2)
-!9 = distinct !{!"intel.optreport.rootnode", !10}
-!10 = distinct !{!"intel.optreport", !11}
+!9 = distinct !{!"intel.optreport", !11}
 !11 = !{!"intel.optreport.first_child", !12}
-!12 = distinct !{!"intel.optreport.rootnode", !13}
-!13 = distinct !{!"intel.optreport", !14, !16, !20}
+!12 = distinct !{!"intel.optreport", !14, !16, !20}
 !14 = !{!"intel.optreport.debug_location", !15}
 !15 = !DILocation(line: 2, column: 1, scope: !7)
 !16 = !{!"intel.optreport.remarks", !17, !18, !19}
-!17 = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
-!18 = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", !"8"}
-!19 = !{!"intel.optreport.remark", i32 0, !"LLorg: Loop has been completely unrolled"}
+!17 = !{!"intel.optreport.remark", i32 15300}
+!18 = !{!"intel.optreport.remark", i32 15305, !"8"}
+!19 = !{!"intel.optreport.remark", i32 25603}
 !20 = !{!"intel.optreport.next_sibling", !21}
-!21 = distinct !{!"intel.optreport.rootnode", !22}
-!22 = distinct !{!"intel.optreport", !14, !23, !25}
+!21 = distinct !{!"intel.optreport", !14, !23, !25}
 !23 = !{!"intel.optreport.origin", !24}
-!24 = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
+!24 = !{!"intel.optreport.remark", i32 25519}
 !25 = !{!"intel.optreport.remarks", !26, !19}
-!26 = !{!"intel.optreport.remark", i32 15441, !"remainder loop was not vectorized: %s ", !""}
+!26 = !{!"intel.optreport.remark", i32 15441, !""}
 !27 = !DILocation(line: 4, column: 12, scope: !7)
 !28 = !{!29, !29, i64 0}
 !29 = !{!"float", !30, i64 0}
@@ -263,15 +260,13 @@ attributes #1 = { nofree noinline norecurse nosync nounwind uwtable "denormal-fp
 !36 = distinct !{}
 !37 = !DILocation(line: 5, column: 1, scope: !7)
 !38 = distinct !DISubprogram(name: "complete_unroll", scope: !1, file: !1, line: 7, type: !8, scopeLine: 7, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
-!39 = distinct !{!"intel.optreport.rootnode", !40}
-!40 = distinct !{!"intel.optreport", !41}
+!39 = distinct !{!"intel.optreport", !41}
 !41 = !{!"intel.optreport.first_child", !42}
-!42 = distinct !{!"intel.optreport.rootnode", !43}
-!43 = distinct !{!"intel.optreport", !44, !46}
+!42 = distinct !{!"intel.optreport", !44, !46}
 !44 = !{!"intel.optreport.debug_location", !45}
 !45 = !DILocation(line: 9, column: 3, scope: !38)
 !46 = !{!"intel.optreport.remarks", !47}
-!47 = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 4}
+!47 = !{!"intel.optreport.remark", i32 25436, i32 4}
 !48 = !DILocation(line: 10, column: 19, scope: !38)
 !49 = !DILocation(line: 10, column: 12, scope: !38)
 !50 = !DILocation(line: 10, column: 17, scope: !38)

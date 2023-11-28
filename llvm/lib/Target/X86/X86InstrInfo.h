@@ -48,6 +48,12 @@ namespace X86 {
 enum AsmComments {
   // For instr that was compressed from EVEX to VEX.
   AC_EVEX_2_VEX = MachineInstr::TAsmComments
+#if INTEL_CUSTOMIZATION
+  , // For instrs that was compressed from ND to non-ND.
+  AC_ND_2_NONND = AC_EVEX_2_VEX << 1
+  , // For instrs that was compressed from EVEX to Legacy.
+  AC_EVEX_2_LEGACY = AC_ND_2_NONND << 1
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Return a pair of condition code for the given predicate and whether
@@ -56,12 +62,8 @@ std::pair<CondCode, bool> getX86ConditionCode(CmpInst::Predicate Predicate);
 
 /// Return a cmov opcode for the given register size in bytes, and operand type.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
 unsigned getCMovOpcode(unsigned RegBytes, bool HasNDD = false,
                        bool HasMemoryOperand = false);
-#else  // INTEL_FEATURE_ISA_APX_F
-unsigned getCMovOpcode(unsigned RegBytes, bool HasMemoryOperand = false);
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 /// Return the source operand # for condition code by \p MCID. If the
@@ -179,13 +181,17 @@ public:
   // precision tolerance.
   bool shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
                                bool DisableGFMAForPrecision) const override;
-#if INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+  /// Given a machine instruction descriptor, returns the register
+  /// class constraint for OpNum, or NULL. Returned register class
+  /// may be different from the definition in the TD file, e.g.
+  /// GR*RegClass (definition in TD file)
+  /// ->
+  /// GR*_NOREX2RegClass (Returned register class)
   const TargetRegisterClass *
   getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
               const TargetRegisterInfo *TRI,
               const MachineFunction &MF) const override;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
 
   /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
   /// such, whenever a client has an instance of instruction info, it should
@@ -386,6 +392,26 @@ public:
                               TargetInstrInfo::MachineBranchPredicate &MBP,
                               bool AllowModify = false) const override;
 
+#if INTEL_CUSTOMIZATION
+  bool getTargetRegionOrder(const MachineBasicBlock &MBB,
+                            SmallVectorImpl<MachineBasicBlock *> &BlockSeq,
+                            bool &AllowPadding,
+                            const MachineBranchProbabilityInfo &MBPI,
+                            const TargetSchedModel &SchedModel) const override;
+
+#if INTEL_FEATURE_CPU_RYL
+  // Return true if the given instruction is legal for region auto-predication
+  // on the target.
+  bool isLegalForRAP(const MachineInstr &MI, const TargetSchedModel &SM) const;
+
+  // Return true if the given sequence of blocks is legal for auto-predication.
+  // This does not perform any CFG checks, so it is assumed the sequence of
+  // blocks represents a well-formed region.
+  bool isLegalForRAP(const SmallVectorImpl<MachineBasicBlock *> &Seq,
+                     const TargetSchedModel &SM) const;
+#endif // INTEL_FEATURE_CPU_RYL
+#endif // INTEL_CUSTOMIZATION
+
   unsigned removeBranch(MachineBasicBlock &MBB,
                         int *BytesRemoved = nullptr) const override;
   unsigned insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
@@ -421,6 +447,18 @@ public:
                        const TargetRegisterClass *RC,
                        ArrayRef<MachineMemOperand *> MMOs,
                        SmallVectorImpl<MachineInstr *> &NewMIs) const;
+
+  /// isFrameOperand - Return true and the FrameIndex if the specified
+  /// operand and follow operands form a reference to the stack frame.
+  bool isFrameOperand(const MachineInstr &MI, int &FrameIndex) const override;
+
+  /// Return true and the def's index if the target knows it for reload
+  /// instruction.
+  bool getUniqueDefIdxForReload(unsigned *DefOp) const override {
+    if (DefOp)
+      *DefOp = 0;
+    return true;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   void loadStoreTileReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
@@ -504,6 +542,9 @@ public:
                                int64_t Offset2,
                                unsigned NumLoads) const override;
 
+  void insertNoop(MachineBasicBlock &MBB,
+                  MachineBasicBlock::iterator MI) const override;
+
   MCInst getNop() const override;
 
   bool
@@ -561,7 +602,7 @@ public:
                                     MachineBasicBlock::iterator InsertPt,
                                     unsigned Size, Align Alignment,
                                     bool AllowCommute) const;
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   bool isHighLatencyDef(int opc) const override;
 
@@ -610,6 +651,15 @@ public:
                                   Register &FoldAsLoadDefReg,
                                   MachineInstr *&DefMI) const override;
 
+  bool FoldImmediateImpl(MachineInstr &UseMI, MachineInstr *DefMI, Register Reg,
+                         int64_t ImmVal, MachineRegisterInfo *MRI,
+                         bool MakeChange) const;
+
+  /// Reg is known to be defined by a move immediate instruction, try to fold
+  /// the immediate into the use instruction.
+  bool FoldImmediate(MachineInstr &UseMI, MachineInstr &DefMI, Register Reg,
+                     MachineRegisterInfo *MRI) const override;
+
   std::pair<unsigned, unsigned>
   decomposeMachineOperandsTargetFlags(unsigned TF) const override;
 
@@ -635,11 +685,13 @@ public:
 
   bool isVecSpillInst(const MachineInstr &MI) const; // INTEL
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
   MachineInstr *optimizeCCMPInstr(MachineRegisterInfo &MRI,
                                   MachineInstr &MI) const override;
-#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+  void buildClearRegister(Register Reg, MachineBasicBlock &MBB,
+                          MachineBasicBlock::iterator Iter, DebugLoc &DL,
+                          bool AllowSideEffects = true) const override;
+
   bool verifyInstruction(const MachineInstr &MI,
                          StringRef &ErrInfo) const override;
 #define GET_INSTRINFO_HELPER_DECLS

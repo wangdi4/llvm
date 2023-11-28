@@ -220,7 +220,7 @@ BForm_4<bits<6> opcode, bits<5> bo, bit aa, bit lk,
 }
 
 // 1.7.3 SC-Form
-class SCForm<bits<6> opcode, bits<1> xo,
+class SCForm<bits<6> opcode, bits<1> xo1, bits<1> xo2,
                      dag OOL, dag IOL, string asmstr, InstrItinClass itin,
                      list<dag> pattern>
   : I<opcode, OOL, IOL, asmstr, itin> {
@@ -229,7 +229,8 @@ class SCForm<bits<6> opcode, bits<1> xo,
   let Pattern = pattern;
 
   let Inst{20-26} = LEV;
-  let Inst{30}    = xo;
+  let Inst{30}    = xo1;
+  let Inst{31}    = xo2;
 }
 
 // 1.7.4 D-Form
@@ -459,6 +460,12 @@ class XForm_base_r3xo_memOp<bits<6> opcode, bits<10> xo, dag OOL, dag IOL,
 class XForm_tlb<bits<10> xo, dag OOL, dag IOL, string asmstr,
                 InstrItinClass itin> : XForm_base_r3xo<31, xo, OOL, IOL, asmstr, itin, []> {
   let RST = 0;
+}
+
+class XForm_tlbilx<bits<10> xo, dag OOL, dag IOL, string asmstr,
+      InstrItinClass itin> : XForm_base_r3xo<31, xo, OOL, IOL, asmstr, itin, []> {
+  bits<5> T;
+  let RST = T;
 }
 
 class XForm_attn<bits<6> opcode, bits<10> xo, dag OOL, dag IOL, string asmstr,

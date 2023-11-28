@@ -1,23 +1,42 @@
-; RUN: opt -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
-; This text verifies that UB is correctly sext and is calculated
-; only once, before loop
-; Also verifies loop nest is correctly nested, i1 then i2
-; basic cg
-; CHECK: region.0:
-;  sext.i32.i64(%n) + -1 is our ub for loop 1
-; CHECK: [[SEXT_OP1:%[0-9]+]] = sext i32 %n to i64
-; CHECK-NEXT:  [[UB1:%[0-9]+]] = add i64 [[SEXT_OP1]], -1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
+
+; HIR-
+; + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 5>  <LEGAL_MAX_TC = 2147483647>
+; |   %t = (@B)[0][i1];
+; |
+; |   + DO i2 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; |   |   (@A)[0][2 * i1 + sext.i32.i64(%k) * i2] = i2 + 2 * %t;
+; |   + END LOOP
+; + END LOOP
+
+; Verify that UB for both loops is generated in i1 loop's preheader which is the
+; region entry block. We reuse the original sext instruction %0.
+; Verify that the blob term 2 * %t which is invariant w.r.t i2 loop is generated
+; in the i1 loop.
+
+; CHECK:       region.0:
+; CHECK-NEXT:  store i64 0, ptr %i1.i64
+; CHECK-NOT:       = sext i32 %n to i64
+; CHECK-NEXT:  [[UB1:%[0-9]+]] = add i64 %0, -1
+; CHECK-NEXT:  [[UB2:%[0-9]+]] = add i64 %0, -1
 ; CHECK-NEXT: br label %[[L1Label:loop.[0-9]+]]
 
-; CHECK: [[L1Label]]:
-; check ub of l2 is also sext and calculated before loop2
-; CHECK: [[SEXT_OP2:%[0-9]+]] = sext i32 %n to i64
-; CHECK-NEXT:  [[UB2:%[0-9]+]] = add i64 [[SEXT_OP2]], -1
-; CHECK-NEXT: br label %[[L2Label:loop.[0-9]+]]
+; Verify that loop nest is correctly nested, i1 then i2, basic CG.
 
-; make sure loop 2 ends then loop 2 ends
+; CHECK: [[L1Label]]:
+; CHECK: [[TMUL2:%.*]] = shl i32 {{.*}}, 1
+; CHECK: br label %[[L2Label:loop.[0-9]+]]
+
+; CHECK: [[L2Label]]:
+
+; Verify that we reuse the existing sext(%k) instruction %conv7.
+; CHECK: mul i64{{.*}}%conv7
+; CHECK: add i32 [[TMUL2]]
+
+; Make sure loop 2 ends then loop 1 ends
 ; CHECK: after[[L2Label]]:
 ; CHECK: after[[L1Label]]:
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -38,7 +57,8 @@ for.cond2.preheader.lr.ph:                        ; preds = %entry
 for.body6.lr.ph:                                  ; preds = %for.inc10, %for.cond2.preheader.lr.ph
   %i.021 = phi i64 [ 0, %for.cond2.preheader.lr.ph ], [ %inc11, %for.inc10 ]
   %arrayidx = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %i.021
-  %1 = load i32, ptr %arrayidx, align 4, !tbaa !1
+  %t = load i32, ptr %arrayidx, align 4, !tbaa !1
+  %mul2 = shl i32 %t, 1
   %mul = shl i64 %i.021, 1
   br label %for.body6
 
@@ -47,7 +67,9 @@ for.body6:                                        ; preds = %for.body6, %for.bod
   %mul8 = mul nsw i64 %j.019, %conv7
   %add = add nsw i64 %mul8, %mul
   %arrayidx9 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %add
-  store i32 %1, ptr %arrayidx9, align 4, !tbaa !1
+  %trunc = trunc i64 %j.019 to i32
+  %addmul2 = add i32 %trunc, %mul2
+  store i32 %addmul2, ptr %arrayidx9, align 4, !tbaa !1
   %inc = add nuw nsw i64 %j.019, 1
   %exitcond = icmp eq i64 %inc, %0
   br i1 %exitcond, label %for.inc10, label %for.body6

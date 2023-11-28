@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -35,12 +35,11 @@
 
 #include "cl_device_api.h"
 #include "cl_shared_ptr.h"
-#include <cl_sys_defines.h>
-#include <stddef.h>
-
+#include "cl_sys_defines.h"
 #ifndef DEVICE_NATIVE
 #include "ocl_itt.h"
 #endif
+#include <stddef.h>
 
 // Forward declaration
 struct ocl_gpa_data;
@@ -667,6 +666,10 @@ protected:
 
 // Function which retrieves TaskExecutor singleton object
 ITaskExecutor *GetTaskExecutor();
+
+// Suspend task execution and signal to resume it later.
+extern void launchResumableTask(unsigned int ThreadNum);
+
 } // namespace TaskExecutor
 } // namespace OpenCL
 } // namespace Intel

@@ -22,14 +22,14 @@
 
 #define CL_HPP_ENABLE_EXCEPTIONS
 #define CL_HPP_TARGET_OPENCL_VERSION 200
+#define TBB_PREVIEW_GLOBAL_CONTROL 1
 
+#include "CL/opencl.hpp"
 #include "common_utils.h"
-#include <CL/opencl.hpp>
+#include "tbb/global_control.h"
 #include <cassert>
 #include <iostream>
 #include <string>
-#define TBB_PREVIEW_GLOBAL_CONTROL 1
-#include <tbb/global_control.h>
 
 namespace {
 // Find a device where either the device or platform name contains the filter

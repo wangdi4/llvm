@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -251,6 +251,104 @@ CallInst *IntrinsicUtils::removeOperandBundlesFromCall(
   CI->replaceAllUsesWith(NewI);
   CI->eraseFromParent();
   return NewI;
+}
+
+CallInst *IntrinsicUtils::replaceFirstBundleOperandsInDirectiveIf(
+    CallInst *CI, SmallDenseMap<Value *, Value *, 8> &OpndReplacementMap,
+    function_ref<bool(const OperandBundleDef &Bundle)> Predicate) {
+
+  assert(CI && "replaceClauseOperandsInDirectiveIf: Null Directive call.");
+  assert(vpo::VPOAnalysisUtils::isOpenMPDirective(CI) &&
+         "Expected an OpenMP directive");
+  assert(Predicate && "replaceClauseOperandsInDirectiveIf: No Predicate.");
+
+  if (OpndReplacementMap.empty())
+    return CI;
+
+  SmallVector<OperandBundleDef, 8> OpBundles;
+  SmallVector<OperandBundleDef, 8> OpBundlesUpdated;
+
+  CI->getOperandBundlesAsDefs(OpBundles);
+
+  unsigned NumOB = OpBundles.size();
+  assert(NumOB > 0 && "Directives should have at least one bundle.");
+  if (NumOB < 2) // CI only has a directive, no clauses.
+    return CI;
+
+  OpBundlesUpdated.push_back(OpBundles[0]); // Retain the directive as-is.
+  bool Updated = false;
+
+  // Go over all clauses, doing the replacement in any that match the Predicate.
+  for (unsigned I = 1; I < NumOB; ++I) {
+    OperandBundleDef &Bundle = OpBundles[I];
+
+    if (!vpo::VPOAnalysisUtils::isOpenMPClause(Bundle.getTag())) {
+      // Not an OpenMP clause. Retain the bundle as-is.
+      OpBundlesUpdated.push_back(Bundle);
+      continue;
+    }
+
+    if (Bundle.input_size() == 0) {
+      // Clause has no operands.
+      OpBundlesUpdated.push_back(Bundle);
+      continue;
+    }
+
+    Value *ClauseOpnd = *Bundle.input_begin();
+    auto MapIter = OpndReplacementMap.find(ClauseOpnd);
+    if (MapIter == OpndReplacementMap.end()) {
+      // No matching replacement value for the clause operand.
+      OpBundlesUpdated.push_back(Bundle);
+      continue;
+    }
+
+    if (!Predicate(Bundle)) {
+      // Predicate not satisfied. No need to update the clause.
+      OpBundlesUpdated.push_back(Bundle);
+      continue;
+    }
+
+    Value *ReplacementVal = MapIter->second;
+    SmallVector<Value *, 8> BundleInputsVec(Bundle.inputs());
+
+    // Replace the first bundle operand, i.e. the clause operand, with its
+    // corresponding replacement value
+    BundleInputsVec[0] = ReplacementVal;
+    OpBundlesUpdated.push_back(
+        OperandBundleDef(Bundle.getTag().str(), BundleInputsVec));
+
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Updating '" << Bundle.getTag()
+                      << "' operand on '";
+               CI->printAsOperand(dbgs(), /*PrintType=*/false);
+               dbgs() << "' from '";
+               ClauseOpnd->printAsOperand(dbgs(), /*PrintType=*/false);
+               dbgs() << "' to '";
+               ReplacementVal->printAsOperand(dbgs(), /*PrintType=*/false);
+               dbgs() << "'.\n");
+    Updated = true;
+  }
+
+  if (!Updated) // No clause updated.
+    return CI;
+
+  SmallVector<Value *, 8> Args;
+  for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++)
+    Args.push_back(*AI);
+
+  FunctionType *FnTy = CI->getFunctionType();
+
+  CallInst *NewCI = CallInst::Create(FnTy, CI->getCalledOperand(), Args,
+                                     OpBundlesUpdated, "", CI);
+
+  NewCI->takeName(CI);
+  NewCI->setCallingConv(CI->getCallingConv());
+  NewCI->setAttributes(CI->getAttributes());
+  NewCI->setDebugLoc(CI->getDebugLoc());
+  NewCI->copyMetadata(*CI);
+
+  CI->replaceAllUsesWith(NewCI);
+  CI->eraseFromParent();
+  return NewCI;
 }
 
 #if INTEL_CUSTOMIZATION

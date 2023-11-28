@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -347,8 +347,7 @@ void Value::setNameImpl(const Twine &NewName) {
 
   SmallString<256> NameData;
   StringRef NameRef = NeedNewName ? NewName.toStringRef(NameData) : "";
-  assert(NameRef.find_first_of(0) == StringRef::npos &&
-         "Null bytes are not allowed in names");
+  assert(!NameRef.contains(0) && "Null bytes are not allowed in names");
 
   // Name isn't changing?
   if (getName() == NameRef)

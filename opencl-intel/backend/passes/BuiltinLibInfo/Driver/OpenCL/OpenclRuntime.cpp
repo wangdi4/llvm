@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2022 Intel Corporation.
+// Copyright 2012 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -425,8 +425,7 @@ bool OpenclRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
   assert(desc.Parameters.size() == 2 && "min, max should have two parameters");
   // The argument type should be (u)int/(u)long
   RefParamType argTy = desc.Parameters[0];
-  const PrimitiveType *pPrimitive =
-      reflection::dyn_cast<PrimitiveType>(argTy.get());
+  const PrimitiveType *pPrimitive = dyn_cast<PrimitiveType>(argTy.get());
   if (!pPrimitive)
     return false;
   TypePrimitiveEnum basicType = pPrimitive->getPrimitive();

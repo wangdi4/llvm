@@ -1,6 +1,6 @@
 //===--- DTransOPOptBase.cpp - Base class for DTrans Transforms -----==//
 //
-// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -177,8 +177,7 @@ DTransOPTypeRemapper::lookupCachedTypeMapping(DTransType *SrcTy) const {
 // replacement types.  It does not walk structure bodies, as the ones that need
 // replacing should be populated in the type mapping table via addTypeMapping()
 // by the transformation pass before this function is used. PointerTypes will
-// only be examined when this class is constructed with the 'UsingOpaquePtrs'
-// flag configured to 'false'.
+// not be examined, since all pointers are opaque pointers.
 llvm::Type *
 DTransOPTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
   // Check if the answer is already computed or if this is a basic structure
@@ -186,14 +185,6 @@ DTransOPTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
   llvm::Type *CurMapping = lookupTypeMapping(SrcTy);
   if (CurMapping)
     return CurMapping;
-
-  if (SrcTy->isPointerTy() && !UsingOpaquePtrs) {
-    Type *ReplTy =
-        computeReplacementType(SrcTy->getNonOpaquePointerElementType());
-    if (!ReplTy)
-      return nullptr;
-    return ReplTy->getPointerTo();
-  }
 
   if (SrcTy->isArrayTy()) {
     Type *ReplTy = computeReplacementType(SrcTy->getArrayElementType());
@@ -403,8 +394,7 @@ DTransOPOptBase::DTransOPOptBase(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
                                  StringRef DepTypePrefix)
     : DTInfo(DTInfo), TM(DTInfo->getTypeManager()),
       DepTypePrefix(DepTypePrefix),
-      UsingOpaquePtrs(!Ctx.supportsTypedPointers()),
-      TypeRemapper(TM, UsingOpaquePtrs) {}
+      TypeRemapper(TM) {}
 
 bool DTransOPOptBase::run(Module &M) {
   if (!prepareTypesBaseImpl(M))
@@ -644,7 +634,7 @@ void DTransOPOptBase::prepareDependentTypes(
       // because remapping an opaque pointer of type 'ptr' will still produce
       // the type 'ptr'. However, if a pointer type is being remapped to a
       // non-pointer type, then dependent types will need to be remapped.
-      bool RewritePointerDependentTypes = !UsingOpaquePtrs;
+      bool RewritePointerDependentTypes = false;
       DTransType *PtrTy = TM.getOrCreatePointerType(Ty);
       DTransType *ReplTy = TypeRemapper.lookupTypeMapping(PtrTy);
       if (ReplTy && !ReplTy->isPointerTy())
@@ -1121,8 +1111,7 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       // cloned when opaque pointers are enabled because the parameter type of
       // 'p0' will not change, but the type of object pointed-to may be changed
       // by DTrans.
-      if (UsingOpaquePtrs)
-        updateAttributeTypes(&F);
+      updateAttributeTypes(&F);
 
       // Let the derived class perform any additional actions needed on the
       // remapped function.

@@ -1,6 +1,6 @@
 //=- Intel_X86MemOpKey.h - A key based on instruction's memory operands. --*- C++ -*-=//
 //
-//      Copyright (c) 2019-2019 Intel Corporation.
+//      Copyright (c) 2019 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION

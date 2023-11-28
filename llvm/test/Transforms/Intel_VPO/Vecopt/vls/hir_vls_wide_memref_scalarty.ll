@@ -21,37 +21,33 @@
 ; CHECK:              |   %shuffle = shufflevector undef,  %.extended,  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>;
 ; CHECK:              |   %.extended1 = shufflevector %p1,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>;
 ; CHECK:              |   %shuffle2 = shufflevector %shuffle,  %.extended1,  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>;
-; CHECK:              |   %extract.0. = extractelement &((<4 x i8**>)(%arr)[i1 + <i64 0, i64 1, i64 2, i64 3>].0),  0;
-; CHECK:              |   (<8 x i8*>*)(%extract.0.)[0] = %shuffle2;
-; CHECK:              |   <LVAL-REG> {al:8}(<8 x i8*>*)(NON-LINEAR i8** %extract.0.)[i64 0] inbounds
+; CHECK:              |   (<8 x ptr>*)(%arr)[i1].0 = %shuffle2;
+; CHECK:              |   <LVAL-REG> {al:8}(<8 x ptr>*)(LINEAR ptr %arr)[LINEAR i64 i1].0 inbounds
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
 
 ; Checks for LLVM-IR after HIR-CG
-; CHECK-LABEL: define hidden fastcc void @parse_value(%struct.hashtable_list* %arr, i8* %p1, i8* %p2)
-; CHECK:         [[EXTRACT:%.*]] = extractelement <4 x i8**> [[WIDE_GEP:%.*]], i64 0
-; CHECK-NEXT:    store i8** [[EXTRACT]], i8*** [[TEMP20:%.*]], align 8
-; CHECK-NEXT:    [[TEMP20_LD:%.*]] = load i8**, i8*** [[TEMP20]], align 8
-; CHECK-NEXT:    [[TEMP20_BC:%.*]] = bitcast i8** [[TEMP20_LD]] to <8 x i8*>*
-; CHECK-NEXT:    [[TEMP19_LD:%.*]] = load <8 x i8*>, <8 x i8*>* [[TEMP19:%.*]], align 64
-; CHECK-NEXT:    store <8 x i8*> [[TEMP19_LD]], <8 x i8*>* [[TEMP20_BC]], align 8
+; CHECK-LABEL: define hidden fastcc void @parse_value(ptr %arr, ptr %p1, ptr %p2)
+; CHECK:         store <8 x ptr> %shuffle28, ptr [[TEMP18:%.*]], align 64
+; CHECK-NEXT:    [[TEMP0:%.*]] = load i64, ptr %i1.i64, align 8
+; CHECK-NEXT:    [[TEMP1:%.*]] = getelementptr inbounds %struct.hashtable_list, ptr %arr, i64 [[TEMP0]], i32 0
+; CHECK-NEXT:    [[TEMP18DOT:%.*]] = load <8 x ptr>, ptr [[TEMP18]], align 64
+; CHECK-NEXT:    store <8 x ptr> [[TEMP18DOT]], ptr [[TEMP1]], align 8
 
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.hashtable_list = type { %struct.hashtable_list*, %struct.hashtable_list* }
+%struct.hashtable_list = type { ptr, ptr }
 
-define hidden fastcc void @parse_value(%struct.hashtable_list* %arr, i8* %p1, i8* %p2) {
+define hidden fastcc void @parse_value(ptr %arr, ptr %p1, ptr %p2) {
 entry:
   br label %header
 
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
-  %gep1 = getelementptr inbounds %struct.hashtable_list, %struct.hashtable_list* %arr, i64 %iv, i32 1
-  %bc1 = bitcast %struct.hashtable_list** %gep1 to i8**
-  store i8* %p1, i8** %bc1, align 8, !tbaa !4
-  %gep2 = getelementptr inbounds %struct.hashtable_list, %struct.hashtable_list* %arr, i64 %iv, i32 0
-  %bc2 = bitcast %struct.hashtable_list** %gep2 to i8**
-  store i8* %p2, i8** %bc2, align 8, !tbaa !5
+  %gep1 = getelementptr inbounds %struct.hashtable_list, ptr %arr, i64 %iv, i32 1
+  store ptr %p1, ptr %gep1, align 8, !tbaa !4
+  %gep2 = getelementptr inbounds %struct.hashtable_list, ptr %arr, i64 %iv, i32 0
+  store ptr %p2, ptr %gep2, align 8, !tbaa !5
   %iv.next = add nuw nsw i64 %iv, 1
   %iv.cmp = icmp eq i64 %iv.next, 1024
   br i1 %iv.cmp, label %exit, label %header

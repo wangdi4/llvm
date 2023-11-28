@@ -1,4 +1,4 @@
-; RUN: llc -mtriple=x86_64-unknown-unknown -start-after=indirectbr-expand -stop-after=codegenprepare -o - %s | FileCheck %s
+; RUN: llc -mtriple=x86_64-unknown-unknown -disable-cgp-delete-phis -cgp-split-switch-critical-edge=true -start-after=indirectbr-expand -stop-after=codegenprepare -o - %s | FileCheck %s
 ;
 ; 27123: Interaction between div opt and critical edge removal was crashing the
 ; compiler.

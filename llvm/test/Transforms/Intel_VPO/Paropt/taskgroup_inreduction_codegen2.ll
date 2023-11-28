@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 ;
 ; It tests whether the OMP backend outlining supports the inreduction
 ; for arrays.
@@ -13,15 +13,21 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: uwtable
 define dso_local void @_Z3foov() #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKGROUP"(), "QUAL.OMP.REDUCTION.MIN"([1000 x i32]* @arr1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKGROUP"(),
+     "QUAL.OMP.REDUCTION.MIN:TYPED"(ptr @arr1, i32 0, i64 1000) ]
+
   br label %DIR.OMP.TASKGROUP.1
 
 DIR.OMP.TASKGROUP.1:                              ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.REDUCTION.ADD"([1000 x i32]* @arr1) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+     "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr @arr1, i32 0, i64 1000) ]
+
   br label %DIR.OMP.PARALLEL.2
 
 DIR.OMP.PARALLEL.2:                               ; preds = %DIR.OMP.TASKGROUP.1
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.INREDUCTION.MIN"([1000 x i32]* @arr1) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(),
+     "QUAL.OMP.INREDUCTION.MIN:TYPED"(ptr @arr1, i32 0, i64 1000) ]
+
   call void @_Z3bari(i32 0)
   br label %DIR.OMP.END.TASK.4
 
@@ -56,6 +62,6 @@ attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{!"clang version 7.0.0"}
 ;
-; CHECK:  %{{.*}} = call i8* @__kmpc_taskred_init({{.*}})
-; CHECK:  %{{.*}} = call i8* @__kmpc_task_reduction_get_th_data({{.*}})
-; CHECK:  call void @llvm.memcpy.p0i8.p0i8.i64({{.*}})
+; CHECK:  %{{.*}} = call ptr @__kmpc_taskred_init({{.*}})
+; CHECK:  %{{.*}} = call ptr @__kmpc_task_reduction_get_th_data({{.*}})
+; CHECK:  call void @llvm.memcpy.p0.p0.i64({{.*}})

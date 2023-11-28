@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -192,7 +192,7 @@ public:
       MaxHeaderSize = DefaultRotationThreshold.getNumOccurrences() > 0 ?
           DefaultRotationThreshold :
           TTI->getLoopRotationDefaultThreshold(true);
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     // Vectorization requires loop-rotation. Use default threshold for loops the
     // user explicitly marked for vectorization, even when header duplication is
     // disabled.

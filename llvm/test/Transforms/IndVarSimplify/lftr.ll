@@ -576,7 +576,7 @@ define float @wide_trip_count_test4(ptr %b,
 ; CHECK-NEXT:    [[CMP5:%.*]] = icmp sgt i32 [[M:%.*]], 10
 ; CHECK-NEXT:    br i1 [[CMP5]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_END:%.*]]
 ; CHECK:       for.body.preheader:
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[M]] to i64 ;INTEL
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[M]] to i64
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ], [ 10, [[FOR_BODY_PREHEADER]] ]

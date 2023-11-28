@@ -7,13 +7,13 @@
 ; CHECK:         [[BB2:BB[0-9]+]]: # preds: [[VECTOR_PH:.*]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i32 [[VP_P0:%.*]] = phi  [ i32 [[VP_P0_IND_INIT:%.*]], [[VECTOR_PH]] ],  [ i32 [[VP_ADD21:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INT_SEXT17:%.*]] = sext i32 [[VP_P0]] to i64 (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] %complex_64bit* [[VP_PR:%.*]] = getelementptr inbounds [100 x %complex_64bit]* @pR i32 0 i64 [[VP_INT_SEXT17]] (SVAOpBits 0->V 1->V 2->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] [[COMPLEX_64BIT0:%.*]] = type { float, float } [[VP_PR_FETCH:%.*]] = load %complex_64bit* [[VP_PR]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] %complex_64bit* [[VP_PS:%.*]] = getelementptr inbounds [100 x %complex_64bit]* @pS i32 0 i64 [[VP_INT_SEXT17]] (SVAOpBits 0->V 1->V 2->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_PR_FETCH]] %complex_64bit* [[VP_PS]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] [[COMPLEX_64BIT0]] = type { float, float } [[VP_UNI_LOAD:%.*]] = load %complex_64bit* [[UNI_SRC0:%.*]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_UNI_LOAD]] %complex_64bit* [[UNI_DEST0:%.*]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (  L)] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_PR_FETCH]] %complex_64bit* [[UNI_DEST0]] (SVAOpBits 0->L 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_PR:%.*]] = getelementptr inbounds [100 x %complex_64bit], ptr @pR i32 0 i64 [[VP_INT_SEXT17]] (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] [[COMPLEX_64BIT0:%.*]] = type { float, float } [[VP_PR_FETCH:%.*]] = load ptr [[VP_PR]] (SVAOpBits 0->V , Serial)
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_PS:%.*]] = getelementptr inbounds [100 x %complex_64bit], ptr @pS i32 0 i64 [[VP_INT_SEXT17]] (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_PR_FETCH]] ptr [[VP_PS]] (SVAOpBits 0->V 1->V , Serial)
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] [[COMPLEX_64BIT0]] = type { float, float } [[VP_UNI_LOAD:%.*]] = load ptr [[UNI_SRC0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_UNI_LOAD]] ptr [[UNI_DEST0:%.*]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (  L)] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_PR_FETCH]] ptr [[UNI_DEST0]] (SVAOpBits 0->L 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i32 [[VP_ADD21]] = add i32 [[VP_P0]] i32 [[VP_P0_IND_INIT_STEP:%.*]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ule i32 [[VP_ADD21]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
@@ -25,27 +25,27 @@
 @pR = internal unnamed_addr global [100 x %complex_64bit] zeroinitializer, align 16
 @pS = internal unnamed_addr global [100 x %complex_64bit] zeroinitializer, align 16
 
-define void @simd_test(%complex_64bit* %uni.src, %complex_64bit* %uni.dest) local_unnamed_addr {
+define void @simd_test(ptr %uni.src, ptr %uni.dest) local_unnamed_addr {
 ; CHECK-LABEL: @simd_test(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP5:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VPLANNEDBB1]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext <2 x i32> [[VEC_PHI]] to <2 x i64>
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [100 x %complex_64bit], <2 x [100 x %complex_64bit]*> <[100 x %complex_64bit]* @pR, [100 x %complex_64bit]* @pR>, <2 x i32> zeroinitializer, <2 x i64> [[TMP0]]
-; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_:%.*]] = extractelement <2 x %complex_64bit*> [[MM_VECTORGEP]], i32 1
-; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <2 x %complex_64bit*> [[MM_VECTORGEP]], i32 0
-; CHECK-NEXT:    [[TMP1:%.*]] = load [[COMPLEX_64BIT:%.*]], %complex_64bit* [[MM_VECTORGEP_EXTRACT_0_]], align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = load [[COMPLEX_64BIT]], %complex_64bit* [[MM_VECTORGEP_EXTRACT_1_]], align 4
-; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds [100 x %complex_64bit], <2 x [100 x %complex_64bit]*> <[100 x %complex_64bit]* @pS, [100 x %complex_64bit]* @pS>, <2 x i32> zeroinitializer, <2 x i64> [[TMP0]]
-; CHECK-NEXT:    [[MM_VECTORGEP3_EXTRACT_1_:%.*]] = extractelement <2 x %complex_64bit*> [[MM_VECTORGEP3]], i32 1
-; CHECK-NEXT:    [[MM_VECTORGEP3_EXTRACT_0_:%.*]] = extractelement <2 x %complex_64bit*> [[MM_VECTORGEP3]], i32 0
-; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP1]], %complex_64bit* [[MM_VECTORGEP3_EXTRACT_0_]], align 4
-; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP2]], %complex_64bit* [[MM_VECTORGEP3_EXTRACT_1_]], align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = load [[COMPLEX_64BIT]], %complex_64bit* [[UNI_SRC:%.*]], align 4
-; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP3]], %complex_64bit* [[UNI_DEST:%.*]], align 4
-; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP3]], %complex_64bit* [[UNI_DEST]], align 4
-; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP1]], %complex_64bit* [[UNI_DEST]], align 4
-; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP2]], %complex_64bit* [[UNI_DEST]], align 4
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [100 x %complex_64bit], <2 x ptr> <ptr @pR, ptr @pR>, <2 x i32> zeroinitializer, <2 x i64> [[TMP0]]
+; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_:%.*]] = extractelement <2 x ptr> [[MM_VECTORGEP]], i32 1
+; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <2 x ptr> [[MM_VECTORGEP]], i32 0
+; CHECK-NEXT:    [[TMP1:%.*]] = load [[COMPLEX_64BIT:%.*]], ptr [[MM_VECTORGEP_EXTRACT_0_]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = load [[COMPLEX_64BIT]], ptr [[MM_VECTORGEP_EXTRACT_1_]], align 4
+; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds [100 x %complex_64bit], <2 x ptr> <ptr @pS, ptr @pS>, <2 x i32> zeroinitializer, <2 x i64> [[TMP0]]
+; CHECK-NEXT:    [[MM_VECTORGEP3_EXTRACT_1_:%.*]] = extractelement <2 x ptr> [[MM_VECTORGEP3]], i32 1
+; CHECK-NEXT:    [[MM_VECTORGEP3_EXTRACT_0_:%.*]] = extractelement <2 x ptr> [[MM_VECTORGEP3]], i32 0
+; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP1]], ptr [[MM_VECTORGEP3_EXTRACT_0_]], align 4
+; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP2]], ptr [[MM_VECTORGEP3_EXTRACT_1_]], align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = load [[COMPLEX_64BIT]], ptr [[UNI_SRC:%.*]], align 4
+; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP3]], ptr [[UNI_DEST:%.*]], align 4
+; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP3]], ptr [[UNI_DEST]], align 4
+; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP1]], ptr [[UNI_DEST]], align 4
+; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP2]], ptr [[UNI_DEST]], align 4
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw <2 x i32> [[VEC_PHI]], <i32 2, i32 2>
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw i32 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp ule i32 [[TMP5]], 4
@@ -63,15 +63,15 @@ bb5:                                            ; preds = %bb5, %alloca
   %int_sext17 = sext i32 %p0 to i64
 
   ; Divergent load/store
-  %pR = getelementptr inbounds [100 x %complex_64bit], [100 x %complex_64bit]* @pR, i32 0, i64 %int_sext17
-  %pR_fetch = load %complex_64bit, %complex_64bit* %pR
-  %pS = getelementptr inbounds [100 x %complex_64bit], [100 x %complex_64bit]* @pS, i32 0, i64 %int_sext17
-  store %complex_64bit %pR_fetch, %complex_64bit* %pS
+  %pR = getelementptr inbounds [100 x %complex_64bit], ptr @pR, i32 0, i64 %int_sext17
+  %pR_fetch = load %complex_64bit, ptr %pR
+  %pS = getelementptr inbounds [100 x %complex_64bit], ptr @pS, i32 0, i64 %int_sext17
+  store %complex_64bit %pR_fetch, ptr %pS
 
   ; Uniform load/store
-  %uni.load = load %complex_64bit, %complex_64bit* %uni.src
-  store %complex_64bit %uni.load, %complex_64bit* %uni.dest
-  store %complex_64bit %pR_fetch, %complex_64bit* %uni.dest
+  %uni.load = load %complex_64bit, ptr %uni.src
+  store %complex_64bit %uni.load, ptr %uni.dest
+  store %complex_64bit %pR_fetch, ptr %uni.dest
 
   %add21 = add nsw i32 %p0, 1
   %rel = icmp sle i32 %add21, 5

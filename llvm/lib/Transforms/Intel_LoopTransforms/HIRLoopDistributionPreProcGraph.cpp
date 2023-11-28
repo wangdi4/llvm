@@ -1,6 +1,6 @@
 //===--- HIRLoopDistributionGraph.cpp - Forms Distribution Graph  ---------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -83,6 +83,8 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-loop-distribution-pre-proc-graph"
+
+#define LLVM_DEBUG_DDG(X) DEBUG_WITH_TYPE("hir-loop-distribute-ddg", X)
 
 // Walks all hlnodes and creates DistPPNodes in member DistPPGraph for them
 struct DistributionNodeCreator final : public HLNodeVisitorBase {
@@ -265,8 +267,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
       auto DstDistPPNodeI = HLNodeToDistPPNode.find(DstDDNode);
 
       assert(DstDistPPNodeI != HLNodeToDistPPNode.end() &&
-             "Every hlnode in loop nest has a dist node, so this edge goes out "
-             "of our loop nest. Don't need an edge in this case.");
+             "Invalid edge found during DistGraph Edge Creation!");
 
       DistPPNode *DstDistNode = DstDistPPNodeI->second;
 
@@ -500,6 +501,8 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
 
   unsigned Level = Loop->getNestingLevel();
   DDGraph DG = DDA.getGraph(Loop);
+
+  LLVM_DEBUG_DDG(dbgs() << "PreProcGraph DDG:\n"; DG.dump(););
 
   DistributionEdgeCreator EdgeCreator(&SARA, this, DG, Level,
                                       AllowScalarExpansion);

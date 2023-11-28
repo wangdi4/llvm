@@ -30,6 +30,7 @@
 #include "CodeViewDebug.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/TinyPtrVector.h"
@@ -43,6 +44,7 @@
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
+#include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Config/llvm-config.h"
@@ -71,7 +73,6 @@
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/BinaryStreamWriter.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/Endian.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -165,7 +166,7 @@ StringRef CodeViewDebug::getFullFilepath(const DIFile *File) {
 
   // If this is a Unix-style path, just use it as is. Don't try to canonicalize
   // it textually because one of the path components could be a symlink.
-  if (Dir.startswith("/") || Filename.startswith("/")) {
+  if (Dir.starts_with("/") || Filename.starts_with("/")) {
     if (llvm::sys::path::is_absolute(Filename, llvm::sys::path::Style::posix))
       return Filename;
     Filepath = std::string(Dir);
@@ -272,7 +273,10 @@ CodeViewDebug::getInlineSite(const DILocation *InlinedAt,
         InlinedAt->getLine(), InlinedAt->getColumn(), SMLoc());
     Site->Inlinee = Inlinee;
     InlinedSubprograms.insert(Inlinee);
-    getFuncIdForSubprogram(Inlinee);
+    auto InlineeIdx = getFuncIdForSubprogram(Inlinee);
+
+    if (InlinedAt->getInlinedAt() == nullptr)
+      CurFn->Inlinees.insert(InlineeIdx);
   }
   return *Site;
 }
@@ -930,10 +934,10 @@ static std::string flattenCommandLine(ArrayRef<std::string> Args,
       i++; // Skip this argument and next one.
       continue;
     }
-    if (Arg.startswith("-object-file-name") || Arg == MainFilename)
+    if (Arg.starts_with("-object-file-name") || Arg == MainFilename)
       continue;
     // Skip fmessage-length for reproduciability.
-    if (Arg.startswith("-fmessage-length"))
+    if (Arg.starts_with("-fmessage-length"))
       continue;
 #if INTEL_CUSTOMIZATION
     if (Arg.startswith("-dwarf-debug-flags")) {
@@ -1222,6 +1226,7 @@ void CodeViewDebug::emitDebugInfoForFunction(const Function *GV,
     OS.emitInt32(uint32_t(FI.FrameProcOpts));
     endSymbolRecord(FrameProcEnd);
 
+    emitInlinees(FI.Inlinees);
     emitLocalVariableList(FI, FI.Locals);
     emitGlobalVariableList(FI.Globals);
     emitLexicalBlockList(FI.ChildBlocks, FI);
@@ -1272,6 +1277,8 @@ void CodeViewDebug::emitDebugInfoForFunction(const Function *GV,
 
     if (SP != nullptr)
       emitDebugInfoForUDTs(LocalUDTs);
+
+    emitDebugInfoForJumpTables(FI);
 
     // We're done with this function.
     emitEndSymbolRecord(SymbolKind::S_PROC_ID_END);
@@ -1624,8 +1631,8 @@ void CodeViewDebug::beginFunctionImpl(const MachineFunction *MF) {
   }
   FPO |= FrameProcedureOptions(uint32_t(CurFn->EncodedLocalFramePtrReg) << 14U);
   FPO |= FrameProcedureOptions(uint32_t(CurFn->EncodedParamFramePtrReg) << 16U);
-  if (Asm->TM.getOptLevel() != CodeGenOpt::None &&
-      !GV.hasOptSize() && !GV.hasOptNone())
+  if (Asm->TM.getOptLevel() != CodeGenOptLevel::None && !GV.hasOptSize() &&
+      !GV.hasOptNone())
     FPO |= FrameProcedureOptions::OptimizedForSpeed;
   if (GV.hasProfileData()) {
     FPO |= FrameProcedureOptions::ValidProfileCounts;
@@ -1669,6 +1676,11 @@ void CodeViewDebug::beginFunctionImpl(const MachineFunction *MF) {
       }
     }
   }
+
+  // Mark branches that may potentially be using jump tables with labels.
+  bool isThumb = Triple(MMI->getModule()->getTargetTriple()).getArch() ==
+                 llvm::Triple::ArchType::thumb;
+  discoverJumpTableBranches(MF, isThumb);
 }
 
 static bool shouldEmitUdt(const DIType *T) {
@@ -1860,6 +1872,32 @@ static bool isOneDimensionalWithDefaultLowerBound(const DICompositeType *Ty) {
   return LowerBound == 1;
 }
 
+static bool hasVariableBounds(const DINodeArray Subranges) {
+  uint16_t Rank = Subranges.size();
+  for (int i = 0; i < Rank; i++) {
+    const DISubrange *Subrange = cast<DISubrange>(Subranges[i]);
+    auto *LB = Subrange->getLowerBound().dyn_cast<DIVariable *>();
+    auto *UB = Subrange->getLowerBound().dyn_cast<DIVariable *>();
+    if (LB || UB)
+      return true;
+  }
+  return false;
+}
+
+static DIType* getVariableBoundType(const DINodeArray Subranges) {
+  uint16_t Rank = Subranges.size();
+  for (int i = 0; i < Rank; i++) {
+    const DISubrange *Subrange = cast<DISubrange>(Subranges[i]);
+    auto *LB = Subrange->getLowerBound().dyn_cast<DIVariable *>();
+    auto *UB = Subrange->getLowerBound().dyn_cast<DIVariable *>();
+    if (LB)
+      return LB->getType();
+    if (UB)
+      return UB->getType();
+  }
+  return nullptr;
+}
+
 // Construct a Host Reference OEM Record, which has the following layout:
 //   LF_OEM (2)    0x100F
 //   OEM    (2)    LF_OEM_IDENT_MSF90
@@ -1957,46 +1995,78 @@ codeview::TypeIndex CodeViewDebug::getDimInfo(const DINodeArray Subranges) {
   if (I != DimInfoIndices.end())
     return I->second;
 
-  // Collect bounds.
-  SmallVector<int64_t, 5> Bounds;
+  TypeIndex DimInfo;
   uint16_t Rank = Subranges.size();
-  for (int i = 0; i < Rank; i++) {
-    const DISubrange *Subrange = cast<DISubrange>(Subranges[i]);
-
-    // FIXME: Once we support LF_REFSYM/LF_DIMVARLU, we should
-    // check for variable lowerbound and encode it using those
-    // records. For now, we use the constant lowerbound 1 in
-    // place of the variable lowerbound.
-    int64_t LowerBound = getConstantLowerBound(Subrange);
-    Bounds.push_back(LowerBound);
-
-    if (auto *UI = Subrange->getUpperBound().dyn_cast<ConstantInt *>()) {
-      int64_t UpperBound = UI->getSExtValue();
-      Bounds.push_back(UpperBound);
-    } else if (auto *CI = Subrange->getCount().dyn_cast<ConstantInt *>()) {
-      int64_t Count = CI->getSExtValue();
-      Bounds.push_back(Count - LowerBound + 1);
-    } else if (auto *UI = Subrange->getUpperBound().dyn_cast<DIVariable *>()) {
-      // FIXME: In this case, we should use LF_REFSYM/LF_DIMVARLU to encode
-      // the bounds. Until the handling of those LF records are in place,
-      // let's make upperbound the same as lowerbound.
-      Bounds.push_back(LowerBound);
-    } else {
-      // When we reach here, the array is assumed size (e.g. A(5,*)).
-      // Emulating what ifort does in this case, we make upperbound
-      // the same as lowerbound.
-      Bounds.push_back(LowerBound);
-    }
-  }
-
   TypeIndex IndexType = getPointerSizeInBytes() == 8
                             // Should be
                             //   ? TypeIndex(SimpleTypeKind::Int64Quad)
                             // but FEE can only handle int32 bounds.
                             ? TypeIndex(SimpleTypeKind::Int32Long)
                             : TypeIndex(SimpleTypeKind::Int32Long);
-  DimConLURecord DCR(IndexType, Rank, Bounds);
-  TypeIndex DimInfo = TypeTable.writeLeafType(DCR);
+
+  if (hasVariableBounds(Subranges)) {
+    SmallVector<TypeIndex, 5> Bounds;
+    TypeIndex LowerBound, UpperBound;
+    DIType *BoundType = getVariableBoundType(Subranges);
+    assert(BoundType && "Subranges variable bound type not found.");
+    for (int i = 0; i < Rank; i++) {
+      const DISubrange *Subrange = cast<DISubrange>(Subranges[i]);
+      std::string BoundName("");
+      if (auto *LI = Subrange->getLowerBound().dyn_cast<DIVariable *>()) {
+        LowerBound = lowerTypeRefSymToVariable(LI);
+      } else {
+        APSInt Val(getConstantLowerBound(Subrange));
+        LowerBound = lowerTypeRefSymToConstant(BoundType, Val, BoundName);
+      }
+      Bounds.push_back(LowerBound);
+
+      if (auto *UI = Subrange->getUpperBound().dyn_cast<DIVariable *>()) {
+        UpperBound = lowerTypeRefSymToVariable(UI);
+        Bounds.push_back(UpperBound);
+      } else if (auto *UI =
+                     Subrange->getUpperBound().dyn_cast<ConstantInt *>()) {
+        APSInt UVal(UI->getSExtValue());
+        UpperBound = lowerTypeRefSymToConstant(BoundType, UVal, BoundName);
+        Bounds.push_back(UpperBound);
+      } else if (auto *CI = Subrange->getCount().dyn_cast<ConstantInt *>()) {
+        int64_t LowerBound = getConstantLowerBound(Subrange);
+        APSInt CVal(CI->getSExtValue() - LowerBound + 1);
+        UpperBound = lowerTypeRefSymToConstant(BoundType, CVal, BoundName);
+        Bounds.push_back(UpperBound);
+      } else {
+        // When we reach here, the array is assumed size (e.g. A(5,*)).
+        // Emulating what ifort does in this case, we make upperbound
+        // the same as lowerbound.
+        Bounds.push_back(LowerBound);
+      }
+    }
+    DimVarLURecord DVLUR(Rank, IndexType, Bounds);
+    DimInfo = TypeTable.writeLeafType(DVLUR);
+  } else {
+    // Collect bounds.
+    SmallVector<int64_t, 5> Bounds;
+    uint16_t Rank = Subranges.size();
+    for (int i = 0; i < Rank; i++) {
+      const DISubrange *Subrange = cast<DISubrange>(Subranges[i]);
+      int64_t LowerBound = getConstantLowerBound(Subrange);
+      Bounds.push_back(LowerBound);
+
+      if (auto *UI = Subrange->getUpperBound().dyn_cast<ConstantInt *>()) {
+        int64_t UpperBound = UI->getSExtValue();
+        Bounds.push_back(UpperBound);
+      } else if (auto *CI = Subrange->getCount().dyn_cast<ConstantInt *>()) {
+        int64_t Count = CI->getSExtValue();
+        Bounds.push_back(Count - LowerBound + 1);
+      } else {
+        // When we reach here, the array is assumed size (e.g. A(5,*)).
+        // Emulating what ifort does in this case, we make upperbound
+        // the same as lowerbound.
+        Bounds.push_back(LowerBound);
+      }
+    }
+    DimConLURecord DCR(IndexType, Rank, Bounds);
+    DimInfo = TypeTable.writeLeafType(DCR);
+  }
   auto InsertResult = DimInfoIndices.insert({Tuple, DimInfo});
   (void)InsertResult;
   assert(InsertResult.second && "Subranges was already assigned a type index");
@@ -2015,12 +2085,55 @@ TypeIndex CodeViewDebug::lowerTypeFortranExplicitArray(const DICompositeType *Ty
 
   return ResultTypeIndex;
 }
+
+TypeIndex CodeViewDebug::lowerTypeRefSymToConstant(const DIType *DTy,
+                                                   APSInt &Value,
+                                                   StringRef Name) {
+  uint8_t SymRecord[MaxRecordLength];
+  uint16_t SymRecordSize = 0;
+  uint16_t Kind = unsigned(SymbolKind::S_CONSTANT);
+  TypeIndex TI = getTypeIndex(DTy);
+
+  BinaryStreamWriter Writer(SymRecord, llvm::endianness::little);
+  CodeViewRecordIO IO(Writer);
+  cantFail(IO.beginRecord(MaxRecordLength));
+  cantFail(IO.mapInteger(SymRecordSize));
+  cantFail(IO.mapInteger(Kind));
+  cantFail(IO.mapInteger(TI));
+  cantFail(IO.mapEncodedInteger(Value));
+
+  // Truncate the name string so that the overall record size is less than the
+  // maximum allowed.
+  StringRef Str(Name.take_front(MaxRecordLength - Writer.getOffset() - 1));
+  cantFail(IO.mapStringZ(Str));
+
+  // backpatch the record size
+  SymRecordSize = static_cast<uint16_t>(Writer.getOffset()) - 2;
+  Writer.setOffset(0);
+  cantFail(IO.mapInteger(SymRecordSize));
+  cantFail(IO.endRecord());
+
+  RefSymRecord RSR(SymRecord, SymRecordSize + 2);
+  TypeIndex ResultTypeIndex = TypeTable.writeLeafType(RSR);
+
+  return ResultTypeIndex;
+}
+
+TypeIndex CodeViewDebug::lowerTypeRefSymToVariable(const DIVariable *DVar) {
+  // LF_REFSYM is used to describe variables that represent array bounds.
+  // The LF_REFSYM record contains a "copy" of the symbol being referenced
+  // so it can only accommodate simplistic records (no relocs, etc.).
+  // FIXME: Add handling for S_LOCAL, etc. here.  For now use a constant.
+  APSInt Val(APInt(DVar->getType()->getSizeInBits(), 1));
+  return lowerTypeRefSymToConstant(DVar->getType(), Val,
+                                   std::string(DVar->getName()));
+}
 #endif // INTEL_CUSTOMIZATION
 
 TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
+#if INTEL_CUSTOMIZATION
   DINodeArray Elements = Ty->getElements();
 
-#if INTEL_CUSTOMIZATION
   if (!DisableIntelCodeViewExtensions && moduleIsInFortran() &&
        Elements.size() > 0) {
     if (auto *GenSubrange = dyn_cast<DIGenericSubrange>(Elements[0])) {
@@ -2098,10 +2211,8 @@ TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
 }
 
 // This function lowers a Fortran character type (DIStringType).
-// Note that it handles only the character*n variant (using SizeInBits
-// field in DIString to describe the type size) at the moment.
-// Other variants (leveraging the StringLength and StringLengthExp
-// fields in DIStringType) remain TBD.
+// Variants leveraging the StringLengthExp fields in DIStringType
+// remain TBD.
 TypeIndex CodeViewDebug::lowerTypeString(const DIStringType *Ty) {
   TypeIndex CharType = TypeIndex(SimpleTypeKind::NarrowCharacter);
   uint64_t ArraySize = Ty->getSizeInBits() >> 3;
@@ -2114,14 +2225,24 @@ TypeIndex CodeViewDebug::lowerTypeString(const DIStringType *Ty) {
   // Create a type of character array of ArraySize.
   ArrayRecord AR(CharType, IndexType, ArraySize, Name);
 
-  TypeIndex ArrayIndex = TypeTable.writeLeafType(AR);
 #if INTEL_CUSTOMIZATION
-  if (!DisableIntelCodeViewExtensions && moduleIsInFortran() &&
-      ArraySize == 0) {
-    ArrayIndex = lowerTypeOemMSF90Descriptor(Ty, ArrayIndex);
+  TypeIndex ArrayIndex = TypeTable.writeLeafType(AR);
+  if (!DisableIntelCodeViewExtensions && moduleIsInFortran()) {
+    DIVariable *LenVar = Ty->getStringLength();
+    if (LenVar) {
+      SmallVector<TypeIndex, 3> Bounds;
+      TypeIndex LenRef = lowerTypeRefSymToVariable(LenVar);
+      Bounds.push_back(LenRef);
+      DimVarURecord DVUR(1, IndexType, Bounds);
+      TypeIndex DimInfo = TypeTable.writeLeafType(DVUR);
+
+      DimArrayRecord DAR(CharType, DimInfo, Name);
+      ArrayIndex = TypeTable.writeLeafType(DAR);
+    } else if (ArraySize == 0)
+      ArrayIndex = lowerTypeOemMSF90Descriptor(Ty, ArrayIndex);
   }
-#endif // INTEL_CUSTOMIZATION
   return ArrayIndex;
+#endif // INTEL_CUSTOMIZATION
 }
 
 TypeIndex CodeViewDebug::lowerTypeBasic(const DIBasicType *Ty) {
@@ -2934,7 +3055,7 @@ CodeViewDebug::lowerRecordFieldList(const DICompositeType *Ty) {
 
     // Virtual function pointer member.
     if ((Member->getFlags() & DINode::FlagArtificial) &&
-        Member->getName().startswith("_vptr$")) {
+        Member->getName().starts_with("_vptr$")) {
       VFPtrRecord VFPR(getTypeIndex(Member->getBaseType()));
       ContinuationBuilder.writeMemberType(VFPR);
       MemberCount++;
@@ -3393,7 +3514,7 @@ void CodeViewDebug::collectLexicalBlockInfo(
   if (!BlockInsertion.second)
     return;
 
-  // Create a lexical block containing the variables and collect the the
+  // Create a lexical block containing the variables and collect the
   // lexical block information for the children.
   const InsnRange &Range = Ranges.front();
   assert(Range.first && Range.second);
@@ -3451,6 +3572,10 @@ void CodeViewDebug::endFunctionImpl(const MachineFunction *MF) {
       }
     }
   }
+
+  bool isThumb = Triple(MMI->getModule()->getTargetTriple()).getArch() ==
+                 llvm::Triple::ArchType::thumb;
+  collectDebugInfoForJumpTables(MF, isThumb);
 
   CurFn->Annotations = MF->getCodeViewAnnotations();
 
@@ -3705,7 +3830,7 @@ void CodeViewDebug::emitConstantSymbolRecord(const DIType *DTy, APSInt &Value,
 
   // Encoded integers shouldn't need more than 10 bytes.
   uint8_t Data[10];
-  BinaryStreamWriter Writer(Data, llvm::support::endianness::little);
+  BinaryStreamWriter Writer(Data, llvm::endianness::little);
   CodeViewRecordIO IO(Writer);
   cantFail(IO.mapEncodedInteger(Value));
   StringRef SRef((char *)Data, Writer.getOffset());
@@ -3809,5 +3934,166 @@ void CodeViewDebug::emitDebugInfoForGlobal(const CVGlobalVariable &CVGV) {
                           : DebugHandlerBase::isUnsignedDIType(DIGV->getType());
     APSInt Value(APInt(/*BitWidth=*/64, DIE->getElement(1)), isUnsigned);
     emitConstantSymbolRecord(DIGV->getType(), Value, QualifiedName);
+  }
+}
+
+void forEachJumpTableBranch(
+    const MachineFunction *MF, bool isThumb,
+    const std::function<void(const MachineJumpTableInfo &, const MachineInstr &,
+                             int64_t)> &Callback) {
+  auto JTI = MF->getJumpTableInfo();
+  if (JTI && !JTI->isEmpty()) {
+#ifndef NDEBUG
+    auto UsedJTs = llvm::SmallBitVector(JTI->getJumpTables().size());
+#endif
+    for (const auto &MBB : *MF) {
+      // Search for indirect branches...
+      const auto LastMI = MBB.getFirstTerminator();
+      if (LastMI != MBB.end() && LastMI->isIndirectBranch()) {
+        if (isThumb) {
+          // ... that directly use jump table operands.
+          // NOTE: ARM uses pattern matching to lower its BR_JT SDNode to
+          // machine instructions, hence inserting a JUMP_TABLE_DEBUG_INFO node
+          // interferes with this process *but* the resulting pseudo-instruction
+          // uses a Jump Table operand, so extract the jump table index directly
+          // from that.
+          for (const auto &MO : LastMI->operands()) {
+            if (MO.isJTI()) {
+              unsigned Index = MO.getIndex();
+#ifndef NDEBUG
+              UsedJTs.set(Index);
+#endif
+              Callback(*JTI, *LastMI, Index);
+              break;
+            }
+          }
+        } else {
+          // ... that have jump table debug info.
+          // NOTE: The debug info is inserted as a JUMP_TABLE_DEBUG_INFO node
+          // when lowering the BR_JT SDNode to an indirect branch.
+          for (auto I = MBB.instr_rbegin(), E = MBB.instr_rend(); I != E; ++I) {
+            if (I->isJumpTableDebugInfo()) {
+              unsigned Index = I->getOperand(0).getImm();
+#ifndef NDEBUG
+              UsedJTs.set(Index);
+#endif
+              Callback(*JTI, *LastMI, Index);
+              break;
+            }
+          }
+        }
+      }
+    }
+#ifndef NDEBUG
+    assert(UsedJTs.all() &&
+           "Some of jump tables were not used in a debug info instruction");
+#endif
+  }
+}
+
+void CodeViewDebug::discoverJumpTableBranches(const MachineFunction *MF,
+                                              bool isThumb) {
+  forEachJumpTableBranch(
+      MF, isThumb,
+      [this](const MachineJumpTableInfo &, const MachineInstr &BranchMI,
+             int64_t) { requestLabelBeforeInsn(&BranchMI); });
+}
+
+void CodeViewDebug::collectDebugInfoForJumpTables(const MachineFunction *MF,
+                                                  bool isThumb) {
+  forEachJumpTableBranch(
+      MF, isThumb,
+      [this, MF](const MachineJumpTableInfo &JTI, const MachineInstr &BranchMI,
+                 int64_t JumpTableIndex) {
+        // For label-difference jump tables, find the base expression.
+        // Otherwise the jump table uses an absolute address (so no base
+        // is required).
+        const MCSymbol *Base;
+        uint64_t BaseOffset = 0;
+        const MCSymbol *Branch = getLabelBeforeInsn(&BranchMI);
+        JumpTableEntrySize EntrySize;
+        switch (JTI.getEntryKind()) {
+        case MachineJumpTableInfo::EK_Custom32:
+        case MachineJumpTableInfo::EK_GPRel32BlockAddress:
+        case MachineJumpTableInfo::EK_GPRel64BlockAddress:
+          llvm_unreachable(
+              "EK_Custom32, EK_GPRel32BlockAddress, and "
+              "EK_GPRel64BlockAddress should never be emitted for COFF");
+        case MachineJumpTableInfo::EK_BlockAddress:
+          // Each entry is an absolute address.
+          EntrySize = JumpTableEntrySize::Pointer;
+          Base = nullptr;
+          break;
+        case MachineJumpTableInfo::EK_Inline:
+        case MachineJumpTableInfo::EK_LabelDifference32:
+        case MachineJumpTableInfo::EK_LabelDifference64:
+          // Ask the AsmPrinter.
+          std::tie(Base, BaseOffset, Branch, EntrySize) =
+              Asm->getCodeViewJumpTableInfo(JumpTableIndex, &BranchMI, Branch);
+          break;
+        }
+
+        CurFn->JumpTables.push_back(
+            {EntrySize, Base, BaseOffset, Branch,
+             MF->getJTISymbol(JumpTableIndex, MMI->getContext()),
+             JTI.getJumpTables()[JumpTableIndex].MBBs.size()});
+      });
+}
+
+void CodeViewDebug::emitDebugInfoForJumpTables(const FunctionInfo &FI) {
+  for (auto JumpTable : FI.JumpTables) {
+    MCSymbol *JumpTableEnd = beginSymbolRecord(SymbolKind::S_ARMSWITCHTABLE);
+    if (JumpTable.Base) {
+      OS.AddComment("Base offset");
+      OS.emitCOFFSecRel32(JumpTable.Base, JumpTable.BaseOffset);
+      OS.AddComment("Base section index");
+      OS.emitCOFFSectionIndex(JumpTable.Base);
+    } else {
+      OS.AddComment("Base offset");
+      OS.emitInt32(0);
+      OS.AddComment("Base section index");
+      OS.emitInt16(0);
+    }
+    OS.AddComment("Switch type");
+    OS.emitInt16(static_cast<uint16_t>(JumpTable.EntrySize));
+    OS.AddComment("Branch offset");
+    OS.emitCOFFSecRel32(JumpTable.Branch, /*Offset=*/0);
+    OS.AddComment("Table offset");
+    OS.emitCOFFSecRel32(JumpTable.Table, /*Offset=*/0);
+    OS.AddComment("Branch section index");
+    OS.emitCOFFSectionIndex(JumpTable.Branch);
+    OS.AddComment("Table section index");
+    OS.emitCOFFSectionIndex(JumpTable.Table);
+    OS.AddComment("Entries count");
+    OS.emitInt32(JumpTable.TableSize);
+    endSymbolRecord(JumpTableEnd);
+  }
+}
+
+void CodeViewDebug::emitInlinees(
+    const SmallSet<codeview::TypeIndex, 1> &Inlinees) {
+  // Divide the list of inlinees into chunks such that each chunk fits within
+  // one record.
+  constexpr size_t ChunkSize =
+      (MaxRecordLength - sizeof(SymbolKind) - sizeof(uint32_t)) /
+      sizeof(uint32_t);
+
+  SmallVector<TypeIndex> SortedInlinees{Inlinees.begin(), Inlinees.end()};
+  llvm::sort(SortedInlinees);
+
+  size_t CurrentIndex = 0;
+  while (CurrentIndex < SortedInlinees.size()) {
+    auto Symbol = beginSymbolRecord(SymbolKind::S_INLINEES);
+    auto CurrentChunkSize =
+        std::min(ChunkSize, SortedInlinees.size() - CurrentIndex);
+    OS.AddComment("Count");
+    OS.emitInt32(CurrentChunkSize);
+
+    const size_t CurrentChunkEnd = CurrentIndex + CurrentChunkSize;
+    for (; CurrentIndex < CurrentChunkEnd; ++CurrentIndex) {
+      OS.AddComment("Inlinee");
+      OS.emitInt32(SortedInlinees[CurrentIndex].getIndex());
+    }
+    endSymbolRecord(Symbol);
   }
 }

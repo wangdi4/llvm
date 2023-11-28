@@ -1,6 +1,6 @@
 //===--GroupBuiltinPass.cpp - Process WorkGroup Builtins ---------*- C++ -*-==//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -65,10 +65,10 @@ Constant *GroupBuiltinPass::getInitializationValue(Function *Func) {
   reflection::FunctionDescriptor FD = demangle(FuncName);
   reflection::RefParamType Param = FD.Parameters[0];
   if (reflection::VectorType *VecParam =
-          reflection::dyn_cast<reflection::VectorType>(Param.get()))
+          dyn_cast<reflection::VectorType>(Param.get()))
     Param = VecParam->getScalarType();
   reflection::PrimitiveType *PrimitiveParam =
-      reflection::dyn_cast<reflection::PrimitiveType>(Param.get());
+      dyn_cast<reflection::PrimitiveType>(Param.get());
   assert(PrimitiveParam && "WG function parameter should be either primitive "
                            "or vector of primitives");
   reflection::TypePrimitiveEnum DataEnum = PrimitiveParam->getPrimitive();
@@ -315,17 +315,9 @@ CallInst *GroupBuiltinPass::getWICall(Instruction *Before, StringRef FuncName,
   return Call;
 }
 
-static inline bool isMaskedBroadcast(const Function *F) {
-  // For non-masked broadcast, the last argument is a scalar local ID, while
-  // the the masked version, it's a vector mask.
-  auto *FTy = F->getFunctionType();
-  unsigned LastOpIdx = FTy->getNumParams() - 1;
-  return FTy->getParamType(LastOpIdx)->isVectorTy();
-}
-
 static inline unsigned getNDimForBroadcast(const Function *F) {
   unsigned NDim = F->getFunctionType()->getNumParams() - 1;
-  if (isMaskedBroadcast(F))
+  if (isWorkGroupBroadCast(F->getName()).second)
     NDim--;
   return NDim;
 }
@@ -383,19 +375,33 @@ Value *GroupBuiltinPass::calculateLinearIDForBroadcast(CallInst *WGCallInstr) {
   auto *CalledF = WGCallInstr->getCalledFunction();
   unsigned NDim = getNDimForBroadcast(CalledF);
 
+  // For assume-uniform vector variant of work_group_broadcast, the local id
+  // parameter type is widened to vector type. Assuming the vector local ids
+  // uniform so we extract the first element from the vector as the uniform
+  // local id for the broadcast operation.
+  auto GetUniformLocalID = [&](Value *LocalID) {
+    if (LocalID->getType()->isVectorTy()) {
+      IRBuilder<> Builder(WGCallInstr);
+      return Builder.CreateExtractElement(
+          LocalID, Builder.getInt32(0), LocalID->getName() + ".assume.uniform");
+    }
+    return LocalID;
+  };
+
   // For single-dimensional we return local_id parameter as is
-  Value *RetVal = WGCallInstr->getArgOperand(1);
+  Value *RetVal = GetUniformLocalID(WGCallInstr->getArgOperand(1));
   if (NDim > 1) {
     // For multi-dimensional - start from 2-dim calculation
     CallInst *LocalSize_0 = getWICall(WGCallInstr, mangledGetLocalSize(), 0);
-    RetVal = calculate2DimLinearID(WGCallInstr, RetVal, LocalSize_0,
-                                   WGCallInstr->getArgOperand(2));
+    RetVal =
+        calculate2DimLinearID(WGCallInstr, RetVal, LocalSize_0,
+                              GetUniformLocalID(WGCallInstr->getArgOperand(2)));
     if (NDim > 2) {
       // For 3-dim - account for dimension#2
       CallInst *LocalSize_1 = getWICall(WGCallInstr, mangledGetLocalSize(), 1);
-      RetVal =
-          calculate3DimLinearID(WGCallInstr, RetVal, LocalSize_0, LocalSize_1,
-                                WGCallInstr->getArgOperand(3));
+      RetVal = calculate3DimLinearID(
+          WGCallInstr, RetVal, LocalSize_0, LocalSize_1,
+          GetUniformLocalID(WGCallInstr->getArgOperand(3)));
     }
   }
   return RetVal;
@@ -425,7 +431,26 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
     DummyBarrierCall->insertAfter(WGSimpleCallInst);
   }
 
-  // Handle work-group sort built-ins.
+  // Handle device barrier built-ins.
+  InstVec CallRGSimpleFunc = Utils.getDeviceBarrierCallInsts();
+  for (auto *I : CallRGSimpleFunc) {
+    CallInst *DeviceBarrierCall = cast<CallInst>(I);
+    // 1. Add work group barrier before async function call instruction.
+    Utils.createBarrier(DeviceBarrierCall);
+    // 2. Get the number of work-groups, create a new device barrier with it.
+    // And repleace the old one.
+    IRBuilder<> Builder(DeviceBarrierCall);
+    Value *NumsGroup = createGetNumsGroupLinearResult(Builder, &M);
+    CallInst *NewDeviceBarrierCall =
+        Utils.createDeviceBarrierWithWGCount(NumsGroup, Builder);
+    DeviceBarrierCall->replaceAllUsesWith(NewDeviceBarrierCall);
+    DeviceBarrierCall->eraseFromParent();
+    // 3. Add dummyBarrier after async function call instruction.
+    Instruction *DummyBarrierCall = Utils.createDummyBarrier();
+    DummyBarrierCall->insertAfter(NewDeviceBarrierCall);
+  }
+
+  //  Handle work-group sort built-ins.
   InstVec CallWGSortFunc = Utils.getWGCallInstructions(CALL_BI_TYPE_WG_SORT);
   for (auto *I : CallWGSortFunc) {
     CallInst *WGCallInst = cast<CallInst>(I);
@@ -521,8 +546,7 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
     // result.
 
     // a. At first - produce parameter list for the new callee.
-    bool IsBroadcast = isWorkGroupBroadCast(FuncName);
-    bool IsMaskedBroadcast = IsBroadcast && isMaskedBroadcast(Callee);
+    auto [IsBroadcast, IsMaskedBroadcast] = isWorkGroupBroadCast(FuncName);
     SmallVector<Value *, 2> Params;
     if (!IsBroadcast) {
       // For all WG function, but broadcasts - keep original arguments intact.
@@ -555,12 +579,14 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
     assert(isMangledName(FuncName) &&
            "WG BI function name is expected to be mangled!");
     reflection::FunctionDescriptor FD = demangle(FuncName);
-
     if (IsBroadcast) {
       reflection::RefParamType MaskTy;
       if (IsMaskedBroadcast)
         MaskTy = FD.Parameters.back();
       auto IDTy = FD.Parameters[1]; // Get ID type of the local ID
+      // If local ID type is widened, get the scalar type
+      if (auto *VecIDParam = dyn_cast<reflection::VectorType>(IDTy.get()))
+        IDTy = VecIDParam->getScalarType();
 
       FD.Parameters.resize(1); // Keep the type of the value to broadcast
       FD.Parameters.push_back(IDTy); // Add type for linear local ID

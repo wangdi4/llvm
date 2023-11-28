@@ -10,7 +10,7 @@
 ; Print before:
 
 ; CHECK: BEGIN REGION { }
-; CHECK:       %9 = (ptr)(@upml_mod_mp_bxe_)[0];
+; CHECK:       %9 = (@upml_mod_mp_bxe_)[0].0;
 
 ; CHECK:       + DO i1 = 0, -1 * %0, 1   <DO_LOOP>
 ; CHECK:       |   + DO i2 = 0, -1 * %0, 1   <DO_LOOP>

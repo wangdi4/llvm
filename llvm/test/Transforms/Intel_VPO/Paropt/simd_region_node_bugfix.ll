@@ -5,13 +5,8 @@
 ; generation for privatized vars.This test in particular asserts that
 ; we generate correct private copy of the array.
 
-; Deprecated the llvm.intel.directive* representation.
-; TODO: Update this test to use llvm.directive.region.entry/exit instead.
-; XFAIL: *
-
-
-
-; RUN: opt -opaque-pointers=0 -passes="vpo-cfg-restructuring,vpo-paropt,vpo-cfg-restructuring,vpo-paropt" -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %s | FileCheck %s
 
 
 ; CHECK: %arr.priv = alloca [1000 x i32]
@@ -28,80 +23,74 @@
 ; }
 
 
-; ModuleID = 't2.c'
-source_filename = "t2.c"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+; ModuleID = 'simd_region_node_bugfix.c'
+source_filename = "simd_region_node_bugfix.c"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-@arr = common dso_local global [1000 x i32] zeroinitializer, align 16
+@arr = dso_local global [1000 x i32] zeroinitializer, align 16
 
-; Function Attrs: noinline nounwind uwtable
-define dso_local void @foo() #0 {
+define dso_local void @foo() {
 entry:
   %i = alloca i32, align 4
   %x = alloca i32, align 4
-  %.omp.iv = alloca i32, align 4
   %tmp = alloca i32, align 4
+  %.omp.iv = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
-  store i32 999, i32* %.omp.ub, align 4
-  call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", [1000 x i32]* @arr)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %x)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV", i32* %.omp.iv)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.UB", i32* %.omp.ub)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
-  store i32 0, i32* %.omp.iv, align 4
+  store i32 999, ptr %.omp.ub, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr @arr, i32 0, i64 1000),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %x, i32 0, i32 1),
+    "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i, i32 0, i32 1, i32 1),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0) ]
+
+  store i32 0, ptr %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %entry
-  %0 = load i32, i32* %.omp.iv, align 4
-  %1 = load i32, i32* %.omp.ub, align 4
-  %cmp = icmp sle i32 %0, %1
+  %1 = load i32, ptr %.omp.iv, align 4
+  %2 = load i32, ptr %.omp.ub, align 4
+  %cmp = icmp sle i32 %1, %2
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %2 = load i32, i32* %.omp.iv, align 4
-  %mul = mul nsw i32 %2, 1
+  %3 = load i32, ptr %.omp.iv, align 4
+  %mul = mul nsw i32 %3, 1
   %add = add nsw i32 0, %mul
-  store i32 %add, i32* %i, align 4
-  %3 = load i32, i32* %i, align 4
-  %idxprom = sext i32 %3 to i64
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @arr, i64 0, i64 %idxprom
-  %4 = load i32, i32* %arrayidx, align 4
-  %add1 = add nsw i32 %4, 10
-  %5 = load i32, i32* %i, align 4
-  %idxprom2 = sext i32 %5 to i64
-  %arrayidx3 = getelementptr inbounds [1000 x i32], [1000 x i32]* @arr, i64 0, i64 %idxprom2
-  store i32 %add1, i32* %arrayidx3, align 4
+  store i32 %add, ptr %i, align 4
+  %4 = load i32, ptr %i, align 4
+  %idxprom = sext i32 %4 to i64
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @arr, i64 0, i64 %idxprom
+  %5 = load i32, ptr %arrayidx, align 4
+  %add1 = add nsw i32 %5, 10
+  %6 = load i32, ptr %i, align 4
+  %idxprom2 = sext i32 %6 to i64
+  %arrayidx3 = getelementptr inbounds [1000 x i32], ptr @arr, i64 0, i64 %idxprom2
+  store i32 %add1, ptr %arrayidx3, align 4
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %6 = load i32, i32* %.omp.iv, align 4
-  %add4 = add nsw i32 %6, 1
-  store i32 %add4, i32* %.omp.iv, align 4
+  %7 = load i32, ptr %.omp.iv, align 4
+  %add4 = add nsw i32 %7, 1
+  store i32 %add4, ptr %.omp.iv, align 4
+  %8 = load i32, ptr %i, align 4
+  %add5 = add nsw i32 %8, 1
+  store i32 %add5, ptr %i, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond
   br label %omp.loop.exit
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+
   ret void
 }
 
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #2
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #2
-
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 8.0.0"}
+declare void @llvm.directive.region.exit(token)

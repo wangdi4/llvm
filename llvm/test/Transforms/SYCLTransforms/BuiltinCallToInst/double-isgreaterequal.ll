@@ -161,16 +161,16 @@ attributes #2 = { nounwind readnone }
 !9 = !{!"Simple C/C++ TBAA"}
 !10 = !{!"long", !8}
 !11 = !{!"double*", !"double*", !"long*"}
-!12 = !{double* null, double* null, i64* null}
+!12 = !{ptr null, ptr null, ptr null}
 !13 = !{!"double2*", !"double2*", !"long2*"}
-!14 = !{<2 x double>* null, <2 x double>* null, <2 x i64>* null}
+!14 = !{ptr null, ptr null, ptr null}
 !15 = !{!"double3*", !"double3*", !"long3*"}
-!16 = !{<3 x double>* null, <3 x double>* null, <3 x i64>* null}
+!16 = !{ptr null, ptr null, ptr null}
 !17 = !{!"double4*", !"double4*", !"long4*"}
-!18 = !{<4 x double>* null, <4 x double>* null, <4 x i64>* null}
+!18 = !{ptr null, ptr null, ptr null}
 !19 = !{!"double8*", !"double8*", !"long8*"}
-!20 = !{<8 x double>* null, <8 x double>* null, <8 x i64>* null}
+!20 = !{ptr null, ptr null, ptr null}
 !21 = !{!"double16*", !"double16*", !"long16*"}
-!22 = !{<16 x double>* null, <16 x double>* null, <16 x i64>* null}
+!22 = !{ptr null, ptr null, ptr null}
 
 ; DEBUGIFY-NOT: WARNING

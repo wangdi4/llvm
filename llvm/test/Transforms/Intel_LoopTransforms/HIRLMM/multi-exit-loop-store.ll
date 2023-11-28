@@ -1,5 +1,8 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lmm,print<hir>" -aa-pipeline="basic-aa"  < %s 2>&1 | FileCheck %s
 ;
+; This test case checks that HIR LMM couldn't be applied since there is a ref
+; to (@b[0]) before an early exit and doesn't dominates it.
+;
 ; [source code]
 ;int a, c, b;
 ;int main(){
@@ -51,40 +54,29 @@
 
 ;*** IR Dump After HIR Loop Memory Motion ***
 ;
-;CHECK:       BEGIN REGION { modified }
-;CHECK:                %limm = 0;
-;CHECK:             + DO i1 = 0, 3, 1   <DO_MULTI_EXIT_LOOP>
-;CHECK:             |   switch(%2)
-;CHECK:             |   {
-;CHECK:             |   case 7:
-;CHECK:             |      %limm = i1;
-;CHECK:             |      if (%0 == 0)
-;CHECK:             |      {
-;CHECK:             |         (@b)[0] = %limm;
-;CHECK:             |         goto cleanup;
-;CHECK:             |      }
-;CHECK:             |      break;
-;CHECK:             |   case 6:
-;CHECK:             |      if (i1 != 0)
-;CHECK:             |      {
-;CHECK:             |         (@b)[0] = %limm;
-;CHECK:             |      }
-;CHECK:             |      goto for.cond2.preheader;
-;CHECK:             |   default:
-;CHECK:             |      if (i1 != 0)
-;CHECK:             |      {
-;CHECK:             |         (@b)[0] = %limm;
-;CHECK:             |      }
-;CHECK:             |      goto cleanup;
-;CHECK:             |   }
-;CHECK:             |   %limm = %1;
-;CHECK:             |   %2 = %1;
-;CHECK:             |   %2 = %1;
-;CHECK:             + END LOOP
-;CHECK:                (@b)[0] = %limm;
-;CHECK:       END REGION
+; CHECK: BEGIN REGION { }
+; CHECK:       + DO i1 = 0, 3, 1   <DO_MULTI_EXIT_LOOP>
+; CHECK:       |   switch(%2)
+; CHECK:       |   {
+; CHECK:       |   case 7:
+; CHECK:       |      (@b)[0] = i1;
+; CHECK:       |      if (%0 == 0)
+; CHECK:       |      {
+; CHECK:       |         goto cleanup;
+; CHECK:       |      }
+; CHECK:       |      break;
+; CHECK:       |   case 6:
+; CHECK:       |      goto for.cond2.preheader;
+; CHECK:       |   default:
+; CHECK:       |      goto cleanup;
+; CHECK:       |   }
+; CHECK:       |   (@b)[0] = %1;
+; CHECK:       |   %2 = %1;
+; CHECK:       |   %2 = %1;
+; CHECK:       + END LOOP
+; CHECK: END REGION
 
-;[Note]
+;[Notes]
 ;
 ; Below is the produced HIR without the fix.
 ; Comparing with the properly generated code, this codegen is missing 2 conditions on line #109 and #112.
@@ -118,6 +110,40 @@
 ;                (@b)[0] = %limm;
 ;       END REGION
 
+; We can expand the analysis process to generate the following result.
+
+; BEGIN REGION { modified }
+;          %limm = 0;
+;       + DO i1 = 0, 3, 1   <DO_MULTI_EXIT_LOOP>
+;       |   switch(%2)
+;       |   {
+;       |   case 7:
+;       |      %limm = i1;
+;       |      if (%0 == 0)
+;       |      {
+;       |         (@b)[0] = %limm;
+;       |         goto cleanup;
+;       |      }
+;       |      break;
+;       |   case 6:
+;       |      if (i1 != 0)
+;       |      {
+;       |         (@b)[0] = %limm;
+;       |      }
+;       |      goto for.cond2.preheader;
+;       |   default:
+;       |      if (i1 != 0)
+;       |      {
+;       |         (@b)[0] = %limm;
+;       |      }
+;       |      goto cleanup;
+;       |   }
+;       |   %limm = %1;
+;       |   %2 = %1;
+;       |   %2 = %1;
+;       + END LOOP
+;          (@b)[0] = %limm;
+; END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

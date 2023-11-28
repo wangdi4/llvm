@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_DTRANS
 
 ; REQUIRES: intel_feature_sw_dtrans
-; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-types-07a.ll %S/Inputs/intel-merge-types-07b.ll %S/Inputs/intel-merge-types-07c.ll | FileCheck %s
+; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-module-verify -irmover-type-merging=false -S %S/Inputs/intel-merge-types-07a.ll %S/Inputs/intel-merge-types-07b.ll %S/Inputs/intel-merge-types-07c.ll | FileCheck %s
 
 ; This test case checks that the types from the module
 ; intel-merge-types-07a.ll and intel-merge-types-07c.ll were merged

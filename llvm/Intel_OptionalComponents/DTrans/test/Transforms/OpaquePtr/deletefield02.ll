@@ -1,6 +1,7 @@
 ; RUN: opt -whole-program-assume -intel-libirc-allowed -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
 ; This test verifies that the DTrans delete pass correctly transforms
 ; structures that have unused fields and meet the necessary safety conditions
@@ -15,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @main(i32 %argc, ptr "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !8 {
   ; Allocate two structures.
-  %p1 = call ptr @malloc(i64 16)
+  %p1 = call ptr @malloc(i64 24)
   %p2 = call ptr @malloc(i64 16)
 
   ; Call a helper function to store p_test in the other struct.

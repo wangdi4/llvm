@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,27 +14,24 @@
 
 #include "SATest.h"
 #include "Comparator.h"
-#include "SATestException.h"
-
+#include "ComparisonResults.h"
+#include "IComparisonResults.h"
 #include "IProgram.h"
 #include "IProgramRunner.h"
 #include "IRunResult.h"
 #include "IRunnerFactory.h"
-
-#include "ComparisonResults.h"
-#include "IComparisonResults.h"
 #include "OpenCLProgramConfiguration.h"
 #include "OpenCLRunConfiguration.h"
+#include "OpenCLStamp.h"
 #include "PerformancePrinter.h"
+#include "SATestException.h"
+#include "cl_env.h"
 
 #include <cassert>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <string>
-
-#include "OpenCLStamp.h"
-#include "cl_env.h"
 
 using namespace Validation;
 using std::string;

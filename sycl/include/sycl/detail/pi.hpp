@@ -13,17 +13,18 @@
 
 #pragma once
 
-#include <sycl/backend_types.hpp>
-#include <sycl/detail/export.hpp>
-#include <sycl/detail/os_util.hpp>
-#include <sycl/detail/pi.h>
+#include <sycl/backend_types.hpp>  // for backend
+#include <sycl/detail/export.hpp>  // for __SYCL_EXPORT
+#include <sycl/detail/os_util.hpp> // for __SYCL_RT_OS_LINUX
+#include <sycl/detail/pi.h>        // for piContextCreate, piContextGetInfo
 
-#include <cassert>
-#include <cstdint>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <vector>
+#include <cstdint>     // for uint64_t, uint32_t
+#include <memory>      // for shared_ptr
+#include <sstream>     // for operator<<, basic_ostream, string...
+#include <stddef.h>    // for size_t
+#include <string>      // for char_traits, string
+#include <type_traits> // for false_type, true_type
+#include <vector>      // for vector
 
 #ifdef XPTI_ENABLE_INSTRUMENTATION
 // Forward declarations
@@ -70,7 +71,7 @@ bool trace(TraceLevel level);
 #define __SYCL_LEVEL_ZERO_PLUGIN_NAME "pi_level_zero.dll"
 #define __SYCL_CUDA_PLUGIN_NAME "pi_cuda.dll"
 #define __SYCL_ESIMD_EMULATOR_PLUGIN_NAME "pi_esimd_emulator.dll"
-#define __SYCL_HIP_PLUGIN_NAME "libpi_hip.dll"
+#define __SYCL_HIP_PLUGIN_NAME "pi_hip.dll"
 #define __SYCL_UR_PLUGIN_NAME "pi_unified_runtime.dll"
 #define __SYCL_NATIVE_CPU_PLUGIN_NAME "pi_native_cpu.dll"
 #else

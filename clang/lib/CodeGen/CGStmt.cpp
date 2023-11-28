@@ -102,7 +102,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 #if INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   if (CGM.getLangOpts().OpenMPLateOutline && !useFrontEndOutlining(S)) {
-#else
+#else  // INTEL_CUSTOMIZATION
   if (CGM.getLangOpts().OpenMPLateOutline) {
 #endif // INTEL_CUSTOMIZATION
     // Handle reprocessing VLASizeMap expressions.
@@ -508,9 +508,9 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     llvm_unreachable("target variant dispatch not supported with FE outlining");
   case Stmt::OMPPrefetchDirectiveClass:
     llvm_unreachable("prefetch not supported with FE outlining");
+#endif // INTEL_COLLAB
   case Stmt::OMPScopeDirectiveClass:
     llvm_unreachable("scope not supported with FE outlining");
-#endif // INTEL_COLLAB
   case Stmt::OMPMaskedDirectiveClass:
     EmitOMPMaskedDirective(cast<OMPMaskedDirective>(*S));
     break;
@@ -1746,13 +1746,13 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
       RValue Result = EmitReferenceBindingToExpr(RV);
       Val = Result.getScalarVal();
     }
-#endif // INTEL_CUSTOMIZATION
     Builder.CreateStore(Val, ReturnValue);
+#endif // INTEL_CUSTOMIZATION
   } else {
     switch (getEvaluationKind(RV->getType())) {
     case TEK_Scalar:
-    {
 #if INTEL_CUSTOMIZATION
+    {
       llvm::Value *Val;
       const UnaryOperator *Exp = dyn_cast<UnaryOperator>(RV);
       if (getLangOpts().isIntelCompat(LangOptions::FakeLoad) &&
@@ -1761,10 +1761,10 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
         Val = EmitFakeLoadForRetPtr(Exp->getSubExpr());
       else
         Val = EmitScalarExpr(RV);
-#endif // INTEL_CUSTOMIZATION
       Builder.CreateStore(Val, ReturnValue);
       break;
     }
+#endif // INTEL_CUSTOMIZATION
     case TEK_Complex:
       EmitComplexExprIntoLValue(RV, MakeAddrLValue(ReturnValue, RV->getType()),
                                 /*isInit*/ true);
@@ -2601,15 +2601,9 @@ std::pair<llvm::Value*, llvm::Type *> CodeGenFunction::EmitAsmInputLValue(
         getTargetHooks().isScalarizableAsmOperand(*this, Ty)) {
       Ty = llvm::IntegerType::get(getLLVMContext(), Size);
 
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       return {
           Builder.CreateLoad(InputValue.getAddress(*this).withElementType(Ty)),
           nullptr};
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      return {Builder.CreateLoad(Builder.CreateElementBitCast(
-                  InputValue.getAddress(*this), Ty)),
-              nullptr};
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     }
   }
 
@@ -2809,12 +2803,7 @@ EmitAsmStores(CodeGenFunction &CGF, const AsmStmt &S,
     // ResultTypeRequiresCast.size() elements of RegResults.
     if ((i < ResultTypeRequiresCast.size()) && ResultTypeRequiresCast[i]) {
       unsigned Size = CGF.getContext().getTypeSize(ResultRegQualTys[i]);
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Address A = Dest.getAddress(CGF).withElementType(ResultRegTypes[i]);
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-      Address A =
-          Builder.CreateElementBitCast(Dest.getAddress(CGF), ResultRegTypes[i]);
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       if (CGF.getTargetHooks().isScalarizableAsmOperand(CGF, TruncTy)) {
         Builder.CreateStore(Tmp, A);
         continue;
@@ -2834,6 +2823,24 @@ EmitAsmStores(CodeGenFunction &CGF, const AsmStmt &S,
   }
 }
 
+static void EmitHipStdParUnsupportedAsm(CodeGenFunction *CGF,
+                                        const AsmStmt &S) {
+  constexpr auto Name = "__ASM__hipstdpar_unsupported";
+
+  StringRef Asm;
+  if (auto GCCAsm = dyn_cast<GCCAsmStmt>(&S))
+    Asm = GCCAsm->getAsmString()->getString();
+
+  auto &Ctx = CGF->CGM.getLLVMContext();
+
+  auto StrTy = llvm::ConstantDataArray::getString(Ctx, Asm);
+  auto FnTy = llvm::FunctionType::get(llvm::Type::getVoidTy(Ctx),
+                                      {StrTy->getType()}, false);
+  auto UBF = CGF->CGM.getModule().getOrInsertFunction(Name, FnTy);
+
+  CGF->Builder.CreateCall(UBF, {StrTy});
+}
+
 void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
   // Pop all cleanup blocks at the end of the asm statement.
   CodeGenFunction::RunCleanupsScope Cleanups(*this);
@@ -2845,26 +2852,37 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
   SmallVector<TargetInfo::ConstraintInfo, 4> OutputConstraintInfos;
   SmallVector<TargetInfo::ConstraintInfo, 4> InputConstraintInfos;
 
-  for (unsigned i = 0, e = S.getNumOutputs(); i != e; i++) {
+  bool IsHipStdPar = getLangOpts().HIPStdPar && getLangOpts().CUDAIsDevice;
+  bool IsValidTargetAsm = true;
+  for (unsigned i = 0, e = S.getNumOutputs(); i != e && IsValidTargetAsm; i++) {
     StringRef Name;
     if (const GCCAsmStmt *GAS = dyn_cast<GCCAsmStmt>(&S))
       Name = GAS->getOutputName(i);
     TargetInfo::ConstraintInfo Info(S.getOutputConstraint(i), Name);
     bool IsValid = getTarget().validateOutputConstraint(Info); (void)IsValid;
-    assert(IsValid && "Failed to parse output constraint");
+    if (IsHipStdPar && !IsValid)
+      IsValidTargetAsm = false;
+    else
+      assert(IsValid && "Failed to parse output constraint");
     OutputConstraintInfos.push_back(Info);
   }
 
-  for (unsigned i = 0, e = S.getNumInputs(); i != e; i++) {
+  for (unsigned i = 0, e = S.getNumInputs(); i != e && IsValidTargetAsm; i++) {
     StringRef Name;
     if (const GCCAsmStmt *GAS = dyn_cast<GCCAsmStmt>(&S))
       Name = GAS->getInputName(i);
     TargetInfo::ConstraintInfo Info(S.getInputConstraint(i), Name);
     bool IsValid =
       getTarget().validateInputConstraint(OutputConstraintInfos, Info);
-    assert(IsValid && "Failed to parse input constraint"); (void)IsValid;
+    if (IsHipStdPar && !IsValid)
+      IsValidTargetAsm = false;
+    else
+      assert(IsValid && "Failed to parse input constraint");
     InputConstraintInfos.push_back(Info);
   }
+
+  if (!IsValidTargetAsm)
+    return EmitHipStdParUnsupportedAsm(this, S);
 
   std::string Constraints;
 
@@ -2994,12 +3012,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
       // Otherwise there will be a mis-match if the matrix is also an
       // input-argument which is represented as vector.
       if (isa<MatrixType>(OutExpr->getType().getCanonicalType()))
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         DestAddr = DestAddr.withElementType(ConvertType(OutExpr->getType()));
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-        DestAddr = Builder.CreateElementBitCast(
-            DestAddr, ConvertType(OutExpr->getType()));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
       ArgTypes.push_back(DestAddr.getType());
       ArgElemTypes.push_back(DestAddr.getElementType());

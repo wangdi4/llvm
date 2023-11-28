@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -452,8 +452,8 @@ static BasicBlock *insertUniqueBackedgeBlock(Loop *L, BasicBlock *Preheader,
       PN->setIncomingBlock(0, PN->getIncomingBlock(PreheaderIdx));
     }
     // Nuke all entries except the zero'th.
-    for (unsigned i = 0, e = PN->getNumIncomingValues()-1; i != e; ++i)
-      PN->removeIncomingValue(e-i, false);
+    PN->removeIncomingValueIf([](unsigned Idx) { return Idx != 0; },
+                              /* DeletePHIIfEmpty */ false);
 
     // Finally, add the newly constructed PHI node as the entry for the BEBlock.
     PN->addIncoming(NewPN, BEBlock);
