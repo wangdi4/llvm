@@ -30,6 +30,8 @@
 ; CHECK-NEXT:       Lower constant intrinsics
 ; CHECK-NEXT:       Remove unreachable blocks from the CFG
 ; CHECK-NEXT:       Expand vector predication intrinsics
+; CHECK-NEXT:       Dominator Tree Construction
+; CHECK-NEXT:       Instruction Combine for X86 Target
 ; CHECK-NEXT:       Scalarize Masked Memory Intrinsics
 ; CHECK-NEXT:       Expand reduction intrinsics
 ; CHECK-NEXT:       Expand complex intrinsics ;INTEL
