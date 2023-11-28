@@ -32,7 +32,7 @@ namespace mlpgo {
 /* feature validation */
 /* enumerate common features */
 enum class SrcBBFeatures : unsigned {
-#define BR_SRC_BB_FEATURE(Name) Name,
+#define BR_SRC_BB_FEATURE(Type, Name) Name,
 #include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDesc.def"
 #undef BR_SRC_BB_FEATURE
   SrcBBFeaturesSize,
@@ -40,7 +40,7 @@ enum class SrcBBFeatures : unsigned {
 
 /* enumerate successor features */
 enum class SuccFeatures : unsigned {
-#define BR_SUCC_BB_FEATURE(Name) Name,
+#define BR_SUCC_BB_FEATURE(Type, Name) Name,
 #include "llvm/Transforms/Instrumentation/Intel_MLPGO/FeatureDesc.def"
 #undef BR_SUCC_BB_FEATURE
   SuccFeaturesSize,
