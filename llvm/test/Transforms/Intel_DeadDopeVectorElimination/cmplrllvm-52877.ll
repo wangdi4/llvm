@@ -20,5 +20,9 @@ bb:
 
 !omp_offload.info = !{}
 !llvm.module.flags = !{!0, !1}
+!ifx.types.dv = !{!2}
+
 !0 = !{i32 1, !"ThinLTO", i32 0}
 !1 = !{i32 1, !"EnableSplitLTOUnit", i32 1}
+!2 = !{%"QNCA_a0$float*$rank2$" zeroinitializer, float 0.000000e+00}
+

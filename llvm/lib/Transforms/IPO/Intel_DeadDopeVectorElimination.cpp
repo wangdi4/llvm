@@ -13,6 +13,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
+#include "llvm/Analysis/Intel_DopeVectorTypeAnalysis.h"
 #include "llvm/Analysis/Intel_OPAnalysisUtils.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Constants.h"
@@ -204,7 +205,7 @@ static void eraseValues(
 }
 
 static bool DeadDopeVectorEliminationPassImpl(
-    Module &M, WholeProgramInfo &WPInfo,
+    Module &M, WholeProgramInfo &WPInfo, DopeVectorTypeInfo &DVTI,
     std::function<const TargetLibraryInfo &(Function &)> &GetTLI,
     const std::function<const PostDominatorTree &(Function *)> &GetPDT) {
 
@@ -220,7 +221,7 @@ static bool DeadDopeVectorEliminationPassImpl(
   for (auto &G : M.globals()) {
     Type *GTy = G.getValueType();
 
-    if (!isDopeVectorType(GTy, DL))
+    if (!DVTI.isDopeVectorType(GTy))
       continue;
 
     GlobalDopeVector DV(&G, GTy, GetTLI);
@@ -252,6 +253,7 @@ static bool DeadDopeVectorEliminationPassImpl(
 PreservedAnalyses
 DeadDopeVectorEliminationPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+  auto &DVTI = AM.getResult<DopeVectorTypeAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   std::function<const TargetLibraryInfo &(Function &)> GetTLI =
       [&FAM](Function &F) -> TargetLibraryInfo & {
@@ -261,10 +263,11 @@ DeadDopeVectorEliminationPass::run(Module &M, ModuleAnalysisManager &AM) {
     return FAM.getResult<PostDominatorTreeAnalysis>(*F);
   };
 
-  if (!DeadDopeVectorEliminationPassImpl(M, WPInfo, GetTLI, GetPDT))
+  if (!DeadDopeVectorEliminationPassImpl(M, WPInfo, DVTI, GetTLI, GetPDT))
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
+  PA.preserve<DopeVectorTypeAnalysis>();
   return PA;
 }
