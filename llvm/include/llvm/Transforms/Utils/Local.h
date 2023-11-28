@@ -372,8 +372,6 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
     IsExact = R.isZero();
   }
 
-  Type *BasePtrTy = BasePtr->getType();
-
   if (IsExact && ConstStride) {
     // Emit offset in terms of elements. Avoids i8 bitcast overhead.
     Value *ElementOffset =
@@ -426,13 +424,6 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   /// bytes the pointer is casted to the ElTy* type.
 
   Type *I8Ty = Builder->getInt8Ty();
-  Type *I8PtrTy = Builder->getInt8PtrTy(BasePtrTy->getPointerAddressSpace());
-  Type *DestType = ElTy->getPointerTo(BasePtrTy->getPointerAddressSpace());
-  if (BasePtrTy->isVectorTy()) {
-    I8PtrTy = VectorType::get(I8PtrTy, cast<VectorType>(BasePtrTy));
-    DestType = VectorType::get(DestType, cast<VectorType>(BasePtrTy));
-  }
-
   Value *ByteOffset =
       emitBaseOffset(Builder, DL, nullptr, BasePtr, Lower, Index, Stride);
 
@@ -443,14 +434,11 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
     return BasePtr;
   }
 
-  Value *BasePtrI8 =
-      Builder->CreateBitCast(BasePtr, I8PtrTy);
-
   Value *NewBasePtr =
-      InBounds ? Builder->CreateInBoundsGEP(I8Ty, BasePtrI8, ByteOffset)
-               : Builder->CreateGEP(I8Ty, BasePtrI8, ByteOffset);
+      InBounds ? Builder->CreateInBoundsGEP(I8Ty, BasePtr, ByteOffset)
+               : Builder->CreateGEP(I8Ty, BasePtr, ByteOffset);
 
-  return Builder->CreateBitCast(NewBasePtr, DestType);
+  return NewBasePtr;
 }
 
 template <typename IRBuilderTy>
