@@ -48,6 +48,8 @@
 #define DEVICE_EXTERN_C DEVICE_EXTERNAL EXTERN_C
 #define DEVICE_EXTERN_C_INLINE                                                 \
   DEVICE_EXTERNAL EXTERN_C __attribute__((always_inline))
+#define DEVICE_EXTERN_C_NOINLINE                                               \
+  DEVICE_EXTERNAL EXTERN_C __attribute__((noinline))
 #if INTEL_COLLAB
 #if defined(OMP_LIBDEVICE)
 #define DEVICE_EXTERN_C_DECLSIMD_INLINE                                        \
