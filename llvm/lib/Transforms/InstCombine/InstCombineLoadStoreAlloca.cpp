@@ -807,7 +807,8 @@ static Instruction *unpackLoadToAggregate(InstCombinerImpl &IC, LoadInst &LI) {
 #if INTEL_CUSTOMIZATION
     // Delay lowering of dope vector loads and stores until DTrans has had
     // the chance to process them.
-    if (IC.preserveForDTrans() && llvm::dvanalysis::isDopeVectorType(T, DL))
+    if (IC.preserveForDTrans() && IC.getDVTI() &&
+        IC.getDVTI()->isDopeVectorType(T))
       return nullptr;
 #endif // INTEL_CUSTOMIZATION
     const auto Align = LI.getAlign();
@@ -1630,7 +1631,8 @@ static bool unpackStoreToAggregate(InstCombinerImpl &IC, StoreInst &SI) {
 #if INTEL_CUSTOMIZATION
     // Delay lowering of dope vector loads and stores until DTrans has had
     // the chance to process them.
-    if (IC.preserveForDTrans() && llvm::dvanalysis::isDopeVectorType(T, DL))
+    if (IC.preserveForDTrans() && IC.getDVTI() &&
+        IC.getDVTI()->isDopeVectorType(T))
       return false;
 #endif // INTEL_CUSTOMIZATION
 

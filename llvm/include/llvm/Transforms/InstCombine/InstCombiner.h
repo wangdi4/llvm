@@ -39,6 +39,7 @@
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Intel_DopeVectorTypeInfo.h" // INTEL
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/KnownBits.h"
@@ -136,6 +137,7 @@ protected:
   // Optional analyses. When non-null, these can both be used to do better
   // combining and will be updated to reflect any changes.
   LoopInfo *LI;
+  DopeVectorTypeInfo *DVTI; // INTEL
 
   bool MadeIRChange = false;
 
@@ -154,7 +156,8 @@ public:
                AssumptionCache &AC, TargetLibraryInfo &TLI,
                TargetTransformInfo &TTI, DominatorTree &DT,
                OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
-               ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
+               ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI,
+               DopeVectorTypeInfo *DVTI)
       : TTI(TTI), Builder(Builder), Worklist(Worklist),
         MinimizeSize(MinimizeSize), PreserveForDTrans(PreserveForDTrans),
         EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
@@ -163,7 +166,7 @@ public:
         EnableCanonicalizeSwap(EnableCanonicalizeSwap), AA(AA), AC(AC),
         TLI(TLI), DT(DT), DL(DL),
         SQ(DL, &TLI, &DT, &AC, nullptr, true, true, &TTI), ORE(ORE), BFI(BFI),
-        PSI(PSI), LI(LI) {
+        PSI(PSI), LI(LI), DVTI(DVTI) {
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -450,6 +453,7 @@ public:
   }
   BlockFrequencyInfo *getBlockFrequencyInfo() const { return BFI; }
   ProfileSummaryInfo *getProfileSummaryInfo() const { return PSI; }
+  DopeVectorTypeInfo *getDVTI() const { return DVTI; } // INTEL
   LoopInfo *getLoopInfo() const { return LI; }
   TargetTransformInfo &getTargetTransformInfo() const { return TTI; } // INTEL
 

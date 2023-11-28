@@ -35,6 +35,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_DopeVectorTypeAnalysis.h" // INTEL
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/IRBuilder.h"
@@ -93,11 +94,12 @@ public:
                    AAResults *AA, AssumptionCache &AC, TargetLibraryInfo &TLI,
                    TargetTransformInfo &TTI, DominatorTree &DT,
                    OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
-                   ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
+                   ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI,
+                   DopeVectorTypeInfo *DVTI)
       : InstCombiner(Worklist, Builder, MinimizeSize, PreserveForDTrans,
                      EnableFcmpMinMaxCombine, PreserveAddrCompute,
                      EnableUpCasting, EnableCanonicalizeSwap, AA, AC, TLI, TTI,
-                     DT, ORE, BFI, PSI, DL, LI) {
+                     DT, ORE, BFI, PSI, DL, LI, DVTI) {
   }
 #endif // INTEL_CUSTOMIZATION
 

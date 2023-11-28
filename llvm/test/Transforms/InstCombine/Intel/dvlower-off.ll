@@ -1,4 +1,4 @@
-; RUN: opt -passes=instcombine -instcombine-preserve-for-dtrans=true < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='require<dopevectortype>,instcombine' -instcombine-preserve-for-dtrans=true < %s -S 2>&1 | FileCheck %s
 
 ; Check that when -instcombine-preserve-for-dtrans=true, a dope vector store is NOT lowered into a series of field stores.
 
@@ -97,3 +97,6 @@ alloca_0:
   %func_result9 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr %"$io_ctx", i32 -1, i64 1239157112576, ptr %"(&)val$", ptr %argblock)
   ret void
 }
+
+!ifx.types.dv = !{!0}
+!0 = !{%"QNCA_a0$ptr$rank1$" zeroinitializer, ptr null}

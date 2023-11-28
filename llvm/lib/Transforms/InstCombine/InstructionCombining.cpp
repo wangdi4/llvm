@@ -5152,7 +5152,7 @@ static bool combineInstructionsOverFunction(
     ProfileSummaryInfo *PSI, unsigned MaxIterations, bool VerifyFixpoint,
     bool PreserveForDTrans, bool EnableFcmpMinMaxCombine,
     bool PreserveAddrCompute, bool EnableUpCasting, bool EnableCanonicalizeSwap,
-    LoopInfo *LI) {
+    LoopInfo *LI, DopeVectorTypeInfo *DVTI) {
 #endif // INTEL_CUSTOMIZATION
   auto &DL = F.getParent()->getDataLayout();
 
@@ -5207,7 +5207,7 @@ static bool combineInstructionsOverFunction(
     InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), PreserveForDTrans,
                         EnableFcmpMinMaxCombine, PreserveAddrCompute,
                         EnableUpCasting, EnableCanonicalizeSwap, AA, AC, TLI,
-                        TTI, DT, ORE, BFI, PSI, DL, LI);
+                        TTI, DT, ORE, BFI, PSI, DL, LI, DVTI);
     if (F.getParent()->getTargetTriple().find("86") != std::string::npos) {
       // TTI may not be fully initialized in internal lit-testing
       IC.HasAdvSSE42 = TTI.isAdvancedOptEnabled(
@@ -5279,20 +5279,19 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
   ProfileSummaryInfo *PSI =
       MAMProxy.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
+#if INTEL_CUSTOMIZATION
+  auto *DVTI = MAMProxy.getCachedResult<DopeVectorTypeAnalysis>(*F.getParent());
+#endif // INTEL_CUSTOMIZATION
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 
 #if INTEL_CUSTOMIZATION
-  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI,
-                                       DT, ORE, BFI, PSI,
-                                       Options.MaxIterations,
-                                       Options.VerifyFixpoint,
-                                       Options.PreserveForDTrans,
-                                       Options.EnableFcmpMinMaxCombine,
-                                       Options.PreserveAddrCompute,
-                                       Options.EnableUpCasting,
-                                       Options.EnableCanonicalizeSwap,
-                                       LI))
+  if (!combineInstructionsOverFunction(
+          F, Worklist, AA, AC, TLI, TTI, DT, ORE, BFI, PSI,
+          Options.MaxIterations, Options.VerifyFixpoint,
+          Options.PreserveForDTrans, Options.EnableFcmpMinMaxCombine,
+          Options.PreserveAddrCompute, Options.EnableUpCasting,
+          Options.EnableCanonicalizeSwap, LI, DVTI))
 #endif // INTEL_CUSTOMIZATION
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
@@ -5343,15 +5342,12 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
       nullptr;
 
 #if INTEL_CUSTOMIZATION
-  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI,
-                                         DT, ORE, BFI, PSI,
-                                         InstCombineDefaultMaxIterations,
-                                         /*VerifyFixpoint */ false,
-                                         PreserveForDTrans,
-                                         EnableFcmpMinMaxCombine,
-                                         PreserveAddrCompute,
-                                         EnableUpCasting,
-                                         EnableCanonicalizeSwap, LI);
+  return combineInstructionsOverFunction(
+      F, Worklist, AA, AC, TLI, TTI, DT, ORE, BFI, PSI,
+      InstCombineDefaultMaxIterations,
+      /*VerifyFixpoint */ false, PreserveForDTrans, EnableFcmpMinMaxCombine,
+      PreserveAddrCompute, EnableUpCasting, EnableCanonicalizeSwap, LI,
+      nullptr);
 #endif // INTEL_CUSTOMIZATION
 }
 
