@@ -228,6 +228,13 @@ public:
   static_assert(hasValidFPGAProperties,
                 "FPGA Interface properties (i.e. awidth, dwidth, etc.)"
                 "can only be set with BufferLocation together.");
+
+  // Disable alignment property as it is not supported in 2024.1
+  static constexpr bool hasAlignment =
+      detail::checkHasAlignment<Props...>::value;
+  static_assert(!hasAlignment, "The alignment property is not supported in "
+                               "annotated_ptr class in oneAPI 2024.1.");
+
   // check if conduit and register_map properties are specified together
   static constexpr bool hasConduitAndRegisterMapProperties =
       detail::checkHasConduitAndRegisterMap<Props...>::value;
