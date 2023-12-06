@@ -2413,6 +2413,7 @@ bool HIROptPredicate::processOptPredicate() {
     ConditionsAnalyzed++;
 
     HLLoop *ParentLoop = PilotIfOrSwitch->getParentLoop();
+    (void)ParentLoop;
     assert(ParentLoop && "Candidate should have a parent loop");
 
     LLVM_DEBUG(dbgs() << "Unswitching loop <" << ParentLoop->getNumber()
@@ -2482,7 +2483,11 @@ bool HIROptPredicate::processOptPredicate() {
       continue;
     }
 
-    HIRInvalidationUtils::invalidateBody(ParentLoop);
+    // We need to make sure that the body of the target loop is properly
+    // invalidated. The sibling loops of ParentLoop can be modified too.
+    // Invalidating the body of TargetLoop automatically invalidates the
+    // analyses for ParentLoop since they are nested.
+    HIRInvalidationUtils::invalidateLoopNestBody(TargetLoop);
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(TargetLoop);
 
     // If the loop is SIMD then do not extract the pre-header and post-exit
