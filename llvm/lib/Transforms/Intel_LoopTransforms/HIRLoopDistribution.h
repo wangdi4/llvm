@@ -55,6 +55,8 @@ enum class DistHeuristics : unsigned char {
 };
 
 typedef SmallVector<DDRef *, 8> DDRefList;
+typedef std::pair<DDRef *, unsigned> RefChunkPair;
+typedef SmallVector<RefChunkPair, 8> RefChunkList;
 typedef SmallVector<HLDDNode *, 12> HLDDNodeList;
 typedef SmallVector<PiBlock *, 4> PiBlockList;
 typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
@@ -155,7 +157,7 @@ struct ChunkVectorizationInfo {
 class ScalarExpansion {
 public:
   struct Candidate {
-    struct UseCand {
+    struct Use {
       DDRef *Ref;
       unsigned ChunkIdx;
       bool IsTempRedefined;
@@ -172,13 +174,14 @@ public:
     SmallDenseMap<HLLoop *, HLNode *> LoopUseInsertNode;
 
     // Map all prior chunk's defs to each use. Defs are referenced
-    // later to determine the correct place to load TmpUses.
-    SmallDenseMap<DDRef *, DDRefList> SCEXDefsForUse;
+    // later to determine the correct place to load Uses.
+    SmallDenseMap<DDRef *, RefChunkList> SCEXDefsForUse;
 
-    DDRefList TmpDefs;
-    SmallVector<UseCand, 8> TmpUses;
+    // TmpDefs store the Ref and unsigned ChunkIndex
+    RefChunkList TmpDefs;
+    SmallVector<Use, 8> TmpUses;
 
-    unsigned getSymbase() const { return TmpDefs.front()->getSymbase(); }
+    unsigned getSymbase() const { return TmpDefs.front().first->getSymbase(); }
 
     bool isTempRequired() const {
       return TmpDefs.size() != 1 || !SafeToRecompute;
@@ -186,14 +189,14 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     LLVM_DUMP_METHOD void dump() {
-      TmpDefs.front()->dump();
+      TmpDefs.front().first->dump();
 
       dbgs() << " (sb:" << getSymbase();
       dbgs() << ") (In/Out " << IsLiveIn;
       dbgs() << "/" << IsLiveOut;
       dbgs() << ") (";
       for (const auto &TmpDef : enumerate(TmpDefs)) {
-        dbgs() << TmpDef.value()->getHLDDNode()->getNumber();
+        dbgs() << TmpDef.value().first->getHLDDNode()->getNumber();
         if (TmpDef.index() != TmpDefs.size() - 1) {
           dbgs() << ",";
         }
@@ -210,7 +213,7 @@ public:
         dbgs() << " ( ";
 
         for (auto &Def : Entry.value().second) {
-          dbgs() << Def->getHLDDNode()->getNumber();
+          dbgs() << Def.first->getHLDDNode()->getNumber();
           dbgs() << " ";
         }
         dbgs() << "-> ";
@@ -309,7 +312,7 @@ private:
 
   // Create an assignment  temp = TEMP[i]
   void createTempArrayLoad(RegDDRef *TempArrayRef, HLNode *Node,
-                           Candidate::UseCand &TmpUse);
+                           Candidate::Use &TmpUse);
 
   static bool isTempRequiredPredicate(const Candidate &C) {
     return C.isTempRequired();
