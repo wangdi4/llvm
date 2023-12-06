@@ -40,3 +40,27 @@ void test_one() {
           }
   }
 }
+
+void test_two() {
+  int k,j,i,a;
+// CHECK: "DIR.OMP.TARGET"
+// HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr {{.*}}%.omp.{{.*}}.iv,
+// HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr {{.*}}%.omp.{{.*}}.lb,
+// HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr {{.*}}%.omp.{{.*}}.ub,
+// HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr {{.*}}%.omp.{{.*}}.iv7,
+// HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr {{.*}}%.omp.{{.*}}.lb1,
+// HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr {{.*}}%.omp.{{.*}}.ub2,
+// HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr {{.*}}%.omp.{{.*}}.iv8,
+// HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr {{.*}}%.omp.{{.*}}.lb3,
+// HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr {{.*}}%.omp.{{.*}}.ub4,
+// CHECK: "DIR.OMP.END.TARGET"
+#pragma omp metadirective when(user={condition(1)}: target teams distribute parallel for simd collapse(3)) when(user={condition(0)}: target teams distribute parallel for private(i) collapse(2)) default(target teams loop collapse(3))
+  for (k = 1; k <= 10; k++) {
+    for (j = 1; j <= 10; j++) {
+#pragma omp metadirective when(user={condition(0)}: simd) default()
+      for (i = 1; i <= 10; i++) {
+        a++;
+      }
+    }
+  }
+}

@@ -2909,6 +2909,20 @@ void OMPClausePrinter::VisitOMPXBareClause(OMPXBareClause *Node) {
   OS << "ompx_bare";
 }
 
+#if INTEL_CUSTOMIZATION
+bool OMPTraitInfo::SkipHoist() {
+  for (const OMPTraitSet &Set : Sets)
+    for (const OMPTraitSelector &Selector : Set.Selectors)
+      if ((Set.Kind == llvm::omp::TraitSet::device ||
+           Set.Kind == llvm::omp::TraitSet::implementation) &&
+          (Selector.Kind == llvm::omp::TraitSelector::implementation_vendor ||
+           Selector.Kind == llvm::omp::TraitSelector::device_arch ||
+           Selector.Kind == llvm::omp::TraitSelector::device_kind))
+        return true;
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void OMPTraitInfo::getAsVariantMatchInfo(ASTContext &ASTCtx,
                                          VariantMatchInfo &VMI) const {
   for (const OMPTraitSet &Set : Sets) {
