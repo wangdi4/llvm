@@ -374,7 +374,7 @@ bool FusionCandidate::canBeFusedInto(const FusionCandidate &C,
   auto *BBPreceding =
       OC->getRegion()->getParent()->getEntryBBlock()->getSingleSuccessor();
   while (BBPreceding && BBPreceding != AEntry) {
-    PrecedingBlocks.push_back(BBInterv);
+    PrecedingBlocks.push_back(BBPreceding);
     BBPreceding = BBPreceding->getSingleSuccessor();
   }
   PrecedingBlocks.push_back(AEntry);
