@@ -1,8 +1,7 @@
 ; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S -debug 2>&1 | FileCheck %s
 
-; The test is used to check the cmp instruction emitted for comparing right
-; boundary against left boundary is ICMP_SLE.
+; No early exit boundary is generated for ule comparison with non-const operand.
 
 ; CHECK: WGLoopBoundaries constant_kernel
 ; CHECK:   found 0 early exit boundaries
@@ -27,18 +26,15 @@ if.then:
   call void @foo(i64 %sext)
   br label %if.end
 
-; CHECK-LABEL: entry
-; CHECK: %new_lb = add i32 %lb, %conv
-; CHECK: %right_lt_left = icmp sle i32 %ub, %lb
-
 if.end:
   ret void
 }
+
+; CHECK-NOT: define [7 x i64] @WG.boundaries.constant_kernel
 
 !sycl.kernels = !{!0}
 
 !0 = !{ptr @constant_kernel}
 !1 = !{i1 true}
 
-; DEBUGIFY-COUNT-10: Instruction with empty DebugLoc in function constant_kernel
 ; DEBUGIFY-NOT: WARNING

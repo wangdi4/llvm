@@ -43,5 +43,4 @@ attributes #2 = { nounwind readnone }
 !0 = !{ptr @test}
 !1 = !{i1 true}
 
-; DEBUGIFY-COUNT-8: Instruction with empty DebugLoc in function test
 ; DEBUGIFY-NOT: WARNING

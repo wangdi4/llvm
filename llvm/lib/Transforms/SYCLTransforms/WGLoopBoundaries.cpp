@@ -1060,9 +1060,32 @@ bool WGLoopBoundariesImpl::traceBackBound(Value *V1, Value *V2,
       //   -a <= id           // in the unsigned case only
       //   id < (b - a)
       //
-      // In addition to that, we should make sure there were no unsigned integer
-      // overflow during the boundary computations, otherwise boundaries would
-      // be incorrect.
+      // We don't need to consider unsigned integer overflow during the boundary
+      // computation since obtainEEBoundaries function adjusts boundary into
+      // safe value, if upper.bound0.i is less than lower.bound0.i, loop size is
+      // less than 0, loop is not active.
+      //
+      //   %upper.bound0.i = llvm.umin.i64(%init.upper.bound0.i, b-a)
+      //   %lower.bound0.i = llvm.umax.i64(%base.gid0, -a)
+      //   %loop.size0.i = sub i64 %upper.bound0.i, %lower.bound0.i
+      //   %cmp = icmp sgt i64 %loop.size0.i, 0
+      //   br i1 %cmp, label %WGLoopsEntry, label %exit
+      //
+      // Note that only single interval loop boundary is supported. For unsigned
+      // comparison there can be two intervals, we need to filter it out. Here
+      // is an example that assumes global work group size is 20 and stores 1 in
+      // [0, 6) and [10, 20), however, we don't support generate 2 loop
+      // boundaries.
+      //
+      //     if (id - 6 < 4) {
+      //       return;
+      //     }
+      //     data[id] = 1;
+      //
+      // We don't generate early exit for following cases for unsigned
+      // computations:
+      // 1. comparison operand is not constant
+      // 2. comparison operand is constant, but there are two intervals.
       Tid = IsFirstOperandUniform ? TidInst->getOperand(1)
                                   : TidInst->getOperand(0);
       Value *LeftBound = IsFirstOperandUniform ? TidInst->getOperand(0)
@@ -1077,45 +1100,49 @@ bool WGLoopBoundariesImpl::traceBackBound(Value *V1, Value *V2,
 
       assert(Bound[0]->getType() == LeftBound->getType() &&
              "Types of left and right boundaries must match.");
-      // Compute right (upper) boundary for the id:
-      //   id < (b - a)
-      Value *RightBound = Bound[0];
-      if (!createRightBound(IsCmpSigned, Loc, Bound, LeftBound, OriginalTy,
+      if (IsCmpSigned &&
+          !createRightBound(IsCmpSigned, Loc, Bound, LeftBound, OriginalTy,
                             Tid->getType(), Instruction::Sub))
         return false;
       if (!IsCmpSigned) {
-        // Left bound is needed only is unsigned comparison.
-        Bound[1] = BinaryOperator::CreateNeg(LeftBound, "left_boundary",
+        auto *UniformValue = IsV1Uniform ? V1 : V2;
+        // Operands of cmp are not constants, return early.
+        if (!isa<ConstantInt>(UniformValue) || !isa<ConstantInt>(LeftBound)) {
+          Bound[0] = Bound[1] = nullptr;
+          return false;
+        }
+
+        // Operands of cmp are constants.
+        // Loop boundary is [-A, B - A), if -A is greater equal (B - A), there
+        // can be 2 intervals.
+        // Take following example, store 1 in interval [0, 6) and [10, 20).
+        //
+        // cpp source code:
+        //     if (id - 6 < 4) {
+        //       return;
+        //     }
+        //     data[id] = 1;
+        // IR:
+        //    %0 = tail call i64 @_Z13get_global_idj(i32 0)
+        //    %1 = add nsw i64 %0, -10
+        //    %cmp1.i.i = icmp ult i64 %1, -4
+        //    ; branch if.end.i store 1 in data[id]
+        //    br i1 %cmp1.i.i, label %if.end.i, label %_.exit
+        //
+        // [10, 6) is computation result, expected result is [10,
+        // work-group-size)+[0,6). Skip such cases.
+        auto A = cast<ConstantInt>(LeftBound)->getSExtValue();
+        auto B = cast<ConstantInt>(UniformValue)->getSExtValue();
+        if (-A >= B - A) {
+          Bound[0] = Bound[1] = nullptr;
+          return false;
+        }
+        // Right bound: id < b - a
+        Bound[0] = BinaryOperator::Create(Instruction::Sub, UniformValue,
+                                          LeftBound, "final_right_bound", Loc);
+        // Left bound: -a <= id
+        Bound[1] = BinaryOperator::CreateNeg(LeftBound, "final_left_bound",
                                              cast<Instruction>(Bound[0]));
-        Value *Zero = ConstantInt::get(Bound[1]->getType(), 0);
-        auto *Cmp = new ICmpInst(Loc, CmpInst::ICMP_SLT, Bound[1], Zero,
-                                 "left_lt_zero");
-        Bound[1] = SelectInst::Create(Cmp, Zero, Bound[1],
-                                      "non_negative_left_bound", Loc);
-        // Unsigned overflow is not allowed, i.e. result value must be
-        // non-negative, otherwise it will result in wrong boundary at unsigned
-        // comparison.
-        // If overflow has happened, right boundary is less than left boundary,
-        // so there are no WI to execute. Then we just set left bound to 1 and
-        // set right bound to 0.
-        assert(dyn_cast<CmpInst>(Loc) && "Expect CMP instruction for tid user");
-        CmpInst::Predicate CondPred = dyn_cast<CmpInst>(Loc)->isFalseWhenEqual()
-                                          ? CmpInst::ICMP_SLT
-                                          : CmpInst::ICMP_SLE;
-        auto *RightOverflowCheck =
-            new ICmpInst(Loc, CondPred, RightBound, LeftBound, "right_lt_left");
-        // If overflow has happened, right boundary should be set to 0.
-        Bound[0] = SelectInst::Create(RightOverflowCheck, Zero, Bound[0],
-                                      "final_right_bound", Loc);
-        // Compute left (lower) boundary for the id, if overflow has happended
-        // for right boundary computation, right boundary is set 0. To make
-        // left (lower) boundary greater than right (upper) boundary, set left
-        // boundary as right boundary value plus one.
-        auto *One = ConstantInt::get(Bound[0]->getType(), 1);
-        auto *LeftPlusOne = BinaryOperator::Create(
-            Instruction::Add, Bound[0], One, "left_after_overflow", Loc);
-        Bound[1] = SelectInst::Create(RightOverflowCheck, LeftPlusOne, Bound[1],
-                                      "final_left_bound", Loc);
       }
       break;
     }
