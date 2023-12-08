@@ -26,10 +26,10 @@ static const char assert_fmt[] =
  * This definition is from wrapper.h under libdevice.
  */
 extern "C" LLVM_BACKEND_API int
-__devicelib_assert_fail(const char *expr, const char *file, int32_t line,
-                        const char *func, uint64_t gid0, uint64_t gid1,
-                        uint64_t gid2, uint64_t lid0, uint64_t lid1,
-                        uint64_t lid2) {
+__devicelib_assert_fail_opencl(const char *expr, const char *file, int32_t line,
+                               const char *func, uint64_t gid0, uint64_t gid1,
+                               uint64_t gid2, uint64_t lid0, uint64_t lid1,
+                               uint64_t lid2) {
   // print out error message and then abort.
   fprintf(stderr, assert_fmt, file, line, func, gid0, gid1, gid2, lid0, lid1,
           lid2, expr);
@@ -42,4 +42,6 @@ __devicelib_assert_fail(const char *expr, const char *file, int32_t line,
  * This function is added to align with fallback implementation of assert.
  * For the direct support from backend, it's no-ops. we directly return.
  */
-extern "C" LLVM_BACKEND_API void __devicelib_assert_read(void *) { return; }
+extern "C" LLVM_BACKEND_API void __devicelib_assert_read_opencl(void *) {
+  return;
+}
