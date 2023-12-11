@@ -948,7 +948,7 @@ struct InternalInstruction {
   // Immediates.  There can be two in some cases
   uint8_t                       numImmediatesConsumed;
   uint8_t                       numImmediatesTranslated;
-  uint64_t                      immediates[2];
+  uint64_t                      immediates[3]; // INTEL
 
   // A register or immediate operand encoded into the opcode
   Reg                           opcodeRegister;
