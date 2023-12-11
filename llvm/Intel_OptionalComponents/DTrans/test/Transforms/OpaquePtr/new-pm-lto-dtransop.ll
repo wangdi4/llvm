@@ -50,7 +50,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: Running pass: dtransOP::MemInitTrimDownOPPass
 ; CHECK-NEXT: Running pass: dtransOP::SOAToAOSOPPreparePass
 ; CHECK-NEXT: Running pass: dtransOP::SOAToAOSOPPass
-; CHECK-NEXT: Running pass: dtransOP::MemManageTransOPPass
 ; CHECK-NEXT: Running pass: dtransOP::CodeAlignPass
 ; Note: Weak align uses the same pass for opaque and non-opaque pointers,
 ; so it is not in the dtransOP namespace.
