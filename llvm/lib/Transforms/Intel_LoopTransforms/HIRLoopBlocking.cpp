@@ -139,7 +139,6 @@ STATISTIC(LoopsBlockedByPragma, "Number of HIR loops blocked by pragma");
 static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
-
 static cl::opt<bool>
     DisablePragmaPass("disable-" OPT_SWITCH_PRAGMA, cl::init(false), cl::Hidden,
                       cl::desc("Disable " OPT_DESC_PRAGMA " pass"));
@@ -239,6 +238,11 @@ static cl::opt<bool>
     SkipAntiPatternCheck(OPT_SWITCH "-skip-anti-pattern-check", cl::init(false),
                          cl::Hidden,
                          cl::desc("Skip loop blocking's anti pattern check"));
+
+static cl::opt<unsigned> CandidateNumThreshold(OPT_SWITCH
+                                               "-candidate-num-threshold",
+                                               cl::init(8), cl::Hidden,
+                                               cl::desc(" "));
 
 static std::array<std::string, NUM_DIAGS> DiagMap = createDiagMap();
 
@@ -1435,7 +1439,7 @@ private:
     // Test post-processing
     unsigned NumTotalRefs = Refs.size() + 1;
     auto AdjustNumRefs = [NumTotalRefs](unsigned NumRefs) -> unsigned {
-      const float RefRatioThreshold = 0.20;
+      const float RefRatioThreshold = 0.2;
 
       float Ratio = NumRefs / (float)NumTotalRefs;
       if (Ratio >= RefRatioThreshold)
@@ -2386,8 +2390,9 @@ const HLLoop *getLoopForReferingInfoBeforePermutation(
   return LoopPermutation[getIndexForLoopVectors(Level, OutermostLoopLevel)];
 }
 
-struct HIRLoopBlocking {
+class HIRLoopBlocking {
 
+public:
   HIRFramework &HIRF;
   HIRDDAnalysis &HDDA;
   HIRSafeReductionAnalysis &SRA;
@@ -2492,6 +2497,47 @@ void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(NewOutermostLoop);
 }
 
+namespace {
+class BlockingInfo {
+public:
+  HLLoop *InnermostLoop;
+  HLLoop *OutermostLoop;
+  LoopMapTy LoopMap;
+
+  explicit BlockingInfo(HLLoop *Innermost, HLLoop *Outermost, LoopMapTy &LM)
+      : InnermostLoop(Innermost), OutermostLoop(Outermost), LoopMap(LM) {}
+};
+
+class NumCandsTracker {
+public:
+  unsigned Threshold;
+  unsigned Counter;
+
+  explicit NumCandsTracker(unsigned Threshold)
+      : Threshold(Threshold), Counter(0) {}
+
+  bool hasTooManyCands(const HLLoop *Innermost, const HLLoop *Outermost,
+                       const LoopMapTy &LoopMap) {
+
+    // Only consider loopnests with depth-2.
+    // Counter is increased by 2 because of depth being 2.
+    // It is more likely with depth 2, the number of demensions in memrefs
+    // is equal to or larger than 2. I.e. depth <= # dimensions.
+    // Originally, blocking was avoided as loop depth check explicitly.
+    // Now, the case is allowed, but avoided when there are two many such cases.
+    if (Innermost->getNestingLevel() - Outermost->getNestingLevel() >= 1 &&
+        LoopMap.size() >= 2) {
+      // Increase by 2 was chosen to be similar to # of hir-loop-blocking
+      // of -stats
+      Counter += 2;
+    }
+
+    return Counter >= Threshold;
+  }
+};
+
+} // namespace
+
 bool HIRLoopBlocking::run(bool ForPragma) {
 
   if (!TTI.isLibIRCAllowed()) {
@@ -2512,7 +2558,9 @@ bool HIRLoopBlocking::run(bool ForPragma) {
                     << SinkForMultiCopy << "\nAdvanced = " << Advanced
                     << "\n";);
 
-  bool Changed = false;
+  std::vector<BlockingInfo> BlockingInfoVec;
+  // unsigned NumLoopNestsBlockedInAFunction = 0;
+  NumCandsTracker NumCandsTk(CandidateNumThreshold);
   for (auto *InnermostLoop : InnermostLoops) {
 
     if (InnermostLoop->isBlocked()) {
@@ -2556,10 +2604,24 @@ bool HIRLoopBlocking::run(bool ForPragma) {
     if (!OutermostLoop)
       continue;
 
-    LLVM_DEBUG(dbgs() << "Loop to Block: \n");
-    LLVM_DEBUG(OutermostLoop->dump());
+    if (!ForPragma && !HasPragma &&
+        NumCandsTk.hasTooManyCands(InnermostLoop, OutermostLoop, LoopMap)) {
 
-    doTransformation(InnermostLoop, OutermostLoop, LoopMap,
+      LLVM_DEBUG(
+          dbgs() << "Too many loops to block in a function. BailOut. \n");
+      return false;
+    }
+
+    BlockingInfoVec.emplace_back(InnermostLoop, OutermostLoop, LoopMap);
+  }
+
+  bool Changed = false;
+  for (auto &Info : BlockingInfoVec) {
+
+    LLVM_DEBUG(dbgs() << "Loop to Block: \n");
+    LLVM_DEBUG(Info.OutermostLoop->dump());
+
+    doTransformation(Info.InnermostLoop, Info.OutermostLoop, Info.LoopMap,
                      ForPragma && HasPragma);
 
     Changed = true;
