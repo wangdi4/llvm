@@ -348,9 +348,6 @@ void getSubLoopFeatures(Loop *L, BrSrcBBFeturesT &SrcBBFeatures) {
   }
 
   SrcBBFeatures.srcTotalSubLoopBlockSize = sum;
-
-  assert(SrcBBFeatures.srcTotalSubLoopSize >= 0 &&
-         SrcBBFeatures.srcTotalSubLoopBlockSize >= 0);
 }
 
 void ValidfyLoopExitSize(BrSrcBBFeturesT &SrcBBFeatures,
@@ -736,8 +733,6 @@ std::optional<mlpgo::MLBrFeatureVec> ExtractInstFeatures(
     SmallVector<std::pair<BasicBlock *, BasicBlock *>, 4> ExitEdges;
     L->getExitEdges(ExitEdges);
     SrcBBFeatures.srcLoopExitEdgesSize = ExitEdges.size();
-
-    assert(SrcBBFeatures.srcLoopExitEdgesSize >= 0);
   }
 
   bool HasOneExitBranch =
