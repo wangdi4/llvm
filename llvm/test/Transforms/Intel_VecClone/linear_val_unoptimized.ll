@@ -2,17 +2,15 @@
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; Check code generated from VecClone for val vector variant for unoptimized LLVM
-; Stride should be initially stored to the arg memory so that subsequent users will
-; use the updated value.
+; Since val (reference) arguments are passed as vector, then VecClone can simply
+; get the current strided value from the pointer in the argument vector indexed
+; by the loop induction variable.
 
 ; Function Attrs: mustprogress noinline nounwind optnone uwtable
 define dso_local noundef i64 @_Z3fooRl(ptr noundef nonnull align 8 dereferenceable(8) %x) #0 {
 ;
 ; CHECK:  define dso_local noundef <8 x i64> @_ZGVbN8L2__Z3fooRl(<8 x ptr> noundef nonnull align 8 dereferenceable(8) [[X0:%.*]]) #1 {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[X_EXT0:%.*]] = extractelement <8 x ptr> [[X0]], i64 0
-; CHECK-NEXT:    [[ALLOCA_X_SCALAR0:%.*]] = alloca ptr, align 8
-; CHECK-NEXT:    store ptr [[X_EXT0]], ptr [[ALLOCA_X_SCALAR0]], align 8
 ; CHECK-NEXT:    [[VEC_X0:%.*]] = alloca <8 x ptr>, align 64
 ; CHECK-NEXT:    [[VEC_RETVAL0:%.*]] = alloca <8 x i64>, align 64
 ; CHECK-NEXT:    [[X_ADDR0:%.*]] = alloca ptr, align 8
@@ -20,23 +18,17 @@ define dso_local noundef i64 @_Z3fooRl(ptr noundef nonnull align 8 dereferenceab
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
-; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:TYPED.PTR_TO_PTR"(ptr [[ALLOCA_X_SCALAR0]], i8 0, i32 1, i32 2), "QUAL.OMP.PRIVATE:TYPED"(ptr [[X_ADDR0]], ptr null, i32 1) ]
+; CHECK-NEXT:    [[ENTRY_REGION0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.PRIVATE:TYPED"(ptr [[X_ADDR0]], ptr null, i32 1) ]
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.preheader:
-; CHECK-NEXT:    [[LOAD_ALLOCA_X_SCALAR0:%.*]] = load ptr, ptr [[ALLOCA_X_SCALAR0]], align 8
-; CHECK-NEXT:    [[INIT_VAL_LOAD_ALLOCA_X_SCALAR0:%.*]] = load i64, ptr [[LOAD_ALLOCA_X_SCALAR0]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.header:
 ; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
-; CHECK-NEXT:    store i64 [[INIT_VAL_LOAD_ALLOCA_X_SCALAR0]], ptr [[LOAD_ALLOCA_X_SCALAR0]], align 4
-; CHECK-NEXT:    [[LOAD_LOAD_ALLOCA_X_SCALAR0:%.*]] = load i64, ptr [[LOAD_ALLOCA_X_SCALAR0]], align 4
-; CHECK-NEXT:    [[PHI_CAST0:%.*]] = zext i32 [[INDEX0]] to i64
-; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i64 2, [[PHI_CAST0]]
-; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i64 [[LOAD_LOAD_ALLOCA_X_SCALAR0]], [[STRIDE_MUL0]]
-; CHECK-NEXT:    store i64 [[STRIDE_ADD0]], ptr [[LOAD_ALLOCA_X_SCALAR0]], align 4
-; CHECK-NEXT:    store ptr [[LOAD_ALLOCA_X_SCALAR0]], ptr [[X_ADDR0]], align 8
+; CHECK-NEXT:    [[VEC_X_GEP0:%.*]] = getelementptr ptr, ptr [[VEC_X0]], i32 [[INDEX0]]
+; CHECK-NEXT:    [[VEC_X_ELEM0:%.*]] = load ptr, ptr [[VEC_X_GEP0]], align 8
+; CHECK-NEXT:    store ptr [[VEC_X_ELEM0]], ptr [[X_ADDR0]], align 8
 ; CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[X_ADDR0]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i64, ptr [[TMP0]], align 8
 ; CHECK-NEXT:    [[ADD0:%.*]] = add nsw i64 [[TMP1]], 1

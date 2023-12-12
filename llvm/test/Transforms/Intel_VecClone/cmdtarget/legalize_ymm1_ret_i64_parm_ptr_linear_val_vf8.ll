@@ -13,9 +13,6 @@ define dso_local noundef i64 @_Z3fooRl(ptr nocapture noundef nonnull readonly al
 ; CHECK-LABEL: define dso_local x86_regcallcc noundef { <2 x i64>, <2 x i64>, <2 x i64>, <2 x i64> } @_ZGVyN8L2__Z3fooRl
 ; CHECK-SAME: (<2 x ptr> nocapture noundef nonnull readonly align 8 dereferenceable(8) [[X_0:%.*]], <2 x ptr> nocapture noundef nonnull readonly align 8 dereferenceable(8) [[X_1:%.*]], <2 x ptr> nocapture noundef nonnull readonly align 8 dereferenceable(8) [[X_2:%.*]], <2 x ptr> nocapture noundef nonnull readonly align 8 dereferenceable(8) [[X_3:%.*]]) local_unnamed_addr #[[ATTR0:[0-9]+]] {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[X_0_EXT:%.*]] = extractelement <2 x ptr> [[X_0]], i64 0
-; CHECK-NEXT:    [[ALLOCA_X_0_SCALAR:%.*]] = alloca ptr, align 8
-; CHECK-NEXT:    store ptr [[X_0_EXT]], ptr [[ALLOCA_X_0_SCALAR]], align 8
 ; CHECK-NEXT:    [[VEC_X:%.*]] = alloca <8 x ptr>, align 64
 ; CHECK-NEXT:    [[VEC_RETVAL:%.*]] = alloca <8 x i64>, align 64
 ; CHECK-NEXT:    [[VEC_X_GEP_0:%.*]] = getelementptr inbounds <2 x ptr>, ptr [[VEC_X]], i32 0

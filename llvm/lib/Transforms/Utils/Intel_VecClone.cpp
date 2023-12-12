@@ -901,9 +901,8 @@ VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
     }
     // Don't RAUW linear val arguments because they need to be handled in
     // processLinearArgs().
-    if (!Parm.isLinearVal())
-      updateVectorArgumentUses(Arg, OrigArg, ElemType, VecArg, Parm.Alignment,
-                               Phi);
+    updateVectorArgumentUses(Arg, OrigArg, ElemType, VecArg, Parm.Alignment,
+                             Phi);
   }
 
   // If the function returns void, then don't attempt to widen to vector.
@@ -1349,17 +1348,14 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
             generateStrideForArgument(ArgVal, I, User, StrideVal, Phi, Parm);
         User->setOperand(U.getOperandNo(), StrideInst);
       }
-    } else if (Parm.isLinearUVal() || Parm.isLinearVal()) {
+    } else if (Parm.isLinearUVal()) {
       // The following example shows the before/after LLVM of the linear uval
       // modifier transformation. The basic idea is that the stride calculation
       // must be added to the value loaded from the reference (pointer) arg.
       // In order to do this for all optimization levels, we keep track of any
       // loads from either the arg directly or through aliases (store/load of
       // the arg). In this example, %0 is the value for which stride must be
-      // applied. For the val reference modifier, the arg is passed via vector,
-      // but all values can be recreated from the value loaded from the pointer
-      // at lane 0 using the stride. After that is done, both uval/val follow
-      // the same code path.
+      // applied.
       //
       // Input LLVM for #pragma omp declare simd linear(val(k):2)
       //
@@ -1406,94 +1402,43 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
       // apply the stride.
 
       Value *ArgMemory = nullptr;
-      Value *ScalarArg = nullptr;
-      if (Parm.isLinearVal()) {
-        IRBuilder<> Builder(&*EntryBlock->begin());
-        Instruction *PreHeaderInsertPt = &*LoopPreHeader->begin();
-        // Linear reference val arguments are passed as vector, so extract the
-        // base ptr (elem 0) and create local memory for it. Then, replace all
-        // users of Arg with the load from this memory. Since this is a special
-        // case for linear arguments, we don't use getOrCreateArgMemory() for
-        // two reasons.
-        //
-        // 1) We don't want to clobber the extract that was just created since
-        //    it will use Arg.
-        // 2) We can't use RAUW because the argument has been widened and RAUW
-        //    will complain. See comment below.
-        auto *BasePtrExtract = Builder.CreateExtractElement(
-            Arg, (uint64_t)0, Arg->getName() + ".ext");
-        auto *ArgElemType = cast<VectorType>(Arg->getType())->getElementType();
-        assert(ArgElemType->isPointerTy() &&
-               "Vector of pointers expected as val arg type");
-        ArgMemory = Builder.CreateAlloca(
-            ArgElemType, nullptr, "alloca." + Arg->getName() + ".scalar");
-        Builder.CreateStore(BasePtrExtract, ArgMemory);
-        Builder.SetInsertPoint(PreHeaderInsertPt);
-        ScalarArg =
-            Builder.CreateLoad(cast<AllocaInst>(ArgMemory)->getAllocatedType(),
-                               ArgMemory, "load." + ArgMemory->getName());
-        for (auto &U : make_early_inc_range(Arg->uses())) {
-          auto *User = cast<Instruction>(U.getUser());
-          // Replace uses of Arg with the extracted base ptr. Be careful not to
-          // replace the newly created extract instruction. We only want to
-          // replace the uses in the loop.
-          if (User->getParent() != EntryBlock) {
-            // Note: we can't update users with RAUW because the argument has
-            // become vector and RAUW will complain if the value replaced has a
-            // different type than the new value. i.e., once the argument is
-            // widened in the function signature, it's type is reflected in all
-            // uses.
-            User->setOperand(U.getOperandNo(), ScalarArg);
-          }
-        }
-      } else {
-        assert(Arg->getType()->isPointerTy() &&
-               "Pointer type expected for linear uval arg.");
-        Value *ArgVal = nullptr;
-        getOrCreateArgMemory(*Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
-                             ArgVal, ArgMemory);
-        ScalarArg = ArgVal; // the load from the new arg memory
-      }
-
-      Type *ArgPtrElemType = getArgPointerElementType(Arg, ScalarArg);
-
-      if (Parm.isLinearUVal()) {
-        // The linear(uval()) parameter is a uniform scalar pointer. It points
-        // to a linear value, actually an initial scalar value. The vector
-        // value for it is calculated by formula: *p + step * {0,1,2,...VF-1}.
-        // The vector store to this pointer should not be executed. We need to
-        // re-direct that store to a fake memory. The openmp standard
-        // explicitly says that "the program must not depend on the value of
-        // the list item upon return from the procedure" and "the program must
-        // not depend on the storage of the argument in the procedure".
-        IRBuilder<> Builder(EntryBlock->getTerminator());
-        const unsigned VF = V.getVF();
-        auto *ArgPtrElemVectorType =
-            VectorType::get(ArgPtrElemType, VF, false);
-        // This generates fake vector memory for storing updated value
-        AllocaInst *ArgFakeAlloca = Builder.CreateAlloca(
-            ArgPtrElemVectorType,
-            ScalarArg->getType()->getPointerAddressSpace(), nullptr,
-            "alloca.fake." + Arg->getName());
-        Value *ScalarLoad = Builder.CreateLoad(
-            ArgPtrElemType,
-            Builder.CreateLoad(
-                cast<AllocaInst>(ArgMemory)->getAllocatedType(), ArgMemory,
-                "load." + Arg->getName()),
-            "load.elem." + Arg->getName());
-        Value *VectorValue = Builder.CreateVectorSplat(VF, ScalarLoad);
-        Builder.CreateStore(VectorValue, ArgFakeAlloca);
-        // Now insert new instructions into the loop
-        Builder.SetInsertPoint(LoopHeader->getFirstNonPHI());
-        Value *VecGep = Builder.CreateGEP(
-            ArgPtrElemType,
-            Builder.CreatePointerCast(ArgFakeAlloca,
-                                      ArgPtrElemType->getPointerTo()),
-            Phi, ArgFakeAlloca->getName() + ".gep");
-        // Replace all direct uses to fake vector memory
-        ScalarArg->replaceAllUsesWith(VecGep);
-        ScalarArg = VecGep;
-      }
+      assert(Arg->getType()->isPointerTy() &&
+             "Pointer type expected for linear uval arg.");
+      Value *ArgVal = nullptr;
+      getOrCreateArgMemory(*Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
+                           ArgVal, ArgMemory);
+      Type *ArgPtrElemType = getArgPointerElementType(Arg, ArgVal);
+      // The linear(uval()) parameter is a uniform scalar pointer. It points
+      // to a linear value, actually an initial scalar value. The vector
+      // value for it is calculated by formula: *p + step * {0,1,2,...VF-1}.
+      // The vector store to this pointer should not be executed. We need to
+      // re-direct that store to a fake memory. The openmp standard
+      // explicitly says that "the program must not depend on the value of
+      // the list item upon return from the procedure" and "the program must
+      // not depend on the storage of the argument in the procedure".
+      IRBuilder<> Builder(EntryBlock->getTerminator());
+      const unsigned VF = V.getVF();
+      auto *ArgPtrElemVectorType = VectorType::get(ArgPtrElemType, VF, false);
+      // This generates fake vector memory for storing updated value
+      AllocaInst *ArgFakeAlloca = Builder.CreateAlloca(
+          ArgPtrElemVectorType, ArgVal->getType()->getPointerAddressSpace(),
+          nullptr, "alloca.fake." + Arg->getName());
+      Value *ScalarLoad = Builder.CreateLoad(
+          ArgPtrElemType,
+          Builder.CreateLoad(cast<AllocaInst>(ArgMemory)->getAllocatedType(),
+                             ArgMemory, "load." + Arg->getName()),
+          "load.elem." + Arg->getName());
+      Value *VectorValue = Builder.CreateVectorSplat(VF, ScalarLoad);
+      Builder.CreateStore(VectorValue, ArgFakeAlloca);
+      // Now insert new instructions into the loop
+      Builder.SetInsertPoint(LoopHeader->getFirstNonPHI());
+      Value *VecGep =
+          Builder.CreateGEP(ArgPtrElemType,
+                            Builder.CreatePointerCast(
+                                ArgFakeAlloca, ArgPtrElemType->getPointerTo()),
+                            Phi, ArgFakeAlloca->getName() + ".gep");
+      // Replace all direct uses to fake vector memory
+      ArgVal->replaceAllUsesWith(VecGep);
 
       // Get the constant or variable stride value
       Value *StrideVal = nullptr;
@@ -1529,28 +1474,15 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
       // multiple times. Any subsquent loads/stores to/from this memory will
       // automatically get the updated value or update the value with the stride
       // already applied.
-      auto *InsertPt = &*++cast<Instruction>(ScalarArg)->getIterator();
-      IRBuilder<> Builder(InsertPt);
-      // Linear val args extract the first pointer from the vector of pointers
-      // and use that to load the value and add stride. Since the same memory
-      // location is used we need to store the initial value upon entry to the
-      // function to that memory location. Otherwise, the stride will continue
-      // to be accumulated incorrectly.
-      if (Parm.isLinearVal()) {
-        LoadInst *InitVal =
-            Builder.CreateLoad(ArgPtrElemType, ScalarArg,
-                               "init.val." + ScalarArg->getName());
-        Builder.SetInsertPoint(LoopHeader->getFirstNonPHI());
-        Builder.CreateStore(InitVal, ScalarArg);
-      }
-      LoadInst *ScalarArgValLoad =
-          Builder.CreateLoad(ArgPtrElemType, ScalarArg,
-                             "load." + ScalarArg->getName());
+      auto *InsertPt = &*++cast<Instruction>(VecGep)->getIterator();
+      Builder.SetInsertPoint(InsertPt);
+      LoadInst *ScalarArgValLoad = Builder.CreateLoad(
+          ArgPtrElemType, VecGep, "load." + VecGep->getName());
       Value *StrideInst =
           generateStrideForArgument(ScalarArgValLoad, I,
                                     &*++ScalarArgValLoad->getIterator(),
                                     StrideVal, Phi, Parm);
-      Builder.CreateStore(StrideInst, ScalarArg);
+      Builder.CreateStore(StrideInst, VecGep);
     }
     ArgIt = std::next(ArgIt, NumChunks);
   }
