@@ -19,6 +19,8 @@
 #include "task_group_with_reference.h"
 #include "tbb/task_group.h"
 
+extern thread_local bool WaitLock;
+
 namespace Intel {
 namespace OpenCL {
 namespace TaskExecutor {
@@ -147,6 +149,14 @@ public:
   template <typename F> void Spawn(const F &f);
 
   virtual void WaitForAll() override;
+
+  ~SpawningTaskGroup() {
+    if (WaitLock) {
+      assert(ref_count() == 1 &&
+             "The wait context of SpawningTaskGroup should be 1");
+      release_wait();
+    }
+  }
 
 private:
   SpawningTaskGroup(TEDevice *pDevice) : TaskGroupBase(pDevice) {}

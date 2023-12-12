@@ -22,6 +22,10 @@
 
 using namespace Intel::OpenCL::TaskExecutor;
 
+// This variable is used to avoid multiple wait operations on the same thread.
+// This is a W/A for OOO WaitForIdle.
+thread_local bool WaitLock = false;
+
 TbbTaskGroup::~TbbTaskGroup() {
   try {
     m_tskGrp.reset();
@@ -211,9 +215,21 @@ private:
 };
 
 void out_of_order_command_list::WaitForIdle() {
-  // we wait here for 2 things separately: commands and execution tasks
-  TaskGroupWaiter waiter(m_oooTaskGroup, m_taskGroup.GetPtr());
-  m_device->Execute(waiter);
+  // If this function is called multiple times in the same thread, this may
+  // cause dead lock. This can only happen if user creates two out of order
+  // queues, enqueues a command into the first one and immediately release the
+  // queue, then enqueues another command into the second one and wait for
+  // finish. We don't know why wait for second queue to finish will cause TBB to
+  // execute the tasks of first queue. This is not what we expected.
+  // TODO: Figure out why above problem should happen. If there are some defects
+  // in our out of order queue implementation, we may need to refine it.
+  if (!WaitLock) {
+    WaitLock = true;
+    // we wait here for 2 things separately: commands and execution tasks
+    TaskGroupWaiter waiter(m_oooTaskGroup, m_taskGroup.GetPtr());
+    m_device->Execute(waiter);
+    WaitLock = false;
+  }
 }
 
 void out_of_order_command_list::Spawn(
