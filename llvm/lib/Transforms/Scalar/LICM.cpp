@@ -142,6 +142,14 @@ static cl::opt<bool>
 static cl::opt<bool>
     DisableLICM("disable-licm", cl::Hidden, cl::init(false),
                 cl::desc("Disable LICM completely, for debugging."));
+
+// FIXME: For now, Rematerialize is not able to move back some hoisted
+// loads of global value due to lack of AliasAnalysis. This option should be
+// removed after fixing in Register Allocation.
+// Relate Jira: CMPLRLLVM-51523
+static cl::opt<bool>
+    DisableGlobalHoist("disable-licm-global-hoist", cl::Hidden, cl::init(false),
+                       cl::desc("Disable LICM global value hoisting"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> ControlFlowHoisting(
@@ -968,6 +976,10 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
       // TODO: It may be safe to hoist if we are hoisting to a conditional block
       // and we have accurately duplicated the control flow from the loop header
       // to that block.
+      if (DisableGlobalHoist)
+        if (LoadInst *LI = dyn_cast<LoadInst>(&I))
+          if (GlobalVariable *GV = dyn_cast<GlobalVariable>(LI->getOperand(0)))
+            continue;
       if (CurLoop->hasLoopInvariantOperands(&I) &&
           canSinkOrHoistInst(I, AA, DT, CurLoop, MSSAU, true, Flags, ORE) &&
           isSafeToExecuteUnconditionally(
