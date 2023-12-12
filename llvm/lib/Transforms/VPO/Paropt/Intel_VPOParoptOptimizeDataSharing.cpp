@@ -826,7 +826,7 @@ bool VPOParoptTransform::optimizeDataSharingForReductionItems(
       continue;
 
     LLVM_DEBUG(dbgs() << "REDUCTION optimizable items:\n";
-               for (auto OI
+               for (auto &OI
                     : OptimizableItems) dbgs()
                << *OI.first << "\n");
 
