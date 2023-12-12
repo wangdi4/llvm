@@ -639,12 +639,8 @@ MemDepResult MemoryDependenceResults::getSimplePointerDependencyFrom(
         return MemDepResult::getDef(Inst);
       if (isInvariantLoad)
         continue;
-#if !INTEL_CUSTOMIZATION
-      // CMPLRPTA-2404: Skip this for now . This is breaking intel opt for
-      // SPEC2k17, 623 deg -70%
       if (canSkipClobberingStore(SI, MemLoc, MemLocAlign, BatchAA, *Limit))
         continue;
-#endif // !INTEL_CUSTOMIZATION
       return MemDepResult::getClobber(Inst);
     }
 
