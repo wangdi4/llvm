@@ -2061,4 +2061,990 @@ entry:
   ret <4 x double> %b
 }
 
+@base = dso_local local_unnamed_addr global i8* null, align 8
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x i64> @m1s4p32i32v4(<2 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p32i32v4(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i64> [[TMP0:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <4 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> [[TMP4]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> zeroinitializer)
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <4 x i32> [[TMP5]] to <2 x i64>
+; CHECK-NEXT:    ret <2 x i64> [[TMP6]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <2 x i64> %0 to <4 x i32>
+  %4 = tail call <4 x i32> @llvm.x86.avx512.mask.gather3siv4.si(<4 x i32> zeroinitializer, i8* %2, <4 x i32> %3, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, i32 4)
+  %5 = bitcast <4 x i32> %4 to <2 x i64>
+  ret <2 x i64> %5
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <4 x i32> @llvm.x86.avx512.mask.gather3siv4.si(<4 x i32>, i8*, <4 x i32>, <4 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x i64> @mvs4p32i32v4(<2 x i64> noundef %0, i8 noundef zeroext %1, <2 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p32i32v4(
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <2 x i64> [[TMP0:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP5:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <2 x i64> [[TMP2:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <8 x i1> [[TMP7]], <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, ptr [[TMP5]], <4 x i32> [[TMP6]]
+; CHECK-NEXT:    [[TMP10:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> [[TMP9]], i32 1, <4 x i1> [[TMP8]], <4 x i32> [[TMP4]])
+; CHECK-NEXT:    [[TMP11:%.*]] = bitcast <4 x i32> [[TMP10]] to <2 x i64>
+; CHECK-NEXT:    ret <2 x i64> [[TMP11]]
+;
+  %4 = bitcast <2 x i64> %0 to <4 x i32>
+  %5 = load i8*, i8** @base, align 8
+  %6 = bitcast <2 x i64> %2 to <4 x i32>
+  %7 = bitcast i8 %1 to <8 x i1>
+  %8 = shufflevector <8 x i1> %7, <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %9 = tail call <4 x i32> @llvm.x86.avx512.mask.gather3siv4.si(<4 x i32> %4, i8* %5, <4 x i32> %6, <4 x i1> %8, i32 4)
+  %10 = bitcast <4 x i32> %9 to <2 x i64>
+  ret <2 x i64> %10
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x i64> @m1s4p32i32v8(<4 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p32i32v8(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i64> [[TMP0:%.*]] to <8 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <8 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> [[TMP4]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> zeroinitializer)
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <8 x i32> [[TMP5]] to <4 x i64>
+; CHECK-NEXT:    ret <4 x i64> [[TMP6]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <4 x i64> %0 to <8 x i32>
+  %4 = tail call <8 x i32> @llvm.x86.avx512.mask.gather3siv8.si(<8 x i32> zeroinitializer, i8* %2, <8 x i32> %3, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
+  %5 = bitcast <8 x i32> %4 to <4 x i64>
+  ret <4 x i64> %5
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <8 x i32> @llvm.x86.avx512.mask.gather3siv8.si(<8 x i32>, i8*, <8 x i32>, <8 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x i64> @mvs4p32i32v8(<4 x i64> noundef %0, i8 noundef zeroext %1, <4 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p32i32v8(
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <4 x i64> [[TMP0:%.*]] to <8 x i32>
+; CHECK-NEXT:    [[TMP5:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <4 x i64> [[TMP2:%.*]] to <8 x i32>
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, ptr [[TMP5]], <8 x i32> [[TMP6]]
+; CHECK-NEXT:    [[TMP9:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> [[TMP8]], i32 1, <8 x i1> [[TMP7]], <8 x i32> [[TMP4]])
+; CHECK-NEXT:    [[TMP10:%.*]] = bitcast <8 x i32> [[TMP9]] to <4 x i64>
+; CHECK-NEXT:    ret <4 x i64> [[TMP10]]
+;
+  %4 = bitcast <4 x i64> %0 to <8 x i32>
+  %5 = load i8*, i8** @base, align 8
+  %6 = bitcast <4 x i64> %2 to <8 x i32>
+  %7 = bitcast i8 %1 to <8 x i1>
+  %8 = tail call <8 x i32> @llvm.x86.avx512.mask.gather3siv8.si(<8 x i32> %4, i8* %5, <8 x i32> %6, <8 x i1> %7, i32 4)
+  %9 = bitcast <8 x i32> %8 to <4 x i64>
+  ret <4 x i64> %9
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x i64> @m0s4p32i32v16(<8 x i64> noundef %0) {
+; CHECK-LABEL: @m0s4p32i32v16(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <8 x i64> [[TMP0:%.*]] to <16 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <16 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> [[TMP4]], i32 1, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x i32> zeroinitializer)
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <16 x i32> [[TMP5]] to <8 x i64>
+; CHECK-NEXT:    ret <8 x i64> [[TMP6]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <8 x i64> %0 to <16 x i32>
+  %4 = tail call <16 x i32> @llvm.x86.avx512.mask.gather.dpi.512(<16 x i32> zeroinitializer, i8* %2, <16 x i32> %3, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
+  %5 = bitcast <16 x i32> %4 to <8 x i64>
+  ret <8 x i64> %5
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <16 x i32> @llvm.x86.avx512.mask.gather.dpi.512(<16 x i32>, i8*, <16 x i32>, <16 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x i64> @m1s4p32i32v16(<8 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p32i32v16(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <8 x i64> [[TMP0:%.*]] to <16 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <16 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> [[TMP4]], i32 1, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x i32> zeroinitializer)
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <16 x i32> [[TMP5]] to <8 x i64>
+; CHECK-NEXT:    ret <8 x i64> [[TMP6]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <8 x i64> %0 to <16 x i32>
+  %4 = tail call <16 x i32> @llvm.x86.avx512.mask.gather.dpi.512(<16 x i32> zeroinitializer, i8* %2, <16 x i32> %3, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
+  %5 = bitcast <16 x i32> %4 to <8 x i64>
+  ret <8 x i64> %5
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x i64> @mvs4p32i32v16(<8 x i64> noundef %0, i16 noundef zeroext %1, <8 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p32i32v16(
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <8 x i64> [[TMP0:%.*]] to <16 x i32>
+; CHECK-NEXT:    [[TMP5:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <8 x i64> [[TMP2:%.*]] to <16 x i32>
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i16 [[TMP1:%.*]] to <16 x i1>
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, ptr [[TMP5]], <16 x i32> [[TMP6]]
+; CHECK-NEXT:    [[TMP9:%.*]] = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> [[TMP8]], i32 1, <16 x i1> [[TMP7]], <16 x i32> [[TMP4]])
+; CHECK-NEXT:    [[TMP10:%.*]] = bitcast <16 x i32> [[TMP9]] to <8 x i64>
+; CHECK-NEXT:    ret <8 x i64> [[TMP10]]
+;
+  %4 = bitcast <8 x i64> %0 to <16 x i32>
+  %5 = load i8*, i8** @base, align 8
+  %6 = bitcast <8 x i64> %2 to <16 x i32>
+  %7 = bitcast i16 %1 to <16 x i1>
+  %8 = tail call <16 x i32> @llvm.x86.avx512.mask.gather.dpi.512(<16 x i32> %4, i8* %5, <16 x i32> %6, <16 x i1> %7, i32 4)
+  %9 = bitcast <16 x i32> %8 to <8 x i64>
+  ret <8 x i64> %9
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x float> @m1s4p32f32v4(<2 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p32f32v4(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i64> [[TMP0:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <4 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <4 x float> @llvm.masked.gather.v4f32.v4p0(<4 x ptr> [[TMP4]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x float> zeroinitializer)
+; CHECK-NEXT:    ret <4 x float> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <2 x i64> %0 to <4 x i32>
+  %4 = tail call <4 x float> @llvm.x86.avx512.mask.gather3siv4.sf(<4 x float> zeroinitializer, i8* %2, <4 x i32> %3, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, i32 4)
+  ret <4 x float> %4
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <4 x float> @llvm.x86.avx512.mask.gather3siv4.sf(<4 x float>, i8*, <4 x i32>, <4 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x float> @mvs4p32f32v4(<4 x float> noundef %0, i8 noundef zeroext %1, <2 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p32f32v4(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i64> [[TMP2:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <8 x i1> [[TMP6]], <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, ptr [[TMP4]], <4 x i32> [[TMP5]]
+; CHECK-NEXT:    [[TMP9:%.*]] = call <4 x float> @llvm.masked.gather.v4f32.v4p0(<4 x ptr> [[TMP8]], i32 1, <4 x i1> [[TMP7]], <4 x float> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <4 x float> [[TMP9]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast <2 x i64> %2 to <4 x i32>
+  %6 = bitcast i8 %1 to <8 x i1>
+  %7 = shufflevector <8 x i1> %6, <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %8 = tail call <4 x float> @llvm.x86.avx512.mask.gather3siv4.sf(<4 x float> %0, i8* %4, <4 x i32> %5, <4 x i1> %7, i32 4)
+  ret <4 x float> %8
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x float> @m1s4p32f32v8(<4 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p32f32v8(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i64> [[TMP0:%.*]] to <8 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <8 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP4]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> zeroinitializer)
+; CHECK-NEXT:    ret <8 x float> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <4 x i64> %0 to <8 x i32>
+  %4 = tail call <8 x float> @llvm.x86.avx512.mask.gather3siv8.sf(<8 x float> zeroinitializer, i8* %2, <8 x i32> %3, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
+  ret <8 x float> %4
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <8 x float> @llvm.x86.avx512.mask.gather3siv8.sf(<8 x float>, i8*, <8 x i32>, <8 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x float> @mvs4p32f32v8(<8 x float> noundef %0, i8 noundef zeroext %1, <4 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p32f32v8(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <4 x i64> [[TMP2:%.*]] to <8 x i32>
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, ptr [[TMP4]], <8 x i32> [[TMP5]]
+; CHECK-NEXT:    [[TMP8:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP7]], i32 1, <8 x i1> [[TMP6]], <8 x float> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <8 x float> [[TMP8]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast <4 x i64> %2 to <8 x i32>
+  %6 = bitcast i8 %1 to <8 x i1>
+  %7 = tail call <8 x float> @llvm.x86.avx512.mask.gather3siv8.sf(<8 x float> %0, i8* %4, <8 x i32> %5, <8 x i1> %6, i32 4)
+  ret <8 x float> %7
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <16 x float> @m0s4p32f32v16(<8 x i64> noundef %0) {
+; CHECK-LABEL: @m0s4p32f32v16(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <8 x i64> [[TMP0:%.*]] to <16 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <16 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <16 x float> @llvm.masked.gather.v16f32.v16p0(<16 x ptr> [[TMP4]], i32 1, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x float> zeroinitializer)
+; CHECK-NEXT:    ret <16 x float> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <8 x i64> %0 to <16 x i32>
+  %4 = tail call <16 x float> @llvm.x86.avx512.mask.gather.dps.512(<16 x float> zeroinitializer, i8* %2, <16 x i32> %3, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
+  ret <16 x float> %4
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <16 x float> @llvm.x86.avx512.mask.gather.dps.512(<16 x float>, i8*, <16 x i32>, <16 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <16 x float> @m1s4p32f32v16(<8 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p32f32v16(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <8 x i64> [[TMP0:%.*]] to <16 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <16 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <16 x float> @llvm.masked.gather.v16f32.v16p0(<16 x ptr> [[TMP4]], i32 1, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x float> zeroinitializer)
+; CHECK-NEXT:    ret <16 x float> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <8 x i64> %0 to <16 x i32>
+  %4 = tail call <16 x float> @llvm.x86.avx512.mask.gather.dps.512(<16 x float> zeroinitializer, i8* %2, <16 x i32> %3, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
+  ret <16 x float> %4
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <16 x float> @mvs4p32f32v16(<16 x float> noundef %0, i16 noundef zeroext %1, <8 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p32f32v16(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <8 x i64> [[TMP2:%.*]] to <16 x i32>
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i16 [[TMP1:%.*]] to <16 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, ptr [[TMP4]], <16 x i32> [[TMP5]]
+; CHECK-NEXT:    [[TMP8:%.*]] = call <16 x float> @llvm.masked.gather.v16f32.v16p0(<16 x ptr> [[TMP7]], i32 1, <16 x i1> [[TMP6]], <16 x float> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <16 x float> [[TMP8]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast <8 x i64> %2 to <16 x i32>
+  %6 = bitcast i16 %1 to <16 x i1>
+  %7 = tail call <16 x float> @llvm.x86.avx512.mask.gather.dps.512(<16 x float> %0, i8* %4, <16 x i32> %5, <16 x i1> %6, i32 4)
+  ret <16 x float> %7
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x i64> @m1s8p32i64v2(<2 x i64> noundef %0) {
+; CHECK-LABEL: @m1s8p32i64v2(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i64> [[TMP0:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <2 x i32> [[TMP4]]
+; CHECK-NEXT:    [[TMP6:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> [[TMP5]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x i64> zeroinitializer)
+; CHECK-NEXT:    ret <2 x i64> [[TMP6]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <2 x i64> %0 to <4 x i32>
+  %4 = tail call <2 x i64> @llvm.x86.avx512.mask.gather3siv2.di(<2 x i64> zeroinitializer, i8* %2, <4 x i32> %3, <2 x i1> <i1 true, i1 true>, i32 8)
+  ret <2 x i64> %4
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <2 x i64> @llvm.x86.avx512.mask.gather3siv2.di(<2 x i64>, i8*, <4 x i32>, <2 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x i64> @mvs8p32i64v2(<2 x i64> noundef %0, i8 noundef zeroext %1, <2 x i64> noundef %2) {
+; CHECK-LABEL: @mvs8p32i64v2(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i64> [[TMP2:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <8 x i1> [[TMP6]], <8 x i1> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32> [[TMP5]], <4 x i32> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i64, ptr [[TMP4]], <2 x i32> [[TMP8]]
+; CHECK-NEXT:    [[TMP10:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> [[TMP9]], i32 1, <2 x i1> [[TMP7]], <2 x i64> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <2 x i64> [[TMP10]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast <2 x i64> %2 to <4 x i32>
+  %6 = bitcast i8 %1 to <8 x i1>
+  %7 = shufflevector <8 x i1> %6, <8 x i1> poison, <2 x i32> <i32 0, i32 1>
+  %8 = tail call <2 x i64> @llvm.x86.avx512.mask.gather3siv2.di(<2 x i64> %0, i8* %4, <4 x i32> %5, <2 x i1> %7, i32 8)
+  ret <2 x i64> %8
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x i64> @m1s8p32i64v4(<2 x i64> noundef %0) {
+; CHECK-LABEL: @m1s8p32i64v4(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i64> [[TMP0:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <4 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> [[TMP4]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> zeroinitializer)
+; CHECK-NEXT:    ret <4 x i64> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <2 x i64> %0 to <4 x i32>
+  %4 = tail call <4 x i64> @llvm.x86.avx512.mask.gather3siv4.di(<4 x i64> zeroinitializer, i8* %2, <4 x i32> %3, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, i32 8)
+  ret <4 x i64> %4
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <4 x i64> @llvm.x86.avx512.mask.gather3siv4.di(<4 x i64>, i8*, <4 x i32>, <4 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x i64> @mvs8p32i64v4(<4 x i64> noundef %0, i8 noundef zeroext %1, <2 x i64> noundef %2) {
+; CHECK-LABEL: @mvs8p32i64v4(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i64> [[TMP2:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <8 x i1> [[TMP6]], <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i64, ptr [[TMP4]], <4 x i32> [[TMP5]]
+; CHECK-NEXT:    [[TMP9:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> [[TMP8]], i32 1, <4 x i1> [[TMP7]], <4 x i64> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <4 x i64> [[TMP9]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast <2 x i64> %2 to <4 x i32>
+  %6 = bitcast i8 %1 to <8 x i1>
+  %7 = shufflevector <8 x i1> %6, <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %8 = tail call <4 x i64> @llvm.x86.avx512.mask.gather3siv4.di(<4 x i64> %0, i8* %4, <4 x i32> %5, <4 x i1> %7, i32 8)
+  ret <4 x i64> %8
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x i64> @m0s8p32i64v8(<4 x i64> noundef %0) {
+; CHECK-LABEL: @m0s8p32i64v8(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i64> [[TMP0:%.*]] to <8 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <8 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <8 x i64> @llvm.masked.gather.v8i64.v8p0(<8 x ptr> [[TMP4]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i64> zeroinitializer)
+; CHECK-NEXT:    ret <8 x i64> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <4 x i64> %0 to <8 x i32>
+  %4 = tail call <8 x i64> @llvm.x86.avx512.mask.gather.dpq.512(<8 x i64> zeroinitializer, i8* %2, <8 x i32> %3, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 8)
+  ret <8 x i64> %4
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <8 x i64> @llvm.x86.avx512.mask.gather.dpq.512(<8 x i64>, i8*, <8 x i32>, <8 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x i64> @m1s8p32i64v8(<4 x i64> noundef %0) {
+; CHECK-LABEL: @m1s8p32i64v8(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i64> [[TMP0:%.*]] to <8 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <8 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <8 x i64> @llvm.masked.gather.v8i64.v8p0(<8 x ptr> [[TMP4]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i64> zeroinitializer)
+; CHECK-NEXT:    ret <8 x i64> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <4 x i64> %0 to <8 x i32>
+  %4 = tail call <8 x i64> @llvm.x86.avx512.mask.gather.dpq.512(<8 x i64> zeroinitializer, i8* %2, <8 x i32> %3, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 8)
+  ret <8 x i64> %4
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x i64> @mvs8p32i64v8(<8 x i64> noundef %0, i8 noundef zeroext %1, <4 x i64> noundef %2) {
+; CHECK-LABEL: @mvs8p32i64v8(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <4 x i64> [[TMP2:%.*]] to <8 x i32>
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i64, ptr [[TMP4]], <8 x i32> [[TMP5]]
+; CHECK-NEXT:    [[TMP8:%.*]] = call <8 x i64> @llvm.masked.gather.v8i64.v8p0(<8 x ptr> [[TMP7]], i32 1, <8 x i1> [[TMP6]], <8 x i64> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <8 x i64> [[TMP8]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast <4 x i64> %2 to <8 x i32>
+  %6 = bitcast i8 %1 to <8 x i1>
+  %7 = tail call <8 x i64> @llvm.x86.avx512.mask.gather.dpq.512(<8 x i64> %0, i8* %4, <8 x i32> %5, <8 x i1> %6, i32 8)
+  ret <8 x i64> %7
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x double> @m1s8p32f64v2(<2 x i64> noundef %0) {
+; CHECK-LABEL: @m1s8p32f64v2(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i64> [[TMP0:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <2 x i32> [[TMP4]]
+; CHECK-NEXT:    [[TMP6:%.*]] = call <2 x double> @llvm.masked.gather.v2f64.v2p0(<2 x ptr> [[TMP5]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x double> zeroinitializer)
+; CHECK-NEXT:    ret <2 x double> [[TMP6]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <2 x i64> %0 to <4 x i32>
+  %4 = tail call <2 x double> @llvm.x86.avx512.mask.gather3siv2.df(<2 x double> zeroinitializer, i8* %2, <4 x i32> %3, <2 x i1> <i1 true, i1 true>, i32 8)
+  ret <2 x double> %4
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <2 x double> @llvm.x86.avx512.mask.gather3siv2.df(<2 x double>, i8*, <4 x i32>, <2 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x double> @mvs8p32f64v2(<2 x double> noundef %0, i8 noundef zeroext %1, <2 x i64> noundef %2) {
+; CHECK-LABEL: @mvs8p32f64v2(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i64> [[TMP2:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <8 x i1> [[TMP6]], <8 x i1> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32> [[TMP5]], <4 x i32> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i64, ptr [[TMP4]], <2 x i32> [[TMP8]]
+; CHECK-NEXT:    [[TMP10:%.*]] = call <2 x double> @llvm.masked.gather.v2f64.v2p0(<2 x ptr> [[TMP9]], i32 1, <2 x i1> [[TMP7]], <2 x double> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <2 x double> [[TMP10]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast <2 x i64> %2 to <4 x i32>
+  %6 = bitcast i8 %1 to <8 x i1>
+  %7 = shufflevector <8 x i1> %6, <8 x i1> poison, <2 x i32> <i32 0, i32 1>
+  %8 = tail call <2 x double> @llvm.x86.avx512.mask.gather3siv2.df(<2 x double> %0, i8* %4, <4 x i32> %5, <2 x i1> %7, i32 8)
+  ret <2 x double> %8
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x double> @m1s8p32f64v4(<2 x i64> noundef %0) {
+; CHECK-LABEL: @m1s8p32f64v4(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i64> [[TMP0:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <4 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <4 x double> @llvm.masked.gather.v4f64.v4p0(<4 x ptr> [[TMP4]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x double> zeroinitializer)
+; CHECK-NEXT:    ret <4 x double> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <2 x i64> %0 to <4 x i32>
+  %4 = tail call <4 x double> @llvm.x86.avx512.mask.gather3siv4.df(<4 x double> zeroinitializer, i8* %2, <4 x i32> %3, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, i32 8)
+  ret <4 x double> %4
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <4 x double> @llvm.x86.avx512.mask.gather3siv4.df(<4 x double>, i8*, <4 x i32>, <4 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x double> @mvs8p32f64v4(<4 x double> noundef %0, i8 noundef zeroext %1, <2 x i64> noundef %2) {
+; CHECK-LABEL: @mvs8p32f64v4(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i64> [[TMP2:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <8 x i1> [[TMP6]], <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i64, ptr [[TMP4]], <4 x i32> [[TMP5]]
+; CHECK-NEXT:    [[TMP9:%.*]] = call <4 x double> @llvm.masked.gather.v4f64.v4p0(<4 x ptr> [[TMP8]], i32 1, <4 x i1> [[TMP7]], <4 x double> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <4 x double> [[TMP9]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast <2 x i64> %2 to <4 x i32>
+  %6 = bitcast i8 %1 to <8 x i1>
+  %7 = shufflevector <8 x i1> %6, <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %8 = tail call <4 x double> @llvm.x86.avx512.mask.gather3siv4.df(<4 x double> %0, i8* %4, <4 x i32> %5, <4 x i1> %7, i32 8)
+  ret <4 x double> %8
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x double> @m0s8p32f64v8(<4 x i64> noundef %0) {
+; CHECK-LABEL: @m0s8p32f64v8(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i64> [[TMP0:%.*]] to <8 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <8 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <8 x double> @llvm.masked.gather.v8f64.v8p0(<8 x ptr> [[TMP4]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x double> zeroinitializer)
+; CHECK-NEXT:    ret <8 x double> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <4 x i64> %0 to <8 x i32>
+  %4 = tail call <8 x double> @llvm.x86.avx512.mask.gather.dpd.512(<8 x double> zeroinitializer, i8* %2, <8 x i32> %3, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 8)
+  ret <8 x double> %4
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <8 x double> @llvm.x86.avx512.mask.gather.dpd.512(<8 x double>, i8*, <8 x i32>, <8 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x double> @m1s8p32f64v8(<4 x i64> noundef %0) {
+; CHECK-LABEL: @m1s8p32f64v8(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i64> [[TMP0:%.*]] to <8 x i32>
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <8 x i32> [[TMP3]]
+; CHECK-NEXT:    [[TMP5:%.*]] = call <8 x double> @llvm.masked.gather.v8f64.v8p0(<8 x ptr> [[TMP4]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x double> zeroinitializer)
+; CHECK-NEXT:    ret <8 x double> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = bitcast <4 x i64> %0 to <8 x i32>
+  %4 = tail call <8 x double> @llvm.x86.avx512.mask.gather.dpd.512(<8 x double> zeroinitializer, i8* %2, <8 x i32> %3, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 8)
+  ret <8 x double> %4
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x double> @mvs8p32f64v8(<8 x double> noundef %0, i8 noundef zeroext %1, <4 x i64> noundef %2) {
+; CHECK-LABEL: @mvs8p32f64v8(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <4 x i64> [[TMP2:%.*]] to <8 x i32>
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i64, ptr [[TMP4]], <8 x i32> [[TMP5]]
+; CHECK-NEXT:    [[TMP8:%.*]] = call <8 x double> @llvm.masked.gather.v8f64.v8p0(<8 x ptr> [[TMP7]], i32 1, <8 x i1> [[TMP6]], <8 x double> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <8 x double> [[TMP8]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast <4 x i64> %2 to <8 x i32>
+  %6 = bitcast i8 %1 to <8 x i1>
+  %7 = tail call <8 x double> @llvm.x86.avx512.mask.gather.dpd.512(<8 x double> %0, i8* %4, <8 x i32> %5, <8 x i1> %6, i32 8)
+  ret <8 x double> %7
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x i64> @m1s4p64i32v2(<2 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p64i32v2(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <2 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0(<2 x ptr> [[TMP3]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x i32> zeroinitializer)
+; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <2 x i32> [[TMP4]], <2 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <4 x i32> [[TMP5]] to <2 x i64>
+; CHECK-NEXT:    ret <2 x i64> [[TMP6]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <4 x i32> @llvm.x86.avx512.mask.gather3div4.si(<4 x i32> zeroinitializer, i8* %2, <2 x i64> %0, <2 x i1> <i1 true, i1 true>, i32 4)
+  %4 = bitcast <4 x i32> %3 to <2 x i64>
+  ret <2 x i64> %4
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <4 x i32> @llvm.x86.avx512.mask.gather3div4.si(<4 x i32>, i8*, <2 x i64>, <2 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x i64> @mvs4p64i32v2(<2 x i64> noundef %0, i8 noundef zeroext %1, <2 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p64i32v2(
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <2 x i64> [[TMP0:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP5:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <8 x i1> [[TMP6]], <8 x i1> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <2 x i1> [[TMP7]], <2 x i1> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP9:%.*]] = shufflevector <4 x i32> [[TMP4]], <4 x i32> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP10:%.*]] = getelementptr inbounds i32, ptr [[TMP5]], <2 x i64> [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP11:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0(<2 x ptr> [[TMP10]], i32 1, <2 x i1> [[TMP8]], <2 x i32> [[TMP9]])
+; CHECK-NEXT:    [[TMP12:%.*]] = shufflevector <2 x i32> [[TMP11]], <2 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
+; CHECK-NEXT:    [[TMP13:%.*]] = bitcast <4 x i32> [[TMP12]] to <2 x i64>
+; CHECK-NEXT:    ret <2 x i64> [[TMP13]]
+;
+  %4 = bitcast <2 x i64> %0 to <4 x i32>
+  %5 = load i8*, i8** @base, align 8
+  %6 = bitcast i8 %1 to <8 x i1>
+  %7 = shufflevector <8 x i1> %6, <8 x i1> poison, <2 x i32> <i32 0, i32 1>
+  %8 = tail call <4 x i32> @llvm.x86.avx512.mask.gather3div4.si(<4 x i32> %4, i8* %5, <2 x i64> %2, <2 x i1> %7, i32 4)
+  %9 = bitcast <4 x i32> %8 to <2 x i64>
+  ret <2 x i64> %9
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x i64> @m1s4p64i32v4(<4 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p64i32v4(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <4 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> [[TMP3]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> zeroinitializer)
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <4 x i32> [[TMP4]] to <2 x i64>
+; CHECK-NEXT:    ret <2 x i64> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <4 x i32> @llvm.x86.avx512.mask.gather3div8.si(<4 x i32> zeroinitializer, i8* %2, <4 x i64> %0, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, i32 4)
+  %4 = bitcast <4 x i32> %3 to <2 x i64>
+  ret <2 x i64> %4
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <4 x i32> @llvm.x86.avx512.mask.gather3div8.si(<4 x i32>, i8*, <4 x i64>, <4 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x i64> @mvs4p64i32v4(<2 x i64> noundef %0, i8 noundef zeroext %1, <4 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p64i32v4(
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <2 x i64> [[TMP0:%.*]] to <4 x i32>
+; CHECK-NEXT:    [[TMP5:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <8 x i1> [[TMP6]], <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, ptr [[TMP5]], <4 x i64> [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP9:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> [[TMP8]], i32 1, <4 x i1> [[TMP7]], <4 x i32> [[TMP4]])
+; CHECK-NEXT:    [[TMP10:%.*]] = bitcast <4 x i32> [[TMP9]] to <2 x i64>
+; CHECK-NEXT:    ret <2 x i64> [[TMP10]]
+;
+  %4 = bitcast <2 x i64> %0 to <4 x i32>
+  %5 = load i8*, i8** @base, align 8
+  %6 = bitcast i8 %1 to <8 x i1>
+  %7 = shufflevector <8 x i1> %6, <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %8 = tail call <4 x i32> @llvm.x86.avx512.mask.gather3div8.si(<4 x i32> %4, i8* %5, <4 x i64> %2, <4 x i1> %7, i32 4)
+  %9 = bitcast <4 x i32> %8 to <2 x i64>
+  ret <2 x i64> %9
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x i64> @m0s4p64i32v8(<8 x i64> noundef %0) {
+; CHECK-LABEL: @m0s4p64i32v8(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <8 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> [[TMP3]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> zeroinitializer)
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <8 x i32> [[TMP4]] to <4 x i64>
+; CHECK-NEXT:    ret <4 x i64> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <8 x i32> @llvm.x86.avx512.mask.gather.qpi.512(<8 x i32> zeroinitializer, i8* %2, <8 x i64> %0, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
+  %4 = bitcast <8 x i32> %3 to <4 x i64>
+  ret <4 x i64> %4
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <8 x i32> @llvm.x86.avx512.mask.gather.qpi.512(<8 x i32>, i8*, <8 x i64>, <8 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x i64> @m1s4p64i32v8(<8 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p64i32v8(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <8 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> [[TMP3]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> zeroinitializer)
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <8 x i32> [[TMP4]] to <4 x i64>
+; CHECK-NEXT:    ret <4 x i64> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <8 x i32> @llvm.x86.avx512.mask.gather.qpi.512(<8 x i32> zeroinitializer, i8* %2, <8 x i64> %0, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
+  %4 = bitcast <8 x i32> %3 to <4 x i64>
+  ret <4 x i64> %4
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x i64> @mvs4p64i32v8(<4 x i64> noundef %0, i8 noundef zeroext %1, <8 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p64i32v8(
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <4 x i64> [[TMP0:%.*]] to <8 x i32>
+; CHECK-NEXT:    [[TMP5:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, ptr [[TMP5]], <8 x i64> [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP8:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> [[TMP7]], i32 1, <8 x i1> [[TMP6]], <8 x i32> [[TMP4]])
+; CHECK-NEXT:    [[TMP9:%.*]] = bitcast <8 x i32> [[TMP8]] to <4 x i64>
+; CHECK-NEXT:    ret <4 x i64> [[TMP9]]
+;
+  %4 = bitcast <4 x i64> %0 to <8 x i32>
+  %5 = load i8*, i8** @base, align 8
+  %6 = bitcast i8 %1 to <8 x i1>
+  %7 = tail call <8 x i32> @llvm.x86.avx512.mask.gather.qpi.512(<8 x i32> %4, i8* %5, <8 x i64> %2, <8 x i1> %6, i32 4)
+  %8 = bitcast <8 x i32> %7 to <4 x i64>
+  ret <4 x i64> %8
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x float> @m1s4p64f32v2(<2 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p64f32v2(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <2 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <2 x float> @llvm.masked.gather.v2f32.v2p0(<2 x ptr> [[TMP3]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x float> zeroinitializer)
+; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <2 x float> [[TMP4]], <2 x float> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
+; CHECK-NEXT:    ret <4 x float> [[TMP5]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <4 x float> @llvm.x86.avx512.mask.gather3div4.sf(<4 x float> zeroinitializer, i8* %2, <2 x i64> %0, <2 x i1> <i1 true, i1 true>, i32 4)
+  ret <4 x float> %3
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <4 x float> @llvm.x86.avx512.mask.gather3div4.sf(<4 x float>, i8*, <2 x i64>, <2 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x float> @mvs4p64f32v2(<4 x float> noundef %0, i8 noundef zeroext %1, <2 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p64f32v2(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <8 x i1> [[TMP5]], <8 x i1> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <2 x i1> [[TMP6]], <2 x i1> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <4 x float> [[TMP0:%.*]], <4 x float> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, ptr [[TMP4]], <2 x i64> [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP10:%.*]] = call <2 x float> @llvm.masked.gather.v2f32.v2p0(<2 x ptr> [[TMP9]], i32 1, <2 x i1> [[TMP7]], <2 x float> [[TMP8]])
+; CHECK-NEXT:    [[TMP11:%.*]] = shufflevector <2 x float> [[TMP10]], <2 x float> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
+; CHECK-NEXT:    ret <4 x float> [[TMP11]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast i8 %1 to <8 x i1>
+  %6 = shufflevector <8 x i1> %5, <8 x i1> poison, <2 x i32> <i32 0, i32 1>
+  %7 = tail call <4 x float> @llvm.x86.avx512.mask.gather3div4.sf(<4 x float> %0, i8* %4, <2 x i64> %2, <2 x i1> %6, i32 4)
+  ret <4 x float> %7
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x float> @m1s4p64f32v4(<4 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p64f32v4(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <4 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x float> @llvm.masked.gather.v4f32.v4p0(<4 x ptr> [[TMP3]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x float> zeroinitializer)
+; CHECK-NEXT:    ret <4 x float> [[TMP4]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <4 x float> @llvm.x86.avx512.mask.gather3div8.sf(<4 x float> zeroinitializer, i8* %2, <4 x i64> %0, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, i32 4)
+  ret <4 x float> %3
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <4 x float> @llvm.x86.avx512.mask.gather3div8.sf(<4 x float>, i8*, <4 x i64>, <4 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x float> @mvs4p64f32v4(<4 x float> noundef %0, i8 noundef zeroext %1, <4 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p64f32v4(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <8 x i1> [[TMP5]], <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, ptr [[TMP4]], <4 x i64> [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP8:%.*]] = call <4 x float> @llvm.masked.gather.v4f32.v4p0(<4 x ptr> [[TMP7]], i32 1, <4 x i1> [[TMP6]], <4 x float> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <4 x float> [[TMP8]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast i8 %1 to <8 x i1>
+  %6 = shufflevector <8 x i1> %5, <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %7 = tail call <4 x float> @llvm.x86.avx512.mask.gather3div8.sf(<4 x float> %0, i8* %4, <4 x i64> %2, <4 x i1> %6, i32 4)
+  ret <4 x float> %7
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x float> @m0s4p64f32v8(<8 x i64> noundef %0) {
+; CHECK-LABEL: @m0s4p64f32v8(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <8 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP3]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> zeroinitializer)
+; CHECK-NEXT:    ret <8 x float> [[TMP4]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <8 x float> @llvm.x86.avx512.mask.gather.qps.512(<8 x float> zeroinitializer, i8* %2, <8 x i64> %0, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
+  ret <8 x float> %3
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <8 x float> @llvm.x86.avx512.mask.gather.qps.512(<8 x float>, i8*, <8 x i64>, <8 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x float> @m1s4p64f32v8(<8 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p64f32v8(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], <8 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP3]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> zeroinitializer)
+; CHECK-NEXT:    ret <8 x float> [[TMP4]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <8 x float> @llvm.x86.avx512.mask.gather.qps.512(<8 x float> zeroinitializer, i8* %2, <8 x i64> %0, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 4)
+  ret <8 x float> %3
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x float> @mvs4p64f32v8(<8 x float> noundef %0, i8 noundef zeroext %1, <8 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p64f32v8(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i32, ptr [[TMP4]], <8 x i64> [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP7:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP6]], i32 1, <8 x i1> [[TMP5]], <8 x float> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <8 x float> [[TMP7]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast i8 %1 to <8 x i1>
+  %6 = tail call <8 x float> @llvm.x86.avx512.mask.gather.qps.512(<8 x float> %0, i8* %4, <8 x i64> %2, <8 x i1> %5, i32 4)
+  ret <8 x float> %6
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x i64> @m1s4p64i64v4(<2 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p64i64v4(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <2 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> [[TMP3]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x i64> zeroinitializer)
+; CHECK-NEXT:    ret <2 x i64> [[TMP4]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <2 x i64> @llvm.x86.avx512.mask.gather3div2.di(<2 x i64> zeroinitializer, i8* %2, <2 x i64> %0, <2 x i1> <i1 true, i1 true>, i32 8)
+  ret <2 x i64> %3
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <2 x i64> @llvm.x86.avx512.mask.gather3div2.di(<2 x i64>, i8*, <2 x i64>, <2 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x i64> @mvs4p64i64v4(<2 x i64> noundef %0, i8 noundef zeroext %1, <2 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p64i64v4(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <8 x i1> [[TMP5]], <8 x i1> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i64, ptr [[TMP4]], <2 x i64> [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP8:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> [[TMP7]], i32 1, <2 x i1> [[TMP6]], <2 x i64> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <2 x i64> [[TMP8]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast i8 %1 to <8 x i1>
+  %6 = shufflevector <8 x i1> %5, <8 x i1> poison, <2 x i32> <i32 0, i32 1>
+  %7 = tail call <2 x i64> @llvm.x86.avx512.mask.gather3div2.di(<2 x i64> %0, i8* %4, <2 x i64> %2, <2 x i1> %6, i32 8)
+  ret <2 x i64> %7
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x i64> @m1s4p64i64v8(<4 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p64i64v8(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <4 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> [[TMP3]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> zeroinitializer)
+; CHECK-NEXT:    ret <4 x i64> [[TMP4]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <4 x i64> @llvm.x86.avx512.mask.gather3div4.di(<4 x i64> zeroinitializer, i8* %2, <4 x i64> %0, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, i32 8)
+  ret <4 x i64> %3
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <4 x i64> @llvm.x86.avx512.mask.gather3div4.di(<4 x i64>, i8*, <4 x i64>, <4 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x i64> @mvs4p64i64v8(<4 x i64> noundef %0, i8 noundef zeroext %1, <4 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p64i64v8(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <8 x i1> [[TMP5]], <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i64, ptr [[TMP4]], <4 x i64> [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP8:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> [[TMP7]], i32 1, <4 x i1> [[TMP6]], <4 x i64> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <4 x i64> [[TMP8]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast i8 %1 to <8 x i1>
+  %6 = shufflevector <8 x i1> %5, <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %7 = tail call <4 x i64> @llvm.x86.avx512.mask.gather3div4.di(<4 x i64> %0, i8* %4, <4 x i64> %2, <4 x i1> %6, i32 8)
+  ret <4 x i64> %7
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x i64> @m0s4p64i64v16(<8 x i64> noundef %0) {
+; CHECK-LABEL: @m0s4p64i64v16(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <8 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x i64> @llvm.masked.gather.v8i64.v8p0(<8 x ptr> [[TMP3]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i64> zeroinitializer)
+; CHECK-NEXT:    ret <8 x i64> [[TMP4]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <8 x i64> @llvm.x86.avx512.mask.gather.qpq.512(<8 x i64> zeroinitializer, i8* %2, <8 x i64> %0, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 8)
+  ret <8 x i64> %3
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <8 x i64> @llvm.x86.avx512.mask.gather.qpq.512(<8 x i64>, i8*, <8 x i64>, <8 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x i64> @m1s4p64i64v16(<8 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p64i64v16(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <8 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x i64> @llvm.masked.gather.v8i64.v8p0(<8 x ptr> [[TMP3]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i64> zeroinitializer)
+; CHECK-NEXT:    ret <8 x i64> [[TMP4]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <8 x i64> @llvm.x86.avx512.mask.gather.qpq.512(<8 x i64> zeroinitializer, i8* %2, <8 x i64> %0, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 8)
+  ret <8 x i64> %3
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x i64> @mvs4p64i64v16(<8 x i64> noundef %0, i8 noundef zeroext %1, <8 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p64i64v16(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i64, ptr [[TMP4]], <8 x i64> [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP7:%.*]] = call <8 x i64> @llvm.masked.gather.v8i64.v8p0(<8 x ptr> [[TMP6]], i32 1, <8 x i1> [[TMP5]], <8 x i64> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <8 x i64> [[TMP7]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast i8 %1 to <8 x i1>
+  %6 = tail call <8 x i64> @llvm.x86.avx512.mask.gather.qpq.512(<8 x i64> %0, i8* %4, <8 x i64> %2, <8 x i1> %5, i32 8)
+  ret <8 x i64> %6
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x double> @m1s4p64f64v4(<2 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p64f64v4(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <2 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <2 x double> @llvm.masked.gather.v2f64.v2p0(<2 x ptr> [[TMP3]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x double> zeroinitializer)
+; CHECK-NEXT:    ret <2 x double> [[TMP4]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <2 x double> @llvm.x86.avx512.mask.gather3div2.df(<2 x double> zeroinitializer, i8* %2, <2 x i64> %0, <2 x i1> <i1 true, i1 true>, i32 8)
+  ret <2 x double> %3
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <2 x double> @llvm.x86.avx512.mask.gather3div2.df(<2 x double>, i8*, <2 x i64>, <2 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <2 x double> @mvs4p64f64v4(<2 x double> noundef %0, i8 noundef zeroext %1, <2 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p64f64v4(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <8 x i1> [[TMP5]], <8 x i1> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i64, ptr [[TMP4]], <2 x i64> [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP8:%.*]] = call <2 x double> @llvm.masked.gather.v2f64.v2p0(<2 x ptr> [[TMP7]], i32 1, <2 x i1> [[TMP6]], <2 x double> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <2 x double> [[TMP8]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast i8 %1 to <8 x i1>
+  %6 = shufflevector <8 x i1> %5, <8 x i1> poison, <2 x i32> <i32 0, i32 1>
+  %7 = tail call <2 x double> @llvm.x86.avx512.mask.gather3div2.df(<2 x double> %0, i8* %4, <2 x i64> %2, <2 x i1> %6, i32 8)
+  ret <2 x double> %7
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x double> @m1s4p64f64v8(<4 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p64f64v8(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <4 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x double> @llvm.masked.gather.v4f64.v4p0(<4 x ptr> [[TMP3]], i32 1, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x double> zeroinitializer)
+; CHECK-NEXT:    ret <4 x double> [[TMP4]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <4 x double> @llvm.x86.avx512.mask.gather3div4.df(<4 x double> zeroinitializer, i8* %2, <4 x i64> %0, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, i32 8)
+  ret <4 x double> %3
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <4 x double> @llvm.x86.avx512.mask.gather3div4.df(<4 x double>, i8*, <4 x i64>, <4 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <4 x double> @mvs4p64f64v8(<4 x double> noundef %0, i8 noundef zeroext %1, <4 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p64f64v8(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <8 x i1> [[TMP5]], <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i64, ptr [[TMP4]], <4 x i64> [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP8:%.*]] = call <4 x double> @llvm.masked.gather.v4f64.v4p0(<4 x ptr> [[TMP7]], i32 1, <4 x i1> [[TMP6]], <4 x double> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <4 x double> [[TMP8]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast i8 %1 to <8 x i1>
+  %6 = shufflevector <8 x i1> %5, <8 x i1> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %7 = tail call <4 x double> @llvm.x86.avx512.mask.gather3div4.df(<4 x double> %0, i8* %4, <4 x i64> %2, <4 x i1> %6, i32 8)
+  ret <4 x double> %7
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x double> @m0s4p64f64v16(<8 x i64> noundef %0) {
+; CHECK-LABEL: @m0s4p64f64v16(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <8 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x double> @llvm.masked.gather.v8f64.v8p0(<8 x ptr> [[TMP3]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x double> zeroinitializer)
+; CHECK-NEXT:    ret <8 x double> [[TMP4]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <8 x double> @llvm.x86.avx512.mask.gather.qpd.512(<8 x double> zeroinitializer, i8* %2, <8 x i64> %0, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 8)
+  ret <8 x double> %3
+}
+
+; Function Attrs: nofree nounwind readonly
+declare <8 x double> @llvm.x86.avx512.mask.gather.qpd.512(<8 x double>, i8*, <8 x i64>, <8 x i1>, i32 immarg) #0
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x double> @m1s4p64f64v16(<8 x i64> noundef %0) {
+; CHECK-LABEL: @m1s4p64f64v16(
+; CHECK-NEXT:    [[TMP2:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[TMP2]], <8 x i64> [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = call <8 x double> @llvm.masked.gather.v8f64.v8p0(<8 x ptr> [[TMP3]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x double> zeroinitializer)
+; CHECK-NEXT:    ret <8 x double> [[TMP4]]
+;
+  %2 = load i8*, i8** @base, align 8
+  %3 = tail call <8 x double> @llvm.x86.avx512.mask.gather.qpd.512(<8 x double> zeroinitializer, i8* %2, <8 x i64> %0, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i32 8)
+  ret <8 x double> %3
+}
+
+; Function Attrs: mustprogress nofree nounwind readonly uwtable willreturn
+define dso_local noundef <8 x double> @mvs4p64f64v16(<8 x double> noundef %0, i8 noundef zeroext %1, <8 x i64> noundef %2) {
+; CHECK-LABEL: @mvs4p64f64v16(
+; CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr @base, align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i8 [[TMP1:%.*]] to <8 x i1>
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i64, ptr [[TMP4]], <8 x i64> [[TMP2:%.*]]
+; CHECK-NEXT:    [[TMP7:%.*]] = call <8 x double> @llvm.masked.gather.v8f64.v8p0(<8 x ptr> [[TMP6]], i32 1, <8 x i1> [[TMP5]], <8 x double> [[TMP0:%.*]])
+; CHECK-NEXT:    ret <8 x double> [[TMP7]]
+;
+  %4 = load i8*, i8** @base, align 8
+  %5 = bitcast i8 %1 to <8 x i1>
+  %6 = tail call <8 x double> @llvm.x86.avx512.mask.gather.qpd.512(<8 x double> %0, i8* %4, <8 x i64> %2, <8 x i1> %5, i32 8)
+  ret <8 x double> %6
+}
+
 attributes #0 = { nocallback nofree nosync nounwind willreturn memory(read) }

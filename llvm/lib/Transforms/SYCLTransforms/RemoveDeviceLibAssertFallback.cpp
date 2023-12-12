@@ -32,14 +32,20 @@ RemoveDeviceLibAssertFallbackPass::run(Module &M, ModuleAnalysisManager &AM) {
   if (FuncFail && !FuncFail->isDeclaration()) {
     // deleteBody will change the function from definition to declaration.
     // It will use the function body from cpu backend builtin.
+    // The name is changed to __devicelib_assert_fail_opencl to avoid
+    // multiple definition on acc.
     FuncFail->deleteBody();
+    FuncFail->setName("__devicelib_assert_fail_opencl");
     Changed = true;
   }
 
   if (FuncRead && !FuncRead->isDeclaration()) {
     // deleteBody will change the function from definition to declaration.
     // It will use the function body from cpu backend builtin.
+    // The name is changed to __devicelib_assert_read__opencl to avoid
+    // multiple definition on acc.
     FuncRead->deleteBody();
+    FuncRead->setName("__devicelib_assert_read_opencl");
     Changed = true;
   }
 

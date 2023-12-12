@@ -44,6 +44,16 @@ static cl::opt<bool> LinkMSVCCPPRuntimeLib(
     llvm::cl::desc("Indicate if you'll link with MSVC's C++ runtime library."),
     cl::init(false), cl::Hidden);
 
+static cl::opt<bool> ScalarizeAVX2GatherIntrinsic(
+    "scalarize-avx2-gather-intrinsic",
+    llvm::cl::desc("Indicate if scalarize avx2 gather intrinsic."),
+    cl::init(true), cl::Hidden);
+
+static cl::opt<bool> ScalarizeAVX512GatherIntrinsic(
+    "scalarize-avx512-gather-intrinsic",
+    llvm::cl::desc("Indicate if scalarize avx512 gather intrinsic."),
+    cl::init(true), cl::Hidden);
+
 namespace {
 
 class X86InstCombine : public FunctionPass {
@@ -194,6 +204,7 @@ bool X86InstCombine::replaceFRem(Instruction &I) {
 }
 
 static Value *replaceX86GatherToGather(IntrinsicInst *II) {
+  bool isAVX512 = false;
   switch (II->getIntrinsicID()) {
   case Intrinsic::x86_avx2_gather_d_d:
   case Intrinsic::x86_avx2_gather_d_d_256:
@@ -211,6 +222,36 @@ static Value *replaceX86GatherToGather(IntrinsicInst *II) {
   case Intrinsic::x86_avx2_gather_q_ps_256:
   case Intrinsic::x86_avx2_gather_q_q:
   case Intrinsic::x86_avx2_gather_q_q_256:
+    if (!ScalarizeAVX2GatherIntrinsic)
+      return nullptr;
+    break;
+  case Intrinsic::x86_avx512_mask_gather_dpd_512:
+  case Intrinsic::x86_avx512_mask_gather_dpi_512:
+  case Intrinsic::x86_avx512_mask_gather_dpq_512:
+  case Intrinsic::x86_avx512_mask_gather_dps_512:
+  case Intrinsic::x86_avx512_mask_gather_qpd_512:
+  case Intrinsic::x86_avx512_mask_gather_qpi_512:
+  case Intrinsic::x86_avx512_mask_gather_qpq_512:
+  case Intrinsic::x86_avx512_mask_gather_qps_512:
+  case Intrinsic::x86_avx512_mask_gather3div2_df:
+  case Intrinsic::x86_avx512_mask_gather3div2_di:
+  case Intrinsic::x86_avx512_mask_gather3div4_df:
+  case Intrinsic::x86_avx512_mask_gather3div4_di:
+  case Intrinsic::x86_avx512_mask_gather3div4_sf:
+  case Intrinsic::x86_avx512_mask_gather3div4_si:
+  case Intrinsic::x86_avx512_mask_gather3div8_sf:
+  case Intrinsic::x86_avx512_mask_gather3div8_si:
+  case Intrinsic::x86_avx512_mask_gather3siv2_df:
+  case Intrinsic::x86_avx512_mask_gather3siv2_di:
+  case Intrinsic::x86_avx512_mask_gather3siv4_df:
+  case Intrinsic::x86_avx512_mask_gather3siv4_di:
+  case Intrinsic::x86_avx512_mask_gather3siv4_sf:
+  case Intrinsic::x86_avx512_mask_gather3siv4_si:
+  case Intrinsic::x86_avx512_mask_gather3siv8_sf:
+  case Intrinsic::x86_avx512_mask_gather3siv8_si:
+    if (!ScalarizeAVX512GatherIntrinsic)
+      return nullptr;
+    isAVX512 = true;
     break;
   default:
     return nullptr;
@@ -237,36 +278,41 @@ static Value *replaceX86GatherToGather(IntrinsicInst *II) {
   IRBuilder<> Builder(II);
   Value *NewMask = nullptr;
 
-  // X86 gather check the MSB of mask, should right shift MSB to LSB for
-  // matching llvm.masked.gather's definition.
-  if (auto *CV = dyn_cast<ConstantVector>(Mask)) {
-    SmallVector<Constant*> Masks;
-    for (unsigned I = 0; I < MaskNumElement; ++I) {
-      const APInt &APC = CV->getAggregateElement(I)->getUniqueInteger();
-      auto *MaskElem =
-          ConstantInt::getIntegerValue(Type::getInt1Ty(C), APC.getHiBits(1));
-      Masks.push_back(MaskElem);
-    }
-    NewMask = ConstantVector::get(Masks);
-  } else {
-    // X86 gather's mask type is same with data type, need extra handling:
-    // <8 x float> %mask
-    // ==>
-    // %IntMask = bitcast %mask to <8 x i32>
-    // %ElemHiBit = 31
-    // %ShiftV = <8 x i32> <i32 31, i32 31, i32 31, i32 31, i32 31, i32 31, ...>
-    // %ShiftMask = lshr <8 x i32> %IntMask, %ShiftV
-    // %NewMask = trunc <8 x i32> %ShiftMask to <8 x i1>
-    unsigned ElemBits = MaskTy->getElementType()->getScalarSizeInBits();
-    Value *IntMask = Builder.CreateBitCast(Mask,
-        FixedVectorType::get(Type::getIntNTy(C, ElemBits), MaskNumElement));
+  NewMask = Mask;
 
-    auto *ElemHiBit =
-        ConstantInt::get(Type::getIntNTy(C, ElemBits), ElemBits - 1);
-    Value *ShiftV = Builder.CreateVectorSplat(MaskNumElement, ElemHiBit);
-    Value *ShiftMask = Builder.CreateLShr(IntMask, ShiftV);
-    NewMask = Builder.CreateTrunc(
-        ShiftMask, FixedVectorType::get(Type::getInt1Ty(C), MaskNumElement));
+  if (!isAVX512) {
+    // X86 gather check the MSB of mask, should right shift MSB to LSB for
+    // matching llvm.masked.gather's definition.
+    if (auto *CV = dyn_cast<ConstantVector>(Mask)) {
+      SmallVector<Constant *> Masks;
+      for (unsigned I = 0; I < MaskNumElement; ++I) {
+          const APInt &APC = CV->getAggregateElement(I)->getUniqueInteger();
+          auto *MaskElem = ConstantInt::getIntegerValue(Type::getInt1Ty(C),
+                                                        APC.getHiBits(1));
+          Masks.push_back(MaskElem);
+      }
+      NewMask = ConstantVector::get(Masks);
+    } else {
+      // X86 gather's mask type is same with data type, need extra handling:
+      // <8 x float> %mask
+      // ==>
+      // %IntMask = bitcast %mask to <8 x i32>
+      // %ElemHiBit = 31
+      // %ShiftV = <8 x i32> <i32 31, i32 31, i32 31, i32 31, i32 31, i32 31,
+      // ...> %ShiftMask = lshr <8 x i32> %IntMask, %ShiftV %NewMask = trunc <8
+      // x i32> %ShiftMask to <8 x i1>
+      unsigned ElemBits = MaskTy->getElementType()->getScalarSizeInBits();
+      Value *IntMask = Builder.CreateBitCast(
+          Mask,
+          FixedVectorType::get(Type::getIntNTy(C, ElemBits), MaskNumElement));
+
+      auto *ElemHiBit =
+          ConstantInt::get(Type::getIntNTy(C, ElemBits), ElemBits - 1);
+      Value *ShiftV = Builder.CreateVectorSplat(MaskNumElement, ElemHiBit);
+      Value *ShiftMask = Builder.CreateLShr(IntMask, ShiftV);
+      NewMask = Builder.CreateTrunc(
+          ShiftMask, FixedVectorType::get(Type::getInt1Ty(C), MaskNumElement));
+    }
   }
 
   Value *Base = II->getOperand(1);

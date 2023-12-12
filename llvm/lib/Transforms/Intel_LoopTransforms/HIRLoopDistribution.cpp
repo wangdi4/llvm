@@ -548,7 +548,7 @@ void ScalarExpansion::insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
 }
 
 void ScalarExpansion::createTempArrayLoad(RegDDRef *TmpArrayRef, HLNode *Node,
-                                          Candidate::UseCand &TmpUse) {
+                                          Candidate::Use &TmpUse) {
   DDRef *UseRef = TmpUse.Ref;
 
   // Prepare LVal for the load from temp array. SinkRef could be
@@ -610,9 +610,9 @@ ScalarExpansion::ScalarExpansion(HLLoop *Loop, bool HasDistributePoint,
 
 void ScalarExpansion::sortCandidatesByTopSortNum() {
   std::sort(Candidates.begin(), Candidates.end(),
-            [&](Candidate &A, Candidate &B) {
-              return A.TmpDefs.front()->getHLDDNode()->getTopSortNum() <
-                     B.TmpDefs.front()->getHLDDNode()->getTopSortNum();
+            [&](Candidate A, Candidate B) {
+              return A.TmpDefs.front().first->getHLDDNode()->getTopSortNum() <
+                     B.TmpDefs.front().first->getHLDDNode()->getTopSortNum();
             });
 }
 
@@ -624,7 +624,7 @@ void ScalarExpansion::removeDependencies() {
     if (Cand.TmpDefs.size() == 1)
       continue;
 
-    SmallSet<DDRef *, 8> DominatedDefs;
+    SmallSet<RefChunkPair, 8> DominatedDefs;
 
     // Try to find Candidates with multiple defs in the DefChunk, where the
     // later def postdominates a previous def. This means there is actually no
@@ -650,8 +650,12 @@ void ScalarExpansion::removeDependencies() {
          DefIt != End; ++DefIt) {
 
       for (auto Next = std::next(DefIt); Next != Cand.TmpDefs.end(); ++Next) {
-        auto Node = (*DefIt)->getHLDDNode();
-        auto NextNode = (*Next)->getHLDDNode();
+        // Do not remove defs from different chunks
+        if ((*DefIt).second != (*Next).second)
+          continue;
+
+        auto Node = (*DefIt).first->getHLDDNode();
+        auto NextNode = (*Next).first->getHLDDNode();
         assert(Node->isAttached() && "Expect node to be attached to HIR!\n");
 
         if (HLNodeUtils::strictlyPostDominates(NextNode, Node)) {
@@ -680,9 +684,10 @@ void ScalarExpansion::removeDependencies() {
 
     // Erase the dependencies connecting the uses to the dominated defs
     for (auto &Use : Cand.TmpUses) {
-      DDRefList &DefVec = Cand.SCEXDefsForUse[Use.Ref];
-      llvm::erase_if(DefVec,
-                     [&](DDRef *Def) { return DominatedDefs.count(Def); });
+      RefChunkList &DefVec = Cand.SCEXDefsForUse[Use.Ref];
+      llvm::erase_if(DefVec, [&](RefChunkPair &DefChunk) {
+        return DominatedDefs.count(DefChunk);
+      });
 
       if (DefVec.empty()) {
         Cand.SCEXDefsForUse.erase(Use.Ref);
@@ -878,8 +883,9 @@ bool ScalarExpansion::shouldLoadUnconditionally(Candidate &Cand,
          "No Dep found for SCEX Use!\n");
 
   for (auto &Def : Cand.SCEXDefsForUse[TmpUse]) {
-    if (isa<HLLoop>(Cand.LoopDefInsertNode[Def->getHLDDNode()->getParentLoop()]
-                        ->getParent())) {
+    if (isa<HLLoop>(
+            Cand.LoopDefInsertNode[Def.first->getHLDDNode()->getParentLoop()]
+                ->getParent())) {
       return true;
     }
   }
@@ -896,11 +902,14 @@ void ScalarExpansion::getInsertNodeForTmpDefsUses(Candidate &Cand) {
   // Uses and Defs are stored differently, so temp vector is needed.
   SmallVector<DDRef *, 8> TmpVec;
   if (ForDefs) {
-    TmpVec = Cand.TmpDefs;
+    std::transform(Cand.TmpDefs.begin(), Cand.TmpDefs.end(),
+                   std::back_inserter(TmpVec),
+                   [](const RefChunkPair Pair) { return Pair.first; });
+
   } else {
     std::transform(Cand.TmpUses.begin(), Cand.TmpUses.end(),
                    std::back_inserter(TmpVec),
-                   [](const Candidate::UseCand &Node) { return Node.Ref; });
+                   [](const Candidate::Use &Node) { return Node.Ref; });
   }
 
   DDRef *FirstRef = TmpVec.front();
@@ -948,7 +957,7 @@ void ScalarExpansion::computeInsertNodes() {
     getInsertNodeForTmpDefsUses<false>(Cand); // For Uses
 
     unsigned SB = Cand.getSymbase();
-    RegDDRef *TmpDef = cast<RegDDRef>(Cand.TmpDefs.front());
+    RegDDRef *TmpDef = cast<RegDDRef>(Cand.TmpDefs.front().first);
 
     // For all Uses per chunk, see if we can recompute instead of using
     // TempArray
@@ -981,7 +990,7 @@ void ScalarExpansion::replaceWithArrayTemps() {
 
   for (auto &Cand : Candidates) {
     unsigned SB = Cand.getSymbase();
-    HLInst *DefInst = cast<HLInst>(Cand.TmpDefs.front()->getHLDDNode());
+    HLInst *DefInst = cast<HLInst>(Cand.TmpDefs.front().first->getHLDDNode());
 
     // No Temp Required, can recompute
     if (!Cand.isTempRequired()) {
@@ -1006,8 +1015,8 @@ void ScalarExpansion::replaceWithArrayTemps() {
       RegDDRef *TmpArrayRef = nullptr;
 
       // Create TEMP[i] = tx and insert
-      for (auto &TmpDefDDRef : Cand.TmpDefs) {
-        RegDDRef *TmpDef = cast<RegDDRef>(TmpDefDDRef);
+      for (auto &TmpDefPair : Cand.TmpDefs) {
+        RegDDRef *TmpDef = cast<RegDDRef>(TmpDefPair.first);
         HLLoop *Lp = TmpDef->getLexicalParentLoop();
 
         if (!TmpArrayRef) {
@@ -1138,8 +1147,8 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
           Candidate &Cand = GetCandidateForSymbase(SB);
           Cand.IsLiveIn = Loop->isLiveIn(SB);
           Cand.IsLiveOut = Loop->isLiveOut(SB);
-          if (Cand.TmpDefs.empty() || Cand.TmpDefs.back() != TmpDef) {
-            Cand.TmpDefs.push_back(TmpDef);
+          if (Cand.TmpDefs.empty() || Cand.TmpDefs.back().first != TmpDef) {
+            Cand.TmpDefs.push_back(std::make_pair(TmpDef, J));
           }
 
           // Tentatively check if recomputation is possible, assuming that
@@ -1155,10 +1164,11 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
 
           // Save TmpUse in chunk J, We will need to load or recompute this ref
           // from scalar expanded array, once per loop.
-          Cand.TmpUses.push_back({TmpUse, J, TempRedefined, DepInst});
+          if (Cand.SCEXDefsForUse.find(TmpUse) == Cand.SCEXDefsForUse.end())
+            Cand.TmpUses.push_back({TmpUse, J, TempRedefined, DepInst});
 
           // Save the dependence
-          Cand.SCEXDefsForUse[TmpUse].push_back(TmpDef);
+          Cand.SCEXDefsForUse[TmpUse].push_back(std::make_pair(TmpDef, J));
 
           // If scalar expansion would introduce extra dependencies from SrcLoop
           // to DstLoop, set SCEX.hasBadCandidate.

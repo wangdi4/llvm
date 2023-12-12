@@ -1,8 +1,7 @@
 ; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S | FileCheck %s
 
-; The test is used to check the cmp instruction emitted for comparing right
-; boundary against left boundary is ICMP_SLT.
+; No early exit boundary is generated for ugt comparison with non-const operand.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -23,21 +22,15 @@ if.then:
   call void @foo(i64 %sext)
   br label %if.end
 
-; CHECK-LABEL: entry
-; CHECK: %new_lb = add i32 %lb, %conv
-; CHECK: %right_lt_left = icmp slt i32 %ub, %lb
-; CHECK: define [7 x i64] @WG.boundaries.constant_kernel(ptr addrspace(1) noalias %{{.*}}, i32 %{{.*}}, i32 %{{.*}})
-
 if.end:
   ret void
 }
+
+; CHECK-NOT: define [7 x i64] @WG.boundaries.constant_kernel(ptr addrspace(1) noalias %{{.*}}, i32 %{{.*}}, i32 %{{.*}})
 
 !sycl.kernels = !{!0}
 
 !0 = !{ptr @constant_kernel}
 !1 = !{i1 true}
 
-; DEBUGIFY-COUNT-10: Instruction with empty DebugLoc in function constant_kernel
-; DEBUGIFY-COUNT-36: Instruction with empty DebugLoc in function WG.boundaries.constant_kernel
-; DEBUGIFY-COUNT-1: Missing line
 ; DEBUGIFY-NOT: WARNING

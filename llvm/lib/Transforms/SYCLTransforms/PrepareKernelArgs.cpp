@@ -167,7 +167,7 @@ Value *PrepareKernelArgsPass::allocaArrayForLocalPrivateBuffer(
 static bool hasLocalOrSpecialBuffer(
     std::vector<KernelArgument> &Arguments,
     SYCLKernelMetadataAPI::KernelInternalMetadataAPI *KIMD) {
-  for (auto KArg : Arguments)
+  for (const auto &KArg : Arguments)
     if (KArg.Ty == KRNL_ARG_PTR_LOCAL)
       return true;
 

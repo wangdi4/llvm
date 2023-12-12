@@ -227,6 +227,20 @@ static int initLibrary(DeviceTy &Device) {
                                *EntryDeviceEnd = TargetTable->EntriesEnd;
            CurrDeviceEntry != EntryDeviceEnd;
            CurrDeviceEntry++, CurrHostEntry++) {
+#if INTEL_CUSTOMIZATION
+        if (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR) {
+          if (CurrDeviceEntry->size != 0) {
+            REPORT("Function pointer " DPxMOD " with non-zero size %zu.\n",
+                   DPxPTR(CurrHostEntry->addr), CurrDeviceEntry->size);
+            Rc = OFFLOAD_FAIL;
+            break;
+          }
+          // We use a separate map for function pointers instead of adding them
+          // to the HDTT map for now.
+          Device.FnPtrMap.emplace((uint64_t)CurrHostEntry->addr,
+                                  (uint64_t)CurrDeviceEntry->addr);
+        }
+#endif // INTEL_CUSTOMIZATION
         if (CurrDeviceEntry->size == 0)
           continue;
 
@@ -254,20 +268,6 @@ static int initLibrary(DeviceTy &Device) {
             return OFFLOAD_FAIL;
           CurrDeviceEntryAddr = DevPtr;
         }
-#if INTEL_CUSTOMIZATION
-        if (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR) {
-          if (CurrDeviceEntry->size != 0) {
-            REPORT("Function pointer " DPxMOD " with non-zero size %zu.\n",
-                   DPxPTR(CurrHostEntry->addr), CurrDeviceEntry->size);
-            Rc = OFFLOAD_FAIL;
-            break;
-          }
-          // We use a separate map for function pointers instead of adding them
-          // to the HDTT map for now.
-          Device.FnPtrMap.emplace((uint64_t)CurrHostEntry->addr,
-                                  (uint64_t)CurrDeviceEntry->addr);
-        }
-#endif // INTEL_CUSTOMIZATION
 
         DP("Add mapping from host " DPxMOD " to device " DPxMOD " with size %zu"
            ", name \"%s\"\n",

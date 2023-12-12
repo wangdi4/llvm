@@ -2912,7 +2912,10 @@ bool Parser::isIgnoredOpenMPDirective() {
 #endif // INTEL_COLLAB
 ///
 StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
-    ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective) {
+#if INTEL_CUSTOMIZATION
+    ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective,
+    bool SkipHoist) {
+#endif // INTEL_CUSTOMIZATION
   if (!ReadDirectiveWithinMetadirective)
     assert(Tok.isOneOf(tok::annot_pragma_openmp, tok::annot_attr_openmp) &&
            "Not an OpenMP directive!");
@@ -3029,6 +3032,10 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
         T.consumeClose();
 
       VariantMatchInfo VMI;
+#if INTEL_CUSTOMIZATION
+      if (CKind == OMPC_when && !SkipHoist)
+        SkipHoist = TI.SkipHoist();
+#endif // INTEL_CUSTOMIZATION
       TI.getAsVariantMatchInfo(ASTContext, VMI);
 
       VMIs.push_back(VMI);
@@ -3103,7 +3110,9 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
       // Parse Directive
       Directive = ParseOpenMPDeclarativeOrExecutableDirective(
           StmtCtx,
-          /*ReadDirectiveWithinMetadirective=*/true);
+#if INTEL_CUSTOMIZATION
+          /*ReadDirectiveWithinMetadirective=*/true, SkipHoist);
+#endif // INTEL_CUSTOMIZATION
       break;
     }
     break;
@@ -3485,7 +3494,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
       AssociatedStmt = Actions.ActOnOpenMPRegionEnd(AssociatedStmt, Clauses);
     }
 #if INTEL_CUSTOMIZATION
-    if (ReadDirectiveWithinMetadirective) {
+    if (ReadDirectiveWithinMetadirective && SkipHoist) {
       // Create an attribute/clause to mark this directive so it will be
       // possible to tell it came from a metadirective. When the statements
       // in the AST don't match between host/device we may need to adjust the

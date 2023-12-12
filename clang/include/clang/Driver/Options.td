@@ -6407,7 +6407,8 @@ def unroll : Joined<["-"], "unroll">, Flags<[NoXarchOption]>,
 def unroll_EQ : Joined<["-"], "unroll=">, Alias<unroll>;
 def vec : Flag<["-"], "vec">, Alias<fvectorize>,
   HelpText<"Enable the loop vectorization passes">;
-def no_vec : Flag<["-"], "no-vec">, Alias<fno_vectorize>;
+def no_vec : Flag<["-"], "no-vec">, Alias<fno_vectorize>,
+  HelpText<"Disable the loop vectorization passes">;
 def vec_threshold_EQ : Joined<["-"], "vec-threshold=">;
 def : Joined<["-"], "vec-threshold">, Alias<vec_threshold_EQ>,
       HelpText<"Sets a threshold for the vectorization of loops based on the "

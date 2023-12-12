@@ -9744,6 +9744,11 @@ public:
   void getAsVariantMatchInfo(ASTContext &ASTCtx,
                              llvm::omp::VariantMatchInfo &VMI) const;
 
+#if INTEL_CUSTOMIZATION
+  // Return ture if user_condition is used.
+  bool SkipHoist();
+#endif // INTEL_CUSTOMIZATION
+
   /// Return a string representation identifying this context selector.
   std::string getMangledName() const;
 

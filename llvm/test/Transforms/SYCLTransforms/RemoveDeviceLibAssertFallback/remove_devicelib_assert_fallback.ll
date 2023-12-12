@@ -15,7 +15,7 @@ entry:
 
 ; CHECK-NOT: define spir_func void @__devicelib_assert_fail(ptr addrspace(4) %expr, ptr addrspace(4) %file, i32 %line, ptr addrspace(4) %func, i64 %gid0, i64 %gid1, i64 %gid2, i64 %lid0, i64 %lid1, i64 %lid2) #0 {
 
-; CHECK: declare spir_func void @__devicelib_assert_fail(ptr addrspace(4), ptr addrspace(4), i32, ptr addrspace(4), i64, i64, i64, i64, i64, i64) #0
+; CHECK: declare spir_func void @__devicelib_assert_fail_opencl(ptr addrspace(4), ptr addrspace(4), i32, ptr addrspace(4), i64, i64, i64, i64, i64, i64) #0
 
 attributes #0 = { nounwind }
 

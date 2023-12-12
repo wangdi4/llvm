@@ -3566,7 +3566,10 @@ private:
   /// \param ReadDirectiveWithinMetadirective true if directive is within a
   /// metadirective and therefore ends on the closing paren.
   StmtResult ParseOpenMPDeclarativeOrExecutableDirective(
-      ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective = false);
+#if INTEL_CUSTOMIZATION
+      ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective = false,
+      bool SkipHoist = false);
+#endif // INTEL_CUSTOMIZATION
   /// Parses clause of kind \a CKind for directive of a kind \a Kind.
   ///
   /// \param DKind Kind of current directive.

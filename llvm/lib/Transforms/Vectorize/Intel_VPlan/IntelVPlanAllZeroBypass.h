@@ -76,6 +76,11 @@ private:
   using LiveOutUsersTy = SmallVector<VPUser *, 4>;
   using LiveOutUsersMapTy = MapVector<VPValue *, LiveOutUsersTy>;
 
+  // Cache for isStricterOrEqualPred. In a very branchy code with a deep
+  // predicates nest we spent too much time in that recursive function.
+  using PredCompareCache =
+      std::map<std::pair<const VPValue *, const VPValue *>, bool>;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Dumps live-out information for the region specified by
   /// \p FirstBlockInBypassRegion and \p LastBlockInBypassRegion.
@@ -130,16 +135,19 @@ private:
                            RegionsCollectedTy &RegionsCollected);
 
   /// Returns true if \p MaybePred is an anded condition of \p BaseCond.
-  bool isStricterOrEqualPred(const VPValue *MaybePred, const VPValue *BaseCond);
+  bool isStricterOrEqualPred(const VPValue *MaybePred, const VPValue *BaseCond,
+                             PredCompareCache &PredCmpCache);
 
   /// Returns true if the incoming predicates of \p Blend are not under the
   /// influence of the same block-predicate as the region.
-  bool blendTerminatesRegion(const VPBlendInst *Blend, VPValue *RegionPred);
+  bool blendTerminatesRegion(const VPBlendInst *Blend, VPValue *RegionPred,
+                             PredCompareCache &PredCmpCache);
 
   /// Returns true if the loop or non-loop region should end at \p Block.
   /// The region will not include \p Block.
   bool endRegionAtBlock(VPBasicBlock *Block, VPValue *CandidateBlockPred,
-                        SetVector<VPBasicBlock *> &RegionBlocks);
+                        SetVector<VPBasicBlock *> &RegionBlocks,
+                        PredCompareCache &PredCmpCache);
 
   /// Check whether bypass region is required for stability reasons.
   bool checkRegionEnforced(const VPBasicBlock *CandidateBlock,

@@ -15,9 +15,9 @@
 ; CHECK: WGLoopBoundaries
 ; CHECK: found 2 early exit boundaries
 ; CHECK: Dim=0, Contains=T, IsGID=T, IsSigned=F, IsUpperBound=T
-; CHECK-SAME: %final_right_bound = select i1 %right_lt_left, i64 0, i64 %right_boundary_align
+; CHECK-SAME: %final_right_bound = sub i64 100, -100
 ; CHECK-NEXT: Dim=0, Contains=T, IsGID=T, IsSigned=F, IsUpperBound=F
-; CHECK-SAME: %final_left_bound = select i1 %right_lt_left, i64 %left_after_overflow, i64 %non_negative_left_bound
+; CHECK-SAME: %final_left_bound = sub i64 0, -100
 ; CHECK: found 0 uniform early exit conditions
 
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
@@ -58,7 +58,7 @@ attributes #2 = { nounwind readnone }
 !7 = !{i32 1, i32 2}
 !8 = !{}
 
-; DEBUGIFY-COUNT-8: Instruction with empty DebugLoc in function test
-; DEBUGIFY-COUNT-34: Instruction with empty DebugLoc in function WG.boundaries.test
+; DEBUGIFY-COUNT-2: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-28: Instruction with empty DebugLoc in function WG.boundaries.test
 ; DEBUGIFY-COUNT-1: Missing line
 ; DEBUGIFY-NOT: WARNING

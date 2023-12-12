@@ -374,8 +374,6 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
        D.getVFS().exists(D.Dir + "/../../lib/libsycl.so"))) {
     addPathIfExists(D, D.Dir + "/../../lib", Paths);
-    // Add opt/compiler/lib if found, to satisfy non-Intel specific tests
-    addPathIfExists(D, D.Dir + "/../../opt/compiler/lib", Paths);
     // Do an additional check for libsycl.so in case of the new layout.  The
     // base directory is different in the product as opposed to LIT testing.
     if (D.getVFS().exists(D.Dir + "/../lib/libsycl.so"))
@@ -386,6 +384,12 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 #endif // INTEL_CUSTOMIZATION
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  // Add opt/compiler/lib if found, to satisfy non-Intel specific tests
+  addPathIfExists(D, D.Dir + "/../../opt/compiler/lib", Paths);
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // INTEL_CUSTOMIZATION
 
   addPathIfExists(D, concat(SysRoot, "/lib"), Paths);
   addPathIfExists(D, concat(SysRoot, "/usr/lib"), Paths);
