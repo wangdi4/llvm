@@ -1704,6 +1704,36 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
     C.addCommand(std::move(Cmd));
 }
 
+// Unsupported options for device compilation
+//  -fcf-protection, -fsanitize, -fprofile-generate, -fprofile-instr-generate
+//  -ftest-coverage, -fcoverage-mapping, -fcreate-profile, -fprofile-arcs
+//  -fcs-profile-generate -forder-file-instrumentation
+static std::vector<OptSpecifier> getUnsupportedOpts(void) {
+  std::vector<OptSpecifier> UnsupportedOpts = {
+      options::OPT_fsanitize_EQ,
+      options::OPT_fcf_protection_EQ,
+      options::OPT_fprofile_generate,
+      options::OPT_fprofile_generate_EQ,
+      options::OPT_fno_profile_generate,
+      options::OPT_ftest_coverage,
+      options::OPT_fno_test_coverage,
+      options::OPT_fcoverage_mapping,
+      options::OPT_fno_coverage_mapping,
+      options::OPT_fprofile_instr_generate,
+      options::OPT_fprofile_instr_generate_EQ,
+      options::OPT_fprofile_arcs,
+      options::OPT_fno_profile_arcs,
+      options::OPT_fno_profile_instr_generate,
+      options::OPT_fcreate_profile,
+      options::OPT_fprofile_instr_use,
+      options::OPT_fprofile_instr_use_EQ,
+      options::OPT_forder_file_instrumentation,
+      options::OPT_traceback, // INTEL
+      options::OPT_fcs_profile_generate,
+      options::OPT_fcs_profile_generate_EQ};
+  return UnsupportedOpts;
+}
+
 SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
                              const ToolChain &HostTC, const ArgList &Args)
     : ToolChain(D, Triple, Args), HostTC(HostTC),
@@ -1723,13 +1753,12 @@ SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
 #endif // INTEL_CUSTOMIZATION
 
   // Diagnose unsupported options only once.
-  // All sanitizer, cf-protection and traceback options are not currently
-  // supported.
-  for (auto A :
-       Args.filtered(options::OPT_fsanitize_EQ, options::OPT_fcf_protection_EQ,
-                     options::OPT_traceback))
-    D.getDiags().Report(clang::diag::warn_drv_unsupported_option_for_target)
-        << A->getAsString(Args) << getTriple().str();
+  for (OptSpecifier Opt : getUnsupportedOpts()) {
+    if (const Arg *A = Args.getLastArg(Opt)) {
+      D.Diag(clang::diag::warn_drv_unsupported_option_for_target)
+          << A->getAsString(Args) << getTriple().str();
+    }
+  }
 }
 
 void SYCLToolChain::addClangTargetOptions(
@@ -1754,19 +1783,19 @@ SYCLToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
   for (Arg *A : Args) {
     // Filter out any options we do not want to pass along to the device
     // compilation.
-    auto Opt(A->getOption().getID());
-    switch (Opt) {
-    case options::OPT_fsanitize_EQ:
-    case options::OPT_fcf_protection_EQ:
-    case options::OPT_traceback: // INTEL
-      if (!IsNewDAL)
-        DAL->eraseArg(Opt);
-      break;
-    default:
-      if (IsNewDAL)
-        DAL->append(A);
-      break;
+    auto Opt(A->getOption());
+    bool Unsupported = false;
+    for (OptSpecifier UnsupportedOpt : getUnsupportedOpts()) {
+      if (Opt.matches(UnsupportedOpt)) {
+        if (!IsNewDAL)
+          DAL->eraseArg(Opt.getID());
+        Unsupported = true;
+      }
     }
+    if (Unsupported)
+      continue;
+    if (IsNewDAL)
+      DAL->append(A);
   }
   // Strip out -O0 for FPGA Hardware device compilation.
   if (getDriver().IsFPGAHWMode() &&
