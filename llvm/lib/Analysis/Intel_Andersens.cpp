@@ -258,7 +258,7 @@ static const char *(Andersens_Dealloc_Intrinsics[]) = {
 // info.
 static const char *(Andersens_No_Side_Effects_Intrinsics[]) = {
     "atoi", "atof", "atol", "atoll", "remove", "unlink", "rename", "memcmp",
-    "free", "llvm.memset.p0i8.i32", "llvm.memset.p0i8.i64", "strcmp", "strncmp",
+    "free", "llvm.memset.p0.i32", "llvm.memset.p0.i64", "strcmp", "strncmp",
     "strlen", "strnlen", "execl", "execlp", "execle", "execv", "execvp",
     "chmod", "puts", "write", "open", "create", "truncate", "chdir", "mkdir",
     "rmdir", "read", "pipe", "wait", "utime", "time", "stat", "fstat", "lstat",
@@ -1931,6 +1931,7 @@ bool AndersensAAResult::IsLibFunction(const Function *F) {
       F->getName() == "remove" || F->getName() == "unlink" ||
       F->getName() == "rename" || F->getName() == "memcmp" ||
       F->getName() == "llvm.memset" ||
+      F->getName() == "llvm.memset.p0.i64" ||
       F->getName() == "strcmp" || F->getName() == "strncmp" ||
       F->getName() == "execl" || F->getName() == "execlp" ||
       F->getName() == "execle" || F->getName() == "execv" ||
@@ -7174,6 +7175,21 @@ void AndersensAAResult::InitEscAnal(Module &M) {
        //     opaque(v)
        //
        NewOpaqueNode(getObject(&GV), FLAGS_OPAQUE);
+  }
+
+  // Treat allocations as escaped if points-to set has Universal.
+  for (DenseMap<Value*, unsigned>::iterator Iter = ObjectNodes.begin(),
+       EO = ObjectNodes.end(); Iter != EO; ++Iter) {
+    if (isa<GlobalValue>(Iter->first))
+      continue;
+    //
+    //     alloc(v)
+    //  ----------------
+    //     opaque(v)
+    //
+    Node *N1 = &GraphNodes[Iter->second];
+    if (N1->PointsTo && N1->PointsTo->test(UniversalSet))
+      NewOpaqueNode(Iter->second, FLAGS_OPAQUE);
   }
 
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
