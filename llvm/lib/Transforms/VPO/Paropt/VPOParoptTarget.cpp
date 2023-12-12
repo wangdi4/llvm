@@ -2803,7 +2803,8 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
 
   // Create a renamed value for V if it's a Global or ConstantExpr.
   auto createRenamedValueForGlobalsAndConstExprs =
-      [&](Value *V, bool MarkForReplacementInRegion = true) {
+      [&](Value *V, bool MarkForReplacementInRegion = true,
+          bool RenameFunctions = false) {
         // If the set of ValuesToChange is provided, only change the Values in
         // the Set.
         if (ValuesToChange != nullptr &&
@@ -2817,7 +2818,8 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
         if (VOrigAndNew != RenameMap.end())
           return VOrigAndNew->second;
 
-        if (!GeneralUtils::isOMPItemGlobalVAR(V) && !isa<ConstantExpr>(V)) {
+        if (!GeneralUtils::isOMPItemGlobalVAR(V) && !isa<ConstantExpr>(V) &&
+            (!RenameFunctions || !isa<Function>(V))) {
           RenameMap.insert({V, V});
           return V;
         }
@@ -2906,10 +2908,21 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
         //   int (*p1)[10];
         //   ...
         //   ... target map(tofrom:p1[0][1]) ...
+        //
+        // Also, we need to do the renaming for Functions that are map
+        // clause operands with FPTR modifier, as optimizations can change
+        // FPTR map clauses to use the function as an operand, which prevents
+        // it from being passed into the target region as an argument:
+        //
+        //   declare void @foo()
+        //   store ptr @foo, ptr %fp
+        //
+        //   MAP:FPTR(ptr %fp, ...)   ->  MAP:FPTR(ptr @foo, ...)
         for (int I = MapChain.size() - 1; I >= 0; --I) {
           MapAggrTy *Aggr = MapChain[I];
           VNew = createRenamedValueForGlobalsAndConstExprs(
-              Aggr->getSectionPtr(), /*MarkForReplacementInRegion=*/false);
+              Aggr->getSectionPtr(), /*MarkForReplacementInRegion=*/false,
+              /*RenameFunctions=*/MapI->getIsFunctionPointer());
           Aggr->setSectionPtr(VNew);
           VNew = createRenamedValueForGlobalsAndConstExprs(
               Aggr->getBasePtr(), /*MarkForReplacementInRegion=*/false);
