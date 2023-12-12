@@ -138,6 +138,17 @@ std::pair<Value *, Value *> PrepareKernelArgsPass::createHeapMemLoadCmpInst(
   return std::make_pair(HeapMem, HeapMemNullCmp);
 }
 
+static Value *updateAddrWithAlignment(Value *OriginalAddr, size_t Alignment,
+                                      IRBuilder<> &Builder) {
+  // ((ADDR + Alignment - 1) & (~ (Alignment - 1))
+  // Create add instruction
+  Value *AddInst = Builder.CreateAdd(
+      OriginalAddr, ConstantInt::get(OriginalAddr->getType(), Alignment - 1));
+  // Create bitwise and instruction
+  return Builder.CreateAnd(
+      AddInst, ConstantInt::get(AddInst->getType(), ~(Alignment - 1)));
+}
+
 // If HeapMem is nullptr, alloca a new array on stack.
 // If HeapMem is not nullptr, use heap memory to store data.
 Value *PrepareKernelArgsPass::allocaArrayForLocalPrivateBuffer(
@@ -193,13 +204,26 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
 
   const DataLayout &DL = M->getDataLayout();
   Value *WGId = NonUniformArgsBuffer;
-  Value *HeapCurrentOffset = ConstantInt::get(SizetTy, 0);
 
   // The first is heap memory pointer
   // The sconed is cmp result of heap memory pointer and null
   std::pair<Value *, Value *> HeapMem(nullptr, nullptr);
   if (hasLocalOrSpecialBuffer(Arguments, &KIMD))
     HeapMem = createHeapMemLoadCmpInst(Builder, NonUniformArgsBuffer);
+
+  // HeapMem : [ local buffer | local argument buffer | special buffer ]
+  uint64_t LocalBufferSizeInBytes =
+      KIMD.LocalBufferSize.hasValue() ? KIMD.LocalBufferSize.get() : 0;
+  size_t SizeWithMaxAlign = (LocalBufferSizeInBytes + DEV_MAXIMUM_ALIGN - 1) &
+                            ~(DEV_MAXIMUM_ALIGN - 1);
+  // add stack padding before and after this alloca, to allow unmasked
+  // wide loads inside the vectorizer.
+  size_t LocalBufferSizePadding = SizeWithMaxAlign + STACK_PADDING_BUFFER * 2;
+  Value *HeapCurrentOffset =
+      LocalBufferSizeInBytes == 0
+          ? ConstantInt::get(SizetTy, 0)
+          : ConstantInt::get(SizetTy, LocalBufferSizePadding);
+  bool HasLocalArg = false;
 
   // TODO :  get common code from the following 2 for loops into a function
   // Handle explicit arguments
@@ -233,7 +257,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       // debugging!
 
       // Set alignment of buffer to type size.
-      unsigned Alignment = DEV_MAXIMUM_ALIGN;
+      size_t Alignment = DEV_MAXIMUM_ALIGN;
       Type *EltTy = nullptr;
       // If the kernel was vectorized, choose an alignment that is good for the
       // *vectorized* type. This can be good for unaligned loads on targets that
@@ -266,11 +290,17 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
           EltTy = FixedVectorType::get(EltTy, VecSize);
         Alignment = NextPowerOf2(DL.getTypeAllocSize(EltTy) - 1);
       }
-
+      if (HasLocalArg)
+        // Local buffer's size has been align with DEV_MAXIMUM_ALIGN.
+        // So if this is the first local buffer arg, need not alignment when
+        // using heap memory
+        HeapCurrentOffset =
+            updateAddrWithAlignment(HeapCurrentOffset, Alignment, Builder);
       Value *LocalArgBuffer = allocaArrayForLocalPrivateBuffer(
           Builder, HeapMem, DL, BufferSize, Alignment, HeapCurrentOffset);
       Arg = Builder.CreatePointerCast(LocalArgBuffer, CallIt->getType());
-      HeapCurrentOffset = Builder.CreateAdd(BufferSize, HeapCurrentOffset);
+      HeapCurrentOffset = Builder.CreateAdd(HeapCurrentOffset, BufferSize);
+      HasLocalArg = true;
     } else if (KArg.Ty == KRNL_ARG_PTR_BLOCK_LITERAL) {
       Arg = Builder.CreateAddrSpaceCast(GEP, CallIt->getType());
     } else {
@@ -344,27 +374,22 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
            "Invalid implicit argument index!");
     switch (I) {
     case ImplicitArgsUtils::IA_SLM_BUFFER: {
-      uint64_t SizeInBytes =
-          KIMD.LocalBufferSize.hasValue() ? KIMD.LocalBufferSize.get() : 0;
-      if (SizeInBytes == 0) { // no need to create of pad this buffer.
+      if (LocalBufferSizeInBytes == 0) {
+        // no need to create of pad this buffer.
         Arg = Constant::getNullValue(PointerType::get(I8Ty, 3));
       } else {
-        // add stack padding before and after this alloca, to allow unmasked
-        // wide loads inside the vectorizer.
-        size_t LocalBufferSize = SizeInBytes + STACK_PADDING_BUFFER * 2;
-
+        Value *HeapOffset = ConstantInt::get(SizetTy, 0);
         // Set alignment of implicit local buffer to max alignment.
         // TODO: we should choose the min required alignment size
         // move argument up over the lower side padding.
         Value *SLMBuffer = allocaArrayForLocalPrivateBuffer(
-            Builder, HeapMem, DL, ConstantInt::get(SizetTy, LocalBufferSize),
-            TypeAlignment::MAX_ALIGNMENT, HeapCurrentOffset);
+            Builder, HeapMem, DL,
+            ConstantInt::get(SizetTy, LocalBufferSizePadding),
+            TypeAlignment::MAX_ALIGNMENT, HeapOffset);
         Value *CastBuf =
             Builder.CreatePointerCast(SLMBuffer, PointerType::get(I8Ty, 3));
         Arg = Builder.CreateGEP(I8Ty, CastBuf,
                                 ConstantInt::get(I32Ty, STACK_PADDING_BUFFER));
-        HeapCurrentOffset = Builder.CreateAdd(
-            ConstantInt::get(SizetTy, LocalBufferSize), HeapCurrentOffset);
       }
     } break;
     case ImplicitArgsUtils::IA_WORK_GROUP_ID:
@@ -457,7 +482,9 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       BarrierBufferSize = Builder.CreateMul(BarrierBufferSize, LocalSizeProd,
                                             "BarrierBufferSize",
                                             /*HasNUW*/ true, /*HasNSW*/ true);
-
+      if (HasLocalArg)
+        HeapCurrentOffset = updateAddrWithAlignment(
+            HeapCurrentOffset, TypeAlignment::MAX_ALIGNMENT, Builder);
       Value *BarrierBuffer = allocaArrayForLocalPrivateBuffer(
           Builder, HeapMem, DL, BarrierBufferSize, TypeAlignment::MAX_ALIGNMENT,
           HeapCurrentOffset);

@@ -621,15 +621,21 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
   size_t barrierSize = m_pProps->GetBarrierBufferSize();
   size_t privateSize = m_pProps->GetPrivateMemorySize();
   size_t localBufferSize = m_pProps->GetImplicitLocalMemoryBufferSize();
+  auto UpdateSizeWithMaxAlign = [](size_t Size) {
+    return (Size + CPU_DEV_MAXIMUM_ALIGN - 1) & ~(CPU_DEV_MAXIMUM_ALIGN - 1);
+  };
+  size_t LocalBufferSizeMaxAlign = UpdateSizeWithMaxAlign(localBufferSize);
   for (auto &arg : m_explicitArgs) {
     if (arg.Ty == KRNL_ARG_PTR_LOCAL) {
       char *pArgLocation = (char *)pKernelUniformArgs + arg.OffsetInBytes;
       switch (arg.SizeInBytes) {
       case sizeof(cl_uint):
-        localBufferSize += *((cl_uint *)pArgLocation);
+        LocalBufferSizeMaxAlign +=
+            UpdateSizeWithMaxAlign(*((cl_uint *)pArgLocation));
         break;
       case sizeof(cl_long):
-        localBufferSize += *((cl_long *)pArgLocation);
+        LocalBufferSizeMaxAlign +=
+            UpdateSizeWithMaxAlign(*((cl_long *)pArgLocation));
         break;
       default:
         llvm_unreachable("Unknown arg size");
@@ -652,9 +658,9 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
     ActualBarrierBufferSize *= LocalSize;
   }
   m_BarrierBufferSize = ActualBarrierBufferSize;
-  m_localBufferSize = localBufferSize;
+  m_localBufferSize = LocalBufferSizeMaxAlign;
   m_stackActualSize =
-      ActualBarrierBufferSize + localBufferSize + m_stackExtraSize;
+      ActualBarrierBufferSize + LocalBufferSizeMaxAlign + m_stackExtraSize;
 
   // need to decide which entrypoint to run
   const IKernelJITContainer *pScalarJIT = GetKernelJIT(0);

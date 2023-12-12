@@ -36,31 +36,33 @@ define dso_local void @test(ptr addrspace(1) nocapture noundef writeonly align 4
 ; CHECK-NEXT:    [[PHEAPMEM:%.*]] = load ptr, ptr [[TMP]], align 1
 ;; cmp heap memory pointer with null
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq ptr [[PHEAPMEM]], null
+
 ;;;; local argument
 ; CHECK:         [[TMP1:%.*]] = getelementptr i8, ptr [[UNIFORMARGS]], i32 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr [[TMP1]], align 4
 ;; select alloca size
 ; CHECK-NEXT:    [[TMP4:%.*]] = select i1 [[TMP3]], i64 [[TMP2]], i64 0
 ; CHECK-NEXT:    [[TMP5:%.*]] = alloca i8, i64 [[TMP4]], align 4
-; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr i8, ptr [[PHEAPMEM]], i64 0
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr i8, ptr [[PHEAPMEM]], i64 384
 ; CHECK-NEXT:    [[TMP7:%.*]] = select i1 [[TMP3]], ptr [[TMP5]], ptr [[TMP6]]
 ; CHECK-NEXT:    [[EXPLICIT_1:%.*]] = addrspacecast ptr [[TMP7]] to ptr addrspace(3)
-; CHECK-NEXT:    [[TMP8:%.*]] = add i64 [[TMP2]], 0
+; CHECK-NEXT:    [[TMP8:%.*]] = add i64 384, [[TMP2]]
 
 ;;;; local array
 ; CHECK:         [[TMP9:%.*]] = select i1 [[TMP3]], i64 [[ARRAY_SIZE:.*]], i64 0
 ; CHECK-NEXT:    [[TMP10:%.*]] = alloca i8, i64 [[TMP9]], align 128
-; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr i8, ptr [[PHEAPMEM]], i64 [[TMP8]]
+; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr i8, ptr [[PHEAPMEM]], i64 0
 ; CHECK-NEXT:    [[TMP12:%.*]] = select i1 [[TMP3]], ptr [[TMP10]], ptr [[TMP11]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = addrspacecast ptr [[TMP12]] to ptr addrspace(3)
 ; CHECK-NEXT:    [[PLOCALMEMBASE:%.*]] = getelementptr i8, ptr addrspace(3) [[TMP13]], i32 128
-; CHECK-NEXT:    [[TMP14:%.*]] = add i64 [[ARRAY_SIZE]], [[TMP8]]
 
 ;;;; special buffer
-; CHECK:         [[TMP33:%.*]] = select i1 [[TMP3]], i64 [[BARRIERBUFFERSIZE:%.*]], i64 0
-; CHECK-NEXT:    [[TMP34:%.*]] = alloca i8, i64 [[TMP33]], align 128
-; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr i8, ptr [[PHEAPMEM]], i64 [[TMP14]]
-; CHECK-NEXT:    [[PSPECIALBUF:%.*]] = select i1 [[TMP3]], ptr [[TMP34]], ptr [[TMP35]]
+; CHECK:         [[TMP33:%.*]] = add i64 [[TMP8]], 127
+; CHECK-NEXT:    [[TMP34:%.*]] = and i64 [[TMP33]], -128
+; CHECK:         [[TMP36:%.*]] = select i1 [[TMP3]], i64 [[BARRIERBUFFERSIZE:%.*]], i64 0
+; CHECK-NEXT:    [[TMP37:%.*]] = alloca i8, i64 [[TMP36]], align 128
+; CHECK-NEXT:    [[TMP38:%.*]] = getelementptr i8, ptr [[PHEAPMEM]], i64 [[TMP34]]
+; CHECK-NEXT:    [[PSPECIALBUF:%.*]] = select i1 [[TMP3]], ptr [[TMP37]], ptr [[TMP38]]
 ;
 entry:
   %0 = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
@@ -148,5 +150,5 @@ SyncBB0:                                          ; preds = %SyncBB1
 !15 = !{!"Simple C/C++ TBAA"}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-55: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-56: WARNING: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING

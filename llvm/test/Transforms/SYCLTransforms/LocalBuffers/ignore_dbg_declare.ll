@@ -2,11 +2,12 @@
 ; RUN: opt -passes='sycl-kernel-add-implicit-args,sycl-kernel-local-buffers,sycl-kernel-prepare-args' -S < %s | FileCheck %s
 
 ; The test checks that global variables usages marked with the dbg_declare_inst metadata are ignored by the pass, and do not cause extra local memory allocation.
-; The request size is 100 bytes. Together with 256 bytes of padding needed for vectorizer, it is 356.
+; The request size is 100 bytes. Together with 256 bytes of padding needed for vectorizer, it is 356. When using heap memory for local memory,
+; it should be aligned with DEV_MAXIMUM_ALIGN, so it is 384.
 ; In the problematic scenario, the call to dbg_declare global in @f1 is considered a usage and causes double memory allocation, which wil result in alloca [512 .
 
+; CHECK: select i1 [[TMP1:%.*]], i32 384, i32 0
 ; CHECK: %pLocalMemBase = 
-; CHECK-NEXT: add i32 356
 
 ; ModuleID = 'debugInfo.ll'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-f80:32:32-n8:16:32-S32"

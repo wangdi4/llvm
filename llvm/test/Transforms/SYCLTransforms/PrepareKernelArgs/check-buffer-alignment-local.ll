@@ -15,49 +15,56 @@ entry:
 
 ; CHECK: [[GEP0:%[0-9]+]] = getelementptr i8, ptr %UniformArgs, i32 8
 ; CHECK-NEXT: [[LOAD0:%[0-9]+]] = load i64, ptr [[GEP0]], align 8
-
 ; CHECK-NEXT: [[ALLOCA_SIZE0:%[0-9]+]] = select i1 [[HEAP_MEM_NULL]], i64 [[LOAD0]], i64 0
 ; CHECK-NEXT: [[ALLOCA0:%[0-9]+]] = alloca i8, i64 [[ALLOCA_SIZE0]], align 128
 ; CHECK-NEXT: [[HEAP_MEM_LOC0:%[0-9]+]] = getelementptr i8, ptr %pHeapMem, i64 0
 ; CHECK-NEXT: [[LOCAL_ARG_BUFFER0:%[0-9]+]] = select i1 [[HEAP_MEM_NULL]], ptr [[ALLOCA0]], ptr [[HEAP_MEM_LOC0]]
 ; CHECK-NEXT: %explicit_1 = addrspacecast ptr [[LOCAL_ARG_BUFFER0]] to ptr addrspace(3)
-; CHECK-NEXT: [[HEAP_MEM_OFFSET0:%[0-9]+]] = add i64 [[LOAD0]], 0
+; CHECK-NEXT: [[HEAP_MEM_OFFSET0:%[0-9]+]] = add i64 0, [[LOAD0]]
 
 ; CHECK: [[GEP1:%[0-9]+]] = getelementptr i8, ptr %UniformArgs, i32 16
 ; CHECK-NEXT: [[LOAD1:%[0-9]+]] = load i64, ptr [[GEP1]], align 8
+; CHECK-NEXT: [[TMP1:%[0-9]+]] = add i64 [[HEAP_MEM_OFFSET0]], 7
+; CHECK-NEXT: [[OFFSET_ALIGN0:%[0-9]+]] = and i64 [[TMP1]], -8
 ; CHECK-NEXT: [[ALLOCA_SIZE1:%[0-9]+]] = select i1 [[HEAP_MEM_NULL]], i64 [[LOAD1]], i64 0
 ; CHECK-NEXT: [[ALLOCA1:%[0-9]+]] = alloca i8, i64 [[ALLOCA_SIZE1]], align 8
-; CHECK-NEXT: [[HEAP_MEM_LOC1:%[0-9]+]] = getelementptr i8, ptr %pHeapMem, i64 [[HEAP_MEM_OFFSET0]]
+; CHECK-NEXT: [[HEAP_MEM_LOC1:%[0-9]+]] = getelementptr i8, ptr %pHeapMem, i64 [[OFFSET_ALIGN0]]
 ; CHECK-NEXT: [[LOCAL_ARG_BUFFER1:%[0-9]+]] = select i1 [[HEAP_MEM_NULL]], ptr [[ALLOCA1]], ptr [[HEAP_MEM_LOC1]]
 ; CHECK-NEXT: %explicit_2 = addrspacecast ptr [[LOCAL_ARG_BUFFER1]] to ptr addrspace(3)
-; CHECK-NEXT: [[HEAP_MEM_OFFSET1:%[0-9]+]] = add i64 [[LOAD1]], [[HEAP_MEM_OFFSET0]]
+; CHECK-NEXT: [[HEAP_MEM_OFFSET1:%[0-9]+]] = add i64 [[OFFSET_ALIGN0]], [[LOAD1]]
 
 ; CHECK: [[GEP2:%[0-9]+]] = getelementptr i8, ptr %UniformArgs, i32 24
 ; CHECK-NEXT: [[LOAD2:%[0-9]+]] = load i64, ptr [[GEP2]], align 8
+; CHECK-NEXT: [[TMP3:%[0-9]+]] = add i64 [[HEAP_MEM_OFFSET1]], 0
+; CHECK-NEXT: [[OFFSET_ALIGN1:%[0-9]+]] = and i64 [[TMP3]], -1
 ; CHECK-NEXT: [[ALLOCA_SIZE2:%[0-9]+]] = select i1 [[HEAP_MEM_NULL]], i64 [[LOAD2]], i64 0
 ; CHECK-NEXT: [[ALLOCA2:%[0-9]+]] = alloca i8, i64 [[ALLOCA_SIZE2]], align 1
-; CHECK-NEXT: [[HEAP_MEM_LOC2:%[0-9]+]] = getelementptr i8, ptr %pHeapMem, i64 [[HEAP_MEM_OFFSET1]]
+; CHECK-NEXT: [[HEAP_MEM_LOC2:%[0-9]+]] = getelementptr i8, ptr %pHeapMem, i64 [[OFFSET_ALIGN1]]
 ; CHECK-NEXT: [[LOCAL_ARG_BUFFER2:%[0-9]+]] = select i1 [[HEAP_MEM_NULL]], ptr [[ALLOCA2]], ptr [[HEAP_MEM_LOC2]]
 ; CHECK-NEXT: %explicit_3 = addrspacecast ptr [[LOCAL_ARG_BUFFER2]] to ptr addrspace(3)
-; CHECK-NEXT: [[HEAP_MEM_OFFSET2:%[0-9]+]] = add i64 [[LOAD2]], [[HEAP_MEM_OFFSET1]]
+; CHECK-NEXT: [[HEAP_MEM_OFFSET2:%[0-9]+]] = add i64 [[OFFSET_ALIGN1]], [[LOAD2]]
 
 ; CHECK: [[GEP3:%[0-9]+]] = getelementptr i8, ptr %UniformArgs, i32 32
 ; CHECK-NEXT: [[LOAD3:%[0-9]+]] = load i64, ptr [[GEP3]], align 8
+; CHECK-NEXT: [[TMP5:%[0-9]+]] = add i64 [[HEAP_MEM_OFFSET2]], 1
+; CHECK-NEXT: [[OFFSET_ALIGN2:%[0-9]+]] = and i64 [[TMP5]], -2
 ; CHECK-NEXT: [[ALLOCA_SIZE3:%[0-9]+]] = select i1 [[HEAP_MEM_NULL]], i64 [[LOAD3]], i64 0
 ; CHECK-NEXT: [[ALLOCA3:%[0-9]+]] = alloca i8, i64 [[ALLOCA_SIZE3]], align 2
-; CHECK-NEXT: [[HEAP_MEM_LOC3:%[0-9]+]] = getelementptr i8, ptr %pHeapMem, i64 [[HEAP_MEM_OFFSET2]]
+; CHECK-NEXT: [[HEAP_MEM_LOC3:%[0-9]+]] = getelementptr i8, ptr %pHeapMem, i64 [[OFFSET_ALIGN2]]
 ; CHECK-NEXT: [[LOCAL_ARG_BUFFER3:%[0-9]+]] = select i1 [[HEAP_MEM_NULL]], ptr [[ALLOCA3]], ptr [[HEAP_MEM_LOC3]]
 ; CHECK-NEXT: %explicit_4 = addrspacecast ptr [[LOCAL_ARG_BUFFER3]] to ptr addrspace(3)
-; CHECK-NEXT: [[HEAP_MEM_OFFSET3:%[0-9]+]] = add i64 [[LOAD3]], [[HEAP_MEM_OFFSET2]]
+; CHECK-NEXT: [[HEAP_MEM_OFFSET3:%[0-9]+]] = add i64 [[OFFSET_ALIGN2]], [[LOAD3]]
 
 ; CHECK: [[GEP3:%[0-9]+]] = getelementptr i8, ptr %UniformArgs, i32 40
-; CHECK-NEXT: [[LOAD3:%[0-9]+]] = load i64, ptr [[GEP3]], align 8
-; CHECK-NEXT: [[ALLOCA_SIZE4:%[0-9]+]] = select i1 [[HEAP_MEM_NULL]], i64 [[LOAD3]], i64 0
+; CHECK-NEXT: [[LOAD4:%[0-9]+]] = load i64, ptr [[GEP3]], align 8
+; CHECK-NEXT: [[TMP7:%[0-9]+]] = add i64 [[HEAP_MEM_OFFSET3]], 31
+; CHECK-NEXT: [[OFFSET_ALIGN3:%[0-9]+]] = and i64 [[TMP7]], -32
+; CHECK-NEXT: [[ALLOCA_SIZE4:%[0-9]+]] = select i1 [[HEAP_MEM_NULL]], i64 [[LOAD4]], i64 0
 ; CHECK-NEXT: [[ALLOCA4:%[0-9]+]] = alloca i8, i64 [[ALLOCA_SIZE4]], align 32
-; CHECK-NEXT: [[HEAP_MEM_LOC4:%[0-9]+]] = getelementptr i8, ptr %pHeapMem, i64 [[HEAP_MEM_OFFSET3]]
+; CHECK-NEXT: [[HEAP_MEM_LOC4:%[0-9]+]] = getelementptr i8, ptr %pHeapMem, i64 [[OFFSET_ALIGN3]]
 ; CHECK-NEXT: [[LOCAL_ARG_BUFFER4:%[0-9]+]] = select i1 [[HEAP_MEM_NULL]], ptr [[ALLOCA4]], ptr [[HEAP_MEM_LOC4]]
 ; CHECK-NEXT: %explicit_5 = addrspacecast ptr [[LOCAL_ARG_BUFFER4]] to ptr addrspace(3)
-; CHECK-NEXT: [[HEAP_MEM_OFFSET4:%[0-9]+]] = add i64 [[LOAD3]], [[HEAP_MEM_OFFSET3]]
+; CHECK-NEXT: [[HEAP_MEM_OFFSET4:%[0-9]+]] = add i64 [[OFFSET_ALIGN3]], [[LOAD4]]
 
   %array = addrspacecast ptr addrspace(1) %results to ptr addrspace(3)
   store ptr addrspace(3) %mem0, ptr addrspace(3) %array, align 8
@@ -85,5 +92,5 @@ attributes #0 = { nounwind }
 !2 = !{ptr @test}
 !3 = !{!"long*", !"char*", !"float2*", !"char*", !"short*", !"half16*"}
 
-; DEBUGIFY-COUNT-73: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-81: WARNING: Instruction with empty DebugLoc in function test
 ; DEBUGIFY-NOT: WARNING
