@@ -32,7 +32,7 @@
 // - no IV in loop's UpperBound;
 // - Neither firstChild nor lastChild can be a nullptr;
 // - List of Nonos (within the loop's body):
-//     -no call,
+//     -no unsafe call,
 //     -no goto,
 //     -no jump,
 //     -no label;
@@ -151,8 +151,7 @@ public:
   bool getCollectionAborted(void) const { return AbortCollector; }
 
   void visit(HLDDNode *Node) {
-    for (auto I = Node->op_ddref_begin(), E = Node->op_ddref_end(); I != E;
-         ++I) {
+    for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
       checkAndCollectMCE(*I, Node);
     }
   }
@@ -491,6 +490,8 @@ bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp,
   const LoopStatistics &LS = HLS.getSelfStatistics(Lp);
 
   // LLVM_DEBUG(LS.dump(););
+  // TODO: hasCallsWithUnsafeSideEffects needs to be replaced with
+  // hasCallsWithSideEffects.
   if (LS.hasCallsWithUnsafeSideEffects() || LS.hasForwardGotos()) {
     return false;
   }
