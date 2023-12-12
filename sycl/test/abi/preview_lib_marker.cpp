@@ -25,4 +25,6 @@ int main() {
 }
 
 // CHECK-NO-PREVIEW-WINDOWS: unresolved external symbol "void __cdecl sycl::_V1::detail::PreviewMajorReleaseMarker(void)"
-// CHECK-NO-PREVIEW-LINUX: undefined symbol: sycl::_V1::detail::PreviewMajorReleaseMarker()
+// INTEL_CUSTOMIZATION
+// CHECK-NO-PREVIEW-LINUX: {{undefined symbol: sycl::_V1::detail::PreviewMajorReleaseMarker\(\)|undefined reference to `sycl::_V1::detail::PreviewMajorReleaseMarker\(\)'}}
+// end INTEL_CUSTOMIZATION
