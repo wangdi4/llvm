@@ -564,6 +564,28 @@ entry:
   ret <16 x float> %r10
 }
 
+define dso_local <16 x float> @test_fma_mr(<16 x float>* nocapture readonly %x0, <16 x float>* nocapture readonly %x1, <16 x float> %p1, <16 x float> %p2, <16 x float> %p3, <16 x float> %p4, <16 x float> %p5, <16 x float> %p6) {
+; CHECK-LABEL: test_fma_mr:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    vmovaps (%rdi), %zmm6
+; CHECK-NEXT:    vxorps %xmm7, %xmm7, %xmm7
+; CHECK-NEXT:    vfmaddcph (%rsi), %zmm6, %zmm7
+; CHECK-NEXT:    vxorps %xmm6, %xmm6, %xmm6
+; CHECK-NEXT:    vfmaddcph %zmm1, %zmm0, %zmm6
+; CHECK-NEXT:    vfmaddcph %zmm3, %zmm2, %zmm7
+; CHECK-NEXT:    vfmaddcph %zmm5, %zmm4, %zmm6
+; CHECK-NEXT:    vaddph %zmm6, %zmm7, %zmm0
+; CHECK-NEXT:    retq
+entry:
+  %0 = load <16 x float>, <16 x float>* %x0, align 64
+  %1 = load <16 x float>, <16 x float>* %x1, align 64
+  %r0 = tail call fast <16 x float> @llvm.x86.avx512fp16.mask.vfmadd.cph.512(<16 x float> %0, <16 x float> %1, <16 x float> zeroinitializer, i16 -1, i32 4)
+  %r1 = tail call fast <16 x float> @llvm.x86.avx512fp16.mask.vfmadd.cph.512(<16 x float> %p1, <16 x float> %p2, <16 x float> %r0, i16 -1, i32 4)
+  %r2 = tail call fast <16 x float> @llvm.x86.avx512fp16.mask.vfmadd.cph.512(<16 x float> %p3, <16 x float> %p4, <16 x float> %r1, i16 -1, i32 4)
+  %r3 = tail call fast <16 x float> @llvm.x86.avx512fp16.mask.vfmadd.cph.512(<16 x float> %p5, <16 x float> %p6, <16 x float> %r2, i16 -1, i32 4)
+  ret <16 x float> %r3
+}
+
 declare <16 x float> @llvm.x86.avx512fp16.mask.vfcmadd.cph.512(<16 x float>, <16 x float>, <16 x float>, i16, i32 immarg)
 declare <8 x float> @llvm.x86.avx512fp16.mask.vfcmadd.cph.256(<8 x float>, <8 x float>, <8 x float>, i8)
 declare <4 x float> @llvm.x86.avx512fp16.mask.vfcmadd.cph.128(<4 x float>, <4 x float>, <4 x float>, i8)

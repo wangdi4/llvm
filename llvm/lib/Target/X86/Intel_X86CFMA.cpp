@@ -116,6 +116,16 @@ static std::pair<unsigned, unsigned> *findCFMA(unsigned Opcode) {
   return nullptr;
 }
 
+static bool ifAllowedMixedUsage(MachineInstr *UseMI, MachineInstr *MI) {
+  // Extend the support when VFMADDCPHZ occurs memory version at front
+  // and later occur as register version in one dependecy chain.
+  // This is required in Relate Jira: CMPLRLLVM-51523
+  if (UseMI->getOpcode() == X86::VFMADDCPHZr &&
+      MI->getOpcode() == X86::VFMADDCPHZm)
+    return true;
+  return false;
+}
+
 MachineInstr *X86CFMA::createAdd(MachineBasicBlock &MBB, MachineInstr *LMul,
                                  MachineInstr *RMul) {
   unsigned AddOpc = 0;
@@ -212,7 +222,8 @@ bool X86CFMA::optimizeBasicBlock(MachineBasicBlock &MBB) {
           // TODO: the complex FMA, conjugate FMA, register version FMA,
           // memory version FMA, mask version FMA can be mixed in a chain.
           // We can fine tune it late.
-          UseMI->getOpcode() != MI.getOpcode() ||
+          (UseMI->getOpcode() != MI.getOpcode() &&
+           !ifAllowedMixedUsage(UseMI, &MI)) ||
           UseMI->getOperand(1).getReg() != DestReg)
         break;
       CFMAList.push_back({UseMI, *CFMAOp});
