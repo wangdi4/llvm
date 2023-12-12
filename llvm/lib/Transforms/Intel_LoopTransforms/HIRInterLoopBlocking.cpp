@@ -309,6 +309,10 @@ protected:
   // See if breaking this function further can help.
   bool checkStructure(HLLoop *Loop);
 
+  bool hasInterveningAncestor(const HLLoop *InnermostLoop1,
+                              const HLLoop *InnermostLoop2,
+                              const HLLoop *LCALoop) const;
+
 protected:
   HIRFramework &HIRF;
 
@@ -350,13 +354,6 @@ void CheckerVisitor::visit(HLInst *HInst) {
   const HLLoop *ParentLoop = HInst->getParentLoop();
 
   if (!ParentLoop) {
-    return;
-  }
-
-  // TODO: consider to remove the check. visit(HLLoop*) is also checking
-  //       the same condition. Revisit when the transformation is enabled.
-  if (ParentLoop->isInnermost() && !isCleanCut(LastSpatialLoop, ParentLoop)) {
-    bailOut();
     return;
   }
 
@@ -449,6 +446,22 @@ bool CheckerVisitor::checkStructure(HLLoop *Loop) {
   }
 
   return true;
+}
+
+bool CheckerVisitor::hasInterveningAncestor(const HLLoop *InnermostLoop1,
+                                            const HLLoop *InnermostLoop2,
+                                            const HLLoop *LCALoop) const {
+  // In case this function is called after resetting of member variables,
+  // arguments can be null pointers.
+  if (!InnermostLoop1 || !InnermostLoop2)
+    return false;
+
+  assert(InnermostLoop1->isInnermost() && InnermostLoop2->isInnermost() &&
+         "Loops should be innermost.");
+
+  auto *CommonAncestor = HLNodeUtils::getLexicalLowestCommonAncestorParent(
+      InnermostLoop1, InnermostLoop2);
+  return CommonAncestor != LCALoop;
 }
 
 // Collect a sequence of valid sibling loopnests.
@@ -553,7 +566,22 @@ void ProfitabilityChecker::visit(HLLoop *Loop) {
   }
 
   if (!analyzeProfitablity(Loop)) {
+    // Profitablitly check failed with the current Loop.
+    // This is where Loop becomes a real non-member (i.e. non-candidate) loop.
+    // If this Loop and the last candidate loop, LastSpatialLoop, cannot
+    // be cleanly cut, we have to nullify all candidate loops by emptying
+    // existing InnermostLoops as well. Currently, we bailout here. If we want
+    // to examine further opportunities in the future, next nevigation location
+    // show be set to the next node of common lexical lowest ancestor of
+    // LastSpatialLoop and  Loop.
+    if (hasInterveningAncestor(LastSpatialLoop, Loop, PrevLCA)) {
+
+      bailOut();
+      LLVM_DEBUG(dbgs() << "Member loop and non-member loop cannot be cut.\n");
+      return;
+    }
     stopAndWork(2, Loop);
+
     SkipNode = Loop;
     return;
   }
@@ -1379,6 +1407,7 @@ bool InnermostLoopAnalyzer::isValidDim(const CanonExpr *CE,
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DEBUG)
 void Transformer::dump() {
+  dbgs() << "== Inputs to Transformer ==\n";
   unsigned Size = StripmineSizes.size();
   dbgs() << "Size: " << Size << "\n";
   dbgs() << "StripmineSizes: ";
@@ -1387,6 +1416,8 @@ void Transformer::dump() {
   dbgs() << "\n";
 
   dbgs() << "InnermostLoopToDimInfos\n";
+  dbgs() << "Number of innermost loops: " << InnermostLoopToDimInfos.size()
+         << "\n";
   for (auto &Entry : InnermostLoopToDimInfos) {
     dbgs() << "Lp :" << Entry.first->getNumber() << " ";
     dbgs() << "DimInfoSize: " << Entry.second.size() << ", ";
@@ -1399,7 +1430,7 @@ void Transformer::dump() {
   for (auto &Entry : InnermostLoopToRepRef) {
     dbgs() << "Lp :" << Entry.first->getNumber() << " ";
     Entry.second->dump();
-    dbgs() << " ";
+    dbgs() << "\n";
   }
 
   dbgs() << "InnermostLoopToShift\n";
@@ -1482,7 +1513,7 @@ bool Transformer::rewrite(bool CloneDVLoads, bool AlignSpatialLoops) {
   printMarker("Initial: ", {NodeOutsideByStrip}, true, false);
 
   LLVM_DEBUG(dbgs() << "Region to update: " << Region->getNumber() << "\n");
-  LLVM_DEBUG(Region->dump(1));
+  LLVM_DEBUG(Region->dump());
   LLVM_DEBUG(dbgs() << "== * == AAAA \n"; for (auto &LoopAndDimInfo
                                                : InnermostLoopToDimInfos) {
     dbgs() << LoopAndDimInfo.first->getNumber() << "\n";
@@ -3209,16 +3240,44 @@ public:
 
     // Do profitablity check by adding the current loop.
     if (!analyzeProfitablity(Loop)) {
-      // Profitablitly check failed with the current loop.
-      // See if the candidates so far without current loop
-      // look good.
+      // Profitablitly check failed with the current Loop.
+      // This is where Loop becomes a real non-member (i.e. non-candidate) loop.
+      // If this Loop and the last candidate loop, LastSpatialLoop, cannot
+      // be cleanly cut, we have to nullify all candidate loops by emptyin
+      // exisiting InnermostLoops as well. Currently, we bailout here. If we
+      // want to examine further opportunities in the future, next nevigation
+      // location show be set to the next node of common lexical lowest ancestor
+      // of LastSpatialLoop and  Loop.
+      if (hasInterveningAncestor(LastSpatialLoop, Loop, PrevLCA)) {
+        bailOut();
+        LLVM_DEBUG(
+            dbgs() << "Member loop and non-member loop cannot be cut.\n");
+        return;
+      }
+
       stopAndWork(10, Loop);
       SkipNode = Loop;
       return;
     }
 
     // Do legality check by adding the current loop.
-    analyzeLegality(Loop);
+    if (!analyzeLegality(Loop)) {
+      // Loop doesn't statisfy conditions for a legal candidate.
+      // This is where Loop becomes a real non-member (i.e. non-candidate) loop.
+      // If this Loop and the last candidate loop, LastSpatialLoop, cannot
+      // be cleanly cut, we have to nullify all candidate loops by emptyin
+      // exisiting InnermostLoops as well. Currently, we bailout here. If we
+      // want to examine further opportunities in the future, next nevigation
+      // location show be set to the next node of common lexical lowest ancestor
+      // of LastSpatialLoop and  Loop.
+      if (hasInterveningAncestor(LastSpatialLoop, Loop, PrevLCA)) {
+
+        bailOut();
+        LLVM_DEBUG(
+            dbgs() << "Member loop and non-member loop cannot be cut.\n");
+        return;
+      }
+    }
 
     // Adding the current loop to the exisiting candidates
     // were both profitable and legal.
@@ -4235,9 +4294,11 @@ bool tryTransform(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
                                          FuncName);
 
   bool FoundLegalAndProfitableCand = Checker.run();
-  LLVM_DEBUG(dbgs() << "Found Legal & Profitable Cand:"
-                    << FoundLegalAndProfitableCand << "\n");
   if (FoundLegalAndProfitableCand) {
+    LLVM_DEBUG(dbgs() << "Found Legal & Profitable Cand:"
+                      << (FoundLegalAndProfitableCand ? "true" : "false")
+                      << "\n");
+
     InnermostLoopToShiftTy InnermostLoopToShiftVec(3);
     return doTransformation(Checker.getInnermostLoopToDimInfos(),
                             Checker.getInnermostLoopToRepRef(),
@@ -4288,8 +4349,9 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   LLVM_DEBUG_PROFIT_REPORT(dbgs() << "Profitable\n");
 
   assert(PC.getOutermostLoop());
-
-  LLVM_DEBUG(dbgs() << PC.getOutermostLoop()->getNumber() << "\n";);
+  LLVM_DEBUG(dbgs() << "Profitable Node Outside Potential By-strip loops (aka "
+                       "PC.getOutermostLoop()): \n");
+  LLVM_DEBUG(PC.getOutermostLoop()->dump());
 
   bool UseKnownGoodSizes = TTI.isAdvancedOptEnabled(
       TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);
@@ -4311,8 +4373,9 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   bool OptPred = HIRTransformUtils::doOptVarPredicate(
       PC.getOutermostLoop(), OutLoops, NodesToInvalidate);
 
-  LLVM_DEBUG(dbgs() << " OptPred: " << OptPred << "\n");
-  LLVM_DEBUG(dbgs() << "OutLoops: " << OutLoops.size() << "\n";
+  LLVM_DEBUG(dbgs() << "OptVarPred Done: " << (OptPred ? "yes" : "no") << "\n");
+  LLVM_DEBUG(dbgs() << "# OutLoops from OptVarPred: " << OutLoops.size()
+                    << "\n";
              for (auto L
                   : OutLoops) {
                dbgs() << "L: \n";

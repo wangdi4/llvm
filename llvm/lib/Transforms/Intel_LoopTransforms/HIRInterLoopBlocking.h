@@ -516,7 +516,8 @@ private:
   const LoopToDimInfoTy &InnermostLoopToDimInfos;
   const LoopToConstRefTy &InnermostLoopToRepRef;
   const InnermostLoopToShiftTy &InnermostLoopToShift;
-  // Loop enclosing all the spatial loopnests.
+
+  // Loop or other node (e.g. if) enclosing all the spatial loopnests.
   // Inside NodeOutsideByStrip, by-strip loops are generated.
   HLNode *NodeOutsideByStrip;
 
