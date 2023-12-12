@@ -306,17 +306,6 @@ def FeatureVPMM    : SubtargetFeature<"avx512vpmm", "HasAVX512VPMM", "true",
                      "Support packed I8/BF8/HF8/BF16/FP16/TF32 small matrix multiplication",
                      [FeatureAVX512, FeatureNEBF16]>;
 #endif // INTEL_FEATURE_ISA_AVX512_VPMM
-
-def FeaturePush2Pop2 : SubtargetFeature<"push2pop2", "HasPush2Pop2", "true",
-                                   "Support PUSH2/POP2 instructions">;
-def FeatureNDD : SubtargetFeature<"ndd", "HasNDD", "true",
-                                   "Support non-destructive destination">;
-def FeatureCCMP : SubtargetFeature<"ccmp", "HasCCMP", "true",
-                                   "Support conditional cmp & test instructions">;
-def FeatureCF : SubtargetFeature<"cf", "HasCF", "true",
-                                   "Support conditional faulting">;
-def FeaturePPX : SubtargetFeature<"ppx", "HasPPX", "true",
-                                   "Support Push-Pop Acceleration">;
 #endif // INTEL_CUSTOMIZATION
 
 def FeatureAVXVNNIINT16 : SubtargetFeature<"avxvnniint16",
@@ -709,6 +698,16 @@ def FeatureAVX10_1_512 : SubtargetFeature<"avx10.1-512", "HasAVX10_1_512", "true
                                           [FeatureAVX10_1, FeatureEVEX512]>;
 def FeatureEGPR : SubtargetFeature<"egpr", "HasEGPR", "true",
                                    "Support extended general purpose register">;
+def FeaturePush2Pop2 : SubtargetFeature<"push2pop2", "HasPush2Pop2", "true",
+                                        "Support PUSH2/POP2 instructions">;
+def FeaturePPX : SubtargetFeature<"ppx", "HasPPX", "true",
+                                  "Support Push-Pop Acceleration">;
+def FeatureNDD : SubtargetFeature<"ndd", "HasNDD", "true",
+                                  "Support non-destructive destination">;
+def FeatureCCMP : SubtargetFeature<"ccmp", "HasCCMP", "true",
+                                   "Support conditional cmp & test instructions">;
+def FeatureCF : SubtargetFeature<"cf", "HasCF", "true",
+                                 "Support conditional faulting">;
 
 // Ivy Bridge and newer processors have enhanced REP MOVSB and STOSB (aka
 // "string operations"). See "REP String Enhancement" in the Intel Software

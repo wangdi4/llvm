@@ -475,13 +475,21 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
     // Skip over "-m".
     assert(Name.startswith("m") && "Invalid feature name.");
     Name = Name.substr(1);
+#endif // INTEL_CUSTOMIZATION
+
+    // Replace -mgeneral-regs-only with -x87, -mmx, -sse
+    if (A->getOption().getID() == options::OPT_mgeneral_regs_only) {
+      Features.insert(Features.end(), {"-x87", "-mmx", "-sse"});
+      continue;
+    }
+
     bool IsNegative = Name.startswith("no-");
     if (A->getOption().matches(options::OPT_mapx_features_EQ) ||
         A->getOption().matches(options::OPT_mno_apx_features_EQ)) {
 
       for (StringRef Value : A->getValues()) {
-        if (Value == "egpr" || Value == "push2pop2" || Value == "ndd" ||
-            Value == "ccmp" || Value == "cf") {
+        if (Value == "egpr" || Value == "push2pop2" || Value == "ppx" ||
+            Value == "ndd" || Value == "ccmp" || Value == "cf") {
           Features.push_back(
               Args.MakeArgString((IsNegative ? "-" : "+") + Value));
           continue;
@@ -491,17 +499,6 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
       }
       continue;
     }
-#endif // INTEL_CUSTOMIZATION
-
-    // Replace -mgeneral-regs-only with -x87, -mmx, -sse
-    if (A->getOption().getID() == options::OPT_mgeneral_regs_only) {
-      Features.insert(Features.end(), {"-x87", "-mmx", "-sse"});
-      continue;
-    }
-
-#if !INTEL_CUSTOMIZATION
-    bool IsNegative = Name.startswith("no-");
-#endif // !INTEL_CUSTOMIZATION
     if (IsNegative)
       Name = Name.substr(3);
     Features.push_back(Args.MakeArgString((IsNegative ? "-" : "+") + Name));

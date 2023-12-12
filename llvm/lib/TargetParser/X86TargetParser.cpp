@@ -760,11 +760,6 @@ constexpr FeatureBitset ImpliedFeaturesAMX_COMPLEX = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesHRESET = {};
 
 #if INTEL_CUSTOMIZATION
-constexpr FeatureBitset ImpliedFeaturesEGPR = {};
-constexpr FeatureBitset ImpliedFeaturesPush2Pop2 = {};
-constexpr FeatureBitset ImpliedFeaturesNDD = {};
-constexpr FeatureBitset ImpliedFeaturesCCMP = {};
-constexpr FeatureBitset ImpliedFeaturesCF = {};
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 constexpr FeatureBitset ImpliedFeaturesAVXDOTPRODPHPS = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
@@ -982,6 +977,14 @@ constexpr FeatureBitset ImpliedFeaturesAVX10_1 =
     FeatureAVX512FP16;
 constexpr FeatureBitset ImpliedFeaturesAVX10_1_512 =
     FeatureAVX10_1 | FeatureEVEX512;
+
+// APX Features
+constexpr FeatureBitset ImpliedFeaturesEGPR = {};
+constexpr FeatureBitset ImpliedFeaturesPush2Pop2 = {};
+constexpr FeatureBitset ImpliedFeaturesPPX = {};
+constexpr FeatureBitset ImpliedFeaturesNDD = {};
+constexpr FeatureBitset ImpliedFeaturesCCMP = {};
+constexpr FeatureBitset ImpliedFeaturesCF = {};
 
 constexpr FeatureInfo FeatureInfos[X86::CPU_FEATURE_MAX] = {
 #define X86_FEATURE(ENUM, STR) {{"+" STR}, ImpliedFeatures##ENUM},
