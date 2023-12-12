@@ -653,6 +653,12 @@
 // CHECK-OPT-REPORT: "-mllvm" "-intel-ra-spillreport=medium"
 // CHECK-OPT-REPORT: "-mllvm" "-inline-report=0x2819"
 // CHECK-OPT-REPORT: "-mllvm" "-intel-opt-report-file=dummy.optrpt"
+// CHECK-OPT-REPORT: "-mllvm" "-intel-debug-info-optimization-only"
+
+// -qopt-report with debug enabled
+// RUN: %clang -### -qopt-report -g -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-DEBUG %s
+// RUN: %clang_cl -### /Qopt-report /Zi -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-DEBUG %s
+// CHECK-OPT-REPORT-DEBUG-NOT: "-intel-debug-info-optimization-only"
 
 // -qopt-report-file checks
 // RUN: %clang -### -qopt-report -qopt-report-file=report-out.file -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE %s

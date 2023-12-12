@@ -1137,6 +1137,10 @@ static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
     addllvmOption(
         Args.MakeArgString(Twine("-intel-opt-report-file=") + OutFileDir));
   }
+  // When -debug isn't enabled only emit the info during the optimization pass.
+  const Arg *A = Args.getLastArg(options::OPT_g_Group, options::OPT__SLASH_Z7);
+  if (!(A && !A->getOption().matches(options::OPT_g0)))
+    addllvmOption("-intel-debug-info-optimization-only");
 }
 
 void tools::addIntelOptimizationArgs(const ToolChain &TC,

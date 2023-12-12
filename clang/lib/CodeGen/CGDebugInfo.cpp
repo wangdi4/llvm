@@ -70,8 +70,21 @@
 #include "llvm/Support/SHA256.h"
 #include "llvm/Support/TimeProfiler.h"
 #include <optional>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/CommandLine.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace clang;
 using namespace clang::CodeGen;
+
+#if INTEL_CUSTOMIZATION
+static llvm::cl::opt<bool> DebugInfoOptOnly(
+    "intel-debug-info-optimization-only", llvm::cl::Hidden,
+    llvm::cl::desc("Keep debug information enabled for optimizations, but "
+                   "disable emission to the final binary"),
+    llvm::cl::init(false));
+#endif // INTEL_CUSTOMIZATION
 
 static uint32_t getTypeAlignIfRequired(const Type *Ty, const ASTContext &Ctx) {
   auto TI = Ctx.getTypeInfo(Ty);
@@ -694,6 +707,13 @@ void CGDebugInfo::CreateCompileUnit() {
     EmissionKind = llvm::DICompileUnit::FullDebug;
     break;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Disable eventual debug info emission by changing this compile unit's
+  // EmissionKind to NoDebug when the flag is passed.
+  if (DebugInfoOptOnly)
+    EmissionKind = llvm::DICompileUnit::NoDebug;
+#endif // INTEL_CUSTOMIZATION
 
   uint64_t DwoId = 0;
   auto &CGOpts = CGM.getCodeGenOpts();
