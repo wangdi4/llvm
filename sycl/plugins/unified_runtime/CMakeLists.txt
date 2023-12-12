@@ -183,6 +183,13 @@ endif()
 
 add_sycl_plugin(unified_runtime ${UNIFIED_RUNTIME_PLUGIN_ARGS})
 
+# INTEL_CUSTOMIZATION
+dpcpptarget_add_resource_file(pi_unified_runtime
+                              "pi_unified_runtime.dll"
+                              "Intel(R) oneAPI DPC++ Library"
+                              "Intel(R) oneAPI DPC++ Library")
+#end INTEL_CUSTOMIZATION
+
 if("native_cpu" IN_LIST SYCL_ENABLE_PLUGINS)
   add_sycl_library("ur_adapter_native_cpu" SHARED
     SOURCES
@@ -225,7 +232,6 @@ if("native_cpu" IN_LIST SYCL_ENABLE_PLUGINS)
   )
 endif()
 
-
 if(TARGET UnifiedRuntimeLoader)
   set_target_properties(hello_world PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
   # Install the UR loader.
@@ -249,6 +255,13 @@ if("level_zero" IN_LIST SYCL_ENABLE_PLUGINS)
     ARCHIVE DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT level-zero-sycl-dev
     RUNTIME DESTINATION "bin" COMPONENT level-zero-sycl-dev
   )
+
+  # INTEL_CUSTOMIZATION
+  dpcpptarget_add_resource_file(ur_adapter_level_zero
+                                "ur_adapter_level_zero.dll"
+                                "Intel(R) oneAPI DPC++ Library"
+                                "Intel(R) oneAPI DPC++ Library")
+  #end INTEL_CUSTOMIZATION
 endif()
 
 if("cuda" IN_LIST SYCL_ENABLE_PLUGINS)

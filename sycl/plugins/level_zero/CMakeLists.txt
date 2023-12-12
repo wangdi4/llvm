@@ -142,3 +142,10 @@ if (SYCL_ENABLE_XPTI_TRACING)
     XPTI_STATIC_LIBRARY
   )
 endif()
+
+# INTEL_CUSTOMIZATION
+dpcpptarget_add_resource_file(pi_level_zero
+                              "pi_level_zero.dll"
+                              "Intel(R) oneAPI DPC++ Library"
+                              "Intel(R) oneAPI DPC++ Library")
+#end INTEL_CUSTOMIZATION
