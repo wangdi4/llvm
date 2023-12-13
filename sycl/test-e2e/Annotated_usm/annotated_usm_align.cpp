@@ -290,8 +290,7 @@ template <typename T> void testAlign(sycl::queue &q, size_t align) {
       ,
       [&]() { return ATDevice(65, q); },
       [&]() { return ATDevice(70, dev, Ctx); },
-      [&]() { return ATHost(174, q); },
-      [&]() { return ATHost(299, Ctx); },
+      [&]() { return ATHost(174, q); }, [&]() { return ATHost(299, Ctx); },
       [&]() { return ATAnnotated(550, q, alloc::device); },
       [&]() { return ATAnnotated(1700, dev, Ctx, alloc::host); }});
 }
