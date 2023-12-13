@@ -54,6 +54,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReport.h"
+#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #endif // INTEL_CUSTOMIZATION
@@ -149,6 +150,51 @@ static void InlineReportCloneFunctionInto(const Function *OldFunc,
   getInlineReport()->initFunctionClosure(CCOldFunc);
   getInlineReport()->cloneFunction(CCOldFunc, NewFunc, VMap);
   getMDInlineReport()->cloneFunction(CCOldFunc, NewFunc, VMap);
+}
+
+// Fortran array subranges may have dynamic bounds which refer to local
+// variables within the old routine. When cloning to the new routine,
+// we need to emit new array type information referencing the copies of
+// these local variables in the new routine. If any of the array bounds
+// are dynamic then the entire array type needs to be duplicated/updated.
+//
+// %lb = alloca i64, align 8
+// %ub = alloca i64, align 8
+// call void @llvm.dbg.value(metadata ptr %lb, metadata !4, ...)
+// call void @llvm.dbg.value(metadata ptr %ub, metadata !5, ...)
+//
+// !1 = !DICompositeType(tag: DW_TAG_array_type, ..., elements: !2)
+// !2 = !{!3}
+// !3 = !DISubrange(lowerBound: !4, upperBound: !5)
+// !4 = !DILocalVariable(name: "lowerbound", ...)
+// !5 = !DILocalVariable(name: "upperbound", ...)
+//
+// In the future we may want the fortran front-end to mark these array
+// types as routine-local and then we should be able to re-use the existing
+// code here unmodified.
+// Update: At the time this was added the code for handling routine-local
+//         types was reverted by the community.
+//
+static bool TypeMayBeCloned(DIType *Type) {
+  auto *CT = dyn_cast_or_null<DICompositeType>(Type);
+  if (!CT || CT->getTag() != dwarf::DW_TAG_array_type)
+    return false;
+  DINodeArray Elements = CT->getElements();
+  auto IsLocalVariable = [=](DISubrange::BoundType BT) -> bool {
+    return BT.is<DIVariable*>() &&
+      isa<DILocalVariable>(BT.get<DIVariable*>());
+  };
+  for (int I = 0, E = Elements.size(); I < E; ++I) {
+    const DINode *Element = Elements[I];
+    assert(Element->getTag() == dwarf::DW_TAG_subrange_type);
+    const DISubrange *Subrange = cast<DISubrange>(Element);
+    if (IsLocalVariable(Subrange->getLowerBound()) ||
+        IsLocalVariable(Subrange->getUpperBound()) ||
+        IsLocalVariable(Subrange->getCount()) ||
+        IsLocalVariable(Subrange->getStride()))
+      return true;
+  }
+  return false;
 }
 #endif // INTEL_CUSTOMIZATION
 // Clone OldFunc into NewFunc, transforming the old arguments into references to
@@ -326,8 +372,18 @@ void llvm::CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
     for (DICompileUnit *CU : DIFinder->compile_units())
       mapToSelfIfNew(CU);
 
-    for (DIType *Type : DIFinder->types())
+#if INTEL_CUSTOMIZATION
+    for (DIType *Type : DIFinder->types()) {
+      // Type information specific to this function may need cloning.
+      // NOTE: This only works for direct references to cloneable types. If
+      //       a non-cloneable type references a cloneable type then the
+      //       type hierarchy will not be duplicated. This is a work around
+      //       for the most common case.
+      if (TypeMayBeCloned(Type))
+        continue;
       mapToSelfIfNew(Type);
+    }
+#endif // INTEL_CUSTOMIZATION
   } else {
     assert(!SPClonedWithinModule &&
            "Subprogram should be in DIFinder->subprogram_count()...");

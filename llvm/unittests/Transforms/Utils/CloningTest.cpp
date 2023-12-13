@@ -800,6 +800,101 @@ TEST(CloneFunction, CloneFunctionWithSubprograms) {
   EXPECT_FALSE(verifyModule(*ImplModule, &errs()));
 }
 
+#if INTEL_CUSTOMIZATION
+TEST(CloneFunction, CloneFunctionWithDynamicArrayBounds) {
+  StringRef ImplAssembly = R"(
+    declare void @llvm.dbg.value(metadata, metadata, metadata)
+    
+    define void @original() !dbg !5 {
+      %lb = alloca i64, align 8
+      %ub = alloca i64, align 8
+      %array = alloca i32, i64 42, align 4
+      call void @llvm.dbg.value(metadata ptr %lb, metadata !10, metadata !DIExpression()), !dbg !12
+      call void @llvm.dbg.value(metadata ptr %ub, metadata !11, metadata !DIExpression()), !dbg !12
+      call void @llvm.dbg.value(metadata ptr %array, metadata !6, metadata !DIExpression()), !dbg !12
+      ret void
+    }
+    
+    declare void @clone()
+    
+    !llvm.dbg.cu = !{!0}
+    !llvm.module.flags = !{!2}
+    !0 = distinct !DICompileUnit(language: DW_LANG_Fortran90, file: !1)
+    !1 = !DIFile(filename: "test.f",  directory: "")
+    !2 = !{i32 1, !"Debug Info Version", i32 3}
+    !3 = !DIBasicType(name: "INTEGER*4", size: 32, encoding: DW_ATE_signed)
+    !4 = !DIBasicType(name: "INTEGER*8", size: 64, encoding: DW_ATE_signed)
+    !5 = distinct !DISubprogram(name: "original", scope: !1, unit: !0, retainedNodes: !13)
+    !6 = !DILocalVariable(name: "array", scope: !5, type: !7)
+    !7 = !DICompositeType(tag: DW_TAG_array_type, baseType: !3, elements: !8)
+    !8 = !{!9}
+    !9 = !DISubrange(lowerBound: !10, upperBound: !11)
+    !10 = !DILocalVariable(name: "lowerbound", scope: !5, type: !4, flags: DIFlagArtificial)
+    !11 = !DILocalVariable(name: "upperbound", scope: !5, type: !4, flags: DIFlagArtificial)
+    !12 = !DILocation(line: 1, scope: !5)
+    !13 = !{!6}
+  )";
+
+  LLVMContext Context;
+  SMDiagnostic Error;
+
+  auto ImplModule = parseAssemblyString(ImplAssembly, Error, Context);
+  EXPECT_TRUE(ImplModule != nullptr);
+  auto *OldFunc = ImplModule->getFunction("original");
+  EXPECT_TRUE(OldFunc != nullptr);
+  auto *NewFunc = ImplModule->getFunction("clone");
+  EXPECT_TRUE(NewFunc != nullptr);
+
+  ValueToValueMapTy VMap;
+  SmallVector<ReturnInst *, 8> Returns;
+  ClonedCodeInfo CCI;
+  CloneFunctionInto(NewFunc, OldFunc, VMap,
+                    CloneFunctionChangeType::GlobalChanges, Returns, "", &CCI);
+
+  DISubprogram *OldSP = OldFunc->getSubprogram();
+  EXPECT_NE(OldSP, nullptr);
+  DISubprogram *NewSP = NewFunc->getSubprogram();
+  EXPECT_NE(NewSP, nullptr);
+  EXPECT_NE(OldSP, NewSP);
+  auto *OldArray = dyn_cast<DILocalVariable>(OldSP->getRetainedNodes()[0]);
+  EXPECT_NE(OldArray, nullptr);
+  EXPECT_NE(NewSP, nullptr);
+  EXPECT_NE(OldSP, NewSP);
+  auto *NewArray = dyn_cast<DILocalVariable>(NewSP->getRetainedNodes()[0]);
+  EXPECT_NE(NewArray, nullptr);
+  auto *OldType = dyn_cast<DICompositeType>(OldArray->getType());
+  EXPECT_NE(OldType, nullptr);
+  auto *NewType = dyn_cast<DICompositeType>(NewArray->getType());
+  EXPECT_NE(NewType, nullptr);
+  EXPECT_NE(OldType, NewType); // Cloning should have created a copy.
+  EXPECT_EQ(OldType->getElements().size(), 1u);
+  EXPECT_EQ(NewType->getElements().size(), 1u);
+  auto *OldSubrange = dyn_cast<DISubrange>(OldType->getElements()[0]);
+  EXPECT_NE(OldSubrange, nullptr);
+  auto *NewSubrange = dyn_cast<DISubrange>(NewType->getElements()[0]);
+  EXPECT_NE(NewSubrange, nullptr);
+  EXPECT_NE(OldSubrange, NewSubrange);
+  auto *OldLB = dyn_cast<DILocalVariable>(
+      OldSubrange->getLowerBound().get<DIVariable*>());
+  EXPECT_NE(OldLB, nullptr);
+  EXPECT_EQ(OldLB->getScope(), OldSP);
+  auto *NewLB = dyn_cast<DILocalVariable>(
+      NewSubrange->getLowerBound().get<DIVariable*>());
+  EXPECT_NE(NewLB, nullptr);
+  EXPECT_EQ(NewLB->getScope(), NewSP);
+  EXPECT_NE(OldLB, NewLB);
+  auto *OldUB = dyn_cast<DILocalVariable>(
+      OldSubrange->getUpperBound().get<DIVariable*>());
+  EXPECT_NE(OldUB, nullptr);
+  EXPECT_EQ(OldUB->getScope(), OldSP);
+  auto *NewUB = dyn_cast<DILocalVariable>(
+      NewSubrange->getUpperBound().get<DIVariable*>());
+  EXPECT_NE(NewUB, nullptr);
+  EXPECT_EQ(NewUB->getScope(), NewSP);
+  EXPECT_NE(OldUB, NewUB);
+}
+#endif // INTEL_CUSTOMIZATION
+
 TEST(CloneFunction, CloneFunctionWithInlinedSubprograms) {
   StringRef ImplAssembly = R"(
     declare void @llvm.dbg.declare(metadata, metadata, metadata)
