@@ -3183,6 +3183,11 @@ _mm512_maskz_fmul_pch(__mmask16 __U, __m512h __A, __m512h __B) {
       (__v16sf)(__m512h)(A), (__v16sf)(__m512h)(B),                            \
       (__v16sf)(__m512h)_mm512_setzero_ph(), (__mmask16)(U), (int)(R)))
 
+/* INTEL_CUSTOMIZATION */
+#ifdef __FAST_MATH__
+#pragma float_control(precise, off)
+#endif
+/* end INTEL_CUSTOMIZATION */
 static __inline__ __m512h __DEFAULT_FN_ATTRS512 _mm512_fcmadd_pch(__m512h __A,
                                                                   __m512h __B,
                                                                   __m512h __C) {
@@ -3280,6 +3285,11 @@ _mm512_maskz_fmadd_pch(__mmask16 __U, __m512h __A, __m512h __B, __m512h __C) {
   ((__m512h)__builtin_ia32_vfmaddcph512_maskz(                                 \
       (__v16sf)(__m512h)(A), (__v16sf)(__m512h)(B), (__v16sf)(__m512h)(C),     \
       (__mmask16)(U), (int)(R)))
+/* INTEL_CUSTOMIZATION */
+#ifdef __FAST_MATH__
+#pragma float_control(precise, on)
+#endif
+/* end INTEL_CUSTOMIZATION */
 
 static __inline__ _Float16 __DEFAULT_FN_ATTRS512
 _mm512_reduce_add_ph(__m512h __W) {
